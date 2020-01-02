@@ -37,6 +37,9 @@
     <ClInclude Include="Util.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Common.h">
+      <Filter>Cuda</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">

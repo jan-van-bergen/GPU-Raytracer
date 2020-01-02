@@ -101,6 +101,7 @@
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Common.h" />
     <ClInclude Include="CUDACall.h" />
     <ClInclude Include="CUDAKernel.h" />
     <ClInclude Include="CUDAModule.h" />

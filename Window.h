@@ -6,15 +6,14 @@
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
+#include "Common.h"
+
 // OpenGL Debug Callback function to report errors
 inline void GLAPIENTRY glMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * userParam) {
 	printf("GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", type, severity, message);
 
 	__debugbreak();
 }
-
-#define SCREEN_WIDTH  800
-#define SCREEN_HEIGHT 480
 
 struct Window {
 private:
