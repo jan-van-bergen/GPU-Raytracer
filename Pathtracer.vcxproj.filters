@@ -8,7 +8,6 @@
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="test.h" />
     <ClInclude Include="CUDAModule.h">
       <Filter>Cuda</Filter>
     </ClInclude>

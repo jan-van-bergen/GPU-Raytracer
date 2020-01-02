@@ -104,7 +104,6 @@
     <ClInclude Include="CUDACall.h" />
     <ClInclude Include="CUDAKernel.h" />
     <ClInclude Include="CUDAModule.h" />
-    <ClInclude Include="test.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

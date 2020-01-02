@@ -33,9 +33,9 @@ struct CUDAKernel {
 	// Exectute kernel with one ore more parameters
 	template<typename ... T>
 	void execute(const T & ... parameters) {
-		fill_buffer(0, parameters...);
+		int buffer_size = fill_buffer(0, parameters...);
 		
-		execute_internal(sizeof...(parameters))
+		execute_internal(buffer_size);
 	}
 
 	void set_surface(const char * surface_name, CUarray array) const {
@@ -70,27 +70,27 @@ private:
 
 		memcpy(parameter_buffer + buffer_offset, &parameter, size);
 
-		return size;
+		return buffer_offset + size;
 	}
 
 	template<typename T, typename ... Ts>
 	int fill_buffer(int buffer_offset, const T & parameter, const Ts & ... parameters) {
 		int offset = fill_buffer(buffer_offset, parameter);
 
-		return fill_buffer(buffer_offset + offset, parameters...);
+		return fill_buffer(offset, parameters...);
 	}
 
-	void execute_internal(int parameter_count) const {
+	void execute_internal(int parameter_buffer_size) const {
 		void * params[] = { 
 			CU_LAUNCH_PARAM_BUFFER_POINTER, parameter_buffer, 
-			CU_LAUNCH_PARAM_BUFFER_SIZE,   &parameter_count, 
+			CU_LAUNCH_PARAM_BUFFER_SIZE,   &parameter_buffer_size, 
 			CU_LAUNCH_PARAM_END 
 		};
 		
 		CUDACALL(cuLaunchKernel(kernel, 
 			grid_dim_x, grid_dim_y, grid_dim_z, 
 			block_dim_x, block_dim_y, block_dim_z, 
-			0, 0, NULL, params)
+			0, NULL, NULL, params)
 		);
 	}
 };
