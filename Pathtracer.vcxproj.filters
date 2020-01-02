@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="test.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="test.h" />
+    <ClInclude Include="CUDAModule.h">
+      <Filter>Cuda</Filter>
+    </ClInclude>
+    <ClInclude Include="CUDAKernel.h">
+      <Filter>Cuda</Filter>
+    </ClInclude>
+    <ClInclude Include="CUDACall.h">
+      <Filter>Cuda</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Cuda">
+      <UniqueIdentifier>{a4f54f2b-a390-4d7d-b120-4a13438f1cf5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

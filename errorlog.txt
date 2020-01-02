@@ -1,0 +1,9 @@
+c1xx: fatal error C1083: Cannot open source file: './x64/Debug/test.cu': No such file or directory
+c1xx: fatal error C1083: Cannot open source file: './x64/Debug/test.cu': No such file or directory
+test.cu
+c1xx: fatal error C1083: Cannot open source file: './x64/Debug/test.cu': No such file or directory
+c1xx: fatal error C1083: Cannot open source file: './x64/Debug/test.cu': No such file or directory
+c1xx: fatal error C1083: Cannot open source file: 'tes.cu': No such file or directory
+c1xx: fatal error C1083: Cannot open source file: 'tes.cu': No such file or directory
+c1xx: fatal error C1083: Cannot open source file: 'tes.cu': No such file or directory
+c1xx: fatal error C1083: Cannot open source file: 'tes.cu': No such file or directory
