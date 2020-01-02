@@ -26,11 +26,13 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 
+	// Init CUDA Module and its Kernel
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
 	CUDAKernel kernel;
 	kernel.init(&module, "test_function");
+
 	kernel.set_block_dim(32, 4, 1);
 	kernel.set_grid_dim(SCREEN_WIDTH / kernel.block_dim_x, SCREEN_HEIGHT / kernel.block_dim_y, 1);
 
