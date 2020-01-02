@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdio>
-#include <glm/glm.hpp>
 
 #include <cuda.h>
 
@@ -22,8 +21,7 @@ private:
 	SDL_Window *  window;
 	SDL_GLContext context;
 	
-	//unsigned * frame_buffer;
-	GLuint     frame_buffer_handle;
+	GLuint frame_buffer_handle;
 
 public:
 	const int width;

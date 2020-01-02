@@ -104,6 +104,11 @@
     <ClInclude Include="CUDACall.h" />
     <ClInclude Include="CUDAKernel.h" />
     <ClInclude Include="CUDAModule.h" />
+    <ClInclude Include="Math.h" />
+    <ClInclude Include="Matrix4.h" />
+    <ClInclude Include="Quaternion.h" />
+    <ClInclude Include="Vector2.h" />
+    <ClInclude Include="Vector3.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

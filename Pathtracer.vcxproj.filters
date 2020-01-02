@@ -16,10 +16,28 @@
     <ClInclude Include="CUDACall.h">
       <Filter>Cuda</Filter>
     </ClInclude>
+    <ClInclude Include="Math.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Matrix4.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Quaternion.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector2.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector3.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">
       <UniqueIdentifier>{a4f54f2b-a390-4d7d-b120-4a13438f1cf5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{609e9c81-27a0-455e-a02b-cede3b58af74}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
