@@ -97,7 +97,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
-    <CudaCompile Include="test.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CUDAModule.cpp" />

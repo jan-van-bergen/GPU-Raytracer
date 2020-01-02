@@ -2,7 +2,6 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <CudaCompile Include="kernel.cu" />
-    <CudaCompile Include="test.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
