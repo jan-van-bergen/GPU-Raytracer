@@ -75,7 +75,7 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		// Report timings
-		printf("%d - Delta: %.2f ms, Average: %.2f ms, FPS: %d\n", current_frame, delta_time * 1000.0f, avg * 1000.0f, fps);
+		printf("%d - Delta: %.2f ms, Average: %.2f ms, FPS: %d        \r", current_frame, delta_time * 1000.0f, avg * 1000.0f, fps);
 	}
 
 	return EXIT_SUCCESS;
