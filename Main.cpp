@@ -6,6 +6,8 @@
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 
+#include "Camera.h"
+
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
@@ -26,12 +28,31 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 
+	Camera camera(DEG_TO_RAD(110.0f));
+	camera.resize(SCREEN_WIDTH, SCREEN_HEIGHT);
+
 	// Init CUDA Module and its Kernel
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
+	struct Triangle {
+		Vector3 pos0, pos1, pos2;
+	};
+
+	Triangle triangles[2] = { { 
+			Vector3(-1.0f, 0.0f, 1.0f), 
+			Vector3( 0.0f, 1.0f, 1.0f), 
+			Vector3( 1.0f, 0.0f, 1.0f) 
+		}, { 
+			Vector3(0.0f, 1.0f,  1.0f), 
+			Vector3(1.0f, 0.0f,  1.0f),
+			Vector3(2.0f, 2.0f, -1.0f) 
+		}
+	};
+	module.set_global("triangles", triangles);
+
 	CUDAKernel kernel;
-	kernel.init(&module, "test_function");
+	kernel.init(&module, "trace_ray");
 
 	kernel.set_block_dim(32, 4, 1);
 	kernel.set_grid_dim(SCREEN_WIDTH / kernel.block_dim_x, SCREEN_HEIGHT / kernel.block_dim_y, 1);
@@ -44,7 +65,14 @@ int main(int argument_count, char ** arguments) {
 	while (!window.is_closed) {
 		window.clear();
 		
-		kernel.execute(0.5f, 0.0f);
+		camera.update(delta_time, SDL_GetKeyboardState(NULL));
+		
+		module.set_global("camera_position", camera.position);
+		module.set_global("camera_top_left_corner", camera.top_left_corner_rotated);
+		module.set_global("camera_x_axis", camera.x_axis_rotated);
+		module.set_global("camera_y_axis", camera.y_axis_rotated);
+
+		kernel.execute();
 
 		window.update();
 

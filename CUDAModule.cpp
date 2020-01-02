@@ -4,8 +4,6 @@
 #include <cstdio>
 #include <filesystem>
 
-#include "CUDACall.h"
-
 #include "ScopedTimer.h"
 
 void CUDAModule::init(const char * filename, int compute_capability) {
@@ -30,9 +28,9 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 
 		char command[256];
 #ifdef _DEBUG
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -lineinfo -maxrregcount=%i -arch=sm_%i -o %s %s 2>>%s 1>>%s", max_reg_count, compute_capability, output_filename, filename, "errorlog.txt", "buildlog.txt");
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -lineinfo -maxrregcount=%i -arch=sm_%i -o %s %s", max_reg_count, compute_capability, output_filename, filename);
 #else
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -restrict -Xptxas=\"-v\" -maxrregcount=%i -arch=sm_%i -o %s %s 2>>%s 1>>%s", max_reg_count, compute_capability, output_filename, filename, "errorlog.txt", "buildlog.txt" );
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -restrict -Xptxas=\"-v\" -maxrregcount=%i -arch=sm_%i -o %s %s", max_reg_count, compute_capability, output_filename, filename);
 #endif
 		printf("Compiling CUDA Module %s\n", filename);
 

@@ -5,6 +5,7 @@
     <ClCompile Include="CUDAModule.cpp">
       <Filter>Cuda</Filter>
     </ClCompile>
+    <ClCompile Include="Camera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CUDAModule.h">
@@ -40,6 +41,7 @@
     <ClInclude Include="Common.h">
       <Filter>Cuda</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">
