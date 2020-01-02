@@ -42,7 +42,7 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 
 		printf("Compilation finished!\n");
 	} else {
-		printf("CUDA Module %s did not need to recompile.", filename);
+		printf("CUDA Module %s did not need to recompile.\n", filename);
 	}
 
 	CUDACALL(cuModuleLoad(&module, output_filename));
