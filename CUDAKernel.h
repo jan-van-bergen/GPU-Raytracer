@@ -3,6 +3,7 @@
 
 #include <cuda.h>
 
+#include "CUDACall.h"
 #include "CUDAModule.h"
 
 struct CUDAKernel {

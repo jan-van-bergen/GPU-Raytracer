@@ -42,7 +42,7 @@ int main(int argument_count, char ** arguments) {
 	while (!window.is_closed) {
 		window.clear();
 		
-		kernel.execute(1.0f, 1.0f);
+		kernel.execute(0.5f, 0.0f);
 
 		window.update();
 

@@ -12,8 +12,8 @@ extern "C" __global__ void test_function(float a, float b) {
 
 	if ((x >= SCREEN_WIDTH) || (y >= SCREEN_HEIGHT)) return;
 
-	float r = a;//(float)x / SCREEN_WIDTH;
-	float g = b;//(float)y / SCREEN_HEIGHT;
+	float r = a;
+	float g = b;
 
 	surf2Dwrite<float4>(make_float4(r, g, 0.0f, 1.0f), output_surface, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
