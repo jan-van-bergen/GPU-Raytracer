@@ -5,6 +5,8 @@ surface<void, 2> output_surface;
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 480
 
+texture<float, 1, cudaReadModeElementType> triangle_texture;
+
 extern "C" __global__ void test_function(float a, float b) {
 	// get x and y for pixel
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;

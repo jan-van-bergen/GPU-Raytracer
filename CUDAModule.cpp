@@ -4,10 +4,9 @@
 #include <cstdio>
 #include <filesystem>
 
-#include <GL/glew.h>
-#include <cudaGL.h>
-
 #include "CUDACall.h"
+
+#include "ScopedTimer.h"
 
 void CUDAModule::init(const char * filename, int compute_capability) {
 	assert(std::filesystem::exists(filename));
@@ -37,20 +36,13 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 #endif
 		printf("Compiling CUDA Module %s\n", filename);
 
+		ScopedTimer timer("Compilation");
+
 		int exit_code = system(command);
 		if (exit_code != EXIT_SUCCESS) abort(); // Compilation failed!
-
-		printf("Compilation finished!\n");
 	} else {
 		printf("CUDA Module %s did not need to recompile.\n", filename);
 	}
 
 	CUDACALL(cuModuleLoad(&module, output_filename));
-}
-
-inline void CUDAModule::bind_surface_to_texture(const char * surface_name, unsigned gl_texture) const {
-	CUsurfref surface;
-	CUgraphicsResource resource;
-	CUDACALL(cuModuleGetSurfRef(&surface, module, surface_name));
-	CUDACALL(cuGraphicsGLRegisterImage(&resource, gl_texture, GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 }

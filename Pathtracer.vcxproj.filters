@@ -31,6 +31,12 @@
     <ClInclude Include="Vector3.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="ScopedTimer.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">
@@ -38,6 +44,9 @@
     </Filter>
     <Filter Include="Math">
       <UniqueIdentifier>{609e9c81-27a0-455e-a02b-cede3b58af74}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{f58db33f-0e75-4032-816e-4a1b082d4199}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
