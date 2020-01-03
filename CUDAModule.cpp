@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <filesystem>
 
+#include "CUDAMemory.h"
+
 #include "ScopedTimer.h"
 
 void CUDAModule::init(const char * filename, int compute_capability) {
@@ -45,6 +47,42 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 	}
 
 	CUDACALL(cuModuleLoad(&module, output_filename));
+}
+
+void CUDAModule::set_surface(const char * surface_name, CUarray array) const {
+	CUsurfref surface;
+	CUDACALL(cuModuleGetSurfRef(&surface, module, surface_name));
+
+	CUDACALL(cuSurfRefSetArray(surface, array, 0));
+}
+
+void CUDAModule::set_texture(const char * texture_name, const Texture * texture) const {	
+	// Create Array on Device
+	CUarray tex_array = CUDAMemory::create_array(texture->width, texture->height, texture->channels, CU_AD_FORMAT_UNSIGNED_INT8);
+
+	// Copy data from the Host Texture to the Device Array
+	CUDA_MEMCPY2D copy;
+	memset(&copy, 0, sizeof(CUDA_MEMCPY2D));
+	copy.srcMemoryType = CU_MEMORYTYPE_HOST;
+	copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+	copy.dstArray = tex_array;
+	copy.srcHost  = texture->data;
+	copy.srcPitch = texture->channels * texture->width;
+	copy.WidthInBytes = copy.srcPitch;
+	copy.Height       = texture->height;
+	CUDACALL(cuMemcpy2D(&copy));
+
+	// Set Texture parameters on Device
+	CUtexref tex;
+	CUDACALL(cuModuleGetTexRef(&tex, module, texture_name));
+	CUDACALL(cuTexRefSetArray(tex, tex_array, CU_TRSA_OVERRIDE_FORMAT));
+
+	CUDACALL(cuTexRefSetAddressMode(tex, 0, CU_TR_ADDRESS_MODE_WRAP));
+	CUDACALL(cuTexRefSetAddressMode(tex, 1, CU_TR_ADDRESS_MODE_WRAP));
+
+	CUDACALL(cuTexRefSetFilterMode(tex, CU_TR_FILTER_MODE_LINEAR));
+	CUDACALL(cuTexRefSetFlags(tex, CU_TRSF_NORMALIZED_COORDINATES));
+	CUDACALL(cuTexRefSetFormat(tex, CU_AD_FORMAT_UNSIGNED_INT8, texture->channels));
 }
 
 CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {

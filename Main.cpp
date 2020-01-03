@@ -38,7 +38,7 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("Monkey.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("Cowboy.obj"));
 
 	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(mesh->triangle_count);
 
@@ -51,14 +51,17 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule::Global global_camera_top_left_corner = module.get_global("camera_top_left_corner");
 	CUDAModule::Global global_camera_x_axis          = module.get_global("camera_x_axis");
 	CUDAModule::Global global_camera_y_axis          = module.get_global("camera_y_axis");
+	
+	const Texture * texture = Texture::load(DATA_PATH("CowboyDiffuse.png"));
+	
+	module.set_surface("output_surface", window.cuda_frame_buffer);
+	module.set_texture("test_texture", texture);
 
 	CUDAKernel kernel;
 	kernel.init(&module, "trace_ray");
 
 	kernel.set_block_dim(32, 4, 1);
 	kernel.set_grid_dim(SCREEN_WIDTH / kernel.block_dim_x, SCREEN_HEIGHT / kernel.block_dim_y, 1);
-
-	kernel.set_surface("output_surface", window.cuda_frame_buffer);
 
 	last = SDL_GetPerformanceCounter();
 

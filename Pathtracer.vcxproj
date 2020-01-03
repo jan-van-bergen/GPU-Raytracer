@@ -100,6 +100,7 @@
     <ClCompile Include="CUDAModule.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MeshData.cpp" />
+    <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Util.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
@@ -110,11 +111,13 @@
     <ClInclude Include="CUDAKernel.h" />
     <ClInclude Include="CUDAMemory.h" />
     <ClInclude Include="CUDAModule.h" />
+    <ClInclude Include="Material.h" />
     <ClInclude Include="Math.h" />
     <ClInclude Include="Matrix4.h" />
     <ClInclude Include="MeshData.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="ScopedTimer.h" />
+    <ClInclude Include="Texture.h" />
     <ClInclude Include="Util.h" />
     <ClInclude Include="Vector2.h" />
     <ClInclude Include="Vector3.h" />

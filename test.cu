@@ -7,6 +7,8 @@
 
 surface<void, 2> output_surface;
 
+texture<float4, 2> test_texture;
+
 struct Ray {
 	float3 origin;
 	float3 direction;
@@ -100,7 +102,7 @@ extern "C" __global__ void trace_ray() {
 	float4 colour = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 	
 	if (hit.distance < INFINITY) {
-		colour = make_float4(hit.normal.x, hit.normal.y, hit.normal.z, 1.0f);
+		colour = tex2D(test_texture, hit.uv.x, hit.uv.y);
 	}
 
 	surf2Dwrite<float4>(colour, output_surface, x * sizeof(float4), y, cudaBoundaryModeClamp);

@@ -41,13 +41,6 @@ struct CUDAKernel {
 		execute_internal(buffer_size);
 	}
 
-	inline void set_surface(const char * surface_name, CUarray array) const {
-		CUsurfref surface;
-		CUDACALL(cuModuleGetSurfRef(&surface, module->module, surface_name));
-
-		CUDACALL(cuSurfRefSetArray(surface, reinterpret_cast<CUarray>(array), 0));
-	}
-
 	inline void set_grid_dim(int x, int y, int z) {
 		grid_dim_x = x;
 		grid_dim_y = y;

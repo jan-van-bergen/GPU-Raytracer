@@ -2,6 +2,8 @@
 #include "Vector2.h"
 #include "Vector3.h"
 
+#include "Material.h"
+
 struct Triangle {
 	Vector3 position0;
 	Vector3 position1;

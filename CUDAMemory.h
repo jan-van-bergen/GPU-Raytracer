@@ -3,7 +3,7 @@
 
 namespace CUDAMemory {
 	template<typename T>
-	CUdeviceptr malloc(int count = 1) {
+	inline CUdeviceptr malloc(int count = 1) {
 		assert(count > 0);
 
 		CUdeviceptr ptr;
@@ -12,8 +12,21 @@ namespace CUDAMemory {
 		return ptr;
 	}
 
+	inline CUarray create_array(int width, int height, int channels, CUarray_format format) {
+		CUDA_ARRAY_DESCRIPTOR desc;
+		desc.Width  = width;
+		desc.Height = height;
+		desc.NumChannels = channels;
+		desc.Format = format;
+
+		CUarray array;
+		CUDACALL(cuArrayCreate(&array, &desc));
+
+		return array;
+	}
+
 	template<typename T>
-	void memcpy(CUdeviceptr ptr, const T * data, int count = 1) {
+	inline void memcpy(CUdeviceptr ptr, const T * data, int count = 1) {
 		assert(data);
 		assert(count > 0);
 
