@@ -46,3 +46,13 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 
 	CUDACALL(cuModuleLoad(&module, output_filename));
 }
+
+CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {
+	Global global;
+	global.name = variable_name;
+
+	size_t size;
+	CUDACALL(cuModuleGetGlobal(&global.ptr, &size, module, global.name));
+
+	return global;
+}

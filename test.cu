@@ -7,8 +7,6 @@
 
 surface<void, 2> output_surface;
 
-//texture<float, 1, cudaReadModeElementType> triangle_texture;
-
 struct Ray {
 	float3 origin;
 	float3 direction;

@@ -4,4 +4,4 @@
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 480
 
-#define EPSILON 0.005f
+#define EPSILON 0.001f

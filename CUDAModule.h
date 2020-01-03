@@ -7,29 +7,19 @@
 
 struct CUDAModule {
 	CUmodule module;
-
-	void init(const char * filename, int compute_capability);
-
+	
 	struct Global {
 		const char * name;
 
 		CUdeviceptr ptr;
-		size_t size;
-
+		
 		template<typename T>
 		inline void set(const T & value) const {
-			assert(sizeof(T) <= size);
-
-			CUDACALL(cuMemcpyHtoD(ptr, &value, size));
+			CUDACALL(cuMemcpyHtoD(ptr, &value, sizeof(T)));
 		}
 	};
 
-	inline Global get_global(const char * variable_name) const {
-		Global global;
-		global.name = variable_name;
+	void init(const char * filename, int compute_capability);
 
-		CUDACALL(cuModuleGetGlobal(&global.ptr, &global.size, module, global.name));
-
-		return global;
-	}
+	Global get_global(const char * variable_name) const;
 };
