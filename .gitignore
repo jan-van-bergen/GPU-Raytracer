@@ -18,8 +18,10 @@
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
-x64/
-x86/
+x64/[Dd]ebug
+x64/[Rr]elease
+x86/[Dd]ebug
+x86/[Rr]elease
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
 bld/
@@ -65,7 +67,7 @@ StyleCopReport.xml
 *_h.h
 *.ilk
 *.meta
-*.obj
+# *.obj
 *.iobj
 *.pch
 *.pdb
