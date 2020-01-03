@@ -38,6 +38,32 @@ const MeshData * MeshData::load(const char * file_path) {
 	
 	mesh_data = new MeshData();
 	
+	// Load Materials
+	if (materials.size() > 0) {
+		mesh_data->material_count = materials.size();
+		mesh_data->materials = new Material[mesh_data->material_count];
+
+		for (int i = 0; i < mesh_data->material_count; i++) {
+			const tinyobj::material_t & material = materials[i];
+
+			mesh_data->materials[i].diffuse = Vector3(material.diffuse[0], material.diffuse[1], material.diffuse[2]);
+
+			/*if (material.diffuse_texname.length() > 0) {
+				mesh_data->materials[i].texture = Texture::load((std::string(path) + material.diffuse_texname).c_str());
+			}
+
+			mesh_data->materials[i].reflection = Vector3(material.specular[0], material.specular[1], material.specular[2]);
+
+			mesh_data->materials[i].transmittance       = Vector3(material.transmittance[0], material.transmittance[1], material.transmittance[2]);
+			mesh_data->materials[i].index_of_refraction = material.ior;*/
+		}
+	} else {
+		mesh_data->material_count = 1;
+
+		mesh_data->materials = new Material();
+		mesh_data->materials->diffuse = Vector3(1.0f, 0.0f, 1.0f);
+	}
+	
 	// Load Meshes
 	int total_vertex_count = 0;
 	int max_vertex_count = -1;
@@ -110,9 +136,9 @@ const MeshData * MeshData::load(const char * file_path) {
 			int material_id = shapes[s].mesh.material_ids[v];
 			if (material_id == INVALID) material_id = 0;
 			
-			//assert(material_id < material_count);
+			assert(material_id < mesh_data->material_count);
 
-			//mesh_data->triangles[triangle_offset + v].material = &mesh_data->materials[material_id];
+			mesh_data->triangles[triangle_offset + v].material_id = material_id;
 		}
 		
 		triangle_offset += vertex_count / 3;

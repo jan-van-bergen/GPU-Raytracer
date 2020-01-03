@@ -13,16 +13,19 @@ struct Triangle {
 	Vector3 normal1;
 	Vector3 normal2;
 
-	Vector2 tex_coord0;
-	Vector2 tex_coord1;
-	Vector2 tex_coord2;
+	alignas(8) Vector2 tex_coord0;
+	alignas(8) Vector2 tex_coord1;
+	alignas(8) Vector2 tex_coord2;
+
+	int material_id;
 };
 
 struct MeshData {
 	int        triangle_count;
 	Triangle * triangles;
 
-	//Material * materials;
+	int        material_count;
+	Material * materials;
 
 	static const MeshData * load(const char * file_path);
 };

@@ -9,6 +9,14 @@ surface<void, 2> output_surface;
 
 texture<float4, 2> test_texture;
 
+struct Material {
+	float3 diffuse;
+	int texture_index;
+};
+
+__device__ Material            * materials;
+__device__ cudaTextureObject_t * textures;
+
 struct Ray {
 	float3 origin;
 	float3 direction;
@@ -17,6 +25,8 @@ struct Ray {
 struct RayHit {
 	float distance = INFINITY;
 	
+	int material_id;
+
 	float3 point;
 	float3 normal;
 	float2 uv;
@@ -34,9 +44,11 @@ struct Triangle {
 	float2 tex_coord0;
 	float2 tex_coord1;
 	float2 tex_coord2;
+
+	int material_id;
 };
 
-__device__ int triangle_count;
+__device__ int        triangle_count;
 __device__ Triangle * triangles;
 
 __device__ float3 camera_position;
@@ -75,6 +87,8 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 
 	ray_hit.distance = t;
 
+	ray_hit.material_id = triangle.material_id;
+
 	ray_hit.point = ray.origin + t * ray.direction;
 	ray_hit.normal = normalize(triangle.normal0 
 		+ u * (triangle.normal1 - triangle.normal0) 
@@ -102,7 +116,14 @@ extern "C" __global__ void trace_ray() {
 	float4 colour = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 	
 	if (hit.distance < INFINITY) {
-		colour = tex2D(test_texture, hit.uv.x, hit.uv.y);
+		assert(hit.material_id >= 0 && hit.material_id < MAX_MATERIALS);
+
+		colour = make_float4(
+			materials[hit.material_id].diffuse.x, 
+			materials[hit.material_id].diffuse.y, 
+			materials[hit.material_id].diffuse.z, 
+			1.0f
+		);
 	}
 
 	surf2Dwrite<float4>(colour, output_surface, x * sizeof(float4), y, cudaBoundaryModeClamp);

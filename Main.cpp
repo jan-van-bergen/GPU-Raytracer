@@ -38,10 +38,16 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("Cowboy.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("Scene1.obj"));
+
+	if (mesh->material_count > MAX_MATERIALS) abort();
+
+	CUdeviceptr materials_ptr = CUDAMemory::malloc<Material>(mesh->material_count);
+	CUDAMemory::memcpy(materials_ptr, mesh->materials, mesh->material_count);
+
+	module.get_global("materials").set(materials_ptr);
 
 	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(mesh->triangle_count);
-
 	CUDAMemory::memcpy(triangles_ptr, mesh->triangles, mesh->triangle_count);
 	
 	module.get_global("triangle_count").set(mesh->triangle_count);
@@ -52,10 +58,8 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule::Global global_camera_x_axis          = module.get_global("camera_x_axis");
 	CUDAModule::Global global_camera_y_axis          = module.get_global("camera_y_axis");
 	
-	const Texture * texture = Texture::load(DATA_PATH("CowboyDiffuse.png"));
-	
 	module.set_surface("output_surface", window.cuda_frame_buffer);
-	module.set_texture("test_texture", texture);
+	module.set_texture("test_texture", Texture::load(DATA_PATH("CowboyDiffuse.png")));
 
 	CUDAKernel kernel;
 	kernel.init(&module, "trace_ray");
