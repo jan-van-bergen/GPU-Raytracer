@@ -39,11 +39,14 @@ int main(int argument_count, char ** arguments) {
 		Vector3 pos0, pos1, pos2;
 	};
 
-	Triangle triangles[4] = { 
-		{ Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f) },
-		{ Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f) },
-		{ Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f) },
-		{ Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f) }
+	const int triangle_count = 6;
+	Triangle triangles[triangle_count] = { 
+		{ Vector3( 1.0f,  0.0f,  0.0f), Vector3( 0.0f,  1.0f, 0.0f), Vector3(0.0f,  0.0f,  1.0f) },
+		{ Vector3( 1.0f,  0.0f,  0.0f), Vector3( 0.0f,  1.0f, 0.0f), Vector3(0.0f,  0.0f,  0.0f) },
+		{ Vector3( 1.0f,  0.0f,  0.0f), Vector3( 0.0f,  0.0f, 1.0f), Vector3(0.0f,  0.0f,  0.0f) },
+		{ Vector3( 0.0f,  1.0f,  0.0f), Vector3( 0.0f,  0.0f, 1.0f), Vector3(0.0f,  0.0f,  0.0f) },
+		{ Vector3(-5.0f, -1.0f, -5.0f), Vector3(-5.0f, -1.0f, 5.0f), Vector3(5.0f, -1.0f,  5.0f) },
+		{ Vector3(-5.0f, -1.0f, -5.0f), Vector3( 5.0f, -1.0f, 5.0f), Vector3(5.0f, -1.0f, -5.0f) }
 	};
 
 	CUdeviceptr ptr;
@@ -51,7 +54,7 @@ int main(int argument_count, char ** arguments) {
 
 	CUDACALL(cuMemcpyHtoD(ptr, triangles, sizeof(triangles)));
 
-	module.get_global("triangle_count").set(4);
+	module.get_global("triangle_count").set(triangle_count);
 	module.get_global("triangles").set(ptr);
 
 	CUDAModule::Global global_camera_position        = module.get_global("camera_position");

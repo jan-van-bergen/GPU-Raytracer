@@ -28,13 +28,11 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 	}
 
 	if (should_recompile) {
-		const int max_reg_count = 63;
-
 		char command[256];
 #ifdef _DEBUG
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -lineinfo -maxrregcount=%i -arch=sm_%i -o %s %s", max_reg_count, compute_capability, output_filename, filename);
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -lineinfo -arch=sm_%i -o %s %s", compute_capability, output_filename, filename);
 #else
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -restrict -Xptxas=\"-v\" -maxrregcount=%i -arch=sm_%i -o %s %s", max_reg_count, compute_capability, output_filename, filename);
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -restrict -Xptxas=\"-v\" -arch=sm_%i -o %s %s", compute_capability, output_filename, filename);
 #endif
 		printf("Compiling CUDA Module %s\n", filename);
 
