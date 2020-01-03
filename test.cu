@@ -17,12 +17,21 @@ struct RayHit {
 	
 	float3 point;
 	float3 normal;
+	float2 uv;
 };
 
 struct Triangle {
 	float3 position0;
 	float3 position1;
 	float3 position2;
+
+	float3 normal0;
+	float3 normal1;
+	float3 normal2; 
+	
+	float2 tex_coord0;
+	float2 tex_coord1;
+	float2 tex_coord2;
 };
 
 __device__ int triangle_count;
@@ -65,7 +74,13 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 	ray_hit.distance = t;
 
 	ray_hit.point = ray.origin + t * ray.direction;
-	ray_hit.normal = normalize(cross(edge1, edge2)); // @TODO: use barycentric interpolation on Vertex normals!
+	ray_hit.normal = normalize(triangle.normal0 
+		+ u * (triangle.normal1 - triangle.normal0) 
+		+ v * (triangle.normal2 - triangle.normal0)
+	);
+	ray_hit.uv = triangle.tex_coord0 
+		+ u * (triangle.tex_coord1 - triangle.tex_coord0) 
+		+ v * (triangle.tex_coord2 - triangle.tex_coord0);
 }
 
 extern "C" __global__ void trace_ray() {
@@ -85,7 +100,7 @@ extern "C" __global__ void trace_ray() {
 	float4 colour = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 	
 	if (hit.distance < INFINITY) {
-		colour = make_float4(hit.point.x, hit.point.y, hit.point.z, 1.0f);
+		colour = make_float4(hit.normal.x, hit.normal.y, hit.normal.z, 1.0f);
 	}
 
 	surf2Dwrite<float4>(colour, output_surface, x * sizeof(float4), y, cudaBoundaryModeClamp);

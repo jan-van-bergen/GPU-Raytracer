@@ -99,6 +99,8 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CUDAModule.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MeshData.cpp" />
+    <ClCompile Include="Util.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -109,6 +111,7 @@
     <ClInclude Include="CUDAModule.h" />
     <ClInclude Include="Math.h" />
     <ClInclude Include="Matrix4.h" />
+    <ClInclude Include="MeshData.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="Util.h" />

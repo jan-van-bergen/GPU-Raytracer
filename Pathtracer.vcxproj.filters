@@ -6,6 +6,12 @@
       <Filter>Cuda</Filter>
     </ClCompile>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="MeshData.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Util.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CUDAModule.h">
@@ -42,6 +48,9 @@
       <Filter>Cuda</Filter>
     </ClInclude>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="MeshData.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">
@@ -52,6 +61,9 @@
     </Filter>
     <Filter Include="Util">
       <UniqueIdentifier>{f58db33f-0e75-4032-816e-4a1b082d4199}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{94ffa964-4e08-4625-8fa7-8b6ff6a47f52}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

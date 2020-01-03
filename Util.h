@@ -23,6 +23,8 @@
 #define ALLIGNED_FREE(ptr)           _aligned_free(ptr)
 
 namespace Util {
+	const char * get_path(const char * file_path);
+
 	template<typename T>
 	void swap(T & a, T & b) {
 		T temp = a;

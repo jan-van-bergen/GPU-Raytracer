@@ -8,6 +8,8 @@
 
 #include "Camera.h"
 
+#include "MeshData.h"
+
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
@@ -35,26 +37,14 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
-	struct Triangle {
-		Vector3 pos0, pos1, pos2;
-	};
-
-	const int triangle_count = 6;
-	Triangle triangles[triangle_count] = { 
-		{ Vector3( 1.0f,  0.0f,  0.0f), Vector3( 0.0f,  1.0f, 0.0f), Vector3(0.0f,  0.0f,  1.0f) },
-		{ Vector3( 1.0f,  0.0f,  0.0f), Vector3( 0.0f,  1.0f, 0.0f), Vector3(0.0f,  0.0f,  0.0f) },
-		{ Vector3( 1.0f,  0.0f,  0.0f), Vector3( 0.0f,  0.0f, 1.0f), Vector3(0.0f,  0.0f,  0.0f) },
-		{ Vector3( 0.0f,  1.0f,  0.0f), Vector3( 0.0f,  0.0f, 1.0f), Vector3(0.0f,  0.0f,  0.0f) },
-		{ Vector3(-5.0f, -1.0f, -5.0f), Vector3(-5.0f, -1.0f, 5.0f), Vector3(5.0f, -1.0f,  5.0f) },
-		{ Vector3(-5.0f, -1.0f, -5.0f), Vector3( 5.0f, -1.0f, 5.0f), Vector3(5.0f, -1.0f, -5.0f) }
-	};
+	const MeshData * mesh = MeshData::load(DATA_PATH("Torus.obj"));
 
 	CUdeviceptr ptr;
-	CUDACALL(cuMemAlloc(&ptr, sizeof(triangles)));
+	CUDACALL(cuMemAlloc(&ptr, mesh->triangle_count * sizeof(Triangle)));
 
-	CUDACALL(cuMemcpyHtoD(ptr, triangles, sizeof(triangles)));
+	CUDACALL(cuMemcpyHtoD(ptr, mesh->triangles, mesh->triangle_count * sizeof(Triangle)));
 
-	module.get_global("triangle_count").set(triangle_count);
+	module.get_global("triangle_count").set(mesh->triangle_count);
 	module.get_global("triangles").set(ptr);
 
 	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
