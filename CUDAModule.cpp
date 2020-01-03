@@ -12,7 +12,11 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 	bool should_recompile = true;
 
 	char output_filename[256];
-	sprintf_s(output_filename, "%s.cubin", filename);
+#ifdef _DEBUG
+	sprintf_s(output_filename, "%s.debug.cubin", filename);
+#else
+	sprintf_s(output_filename, "%s.release.cubin", filename);
+#endif
 
 	// If the binary does not exists we definately need to compile
 	if (std::filesystem::exists(output_filename)) {

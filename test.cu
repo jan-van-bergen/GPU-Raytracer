@@ -27,8 +27,8 @@ struct Triangle {
 	float3 position2;
 };
 
-const int triangle_count = 2;
-__device__ Triangle triangles[triangle_count];
+__device__ int triangle_count;
+__device__ Triangle * triangles;
 
 __device__ float3 camera_position;
 __device__ float3 camera_top_left_corner;

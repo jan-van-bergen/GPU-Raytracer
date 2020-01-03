@@ -39,17 +39,25 @@ int main(int argument_count, char ** arguments) {
 		Vector3 pos0, pos1, pos2;
 	};
 
-	Triangle triangles[2] = { { 
-			Vector3(-1.0f, 0.0f, 1.0f), 
-			Vector3( 0.0f, 1.0f, 1.0f), 
-			Vector3( 1.0f, 0.0f, 1.0f) 
-		}, { 
-			Vector3(0.0f, 1.0f,  1.0f), 
-			Vector3(1.0f, 0.0f,  1.0f),
-			Vector3(2.0f, 2.0f, -1.0f) 
-		}
+	Triangle triangles[4] = { 
+		{ Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f) },
+		{ Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 0.0f) },
+		{ Vector3(1.0f, 0.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f) },
+		{ Vector3(0.0f, 1.0f, 0.0f), Vector3(0.0f, 0.0f, 1.0f), Vector3(0.0f, 0.0f, 0.0f) }
 	};
-	module.set_global("triangles", triangles);
+
+	CUdeviceptr ptr;
+	CUDACALL(cuMemAlloc(&ptr, sizeof(triangles)));
+
+	CUDACALL(cuMemcpyHtoD(ptr, triangles, sizeof(triangles)));
+
+	module.get_global("triangle_count").set(4);
+	module.get_global("triangles").set(ptr);
+
+	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
+	CUDAModule::Global global_camera_top_left_corner = module.get_global("camera_top_left_corner");
+	CUDAModule::Global global_camera_x_axis          = module.get_global("camera_x_axis");
+	CUDAModule::Global global_camera_y_axis          = module.get_global("camera_y_axis");
 
 	CUDAKernel kernel;
 	kernel.init(&module, "trace_ray");
@@ -67,10 +75,10 @@ int main(int argument_count, char ** arguments) {
 		
 		camera.update(delta_time, SDL_GetKeyboardState(NULL));
 		
-		module.set_global("camera_position", camera.position);
-		module.set_global("camera_top_left_corner", camera.top_left_corner_rotated);
-		module.set_global("camera_x_axis", camera.x_axis_rotated);
-		module.set_global("camera_y_axis", camera.y_axis_rotated);
+		global_camera_position.set(camera.position);
+		global_camera_top_left_corner.set(camera.top_left_corner_rotated);
+		global_camera_x_axis.set(camera.x_axis_rotated);
+		global_camera_y_axis.set(camera.y_axis_rotated);
 
 		kernel.execute();
 
