@@ -108,6 +108,7 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="CUDACall.h" />
     <ClInclude Include="CUDAKernel.h" />
+    <ClInclude Include="CUDAMemory.h" />
     <ClInclude Include="CUDAModule.h" />
     <ClInclude Include="Math.h" />
     <ClInclude Include="Matrix4.h" />

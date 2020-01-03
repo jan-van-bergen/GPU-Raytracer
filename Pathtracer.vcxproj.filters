@@ -51,6 +51,9 @@
     <ClInclude Include="MeshData.h">
       <Filter>Assets</Filter>
     </ClInclude>
+    <ClInclude Include="CUDAMemory.h">
+      <Filter>Cuda</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">

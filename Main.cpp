@@ -5,6 +5,7 @@
 
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
+#include "CUDAMemory.h"
 
 #include "Camera.h"
 
@@ -37,13 +38,12 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("Torus.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("Monkey.obj"));
 
-	CUdeviceptr triangles_ptr;
-	CUDACALL(cuMemAlloc(&triangles_ptr, mesh->triangle_count * sizeof(Triangle)));
+	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(mesh->triangle_count);
 
-	CUDACALL(cuMemcpyHtoD(triangles_ptr, mesh->triangles, mesh->triangle_count * sizeof(Triangle)));
-
+	CUDAMemory::memcpy(triangles_ptr, mesh->triangles, mesh->triangle_count);
+	
 	module.get_global("triangle_count").set(mesh->triangle_count);
 	module.get_global("triangles").set(triangles_ptr);
 
