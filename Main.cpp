@@ -39,13 +39,13 @@ int main(int argument_count, char ** arguments) {
 
 	const MeshData * mesh = MeshData::load(DATA_PATH("Torus.obj"));
 
-	CUdeviceptr ptr;
-	CUDACALL(cuMemAlloc(&ptr, mesh->triangle_count * sizeof(Triangle)));
+	CUdeviceptr triangles_ptr;
+	CUDACALL(cuMemAlloc(&triangles_ptr, mesh->triangle_count * sizeof(Triangle)));
 
-	CUDACALL(cuMemcpyHtoD(ptr, mesh->triangles, mesh->triangle_count * sizeof(Triangle)));
+	CUDACALL(cuMemcpyHtoD(triangles_ptr, mesh->triangles, mesh->triangle_count * sizeof(Triangle)));
 
 	module.get_global("triangle_count").set(mesh->triangle_count);
-	module.get_global("triangles").set(ptr);
+	module.get_global("triangles").set(triangles_ptr);
 
 	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
 	CUDAModule::Global global_camera_top_left_corner = module.get_global("camera_top_left_corner");
