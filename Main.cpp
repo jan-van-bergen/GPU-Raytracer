@@ -38,7 +38,7 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("Cowboy.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("legocar.obj"));
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 

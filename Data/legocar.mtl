@@ -60,7 +60,7 @@ Ke 0.0 0.0 0.0
 Ni 1.450000
 d 1.000000
 illum 1
-map_Kd legoshld.tga
+map_Kd legoshld.png
 
 newmtl YELLOW_GLASS
 Ns 0.000000

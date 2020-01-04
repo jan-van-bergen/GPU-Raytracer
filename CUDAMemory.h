@@ -25,13 +25,13 @@ namespace CUDAMemory {
 		return array;
 	}
 
+	// Copies data from the Host Texture to the Device Array
 	inline void copy_array(CUarray array, int width_in_bytes, int height, const void * data) {
-		// Copy data from the Host Texture to the Device Array
 		CUDA_MEMCPY2D copy = { };
 		copy.srcMemoryType = CU_MEMORYTYPE_HOST;
 		copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-		copy.dstArray = array;
 		copy.srcHost  = data;
+		copy.dstArray = array;
 		copy.srcPitch = width_in_bytes;
 		copy.WidthInBytes = copy.srcPitch;
 		copy.Height       = height;
