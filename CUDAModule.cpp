@@ -61,16 +61,7 @@ void CUDAModule::set_texture(const char * texture_name, const Texture * texture)
 	CUarray tex_array = CUDAMemory::create_array(texture->width, texture->height, texture->channels, CU_AD_FORMAT_UNSIGNED_INT8);
 
 	// Copy data from the Host Texture to the Device Array
-	CUDA_MEMCPY2D copy;
-	memset(&copy, 0, sizeof(CUDA_MEMCPY2D));
-	copy.srcMemoryType = CU_MEMORYTYPE_HOST;
-	copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-	copy.dstArray = tex_array;
-	copy.srcHost  = texture->data;
-	copy.srcPitch = texture->channels * texture->width;
-	copy.WidthInBytes = copy.srcPitch;
-	copy.Height       = texture->height;
-	CUDACALL(cuMemcpy2D(&copy));
+	CUDAMemory::copy_array(tex_array, texture->channels * texture->width, texture->height, texture->data);
 
 	// Set Texture parameters on Device
 	CUtexref tex;

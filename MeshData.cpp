@@ -48,14 +48,14 @@ const MeshData * MeshData::load(const char * file_path) {
 
 			mesh_data->materials[i].diffuse = Vector3(material.diffuse[0], material.diffuse[1], material.diffuse[2]);
 
-			/*if (material.diffuse_texname.length() > 0) {
-				mesh_data->materials[i].texture = Texture::load((std::string(path) + material.diffuse_texname).c_str());
+			if (material.diffuse_texname.length() > 0) {
+				mesh_data->materials[i].texture_id = Texture::load((std::string(path) + material.diffuse_texname).c_str());
 			}
 
-			mesh_data->materials[i].reflection = Vector3(material.specular[0], material.specular[1], material.specular[2]);
+			//mesh_data->materials[i].reflection = Vector3(material.specular[0], material.specular[1], material.specular[2]);
 
-			mesh_data->materials[i].transmittance       = Vector3(material.transmittance[0], material.transmittance[1], material.transmittance[2]);
-			mesh_data->materials[i].index_of_refraction = material.ior;*/
+			//mesh_data->materials[i].transmittance       = Vector3(material.transmittance[0], material.transmittance[1], material.transmittance[2]);
+			//mesh_data->materials[i].index_of_refraction = material.ior;
 		}
 	} else {
 		mesh_data->material_count = 1;

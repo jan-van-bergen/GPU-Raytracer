@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "Vector3.h"
-#include "SIMD.h"
 
 struct Matrix4 {
 	float cells[16];
@@ -36,51 +35,12 @@ struct Matrix4 {
 		);
 	}
 	
-	inline static SIMD_Vector3 transform_position(const Matrix4 & matrix, const SIMD_Vector3 & direction) {
-		SIMD_float matrix_00 = SIMD_float(matrix(0, 0));
-		SIMD_float matrix_01 = SIMD_float(matrix(0, 1));
-		SIMD_float matrix_02 = SIMD_float(matrix(0, 2));
-		SIMD_float matrix_10 = SIMD_float(matrix(1, 0));
-		SIMD_float matrix_11 = SIMD_float(matrix(1, 1));
-		SIMD_float matrix_12 = SIMD_float(matrix(1, 2));
-		SIMD_float matrix_20 = SIMD_float(matrix(2, 0));
-		SIMD_float matrix_21 = SIMD_float(matrix(2, 1));
-		SIMD_float matrix_22 = SIMD_float(matrix(2, 2));
-		SIMD_float matrix_30 = SIMD_float(matrix(3, 0));
-		SIMD_float matrix_31 = SIMD_float(matrix(3, 1));
-		SIMD_float matrix_32 = SIMD_float(matrix(3, 2));
-
-		return SIMD_Vector3(
-			SIMD_float::madd(matrix_00, direction.x, SIMD_float::madd(matrix_10, direction.y, SIMD_float::madd(matrix_20, direction.z, matrix_30))),
-			SIMD_float::madd(matrix_01, direction.x, SIMD_float::madd(matrix_11, direction.y, SIMD_float::madd(matrix_21, direction.z, matrix_31))),
-			SIMD_float::madd(matrix_02, direction.x, SIMD_float::madd(matrix_12, direction.y, SIMD_float::madd(matrix_22, direction.z, matrix_32)))
-		);
-	}
-
 	// Transforms a Vector3 as if the fourth coordinate is 0
 	inline static Vector3 transform_direction(const Matrix4 & matrix, const Vector3 & direction) {
 		return Vector3(
 			matrix(0, 0) * direction.x + matrix(1, 0) * direction.y + matrix(2, 0) * direction.z,
 			matrix(0, 1) * direction.x + matrix(1, 1) * direction.y + matrix(2, 1) * direction.z,
 			matrix(0, 2) * direction.x + matrix(1, 2) * direction.y + matrix(2, 2) * direction.z
-		);
-	}
-
-	inline static SIMD_Vector3 transform_direction(const Matrix4 & matrix, const SIMD_Vector3 & direction) {
-		SIMD_float matrix_00 = SIMD_float(matrix(0, 0));
-		SIMD_float matrix_01 = SIMD_float(matrix(0, 1));
-		SIMD_float matrix_02 = SIMD_float(matrix(0, 2));
-		SIMD_float matrix_10 = SIMD_float(matrix(1, 0));
-		SIMD_float matrix_11 = SIMD_float(matrix(1, 1));
-		SIMD_float matrix_12 = SIMD_float(matrix(1, 2));
-		SIMD_float matrix_20 = SIMD_float(matrix(2, 0));
-		SIMD_float matrix_21 = SIMD_float(matrix(2, 1));
-		SIMD_float matrix_22 = SIMD_float(matrix(2, 2));
-
-		return SIMD_Vector3(
-			SIMD_float::madd(matrix_00, direction.x, SIMD_float::madd(matrix_10, direction.y, matrix_20 * direction.z)),
-			SIMD_float::madd(matrix_01, direction.x, SIMD_float::madd(matrix_11, direction.y, matrix_21 * direction.z)),
-			SIMD_float::madd(matrix_02, direction.x, SIMD_float::madd(matrix_12, direction.y, matrix_22 * direction.z))
 		);
 	}
 

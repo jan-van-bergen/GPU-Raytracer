@@ -3,7 +3,7 @@
 
 struct Material {
 	Vector3 diffuse = Vector3(1.0f, 1.0f, 1.0f);	
-	int texture_index = -1;
+	int texture_id = -1;
 
 	/*Vector3 reflection;
 

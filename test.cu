@@ -5,13 +5,11 @@
 
 #include "Common.h"
 
-surface<void, 2> output_surface;
-
-texture<float4, 2> test_texture;
+surface<void, 2> frame_buffer;
 
 struct Material {
 	float3 diffuse;
-	int texture_index;
+	int texture_id;
 };
 
 __device__ Material            * materials;
@@ -74,12 +72,12 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 	float3 s = ray.origin - triangle.position0;
 	float  u = f * dot(s, h);
 
-	if (u < 0.0f || u > 1.0f) return;
+	if (u < -EPSILON || u > 1.0f + EPSILON) return;
 
 	float3 q = cross(s, edge1);
 	float  v = f * dot(ray.direction, q);
 
-	if (v < 0.0f || u + v > 1.0f) return;
+	if (v < -EPSILON || u + v > 1.0f + EPSILON) return;
 
 	float t = f * dot(edge2, q);
 
@@ -117,14 +115,23 @@ extern "C" __global__ void trace_ray() {
 	
 	if (hit.distance < INFINITY) {
 		assert(hit.material_id >= 0 && hit.material_id < MAX_MATERIALS);
+		
+		int texture_id = materials[hit.material_id].texture_id;
 
-		colour = make_float4(
-			materials[hit.material_id].diffuse.x, 
-			materials[hit.material_id].diffuse.y, 
-			materials[hit.material_id].diffuse.z, 
-			1.0f
-		);
+		if (texture_id == -1) {
+			colour = make_float4(1.0f, 0.0f, 1.0f, 1.0f);
+		} else {
+			float4 tex_colour;
+
+			for (int i = 0; i < MAX_TEXTURES; i++) {
+				if (texture_id == i) {
+					tex_colour = tex2D<float4>(textures[i], hit.uv.x, hit.uv.y);
+				}
+			}
+
+			colour = make_float4(tex_colour.x, tex_colour.y, tex_colour.z, 1.0f);
+		}
 	}
 
-	surf2Dwrite<float4>(colour, output_surface, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(colour, frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }

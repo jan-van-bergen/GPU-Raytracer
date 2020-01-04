@@ -38,29 +38,62 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("test.cu", window.cuda_compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("Scene1.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("Cowboy.obj"));
 
-	if (mesh->material_count > MAX_MATERIALS) abort();
+	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
+	// Set global Material table
 	CUdeviceptr materials_ptr = CUDAMemory::malloc<Material>(mesh->material_count);
 	CUDAMemory::memcpy(materials_ptr, mesh->materials, mesh->material_count);
 
 	module.get_global("materials").set(materials_ptr);
 
+	// Set global Texture table
+	if (Texture::texture_count > 0) {
+		CUtexObject * tex_objects = new CUtexObject[Texture::texture_count];
+
+		for (int i = 0; i < Texture::texture_count; i++) {
+			CUarray array = CUDAMemory::create_array(Texture::textures[i].width, Texture::textures[i].height, Texture::textures[i].channels, CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8);
+		
+			CUDAMemory::copy_array(array, Texture::textures[i].channels * Texture::textures[i].width, Texture::textures[i].height, Texture::textures[i].data);
+
+			// Describe the Array to read from
+			CUDA_RESOURCE_DESC res_desc = { };
+			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
+			res_desc.res.array.hArray = array;
+        
+			// Describe how to sample the Texture
+			CUDA_TEXTURE_DESC tex_desc = { };
+			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
+		
+			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
+		}
+
+		CUdeviceptr textures_ptr = CUDAMemory::malloc<CUtexObject>(Texture::texture_count);
+		CUDAMemory::memcpy(textures_ptr, tex_objects, Texture::texture_count);
+
+		module.get_global("textures").set(textures_ptr);
+	}
+
+	// Set global Triangle buffer
 	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(mesh->triangle_count);
 	CUDAMemory::memcpy(triangles_ptr, mesh->triangles, mesh->triangle_count);
 	
 	module.get_global("triangle_count").set(mesh->triangle_count);
 	module.get_global("triangles").set(triangles_ptr);
 
+	// Set Camera globals
 	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
 	CUDAModule::Global global_camera_top_left_corner = module.get_global("camera_top_left_corner");
 	CUDAModule::Global global_camera_x_axis          = module.get_global("camera_x_axis");
 	CUDAModule::Global global_camera_y_axis          = module.get_global("camera_y_axis");
 	
-	module.set_surface("output_surface", window.cuda_frame_buffer);
-	module.set_texture("test_texture", Texture::load(DATA_PATH("CowboyDiffuse.png")));
+	module.set_surface("frame_buffer", window.cuda_frame_buffer);
 
+	// Initialize Kernel
 	CUDAKernel kernel;
 	kernel.init(&module, "trace_ray");
 
