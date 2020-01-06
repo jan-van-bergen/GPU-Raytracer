@@ -40,15 +40,31 @@ __device__ float random_float(unsigned & seed) {
 	return float(rand_xorshift(seed)) * one_over_max_unsigned;
 }
 
+struct Material;
+
+__device__ Material            * materials;
+__device__ cudaTextureObject_t * textures;
+
 struct Material {
 	float3 diffuse;
 	int texture_id;
 
 	float3 emittance;
-};
 
-__device__ Material            * materials;
-__device__ cudaTextureObject_t * textures;
+	__device__ float3 albedo(float u, float v) const {
+		if (texture_id == -1) return diffuse;
+
+		float4 tex_colour;
+
+		for (int i = 0; i < MAX_TEXTURES; i++) {
+			if (texture_id == i) {
+				tex_colour = tex2D<float4>(textures[i], u, v);
+			}
+		}
+
+		return diffuse * make_float3(tex_colour);
+	}
+};
 
 struct Ray {
 	float3 origin;
@@ -125,7 +141,6 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 		+ v * (triangle.tex_coord2 - triangle.tex_coord0);
 }
 
-
 __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 	// @TODO: use faster method to do this!
 
@@ -188,23 +203,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 		ray.origin    = hit.point;
 		ray.direction = diffuse_reflection_direction;
 
-		// int texture_id = materials[hit.material_id].texture_id;
-
-		// if (texture_id == -1) {
-		// 	colour = make_float4(1.0f, 0.0f, 1.0f, 1.0f);
-		// } else {
-		// 	float4 tex_colour;
-
-		// 	for (int i = 0; i < MAX_TEXTURES; i++) {
-		// 		if (texture_id == i) {
-		// 			tex_colour = tex2D<float4>(textures[i], hit.uv.x, hit.uv.y);
-		// 		}
-		// 	}
-
-		// 	colour = make_float4(tex_colour.x, tex_colour.y, tex_colour.z, 1.0f);
-		// }
-
-		throughput *= 2.0f * material.diffuse * dot(hit.normal, diffuse_reflection_direction);
+		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
 	}
 
 	return throughput;
@@ -214,8 +213,7 @@ extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_
 	int x = threadIdx.x + blockIdx.x * blockDim.x;
 	int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-	int thread_id = x + y * SCREEN_WIDTH;
-	unsigned seed = wang_hash(thread_id + random);
+	unsigned seed = wang_hash(x + y * SCREEN_WIDTH + random);
 	
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = x + random_float(seed);
@@ -235,8 +233,9 @@ extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_
 		float4 prev;
 		surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
 
+		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
 		colour = (make_float3(prev.x, prev.y, prev.z) * (frames_since_last_camera_moved - 1.0f) + colour) / frames_since_last_camera_moved;
 	}
 
-	surf2Dwrite<float4>(make_float4(colour.x, colour.y, colour.z, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
