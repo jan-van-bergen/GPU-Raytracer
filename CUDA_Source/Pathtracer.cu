@@ -3,7 +3,7 @@
 
 #include <corecrt_math.h>
 
-#include "Common.h"
+#include "../Common.h"
 
 #define PI 3.14159265359f
 

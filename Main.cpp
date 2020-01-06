@@ -41,7 +41,7 @@ int main(int argument_count, char ** arguments) {
 
 	// Init CUDA Module and its Kernel
 	CUDAModule module;
-	module.init("CUDA Source/Pathtracer.cu", CUDAContext::compute_capability);
+	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
 	const MeshData * mesh = MeshData::load(DATA_PATH("SceneDetailed.obj"));
 
