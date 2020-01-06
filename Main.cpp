@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <time.h> 
 
 #include "Window.h"
 
@@ -36,9 +37,9 @@ int main(int argument_count, char ** arguments) {
 
 	// Init CUDA Module and its Kernel
 	CUDAModule module;
-	module.init("test.cu", window.cuda_compute_capability);
+	module.init("Pathtracer.cu", window.cuda_compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("legocar.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("Scene.obj"));
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
@@ -102,18 +103,28 @@ int main(int argument_count, char ** arguments) {
 
 	last = SDL_GetPerformanceCounter();
 
+	srand(time(nullptr));
+
+	float frames_since_last_camera_moved = 0;
+
 	// Game loop
 	while (!window.is_closed) {
 		window.clear();
 		
-		camera.update(delta_time, SDL_GetKeyboardState(NULL));
+		camera.update(delta_time, SDL_GetKeyboardState(nullptr));
 		
 		global_camera_position.set(camera.position);
 		global_camera_top_left_corner.set(camera.top_left_corner_rotated);
 		global_camera_x_axis.set(camera.x_axis_rotated);
 		global_camera_y_axis.set(camera.y_axis_rotated);
 
-		kernel.execute();
+		if (camera.moved) {
+			frames_since_last_camera_moved = 0.0f;
+		} else {
+			frames_since_last_camera_moved += 1.0f;
+		}
+
+		kernel.execute(rand(), frames_since_last_camera_moved);
 
 		window.update();
 

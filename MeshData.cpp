@@ -52,6 +52,8 @@ const MeshData * MeshData::load(const char * file_path) {
 				mesh_data->materials[i].texture_id = Texture::load((std::string(path) + material.diffuse_texname).c_str());
 			}
 
+			mesh_data->materials[i].emittance = Vector3(material.emission[0], material.emission[1], material.emission[2]);
+
 			//mesh_data->materials[i].reflection = Vector3(material.specular[0], material.specular[1], material.specular[2]);
 
 			//mesh_data->materials[i].transmittance       = Vector3(material.transmittance[0], material.transmittance[1], material.transmittance[2]);

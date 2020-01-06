@@ -5,6 +5,8 @@ struct Material {
 	Vector3 diffuse = Vector3(1.0f, 1.0f, 1.0f);	
 	int texture_id = -1;
 
+	Vector3 emittance;
+
 	/*Vector3 reflection;
 
 	Vector3 transmittance;
