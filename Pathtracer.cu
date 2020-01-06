@@ -11,16 +11,10 @@ surface<void, 2> frame_buffer;
 
 // Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 __device__ unsigned wang_hash(unsigned seed) {
-	// seed = (seed ^ 61) ^ (seed >> 16);
-	// seed = seed + (seed << 3);
-	// seed = seed ^ (seed >> 4);
-	// seed = seed * 0x27d4eb2d;
-	// seed = seed ^ (seed >> 15);
-
 	seed = (seed ^ 61) ^ (seed >> 16);
-	seed *= 9;
+	seed = seed + (seed << 3);
 	seed = seed ^ (seed >> 4);
-	seed *= 0x27d4eb2d;
+	seed = seed * 0x27d4eb2d;
 	seed = seed ^ (seed >> 15);
 
 	return seed;
@@ -167,7 +161,7 @@ __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 }
 
 __device__ float3 sample(unsigned & seed, Ray & ray) {
-	const int ITERATIONS = 10;
+	const int ITERATIONS = 5;
 
 	float3 throughput = make_float3(1.0f, 1.0f, 1.0f);
 
@@ -207,15 +201,16 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 }
 
 extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_moved) {
-	int x = threadIdx.x + blockIdx.x * blockDim.x;
-	int y = threadIdx.y + blockIdx.y * blockDim.y;
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	unsigned seed = wang_hash(x + y * SCREEN_WIDTH + random);
+	unsigned seed = wang_hash(x*random + y*random * SCREEN_WIDTH + random);
 	
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = x + random_float(seed);
 	float v = y + random_float(seed);
 
+	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
 	Ray ray;
 	ray.origin    = camera_position;
 	ray.direction = normalize(camera_top_left_corner
@@ -231,7 +226,7 @@ extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_
 		surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
 
 		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour = (make_float3(prev.x, prev.y, prev.z) * (frames_since_last_camera_moved - 1.0f) + colour) / frames_since_last_camera_moved;
+		colour = (make_float3(prev) * (frames_since_last_camera_moved - 1.0f) + colour) / frames_since_last_camera_moved;
 	}
 
 	surf2Dwrite<float4>(make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);

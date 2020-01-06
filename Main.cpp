@@ -7,6 +7,7 @@
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 #include "CUDAMemory.h"
+#include "CUDAContext.h"
 
 #include "Camera.h"
 
@@ -21,6 +22,8 @@ int   current_frame = 0;
 
 int main(int argument_count, char ** arguments) {
 	Window window(SCREEN_WIDTH, SCREEN_HEIGHT, "Pathtracer");
+
+	CUDAContext::init();
 
 	// Initialize timing stuff
 	Uint64 now  = 0;
@@ -37,7 +40,7 @@ int main(int argument_count, char ** arguments) {
 
 	// Init CUDA Module and its Kernel
 	CUDAModule module;
-	module.init("Pathtracer.cu", window.cuda_compute_capability);
+	module.init("Pathtracer.cu", CUDAContext::compute_capability);
 
 	const MeshData * mesh = MeshData::load(DATA_PATH("Scene.obj"));
 
@@ -92,7 +95,8 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule::Global global_camera_x_axis          = module.get_global("camera_x_axis");
 	CUDAModule::Global global_camera_y_axis          = module.get_global("camera_y_axis");
 	
-	module.set_surface("frame_buffer", window.cuda_frame_buffer);
+	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
+	module.set_surface("frame_buffer", CUDAContext::map_gl_texture(window.frame_buffer_handle));
 
 	// Initialize Kernel
 	CUDAKernel kernel;
@@ -109,8 +113,6 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
-		window.clear();
-		
 		camera.update(delta_time, SDL_GetKeyboardState(nullptr));
 		
 		global_camera_position.set(camera.position);

@@ -108,6 +108,7 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="CUDACall.h" />
+    <ClInclude Include="CUDAContext.h" />
     <ClInclude Include="CUDAKernel.h" />
     <ClInclude Include="CUDAMemory.h" />
     <ClInclude Include="CUDAModule.h" />

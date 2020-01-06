@@ -1,15 +1,6 @@
 #include "Window.h"
 
-#include <cstring>
-
-#include <cudaGL.h>
-
-#include "CUDACall.h"
-
-Window::Window(int width, int height, const char * title) : 
-	width(width), height(height), 
-	tile_count_x(width  / tile_width), 
-	tile_count_y(height / tile_height)
+Window::Window(int width, int height, const char * title) : width(width), height(height)
 {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -44,51 +35,18 @@ Window::Window(int width, int height, const char * title) :
 	glLoadIdentity();
 	glOrtho(-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 4.0f);
 
-	float * data = new float[4 * width * height];
 	glGenTextures(1, &frame_buffer_handle);
 
 	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, data);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
 	// Setup camera
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-
-	// Init CUDA stuff
-	CUDACALL(cuInit(0));
-
-	int device_count;
-	CUDACALL(cuDeviceGetCount(&device_count));
-
-	unsigned gl_device_count;
-	CUdevice * devices = new CUdevice[device_count];
-
-	CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
-	
-	CUdevice device = devices[0];
-
-	CUcontext context;
-	CUDACALL(cuGLCtxCreate(&context, 0, device));
-
-	delete [] devices;
-	
-	int major, minor;
-	CUDACALL(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device));
-	CUDACALL(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device));
-	cuda_compute_capability = major * 10 + minor;
-
-	CUgraphicsResource cuda_frame_buffer_handle; 
-	CUDACALL(cuGraphicsGLRegisterImage(&cuda_frame_buffer_handle, frame_buffer_handle, GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
-	CUDACALL(cuGraphicsMapResources(1, &cuda_frame_buffer_handle, 0));
-
-	CUDACALL(cuGraphicsSubResourceGetMappedArray(&cuda_frame_buffer, cuda_frame_buffer_handle, 0, 0));
-                
-	CUDACALL(cuGraphicsUnmapResources(1, &cuda_frame_buffer_handle, 0));
 }
 
 Window::~Window() {
@@ -97,15 +55,8 @@ Window::~Window() {
 	SDL_Quit();
 }
 
-void Window::clear() {
-	//memset(frame_buffer, 0, width * height * sizeof(unsigned));
-}
-
 void Window::update() {
 	glClear(GL_COLOR_BUFFER_BIT);
-	
-	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
-	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, frame_buffer);
 	
 	// Draw screen filling quad
 	glBegin(GL_QUADS);

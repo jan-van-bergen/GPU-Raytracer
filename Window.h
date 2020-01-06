@@ -16,31 +16,18 @@ inline void GLAPIENTRY glMessageCallback(GLenum source, GLenum type, GLuint id, 
 }
 
 struct Window {
-private:
 	SDL_Window *  window;
 	SDL_GLContext context;
 	
 	GLuint frame_buffer_handle;
 
-public:
 	const int width;
 	const int height;
 	
-	const int tile_width  = 32;
-	const int tile_height = 32;
-
-	const int tile_count_x;
-	const int tile_count_y;
-
 	bool is_closed = false;
-
-	CUarray  cuda_frame_buffer;
-	unsigned cuda_compute_capability;
 
 	Window(int width, int height, const char * title);
 	~Window();
-
-	void clear();
 
 	void update();
 

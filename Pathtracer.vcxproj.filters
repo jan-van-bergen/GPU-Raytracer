@@ -15,6 +15,7 @@
     <ClCompile Include="Texture.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
+    <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CUDAModule.h">
@@ -62,6 +63,10 @@
     </ClInclude>
     <ClInclude Include="Texture.h">
       <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Window.h" />
+    <ClInclude Include="CUDAContext.h">
+      <Filter>Cuda</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
