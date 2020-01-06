@@ -105,7 +105,7 @@ int main(int argument_count, char ** arguments) {
 
 	srand(time(nullptr));
 
-	float frames_since_last_camera_moved = 0;
+	float frames_since_last_camera_moved = 0.0f;
 
 	// Game loop
 	while (!window.is_closed) {
