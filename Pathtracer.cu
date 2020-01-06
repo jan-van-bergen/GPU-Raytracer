@@ -142,24 +142,21 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 }
 
 __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
-	// @TODO: use faster method to do this!
+	float3 direction;
+	float  length_squared;
 
-	// Generate random spherical coordinates
-	float theta = 2.0f * acos(sqrt(1.0f - random_float(seed)));
-	float phi   = 2.0f * PI * random_float(seed);
+	// Find a random point inside the unit sphere
+	do {
+		direction.x = -1.0f + 2.0f * random_float(seed);
+		direction.y = -1.0f + 2.0f * random_float(seed);
+		direction.z = -1.0f + 2.0f * random_float(seed);
 
-	float sin_theta, cos_theta;
-	float sin_phi,   cos_phi;
+		length_squared = dot(direction, direction);
+	} while(length_squared > 1.0f);
 
-	sincos(theta, &sin_theta, &cos_theta);
-	sincos(phi,   &sin_phi,   &cos_phi);
-
-	// Convert spherical coordinates to cartesian coordinates
-	float3 random_point_on_unit_sphere = make_float3(
-		sin_theta * cos_phi, 
-		sin_theta * sin_phi, 
-		cos_theta
-	);
+	// Normalize direction to obtain a random point on the unit sphere
+	float  inv_length = 1.0f / sqrt(length_squared);
+	float3 random_point_on_unit_sphere = inv_length * direction;
 
 	// If the point is on the wrong hemisphere, return its negative
 	if (dot(normal, random_point_on_unit_sphere) < 0.0f) {
