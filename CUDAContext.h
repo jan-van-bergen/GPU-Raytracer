@@ -14,23 +14,32 @@ namespace CUDAContext {
 		int device_count;
 		CUDACALL(cuDeviceGetCount(&device_count));
 
-		unsigned gl_device_count;
 		CUdevice * devices = new CUdevice[device_count];
 
+		unsigned gl_device_count;
 		CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
 	
-		CUdevice device = devices[0];
+		CUdevice best_device;
+		int      best_compute_capability = 0;
 
-		CUcontext context;
-		CUDACALL(cuGLCtxCreate(&context, 0, device));
+		for (int i = 0; i < gl_device_count; i++) {
+			int major, minor;
+			CUDACALL(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, devices[i]));
+			CUDACALL(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, devices[i]));
+
+			int	device_compute_capability = major * 10 + minor;
+			if (device_compute_capability > best_compute_capability) {
+				best_device = devices[i];
+				best_compute_capability = device_compute_capability;
+			}
+		}
+
+		compute_capability = best_compute_capability;
 
 		delete [] devices;
-	
-		int major, minor;
-		CUDACALL(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device));
-		CUDACALL(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device));
-		compute_capability = major * 10 + minor;
 
+		CUcontext context;
+		CUDACALL(cuGLCtxCreate(&context, 0, best_device));
 	}
 
 	// Creates a CUDA Array that is mapped to the given GL Texture handle
