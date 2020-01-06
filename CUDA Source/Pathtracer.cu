@@ -75,6 +75,9 @@ struct RayHit {
 	float2 uv;
 };
 
+__device__ inline float3 minf(float3 a, float3 b) { return make_float3(a.x < b.x ? a.x : b.x, a.y < b.y ? a.y : b.y, a.z < b.z ? a.z : b.z); }
+__device__ inline float3 maxf(float3 a, float3 b) { return make_float3(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y, a.z > b.z ? a.z : b.z); }
+
 struct AABB {
 	float3 min;
 	float3 max;
@@ -84,8 +87,8 @@ struct AABB {
 		float3 t0 = (min - ray.origin) * inv_direction;
 		float3 t1 = (max - ray.origin) * inv_direction;
 		
-		float3 t_min = fminf(t0, t1);
-		float3 t_max = fmaxf(t0, t1);
+		float3 t_min = minf(t0, t1);
+		float3 t_max = maxf(t0, t1);
 		
 		float t_near = fmaxf(fmaxf(EPSILON,      t_min.x), fmaxf(t_min.y, t_min.z));
 		float t_far  = fminf(fminf(max_distance, t_max.x), fminf(t_max.y, t_max.z));

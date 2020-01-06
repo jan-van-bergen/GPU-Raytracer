@@ -1,5 +1,4 @@
 #pragma once
-
 #include <cudaGL.h>
 
 #include "CUDACall.h"

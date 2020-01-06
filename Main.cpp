@@ -41,9 +41,9 @@ int main(int argument_count, char ** arguments) {
 
 	// Init CUDA Module and its Kernel
 	CUDAModule module;
-	module.init("Pathtracer.cu", CUDAContext::compute_capability);
+	module.init("CUDA Source/Pathtracer.cu", CUDAContext::compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("Scene.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("SceneDetailed.obj"));
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
@@ -83,6 +83,7 @@ int main(int argument_count, char ** arguments) {
 		module.get_global("textures").set(textures_ptr);
 	}
 
+	// Construct BVH for the Triangle soup
 	BVH<Triangle> bvh;
 	bvh.init(mesh->triangle_count);
 	
