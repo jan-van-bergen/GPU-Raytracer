@@ -75,7 +75,31 @@ struct RayHit {
 	float2 uv;
 };
 
+__device__ inline float3 minf(float3 a, float3 b) { return make_float3(a.x < b.x ? a.x : b.x, a.y < b.y ? a.y : b.y, a.z < b.z ? a.z : b.z); }
+__device__ inline float3 maxf(float3 a, float3 b) { return make_float3(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y, a.z > b.z ? a.z : b.z); }
+
+struct AABB {
+	float3 min;
+	float3 max;
+
+	__device__ inline bool intersects(const Ray & ray, float max_distance) const {
+		float3 inv_direction = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
+		float3 t0 = (min - ray.origin) * inv_direction;
+		float3 t1 = (max - ray.origin) * inv_direction;
+		
+		float3 t_min = minf(t0, t1);
+		float3 t_max = maxf(t0, t1);
+		
+		float t_near = fmaxf(fmaxf(EPSILON,      t_min.x), fmaxf(t_min.y, t_min.z));
+		float t_far  = fminf(fminf(max_distance, t_max.x), fminf(t_max.y, t_max.z));
+	
+		return t_near < t_far;
+	}
+};
+
 struct Triangle {
+	AABB aabb;
+
 	float3 position0;
 	float3 position1;
 	float3 position2;
@@ -91,8 +115,19 @@ struct Triangle {
 	int material_id;
 };
 
-__device__ int        triangle_count;
 __device__ Triangle * triangles;
+
+struct BVHNode {
+	AABB aabb;
+	int left_or_first;
+	int count;
+
+	__device__ inline bool is_leaf() const {
+		return count > 0;
+	}
+};
+
+__device__ BVHNode * bvh_nodes;
 
 __device__ float3 camera_position;
 __device__ float3 camera_top_left_corner;
@@ -135,6 +170,36 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 		+ v * (triangle.tex_coord2 - triangle.tex_coord0);
 }
 
+__device__ void bvh_traverse(const Ray & ray, RayHit & ray_hit) {
+	int stack[64];
+	int stack_size = 1;
+
+	// Push root on stack
+	stack[0] = 0;
+
+	int step = 0;
+
+	while (stack_size > 0) {
+		// Pop Node of the stack
+		int index = stack[--stack_size]; 
+		const BVHNode & node = bvh_nodes[index];
+
+		if (node.aabb.intersects(ray, ray_hit.distance)) {
+			if (node.is_leaf()) {
+				for (int i = node.left_or_first; i < node.left_or_first + node.count; i++) {
+					check_triangle(triangles[i], ray, ray_hit);
+				}
+			} else {
+				// @TODO: left first only for now!
+				stack[stack_size++] = node.left_or_first + 1;
+				stack[stack_size++] = node.left_or_first;
+			}
+		}
+
+		step++;
+	}
+}
+
 __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 	float3 direction;
 	float  length_squared;
@@ -146,7 +211,7 @@ __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 		direction.z = -1.0f + 2.0f * random_float(seed);
 
 		length_squared = dot(direction, direction);
-	} while(length_squared > 1.0f);
+	} while (length_squared > 1.0f);
 
 	// Normalize direction to obtain a random point on the unit sphere
 	float  inv_length = 1.0f / sqrt(length_squared);
@@ -168,9 +233,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 	for (int i = 0; i < ITERATIONS; i++) {
 		// Check ray against all triangles
 		RayHit hit;
-		for (int i = 0; i < triangle_count; i++) {
-			check_triangle(triangles[i], ray, hit);
-		}
+		bvh_traverse(ray, hit);
 
 		// Check if we didn't hit anything
 		if (hit.distance == INFINITY) {
@@ -204,7 +267,7 @@ extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	unsigned seed = wang_hash(x*random + y*random * SCREEN_WIDTH + random);
+	unsigned seed = wang_hash(x*random + y*random * SCREEN_WIDTH);
 	
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = x + random_float(seed);

@@ -2,9 +2,13 @@
 #include "Vector2.h"
 #include "Vector3.h"
 
+#include "AABB.h"
+
 #include "Material.h"
 
 struct Triangle {
+	AABB aabb;
+
 	Vector3 position0;
 	Vector3 position1;
 	Vector3 position2;
@@ -18,6 +22,10 @@ struct Triangle {
 	alignas(8) Vector2 tex_coord2;
 
 	int material_id;
+
+	Vector3 get_position() const {
+		return (position0 + position1 + position2) * 0.333333333333333f;
+	}
 };
 
 struct MeshData {

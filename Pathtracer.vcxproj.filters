@@ -16,6 +16,9 @@
       <Filter>Assets</Filter>
     </ClCompile>
     <ClCompile Include="Window.cpp" />
+    <ClCompile Include="AABB.cpp">
+      <Filter>BVH</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CUDAModule.h">
@@ -68,6 +71,18 @@
     <ClInclude Include="CUDAContext.h">
       <Filter>Cuda</Filter>
     </ClInclude>
+    <ClInclude Include="AABB.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="BVHBuilders.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="BVHPartitions.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">
@@ -81,6 +96,9 @@
     </Filter>
     <Filter Include="Assets">
       <UniqueIdentifier>{94ffa964-4e08-4625-8fa7-8b6ff6a47f52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BVH">
+      <UniqueIdentifier>{ca19624d-e9f7-4458-8ea8-45f4cb4bbb27}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

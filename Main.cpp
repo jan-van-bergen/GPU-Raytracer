@@ -12,6 +12,7 @@
 #include "Camera.h"
 
 #include "MeshData.h"
+#include "BVH.h"
 
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
@@ -65,14 +66,14 @@ int main(int argument_count, char ** arguments) {
 			CUDA_RESOURCE_DESC res_desc = { };
 			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
 			res_desc.res.array.hArray = array;
-        
+		
 			// Describe how to sample the Texture
 			CUDA_TEXTURE_DESC tex_desc = { };
 			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
 			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
-		
+			
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
 		}
 
@@ -82,12 +83,33 @@ int main(int argument_count, char ** arguments) {
 		module.get_global("textures").set(textures_ptr);
 	}
 
-	// Set global Triangle buffer
-	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(mesh->triangle_count);
-	CUDAMemory::memcpy(triangles_ptr, mesh->triangles, mesh->triangle_count);
+	BVH<Triangle> bvh;
+	bvh.init(mesh->triangle_count);
 	
-	module.get_global("triangle_count").set(mesh->triangle_count);
+	memcpy(bvh.primitives, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
+
+	for (int i = 0; i < bvh.primitive_count; i++) {
+		Vector3 vertices[3] = { 
+			bvh.primitives[i].position0, 
+			bvh.primitives[i].position1, 
+			bvh.primitives[i].position2
+		};
+		bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
+	}
+
+	bvh.build_bvh();
+
+	// Set global Triangle buffer
+	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_ptr, bvh.primitives, bvh.primitive_count);
+
 	module.get_global("triangles").set(triangles_ptr);
+
+	// Set global BVHNode buffer
+	CUdeviceptr nodes_ptr = CUDAMemory::malloc<BVHNode>(bvh.node_count);
+	CUDAMemory::memcpy(nodes_ptr, bvh.nodes, bvh.node_count);
+
+	module.get_global("bvh_nodes").set(nodes_ptr);
 
 	// Set Camera globals
 	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
