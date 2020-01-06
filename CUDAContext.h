@@ -46,13 +46,13 @@ namespace CUDAContext {
 	inline CUarray map_gl_texture(unsigned gl_texture) {
 		CUarray result;
 
-		CUgraphicsResource cuda_frame_buffer_handle; 
-		CUDACALL(cuGraphicsGLRegisterImage(&cuda_frame_buffer_handle, gl_texture, GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
-		CUDACALL(cuGraphicsMapResources(1, &cuda_frame_buffer_handle, 0));
+		CUgraphicsResource cuda_resource; 
+		CUDACALL(cuGraphicsGLRegisterImage(&cuda_resource, gl_texture, GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
+		CUDACALL(cuGraphicsMapResources(1, &cuda_resource, 0));
 
-		CUDACALL(cuGraphicsSubResourceGetMappedArray(&result, cuda_frame_buffer_handle, 0, 0));
+		CUDACALL(cuGraphicsSubResourceGetMappedArray(&result, cuda_resource, 0, 0));
                 
-		CUDACALL(cuGraphicsUnmapResources(1, &cuda_frame_buffer_handle, 0));
+		CUDACALL(cuGraphicsUnmapResources(1, &cuda_resource, 0));
 
 		return result;
 	}
