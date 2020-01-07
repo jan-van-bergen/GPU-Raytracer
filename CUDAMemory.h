@@ -19,6 +19,14 @@ namespace CUDAMemory {
 
 		return Ptr<T>(ptr);
 	}
+	
+	template<typename T>
+	inline void memcpy(Ptr<T> ptr, const T * data, int count = 1) {
+		assert(data);
+		assert(count > 0);
+
+		CUDACALL(cuMemcpyHtoD(ptr.ptr, data, count * sizeof(T)));
+	}
 
 	inline CUarray create_array(int width, int height, int channels, CUarray_format format) {
 		CUDA_ARRAY_DESCRIPTOR desc;
@@ -45,13 +53,5 @@ namespace CUDAMemory {
 		copy.Height       = height;
 
 		CUDACALL(cuMemcpy2D(&copy));
-	}
-
-	template<typename T>
-	inline void memcpy(Ptr<T> ptr, const T * data, int count = 1) {
-		assert(data);
-		assert(count > 0);
-
-		CUDACALL(cuMemcpyHtoD(ptr.ptr, data, count * sizeof(T)));
 	}
 }
