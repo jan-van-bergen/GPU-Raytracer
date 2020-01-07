@@ -32,6 +32,5 @@ int Texture::load(const char * file_path) {
 		abort();
 	}
 
-
 	return texture_id;
 }

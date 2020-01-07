@@ -227,7 +227,7 @@ __device__ float3 sample_sky(const float3 & direction) {
 	index = max(index, 0);
 	index = min(index, sky_size * sky_size);
 
-	return 0.1f * ONE_OVER_PI * sky_data[index];
+	return sky_data[index];
 }
 
 __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
@@ -267,7 +267,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 
 		// Check if we didn't hit anything
 		if (hit.distance == INFINITY) {
-			return sample_sky(ray.direction);
+			return throughput * sample_sky(ray.direction);
 		}
 
 		const Material & material = materials[hit.material_id];

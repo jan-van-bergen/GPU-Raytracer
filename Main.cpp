@@ -4,6 +4,8 @@
 
 #include "Window.h"
 
+#include "ScopedTimer.h"
+
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 #include "CUDAMemory.h"
@@ -100,7 +102,11 @@ int main(int argument_count, char ** arguments) {
 		bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
 	}
 
-	bvh.build_sbvh();
+	{
+		ScopedTimer timer("BVH Construction");
+
+		bvh.build_sbvh();
+	}
 
 	// Set global Triangle buffer
 	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(bvh.primitive_count);
