@@ -63,6 +63,7 @@ struct Material {
 struct Ray {
 	float3 origin;
 	float3 direction;
+	float3 direction_inv;
 };
 
 struct RayHit {
@@ -75,20 +76,16 @@ struct RayHit {
 	float2 uv;
 };
 
-__device__ inline float3 minf(float3 a, float3 b) { return make_float3(a.x < b.x ? a.x : b.x, a.y < b.y ? a.y : b.y, a.z < b.z ? a.z : b.z); }
-__device__ inline float3 maxf(float3 a, float3 b) { return make_float3(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y, a.z > b.z ? a.z : b.z); }
-
 struct AABB {
 	float3 min;
 	float3 max;
 
 	__device__ inline bool intersects(const Ray & ray, float max_distance) const {
-		float3 inv_direction = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
-		float3 t0 = (min - ray.origin) * inv_direction;
-		float3 t1 = (max - ray.origin) * inv_direction;
+		float3 t0 = (min - ray.origin) * ray.direction_inv;
+		float3 t1 = (max - ray.origin) * ray.direction_inv;
 		
-		float3 t_min = minf(t0, t1);
-		float3 t_max = maxf(t0, t1);
+		float3 t_min = fminf(t0, t1);
+		float3 t_max = fmaxf(t0, t1);
 		
 		float t_near = fmaxf(fmaxf(EPSILON,      t_min.x), fmaxf(t_min.y, t_min.z));
 		float t_far  = fminf(fminf(max_distance, t_max.x), fminf(t_max.y, t_max.z));
@@ -266,7 +263,8 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 
 		ray.origin    = hit.point;
 		ray.direction = diffuse_reflection_direction;
-
+		ray.direction_inv = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
+		
 		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
 	}
 
@@ -290,6 +288,7 @@ extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_
 		+ u * camera_x_axis
 		+ v * camera_y_axis
 	);
+	ray.direction_inv = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
 	
 	float3 colour = sample(seed, ray);
 
