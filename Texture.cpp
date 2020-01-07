@@ -23,30 +23,15 @@ int Texture::load(const char * file_path) {
 	Texture & texture = textures[texture_id];
 
 	texture.data = stbi_load(file_path, &texture.width, &texture.height, &texture.channels, STBI_rgb_alpha);
-
-	// CUDA does not like Textures with three colour channels, so we add an artificial alpha channel
-	if (texture.channels == 3) {
-		unsigned char * data = new unsigned char[texture.width * texture.height * 4];
-
-		for (int i = 0; i < texture.width * texture.height; i++) {
-			data[4*i]   = texture.data[3*i]; 
-			data[4*i+1] = texture.data[3*i+1]; 
-			data[4*i+2] = texture.data[3*i+2]; 
-			data[4*i+3] = 255;
-		}
-
-		delete [] texture.data;
-
-		texture.data = data;
-		texture.channels = 4;
-	}
-
+	texture.channels = 4;
+	
 	// Check if the Texture is valid
 	if (textures[texture_id].width == 0 || textures[texture_id].height == 0) {
 		printf("An error occured while loading Texture '%s'!\n", file_path);
 
 		abort();
 	}
+
 
 	return texture_id;
 }

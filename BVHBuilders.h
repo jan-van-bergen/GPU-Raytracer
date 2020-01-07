@@ -311,7 +311,7 @@ namespace BVHBuilders {
 		}
 		
 		// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
-		int number_of_leaves_left = build_sbvh(nodes[node.left], triangles, indices, nodes, node_index, first_index, n_left, sah, temp, inv_root_surface_area, child_aabb_left);
+		int number_of_leaves_left = build_sbvh<Triangle>(nodes[node.left], triangles, indices, nodes, node_index, first_index, n_left, sah, temp, inv_root_surface_area, child_aabb_left);
 
 		// Using the depth first offset, we can now copy over the right references
 		memcpy(indices[0] + first_index + number_of_leaves_left, children_right[0], n_right * sizeof(int));
@@ -319,7 +319,7 @@ namespace BVHBuilders {
 		memcpy(indices[2] + first_index + number_of_leaves_left, children_right[2], n_right * sizeof(int));
 			
 		// Now recurse on the right side
-		int number_of_leaves_right = build_sbvh(nodes[node.left + 1], triangles, indices, nodes, node_index, first_index + number_of_leaves_left, n_right, sah, temp, inv_root_surface_area, child_aabb_right);
+		int number_of_leaves_right = build_sbvh<Triangle>(nodes[node.left + 1], triangles, indices, nodes, node_index, first_index + number_of_leaves_left, n_right, sah, temp, inv_root_surface_area, child_aabb_right);
 		
 		delete [] children_right[0];
 		delete [] children_right[1];

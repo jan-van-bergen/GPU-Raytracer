@@ -79,10 +79,41 @@ struct BVH {
 		delete [] primitives;
 		primitives = new_primitives;
 	}
-	
-	//inline void update() const {
-	//	for (int i = 0; i < primitive_count; i++) {
-	//		primitives[i].update();
-	//	}
-	//}
+
+	inline void build_sbvh() {
+		float * sah = new float[primitive_count];
+		
+		std::sort(indices_x, indices_x + primitive_count, [&](int a, int b) { return primitives[a].get_position().x < primitives[b].get_position().x; });
+		std::sort(indices_y, indices_y + primitive_count, [&](int a, int b) { return primitives[a].get_position().y < primitives[b].get_position().y; });
+		std::sort(indices_z, indices_z + primitive_count, [&](int a, int b) { return primitives[a].get_position().z < primitives[b].get_position().z; });
+		
+		int * indices[3] = { indices_x, indices_y, indices_z };
+
+		int * temp[2] = { new int[primitive_count], new int[primitive_count] };
+
+		AABB root_aabb = BVHPartitions::calculate_bounds(primitives, indices[0], 0, primitive_count);
+
+		int node_index = 2;
+		int leaf_count = BVHBuilders::build_sbvh<Triangle>(nodes[0], primitives, indices, nodes, node_index, 0, primitive_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
+
+		printf("SBVH Leaf count: %i\n", leaf_count);
+
+		assert(node_index <= 2 * primitive_count);
+
+		node_count = node_index;
+
+		delete [] temp[0];
+		delete [] temp[1];
+		delete [] sah;
+		
+		primitive_count = leaf_count;
+		PrimitiveType * new_primitives = new PrimitiveType[primitive_count];
+
+		for (int i = 0; i < primitive_count; i++) {
+			new_primitives[i] = primitives[indices_x[i]];
+		}
+
+		delete [] primitives;
+		primitives = new_primitives;
+	}
 };
