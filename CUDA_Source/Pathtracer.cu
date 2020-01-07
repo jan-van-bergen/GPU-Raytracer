@@ -119,11 +119,26 @@ __device__ Triangle * triangles;
 
 struct BVHNode {
 	AABB aabb;
-	int left_or_first;
+	union {
+		int left;
+		int first;
+	};
 	int count;
 
 	__device__ inline bool is_leaf() const {
-		return count > 0;
+		return (count & (~BVH_AXIS_MASK)) > 0;
+	}
+
+	__device__ inline bool should_visit_left_first(const Ray & ray) const {
+#if BVH_TRAVERSAL_STRATEGY == BVH_TRAVERSE_TREE_NAIVE
+		return true; // Naive always goes left first
+#elif BVH_TRAVERSAL_STRATEGY == BVH_TRAVERSE_TREE_ORDERED
+		switch (count & BVH_AXIS_MASK) {
+			case BVH_AXIS_X_BITS: return ray.direction.x > 0.0f;
+			case BVH_AXIS_Y_BITS: return ray.direction.y > 0.0f;
+			case BVH_AXIS_Z_BITS: return ray.direction.z > 0.0f;
+		}
+#endif
 	}
 };
 
@@ -177,26 +192,25 @@ __device__ void bvh_traverse(const Ray & ray, RayHit & ray_hit) {
 	// Push root on stack
 	stack[0] = 0;
 
-	int step = 0;
-
 	while (stack_size > 0) {
 		// Pop Node of the stack
-		int index = stack[--stack_size]; 
-		const BVHNode & node = bvh_nodes[index];
+		const BVHNode & node = bvh_nodes[stack[--stack_size]];
 
 		if (node.aabb.intersects(ray, ray_hit.distance)) {
 			if (node.is_leaf()) {
-				for (int i = node.left_or_first; i < node.left_or_first + node.count; i++) {
+				for (int i = node.first; i < node.first + node.count; i++) {
 					check_triangle(triangles[i], ray, ray_hit);
 				}
 			} else {
-				// @TODO: left first only for now!
-				stack[stack_size++] = node.left_or_first + 1;
-				stack[stack_size++] = node.left_or_first;
+				if (node.should_visit_left_first(ray)) {
+					stack[stack_size++] = node.left + 1;
+					stack[stack_size++] = node.left;
+				} else {
+					stack[stack_size++] = node.left;
+					stack[stack_size++] = node.left + 1;
+				}
 			}
 		}
-
-		step++;
 	}
 }
 
@@ -227,9 +241,9 @@ __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 
 __device__ float3 sample(unsigned & seed, Ray & ray) {
 	const int ITERATIONS = 5;
-
+	
 	float3 throughput = make_float3(1.0f, 1.0f, 1.0f);
-
+	
 	for (int i = 0; i < ITERATIONS; i++) {
 		// Check ray against all triangles
 		RayHit hit;
@@ -237,18 +251,14 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 
 		// Check if we didn't hit anything
 		if (hit.distance == INFINITY) {
-			throughput = make_float3(0.0f, 0.0f, 0.0f);
-
-			break;
+			return make_float3(0.0f);
 		}
 
 		const Material & material = materials[hit.material_id];
 
 		// Check if we hit a Light
 		if (material.emittance.x > 0.0f || material.emittance.y > 0.0f || material.emittance.z > 0.0f) {
-			throughput *= material.emittance;
-
-			break;
+			return throughput * material.emittance;
 		}
 
 		// Create new Ray in random direction on the hemisphere defined by the normal
@@ -260,7 +270,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
 	}
 
-	return throughput;
+	return make_float3(0.0f);
 }
 
 extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_moved) {

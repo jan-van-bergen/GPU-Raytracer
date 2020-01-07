@@ -3,25 +3,13 @@
 
 #include "BVHBuilders.h"
 
-#define BVH_TRAVERSE_BRUTE_FORCE  0 // Doesn't use the tree structure of the BVH, checks every Primitive for every Ray
-#define BVH_TRAVERSE_TREE_NAIVE   1 // Traverses the BVH in a naive way, always checking the left Node before the right Node
-#define BVH_TRAVERSE_TREE_ORDERED 2 // Traverses the BVH based on the split axis and the direction of the Ray
-
-#define BVH_TRAVERSAL_STRATEGY BVH_TRAVERSE_TREE_ORDERED
-
-#define BVH_AXIS_X_BITS 0x40000000 // 01 00 zeroes...
-#define BVH_AXIS_Y_BITS 0x80000000 // 10 00 zeroes...
-#define BVH_AXIS_Z_BITS 0xc0000000 // 11 00 zeroes...
-#define BVH_AXIS_MASK   0xc0000000 // 11 00 zeroes...
-
 struct BVHNode {
 	AABB aabb;
-	int left_or_first;
+	union {
+		int left;
+		int first;
+	};
 	int count; // Stores split axis in its 2 highest bits, count in its lowest 30 bits
-
-	inline bool is_leaf() const {
-		return (count & (~BVH_AXIS_MASK)) > 0;
-	}
 };
 
 template<typename PrimitiveType>

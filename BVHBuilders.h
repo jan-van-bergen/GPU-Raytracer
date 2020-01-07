@@ -12,13 +12,13 @@ namespace BVHBuilders {
 		
 		if (index_count < 3) {
 			// Leaf Node, terminate recursion
-			node.left_or_first = first_index;
+			node.first = first_index;
 			node.count = index_count;
 
 			return;
 		}
 		
-		node.left_or_first = node_index;
+		node.left = node_index;
 		node_index += 2;
 		
 		int split_dimension;
@@ -28,7 +28,7 @@ namespace BVHBuilders {
 		// Check SAH termination condition
 		float parent_cost = node.aabb.surface_area() * float(index_count); 
 		if (split_cost >= parent_cost) {
-			node.left_or_first = first_index;
+			node.first = first_index;
 			node.count = index_count;
 
 			return;
@@ -37,13 +37,13 @@ namespace BVHBuilders {
 		float split = primitives[indices[split_dimension][split_index]].get_position()[split_dimension];
 		BVHPartitions::split_indices(primitives, indices, first_index, index_count, temp, split_dimension, split_index, split);
 
-		node.count = 0;
+		node.count = (split_dimension + 1) << 30;
 
 		int n_left  = split_index - first_index;
 		int n_right = first_index + index_count - split_index;
 
-		build_bvh(nodes[node.left_or_first    ], primitives, indices, nodes, node_index, first_index,          n_left,  sah, temp);
-		build_bvh(nodes[node.left_or_first + 1], primitives, indices, nodes, node_index, first_index + n_left, n_right, sah, temp);
+		build_bvh(nodes[node.left    ], primitives, indices, nodes, node_index, first_index,          n_left,  sah, temp);
+		build_bvh(nodes[node.left + 1], primitives, indices, nodes, node_index, first_index + n_left, n_right, sah, temp);
 	}
 
 	template<typename PrimitiveType>
@@ -52,13 +52,13 @@ namespace BVHBuilders {
 
 		if (index_count < 3) {
 			// Leaf Node, terminate recursion
-			node.left_or_first = first_index;
+			node.first = first_index;
 			node.count = index_count;
 			
 			return node.count;
 		}
 		
-		node.left_or_first = node_index;
+		node.left = node_index;
 		node_index += 2;
 
 		// Object Split information
@@ -102,7 +102,7 @@ namespace BVHBuilders {
 		// Check SAH termination condition
 		float parent_cost = node.aabb.surface_area() * float(index_count); 
 		if (parent_cost <= object_split_cost && parent_cost <= spatial_split_cost) {
-			node.left_or_first = first_index;
+			node.first = first_index;
 			node.count = index_count;
 			
 			return node.count;

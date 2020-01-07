@@ -13,7 +13,7 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 
 	bool should_recompile = true;
 
-	char output_filename[256];
+	char output_filename[128];
 #ifdef _DEBUG
 	sprintf_s(output_filename, "%s.debug.cubin", filename);
 #else
