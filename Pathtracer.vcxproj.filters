@@ -19,6 +19,7 @@
     <ClCompile Include="AABB.cpp">
       <Filter>BVH</Filter>
     </ClCompile>
+    <ClCompile Include="Sky.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CUDAModule.h">
@@ -83,6 +84,7 @@
     <ClInclude Include="BVHPartitions.h">
       <Filter>BVH</Filter>
     </ClInclude>
+    <ClInclude Include="Sky.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">

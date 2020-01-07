@@ -14,6 +14,8 @@
 #include "MeshData.h"
 #include "BVH.h"
 
+#include "Sky.h"
+
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
@@ -43,7 +45,7 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("SceneDetailed.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("sponza/sponza.obj"));
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
@@ -98,7 +100,7 @@ int main(int argument_count, char ** arguments) {
 		bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
 	}
 
-	bvh.build_bvh();
+	bvh.build_sbvh();
 
 	// Set global Triangle buffer
 	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(bvh.primitive_count);
@@ -111,6 +113,17 @@ int main(int argument_count, char ** arguments) {
 	CUDAMemory::memcpy(nodes_ptr, bvh.nodes, bvh.node_count);
 
 	module.get_global("bvh_nodes").set(nodes_ptr);
+
+	// Set Sky globals
+	Sky sky;
+	sky.init(DATA_PATH("Sky_Probes/rnl_probe.float"));
+
+	module.get_global("sky_size").set(sky.size);
+
+	CUdeviceptr sky_data_ptr = CUDAMemory::malloc<Vector3>(sky.size * sky.size);
+	CUDAMemory::memcpy(sky_data_ptr, sky.data, sky.size * sky.size);
+
+	module.get_global("sky_data").set(sky_data_ptr);
 
 	// Set Camera globals
 	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
@@ -133,6 +146,9 @@ int main(int argument_count, char ** arguments) {
 	srand(time(nullptr));
 
 	float frames_since_last_camera_moved = 0.0f;
+
+	camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
+	camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
 
 	// Game loop
 	while (!window.is_closed) {

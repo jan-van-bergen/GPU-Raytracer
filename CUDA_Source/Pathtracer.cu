@@ -5,8 +5,6 @@
 
 #include "../Common.h"
 
-#define PI 3.14159265359f
-
 surface<void, 2> frame_buffer;
 
 // Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
@@ -157,12 +155,12 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 	float3 s = ray.origin - triangle.position0;
 	float  u = f * dot(s, h);
 
-	if (u < -EPSILON || u > 1.0f + EPSILON) return;
+	if (u < 0.0f || u > 1.0f) return;
 
 	float3 q = cross(s, edge1);
 	float  v = f * dot(ray.direction, q);
 
-	if (v < -EPSILON || u + v > 1.0f + EPSILON) return;
+	if (v < 0.0f || u + v > 1.0f) return;
 
 	float t = f * dot(edge2, q);
 
@@ -211,6 +209,27 @@ __device__ void bvh_traverse(const Ray & ray, RayHit & ray_hit) {
 	}
 }
 
+__device__ int      sky_size;
+__device__ float3 * sky_data;
+
+__device__ float3 sample_sky(const float3 & direction) {
+	// Formulas as described on https://www.pauldebevec.com/Probes/
+    float r = 0.5f * ONE_OVER_PI * acos(direction.z) * rsqrt(direction.x*direction.x + direction.y*direction.y);
+
+	float u = direction.x * r + 0.5f;
+	float v = direction.y * r + 0.5f;
+
+	// Convert to pixel coordinates
+	int x = int(u * sky_size);
+	int y = int(v * sky_size);
+
+	int index = x + y * sky_size;
+	index = max(index, 0);
+	index = min(index, sky_size * sky_size);
+
+	return 0.1f * ONE_OVER_PI * sky_data[index];
+}
+
 __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 	float3 direction;
 	float  length_squared;
@@ -248,7 +267,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 
 		// Check if we didn't hit anything
 		if (hit.distance == INFINITY) {
-			return make_float3(0.0f);
+			return sample_sky(ray.direction);
 		}
 
 		const Material & material = materials[hit.material_id];
@@ -264,7 +283,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 		ray.origin    = hit.point;
 		ray.direction = diffuse_reflection_direction;
 		ray.direction_inv = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
-		
+
 		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
 	}
 
