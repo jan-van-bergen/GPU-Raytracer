@@ -52,7 +52,7 @@ int main(int argument_count, char ** arguments) {
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
 	// Set global Material table
-	CUdeviceptr materials_ptr = CUDAMemory::malloc<Material>(mesh->material_count);
+	CUDAMemory::Ptr<Material> materials_ptr = CUDAMemory::malloc<Material>(mesh->material_count);
 	CUDAMemory::memcpy(materials_ptr, mesh->materials, mesh->material_count);
 
 	module.get_global("materials").set(materials_ptr);
@@ -81,7 +81,7 @@ int main(int argument_count, char ** arguments) {
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
 		}
 
-		CUdeviceptr textures_ptr = CUDAMemory::malloc<CUtexObject>(Texture::texture_count);
+		CUDAMemory::Ptr<CUtexObject> textures_ptr = CUDAMemory::malloc<CUtexObject>(Texture::texture_count);
 		CUDAMemory::memcpy(textures_ptr, tex_objects, Texture::texture_count);
 
 		module.get_global("textures").set(textures_ptr);
@@ -109,13 +109,13 @@ int main(int argument_count, char ** arguments) {
 	}
 
 	// Set global Triangle buffer
-	CUdeviceptr triangles_ptr = CUDAMemory::malloc<Triangle>(bvh.primitive_count);
+	CUDAMemory::Ptr<Triangle> triangles_ptr = CUDAMemory::malloc<Triangle>(bvh.primitive_count);
 	CUDAMemory::memcpy(triangles_ptr, bvh.primitives, bvh.primitive_count);
 
 	module.get_global("triangles").set(triangles_ptr);
 
 	// Set global BVHNode buffer
-	CUdeviceptr nodes_ptr = CUDAMemory::malloc<BVHNode>(bvh.node_count);
+	CUDAMemory::Ptr<BVHNode> nodes_ptr = CUDAMemory::malloc<BVHNode>(bvh.node_count);
 	CUDAMemory::memcpy(nodes_ptr, bvh.nodes, bvh.node_count);
 
 	module.get_global("bvh_nodes").set(nodes_ptr);
@@ -126,7 +126,7 @@ int main(int argument_count, char ** arguments) {
 
 	module.get_global("sky_size").set(sky.size);
 
-	CUdeviceptr sky_data_ptr = CUDAMemory::malloc<Vector3>(sky.size * sky.size);
+	CUDAMemory::Ptr<Vector3> sky_data_ptr = CUDAMemory::malloc<Vector3>(sky.size * sky.size);
 	CUDAMemory::memcpy(sky_data_ptr, sky.data, sky.size * sky.size);
 
 	module.get_global("sky_data").set(sky_data_ptr);

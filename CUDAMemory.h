@@ -2,14 +2,22 @@
 #include "CUDACall.h"
 
 namespace CUDAMemory {
+	// Type safe device pointer wrapper
 	template<typename T>
-	inline CUdeviceptr malloc(int count = 1) {
+	struct Ptr {
+		CUdeviceptr ptr;
+
+		Ptr(CUdeviceptr ptr) : ptr(ptr) { }
+	};
+
+	template<typename T>
+	inline Ptr<T> malloc(int count = 1) {
 		assert(count > 0);
 
 		CUdeviceptr ptr;
 		CUDACALL(cuMemAlloc(&ptr, count * sizeof(T)));
 
-		return ptr;
+		return Ptr<T>(ptr);
 	}
 
 	inline CUarray create_array(int width, int height, int channels, CUarray_format format) {
@@ -40,10 +48,10 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void memcpy(CUdeviceptr ptr, const T * data, int count = 1) {
+	inline void memcpy(Ptr<T> ptr, const T * data, int count = 1) {
 		assert(data);
 		assert(count > 0);
 
-		CUDACALL(cuMemcpyHtoD(ptr, data, count * sizeof(T)));
+		CUDACALL(cuMemcpyHtoD(ptr.ptr, data, count * sizeof(T)));
 	}
 }

@@ -258,7 +258,7 @@ __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 __device__ float3 sample(unsigned & seed, Ray & ray) {
 	const int ITERATIONS = 5;
 	
-	float3 throughput = make_float3(1.0f, 1.0f, 1.0f);
+	float3 throughput = make_float3(1.0f);
 	
 	for (int i = 0; i < ITERATIONS; i++) {
 		// Check ray against all triangles
