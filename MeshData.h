@@ -21,7 +21,7 @@ struct Triangle {
 	alignas(8) Vector2 tex_coord1;
 	alignas(8) Vector2 tex_coord2;
 
-	int material_id;
+	int material_id = -1;
 
 	Vector3 get_position() const {
 		return (position0 + position1 + position2) * 0.333333333333333f;

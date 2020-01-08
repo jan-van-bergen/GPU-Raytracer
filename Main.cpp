@@ -47,7 +47,7 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("sponza/sponza.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("pica/pica.obj"));
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
@@ -151,7 +151,7 @@ int main(int argument_count, char ** arguments) {
 
 	srand(time(nullptr));
 
-	float frames_since_last_camera_moved = 0.0f;
+	float frames_since_camera_moved = 0.0f;
 
 	camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
 	camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
@@ -166,12 +166,12 @@ int main(int argument_count, char ** arguments) {
 		global_camera_y_axis.set(camera.y_axis_rotated);
 
 		if (camera.moved) {
-			frames_since_last_camera_moved = 0.0f;
+			frames_since_camera_moved = 0.0f;
 		} else {
-			frames_since_last_camera_moved += 1.0f;
+			frames_since_camera_moved += 1.0f;
 		}
 
-		kernel.execute(rand(), frames_since_last_camera_moved);
+		kernel.execute(rand(), frames_since_camera_moved);
 
 		window.update();
 

@@ -290,11 +290,11 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 	return make_float3(0.0f);
 }
 
-extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_moved) {
+extern "C" __global__ void trace_ray(int random, float frames_since_camera_moved) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	unsigned seed = wang_hash(x*random + y*random * SCREEN_WIDTH);
+	unsigned seed = wang_hash((x + y * SCREEN_WIDTH) * random);
 	
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = x + random_float(seed);
@@ -312,12 +312,12 @@ extern "C" __global__ void trace_ray(int random, float frames_since_last_camera_
 	float3 colour = sample(seed, ray);
 
 	// If the Camera hasn't moved, average over previous frames
-	if (frames_since_last_camera_moved > 0.0f) {
+	if (frames_since_camera_moved > 0.0f) {
 		float4 prev;
 		surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
 
 		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour = (make_float3(prev) * (frames_since_last_camera_moved - 1.0f) + colour) / frames_since_last_camera_moved;
+		colour = (make_float3(prev) * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
 	}
 
 	surf2Dwrite<float4>(make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
