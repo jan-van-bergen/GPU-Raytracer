@@ -27,7 +27,7 @@ int   current_frame = 0;
 
 int main(int argument_count, char ** arguments) {
 	Window window(SCREEN_WIDTH, SCREEN_HEIGHT, "Pathtracer");
-
+	
 	CUDAContext::init();
 
 	// Initialize timing stuff
@@ -153,8 +153,12 @@ int main(int argument_count, char ** arguments) {
 
 	float frames_since_camera_moved = 0.0f;
 
-	camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
-	camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
+	//camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
+	//camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
+	//camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
+	//camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
+	camera.position = Vector3(-10.604200f, 14.596893f, 17.185446f);
+	camera.rotation = Quaternion(-0.060299f, -0.934640f, 0.292899f, -0.192415f);
 
 	// Game loop
 	while (!window.is_closed) {

@@ -7,6 +7,8 @@
 
 surface<void, 2> frame_buffer;
 
+#define USE_IMPORTANCE_SAMPLING true
+
 // Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 __device__ unsigned wang_hash(unsigned seed) {
 	seed = (seed ^ 61) ^ (seed >> 16);
@@ -244,7 +246,7 @@ __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 	} while (length_squared > 1.0f);
 
 	// Normalize direction to obtain a random point on the unit sphere
-	float  inv_length = 1.0f / sqrt(length_squared);
+	float  inv_length = rsqrt(length_squared);
 	float3 random_point_on_unit_sphere = inv_length * direction;
 
 	// If the point is on the wrong hemisphere, return its negative
@@ -253,6 +255,36 @@ __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 	}
 
 	return random_point_on_unit_sphere;
+}
+
+__device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const float3 & normal) {
+	float r0 = random_float(seed);
+	float r1 = random_float(seed);
+	float theta = TWO_PI * r1;
+
+	float r = sqrtf(r0);
+	float x = r * cosf(theta); // @TODO: use SINCOS
+	float y = r * sinf(theta);
+	
+	float3 direction = normalize(make_float3(x, y, sqrtf(1.0f - r0)));
+	
+	// Calculate a tangent vector from the normal vector
+	float3 tangent;
+	if (fabs(normal.x) > fabs(normal.y)) {
+		tangent = make_float3(normal.z, 0.0f, -normal.x) * rsqrt(normal.x * normal.x + normal.z * normal.z);
+	} else {
+		tangent = make_float3(0.0f, -normal.z, normal.y) * rsqrt(normal.y * normal.y + normal.z * normal.z);
+	}
+
+	// The binormal is perpendicular to both the normal and tangent vectors
+	float3 binormal = cross(normal, tangent);
+
+	// Multiply the direction with the TBN matrix
+	return normalize(make_float3(
+		tangent.x * direction.x + binormal.x * direction.y + normal.x * direction.z, 
+		tangent.y * direction.x + binormal.y * direction.y + normal.y * direction.z, 
+		tangent.z * direction.x + binormal.z * direction.y + normal.z * direction.z
+	));
 }
 
 __device__ float3 sample(unsigned & seed, Ray & ray) {
@@ -278,13 +310,21 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 		}
 
 		// Create new Ray in random direction on the hemisphere defined by the normal
+#if USE_IMPORTANCE_SAMPLING
+		float3 diffuse_reflection_direction = cosine_weighted_diffuse_reflection(seed, hit.normal);
+#else
 		float3 diffuse_reflection_direction = diffuse_reflection(seed, hit.normal);
-
+#endif
+		
 		ray.origin    = hit.point;
 		ray.direction = diffuse_reflection_direction;
 		ray.direction_inv = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
 
+#if USE_IMPORTANCE_SAMPLING
+		throughput *= material.albedo(hit.uv.x, hit.uv.y);
+#else
 		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
+#endif
 	}
 
 	return make_float3(0.0f);
