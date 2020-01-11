@@ -292,7 +292,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 	
 	float3 throughput = make_float3(1.0f);
 	
-	for (int i = 0; i < ITERATIONS; i++) {
+	for (int bounce = 0; bounce < ITERATIONS; bounce++) {
 		// Check ray against all triangles
 		RayHit hit;
 		bvh_traverse(ray, hit);
@@ -326,13 +326,15 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
 #endif
 
-		// Russian Roulette
-        float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
-        if (random_float(seed) > one_minus_p) {
-            break;
-        }
+		// Russian Roulette termination after at least four bounces
+		if (bounce > 3) {
+			float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
+			if (random_float(seed) > one_minus_p) {
+				break;
+			}
 
-        throughput /= one_minus_p;
+			throughput /= one_minus_p;
+		}
 	}
 
 	return make_float3(0.0f);
