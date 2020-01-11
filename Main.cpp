@@ -47,7 +47,7 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("pica/pica.obj"));
+	const MeshData * mesh = MeshData::load(DATA_PATH("sponza/sponza.obj"));
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
@@ -155,10 +155,8 @@ int main(int argument_count, char ** arguments) {
 
 	//camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
 	//camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
-	//camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
-	//camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
-	camera.position = Vector3(-10.604200f, 14.596893f, 17.185446f);
-	camera.rotation = Quaternion(-0.060299f, -0.934640f, 0.292899f, -0.192415f);
+	camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
+	camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
 
 	// Game loop
 	while (!window.is_closed) {

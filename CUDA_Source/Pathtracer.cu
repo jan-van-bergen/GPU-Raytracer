@@ -288,7 +288,7 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 }
 
 __device__ float3 sample(unsigned & seed, Ray & ray) {
-	const int ITERATIONS = 5;
+	const int ITERATIONS = 10;
 	
 	float3 throughput = make_float3(1.0f);
 	
@@ -325,6 +325,14 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 #else
 		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
 #endif
+
+		// Russian Roulette
+        float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
+        if (random_float(seed) > one_minus_p) {
+            break;
+        }
+
+        throughput /= one_minus_p;
 	}
 
 	return make_float3(0.0f);
