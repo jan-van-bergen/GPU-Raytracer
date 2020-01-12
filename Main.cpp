@@ -47,7 +47,8 @@ int main(int argument_count, char ** arguments) {
 	CUDAModule module;
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
-	const MeshData * mesh = MeshData::load(DATA_PATH("sponza/sponza.obj"));
+	const char * scene_name = DATA_PATH("scene.obj");
+	const MeshData * mesh = MeshData::load(scene_name);
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
@@ -114,6 +115,74 @@ int main(int argument_count, char ** arguments) {
 
 	module.get_global("triangles").set(triangles_ptr);
 
+	struct Light {
+		int index;
+		float area;
+	} * lights = new Light[mesh->triangle_count];
+	int light_count = 0;
+
+	float total_light_area = 0.0f;
+
+	for (int i = 0; i < mesh->triangle_count; i++) {
+		const Triangle & triangle = mesh->triangles[i];
+
+		if (Vector3::length_squared(mesh->materials[triangle.material_id].emittance) > 0.0f) {
+			float triangle_area = 0.5f * Vector3::length(Vector3::cross(
+				triangle.position1 - triangle.position0,
+				triangle.position2 - triangle.position0
+			));
+
+			int index = -1;
+			for (int j = 0; j < bvh.primitive_count; j++) {
+				if (bvh.indices_x[j] == i) {
+					index = j;
+
+					break;
+				}
+			}
+
+			lights[light_count].index = index;
+			lights[light_count].area = triangle_area;
+			light_count++;
+
+			total_light_area += triangle_area;
+		}
+	}
+	
+	if (light_count > 0) {
+		std::sort(lights, lights + light_count, [](const Light & a, const Light & b) {
+			return a.area > b.area;
+		});
+
+		int   * light_indices = new int  [light_count];
+		float * light_areas   = new float[light_count];
+
+		light_indices[0] = lights[0].index;
+		light_areas  [0] = lights[0].area;
+
+		for (int i = 1; i < light_count; i++) {
+			light_indices[i] = lights[i].index;
+			light_areas  [i] = lights[i].area + light_areas[i - 1]; // Light areas should be cumulative
+
+			assert(Vector3::length_squared(mesh->materials[bvh.primitives[lights[i].index].material_id].emittance) > 0.0f);
+		}
+
+		CUDAMemory::Ptr<int>   light_indices_ptr = CUDAMemory::malloc<int>  (light_count);
+		CUDAMemory::Ptr<float> light_areas_ptr   = CUDAMemory::malloc<float>(light_count);
+
+		CUDAMemory::memcpy(light_indices_ptr, light_indices, light_count);
+		CUDAMemory::memcpy(light_areas_ptr,   light_areas,   light_count);
+	
+		module.get_global("light_indices").set(light_indices_ptr);
+		module.get_global("light_areas").set(light_areas_ptr);
+		module.get_global("total_light_area").set(total_light_area);
+
+		delete [] light_indices;
+		delete [] light_areas;
+	}
+
+	module.get_global("light_count").set(light_count);
+
 	// Set global BVHNode buffer
 	CUDAMemory::Ptr<BVHNode> nodes_ptr = CUDAMemory::malloc<BVHNode>(bvh.node_count);
 	CUDAMemory::memcpy(nodes_ptr, bvh.nodes, bvh.node_count);
@@ -149,14 +218,22 @@ int main(int argument_count, char ** arguments) {
 
 	last = SDL_GetPerformanceCounter();
 
-	srand(time(nullptr));
+	srand(1337);
 
 	float frames_since_camera_moved = 0.0f;
 
-	//camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
-	//camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
-	camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
-	camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
+	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
+		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
+		camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
+	} else if (strcmp(scene_name, DATA_PATH("sponza/sponza.obj")) == 0) {
+		camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
+		camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
+	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
+		//camera.position = Vector3(2.414786f, 0.787092f, 3.402285f);
+		//camera.rotation = Quaternion(-0.010574f, 0.950989f, -0.032722f, -0.307306f);
+		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
+		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
+	}
 
 	// Game loop
 	while (!window.is_closed) {
@@ -173,7 +250,7 @@ int main(int argument_count, char ** arguments) {
 			frames_since_camera_moved += 1.0f;
 		}
 
-		kernel.execute(rand(), frames_since_camera_moved);
+		kernel.execute(rand() + SCREEN_WIDTH * SCREEN_HEIGHT, frames_since_camera_moved);
 
 		window.update();
 

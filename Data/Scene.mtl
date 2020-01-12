@@ -1,4 +1,7 @@
 # Blender MTL File: 'None'
+# Material Count: 7
+
+# Blender MTL File: 'None'
 # Material Count: 6
 
 newmtl AreaLight
@@ -57,6 +60,16 @@ newmtl RedCube
 Ns 225.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.800000 0.000000 0.008725
+Ks 0.500000 0.500000 0.500000
+Ke 0.0 0.0 0.0
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Box
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.200000 0.200000 0.200000
 Ks 0.500000 0.500000 0.500000
 Ke 0.0 0.0 0.0
 Ni 1.450000

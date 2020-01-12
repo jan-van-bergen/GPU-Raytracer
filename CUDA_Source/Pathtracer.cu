@@ -5,6 +5,9 @@
 
 #include "../Common.h"
 
+#define ASSERT(proposition) assert(proposition)
+//#define ASSERT(proposition) 
+
 surface<void, 2> frame_buffer;
 
 #define USE_IMPORTANCE_SAMPLING true
@@ -59,6 +62,11 @@ struct Material {
 		return diffuse * make_float3(tex_colour);
 	}
 };
+
+__device__ int     light_count;
+__device__ int   * light_indices;
+__device__ float * light_areas;
+__device__ float total_light_area;
 
 struct Ray {
 	float3 origin;
@@ -146,7 +154,7 @@ __device__ float3 camera_top_left_corner;
 __device__ float3 camera_x_axis;
 __device__ float3 camera_y_axis;
 
-__device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHit & ray_hit) {
+__device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHit & ray_hit) {
 	float3 edge1 = triangle.position1 - triangle.position0;
 	float3 edge2 = triangle.position2 - triangle.position0;
 
@@ -182,7 +190,32 @@ __device__ void check_triangle(const Triangle & triangle, const Ray & ray, RayHi
 		+ v * (triangle.tex_coord2 - triangle.tex_coord0);
 }
 
-__device__ void bvh_traverse(const Ray & ray, RayHit & ray_hit) {
+__device__ bool triangle_intersect(const Triangle & triangle, const Ray & ray, float max_distance) {
+	float3 edge1 = triangle.position1 - triangle.position0;
+	float3 edge2 = triangle.position2 - triangle.position0;
+
+	float3 h = cross(ray.direction, edge2);
+	float  a = dot(edge1, h);
+
+	float  f = 1.0f / a;
+	float3 s = ray.origin - triangle.position0;
+	float  u = f * dot(s, h);
+
+	if (u < 0.0f || u > 1.0f) return false;
+
+	float3 q = cross(s, edge1);
+	float  v = f * dot(ray.direction, q);
+
+	if (v < 0.0f || u + v > 1.0f) return false;
+
+	float t = f * dot(edge2, q);
+
+	if (t < EPSILON || t >= max_distance) return false;
+
+	return true;
+}
+
+__device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 	int stack[64];
 	int stack_size = 1;
 
@@ -196,7 +229,7 @@ __device__ void bvh_traverse(const Ray & ray, RayHit & ray_hit) {
 		if (node.aabb.intersects(ray, ray_hit.distance)) {
 			if (node.is_leaf()) {
 				for (int i = node.first; i < node.first + node.count; i++) {
-					check_triangle(triangles[i], ray, ray_hit);
+					triangle_trace(triangles[i], ray, ray_hit);
 				}
 			} else {
 				if (node.should_visit_left_first(ray)) {
@@ -209,6 +242,39 @@ __device__ void bvh_traverse(const Ray & ray, RayHit & ray_hit) {
 			}
 		}
 	}
+}
+
+__device__ bool bvh_intersect(const Ray & ray, float max_distance) {
+	int stack[64];
+	int stack_size = 1;
+
+	// Push root on stack
+	stack[0] = 0;
+
+	while (stack_size > 0) {
+		// Pop Node of the stack
+		const BVHNode & node = bvh_nodes[stack[--stack_size]];
+
+		if (node.aabb.intersects(ray, max_distance)) {
+			if (node.is_leaf()) {
+				for (int i = node.first; i < node.first + node.count; i++) {
+					if (triangle_intersect(triangles[i], ray, max_distance)) {
+						return true;
+					}
+				}
+			} else {
+				if (node.should_visit_left_first(ray)) {
+					stack[stack_size++] = node.left + 1;
+					stack[stack_size++] = node.left;
+				} else {
+					stack[stack_size++] = node.left;
+					stack[stack_size++] = node.left + 1;
+				}
+			}
+		}
+	}
+
+	return false;
 }
 
 __device__ int      sky_size;
@@ -260,11 +326,13 @@ __device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
 __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const float3 & normal) {
 	float r0 = random_float(seed);
 	float r1 = random_float(seed);
-	float theta = TWO_PI * r1;
+
+	float sin_theta, cos_theta;
+	sincos(TWO_PI * r1, &sin_theta, &cos_theta);
 
 	float r = sqrtf(r0);
-	float x = r * cosf(theta); // @TODO: use SINCOS
-	float y = r * sinf(theta);
+	float x = r * cos_theta;
+	float y = r * sin_theta;
 	
 	float3 direction = normalize(make_float3(x, y, sqrtf(1.0f - r0)));
 	
@@ -287,15 +355,48 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 	));
 }
 
+__device__ int random_light(unsigned & seed) {
+	// return light_indices[rand_xorshift(seed) % light_count];
+	float p = random_float(seed) * total_light_area;
+
+	// int first = 0;
+	// int last  = light_count - 1;
+	// int middle = (first + last) >> 1;
+
+	// while (first <= last) {
+	// 	if (middle == 0 || (light_areas[middle] >= p && light_areas[middle - 1] < p)) {
+	// 		break;
+	// 	}
+
+	// 	if (light_areas[middle] < p) {
+	// 		first = middle + 1;
+	// 	} else {
+	// 		last = middle - 1;
+	// 	}
+
+	// 	middle = (first + last) >> 1;
+	// }
+
+	int middle = 0;
+	while (light_areas[middle] < p) {
+		middle++;
+
+		ASSERT(middle < light_count);
+	}
+
+	return light_indices[middle];
+}
+
 __device__ float3 sample(unsigned & seed, Ray & ray) {
-	const int ITERATIONS = 10;
+	const int ITERATIONS = 5;
 	
+	float3 colour     = make_float3(0.0f);
 	float3 throughput = make_float3(1.0f);
 	
 	for (int bounce = 0; bounce < ITERATIONS; bounce++) {
 		// Check ray against all triangles
 		RayHit hit;
-		bvh_traverse(ray, hit);
+		bvh_trace(ray, hit);
 
 		// Check if we didn't hit anything
 		if (hit.distance == INFINITY) {
@@ -305,26 +406,79 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 		const Material & material = materials[hit.material_id];
 
 		// Check if we hit a Light
-		if (material.emittance.x > 0.0f || material.emittance.y > 0.0f || material.emittance.z > 0.0f) {
+		if (dot(material.emittance, material.emittance) > 0.0f) {
 			return throughput * material.emittance;
 		}
 
 		// Create new Ray in random direction on the hemisphere defined by the normal
 #if USE_IMPORTANCE_SAMPLING
-		float3 diffuse_reflection_direction = cosine_weighted_diffuse_reflection(seed, hit.normal);
+		float3 direction = cosine_weighted_diffuse_reflection(seed, hit.normal);
 #else
-		float3 diffuse_reflection_direction = diffuse_reflection(seed, hit.normal);
-#endif
-		
-		ray.origin    = hit.point;
-		ray.direction = diffuse_reflection_direction;
-		ray.direction_inv = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
+		float3 direction = diffuse_reflection(seed, hit.normal);
+#endif	
 
+		if (light_count == 0) {
 #if USE_IMPORTANCE_SAMPLING
-		throughput *= material.albedo(hit.uv.x, hit.uv.y);
+			throughput *= material.albedo(hit.uv.x, hit.uv.y);
 #else
-		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, diffuse_reflection_direction);
+			throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, direction);
 #endif
+		} else {
+			const Triangle & light_triangle = triangles[random_light(seed)];
+
+			ASSERT(length(materials[light_triangle.material_id].emittance) > 0.0f);
+		
+			// Pick a random point on the triangle using random barycentric coordinates
+			float u = random_float(seed);
+			float v = random_float(seed);
+
+			if (u + v > 1.0f) {
+				u = 1.0f - u;
+				v = 1.0f - v;
+			}
+
+			float3 edge1 = light_triangle.position1 - light_triangle.position0;
+			float3 edge2 = light_triangle.position2 - light_triangle.position0;
+
+			float3 random_point_on_light = light_triangle.position0 + u * edge1 + v * edge2;
+
+			// Calculate the area of the triangle light
+			float light_area = 0.5f * length(cross(edge1, edge2));
+
+			float3 to_light = random_point_on_light - hit.point;
+			float distance_to_light_squared = dot(to_light, to_light);
+			float distance_to_light         = sqrtf(distance_to_light_squared);
+
+			// Normalize the vector to the light
+			to_light /= distance_to_light;
+
+			float3 light_normal = light_triangle.normal0 
+				+ u * (light_triangle.normal1 - light_triangle.normal0)
+				+ v * (light_triangle.normal2 - light_triangle.normal0);
+
+			float cos_o = -dot(to_light, light_normal);
+			float cos_i =  dot(to_light, hit.normal);
+
+			if (cos_o <= 0.0f || cos_i <= 0.0f) break;
+
+			ray.origin    = hit.point;
+			ray.direction = to_light;
+			ray.direction_inv = make_float3(
+				1.0f / ray.direction.x, 
+				1.0f / ray.direction.y, 
+				1.0f / ray.direction.z
+			);
+
+			// Check if the light is obstructed by any other object in the scene
+			if (bvh_intersect(ray, distance_to_light - EPSILON)) break;
+
+			float3 brdf = material.albedo(hit.uv.x, hit.uv.y) * ONE_OVER_PI;
+			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
+
+			float3 light_colour = materials[light_triangle.material_id].emittance;
+
+			return brdf * light_count * light_colour * solid_angle * cos_i;
+		}
 
 		// Russian Roulette termination after at least four bounces
 		if (bounce > 3) {
@@ -335,6 +489,14 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 
 			throughput /= one_minus_p;
 		}
+		
+		ray.origin    = hit.point;
+		ray.direction = direction;
+		ray.direction_inv = make_float3(
+			1.0f / ray.direction.x, 
+			1.0f / ray.direction.y, 
+			1.0f / ray.direction.z
+		);
 	}
 
 	return make_float3(0.0f);
