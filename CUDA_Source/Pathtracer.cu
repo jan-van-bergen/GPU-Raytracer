@@ -5,8 +5,7 @@
 
 #include "../Common.h"
 
-#define ASSERT(proposition) assert(proposition)
-//#define ASSERT(proposition) 
+#define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
 
 surface<void, 2> frame_buffer;
 
@@ -60,6 +59,10 @@ struct Material {
 		}
 
 		return diffuse * make_float3(tex_colour);
+	}
+
+	__device__ bool is_light() const {
+		return dot(emittance, emittance) > 0.0f;
 	}
 };
 
@@ -348,11 +351,17 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 	float3 binormal = cross(normal, tangent);
 
 	// Multiply the direction with the TBN matrix
-	return normalize(make_float3(
+	direction = normalize(make_float3(
 		tangent.x * direction.x + binormal.x * direction.y + normal.x * direction.z, 
 		tangent.y * direction.x + binormal.y * direction.y + normal.y * direction.z, 
 		tangent.z * direction.x + binormal.z * direction.y + normal.z * direction.z
 	));
+
+	ASSERT(dot(direction, normal) > -1e-5, "Invalid dot: dot = %f, direction = (%f, %f, %f), normal = (%f, %f, %f)\n", 
+		dot(direction, normal), direction.x, direction.y, direction.z, normal.x, normal.y, normal.z
+	);
+
+	return direction;
 }
 
 __device__ float3 sample(unsigned & seed, Ray & ray) {
@@ -361,6 +370,8 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 	float3 colour     = make_float3(0.0f);
 	float3 throughput = make_float3(1.0f);
 	
+	bool last_specular = true;
+
 	for (int bounce = 0; bounce < ITERATIONS; bounce++) {
 		// Check ray against all triangles
 		RayHit hit;
@@ -368,34 +379,24 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 
 		// Check if we didn't hit anything
 		if (hit.distance == INFINITY) {
-			return throughput * sample_sky(ray.direction);
+			return colour + throughput * sample_sky(ray.direction);
 		}
 
 		const Material & material = materials[hit.material_id];
 
-		// Check if we hit a Light
-		if (dot(material.emittance, material.emittance) > 0.0f) {
-			return throughput * material.emittance;
-		}
+		if (light_count > 0) {
+			if (material.is_light()) {
+				if (last_specular) {
+					return colour + throughput * material.emittance;
+				} else {
+					return colour;
+				}
+			}
 
-		// Create new Ray in random direction on the hemisphere defined by the normal
-#if USE_IMPORTANCE_SAMPLING
-		float3 direction = cosine_weighted_diffuse_reflection(seed, hit.normal);
-#else
-		float3 direction = diffuse_reflection(seed, hit.normal);
-#endif	
-
-		if (light_count == 0) {
-#if USE_IMPORTANCE_SAMPLING
-			throughput *= material.albedo(hit.uv.x, hit.uv.y);
-#else
-			throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, direction);
-#endif
-		} else {
 			// Pick a random light emitting triangle
 			const Triangle & light_triangle = triangles[light_indices[rand_xorshift(seed) % light_count]];
 
-			ASSERT(length(materials[light_triangle.material_id].emittance) > 0.0f);
+			ASSERT(length(materials[light_triangle.material_id].emittance) > 0.0f, "Material was not emissive!\n");
 		
 			// Pick a random point on the triangle using random barycentric coordinates
 			float u = random_float(seed);
@@ -428,37 +429,47 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 			float cos_o = -dot(to_light, light_normal);
 			float cos_i =  dot(to_light, hit.normal);
 
-			if (cos_o <= 0.0f || cos_i <= 0.0f) break;
+			if (cos_o > 0.0f && cos_i > 0.0f) {
+				ray.origin    = hit.point;
+				ray.direction = to_light;
+				ray.direction_inv = make_float3(
+					1.0f / ray.direction.x, 
+					1.0f / ray.direction.y, 
+					1.0f / ray.direction.z
+				);
 
-			ray.origin    = hit.point;
-			ray.direction = to_light;
-			ray.direction_inv = make_float3(
-				1.0f / ray.direction.x, 
-				1.0f / ray.direction.y, 
-				1.0f / ray.direction.z
-			);
+				// Check if the light is obstructed by any other object in the scene
+				if (!bvh_intersect(ray, distance_to_light - EPSILON)) {
+					float3 brdf = material.albedo(hit.uv.x, hit.uv.y) * ONE_OVER_PI;
+					float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
-			// Check if the light is obstructed by any other object in the scene
-			if (bvh_intersect(ray, distance_to_light - EPSILON)) break;
+					float3 light_colour = materials[light_triangle.material_id].emittance;
 
-			float3 brdf = material.albedo(hit.uv.x, hit.uv.y) * ONE_OVER_PI;
-			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
-
-			float3 light_colour = materials[light_triangle.material_id].emittance;
-
-			return brdf * light_count * light_colour * solid_angle * cos_i;
+					colour += throughput * brdf * light_count * light_colour * solid_angle * cos_i;
+				}
+			}
 		}
+
+#if USE_IMPORTANCE_SAMPLING
+		float3 direction = cosine_weighted_diffuse_reflection(seed, hit.normal);
+
+		throughput *= material.albedo(hit.uv.x, hit.uv.y);
+#else
+		float3 direction = diffuse_reflection(seed, hit.normal);
+
+		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, direction);
+#endif
 
 		// Russian Roulette termination after at least four bounces
 		if (bounce > 3) {
 			float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
 			if (random_float(seed) > one_minus_p) {
-				break;
+				return colour;
 			}
 
 			throughput /= one_minus_p;
 		}
-		
+
 		ray.origin    = hit.point;
 		ray.direction = direction;
 		ray.direction_inv = make_float3(
@@ -466,6 +477,8 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 			1.0f / ray.direction.y, 
 			1.0f / ray.direction.z
 		);
+
+		last_specular = false;
 	}
 
 	return make_float3(0.0f);

@@ -136,7 +136,7 @@ int main(int argument_count, char ** arguments) {
 	}
 	
 	if (light_count > 0) {
-		CUDAMemory::Ptr<int>   light_indices_ptr = CUDAMemory::malloc<int>  (light_count);
+		CUDAMemory::Ptr<int> light_indices_ptr = CUDAMemory::malloc<int>(light_count);
 		CUDAMemory::memcpy(light_indices_ptr, light_indices, light_count);
 
 		module.get_global("light_indices").set(light_indices_ptr);
