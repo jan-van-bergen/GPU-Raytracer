@@ -355,38 +355,6 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 	));
 }
 
-__device__ int random_light(unsigned & seed) {
-	// return light_indices[rand_xorshift(seed) % light_count];
-	float p = random_float(seed) * total_light_area;
-
-	// int first = 0;
-	// int last  = light_count - 1;
-	// int middle = (first + last) >> 1;
-
-	// while (first <= last) {
-	// 	if (middle == 0 || (light_areas[middle] >= p && light_areas[middle - 1] < p)) {
-	// 		break;
-	// 	}
-
-	// 	if (light_areas[middle] < p) {
-	// 		first = middle + 1;
-	// 	} else {
-	// 		last = middle - 1;
-	// 	}
-
-	// 	middle = (first + last) >> 1;
-	// }
-
-	int middle = 0;
-	while (light_areas[middle] < p) {
-		middle++;
-
-		ASSERT(middle < light_count);
-	}
-
-	return light_indices[middle];
-}
-
 __device__ float3 sample(unsigned & seed, Ray & ray) {
 	const int ITERATIONS = 5;
 	
@@ -424,7 +392,8 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 			throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, direction);
 #endif
 		} else {
-			const Triangle & light_triangle = triangles[random_light(seed)];
+			// Pick a random light emitting triangle
+			const Triangle & light_triangle = triangles[light_indices[rand_xorshift(seed) % light_count]];
 
 			ASSERT(length(materials[light_triangle.material_id].emittance) > 0.0f);
 		

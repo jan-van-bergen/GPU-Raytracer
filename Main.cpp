@@ -115,23 +115,13 @@ int main(int argument_count, char ** arguments) {
 
 	module.get_global("triangles").set(triangles_ptr);
 
-	struct Light {
-		int index;
-		float area;
-	} * lights = new Light[mesh->triangle_count];
-	int light_count = 0;
-
-	float total_light_area = 0.0f;
+	int * light_indices = new int[mesh->triangle_count];
+	int   light_count = 0;
 
 	for (int i = 0; i < mesh->triangle_count; i++) {
 		const Triangle & triangle = mesh->triangles[i];
 
 		if (Vector3::length_squared(mesh->materials[triangle.material_id].emittance) > 0.0f) {
-			float triangle_area = 0.5f * Vector3::length(Vector3::cross(
-				triangle.position1 - triangle.position0,
-				triangle.position2 - triangle.position0
-			));
-
 			int index = -1;
 			for (int j = 0; j < bvh.primitive_count; j++) {
 				if (bvh.indices_x[j] == i) {
@@ -141,45 +131,18 @@ int main(int argument_count, char ** arguments) {
 				}
 			}
 
-			lights[light_count].index = index;
-			lights[light_count].area = triangle_area;
-			light_count++;
-
-			total_light_area += triangle_area;
+			light_indices[light_count++] = index;
 		}
 	}
 	
 	if (light_count > 0) {
-		std::sort(lights, lights + light_count, [](const Light & a, const Light & b) {
-			return a.area > b.area;
-		});
-
-		int   * light_indices = new int  [light_count];
-		float * light_areas   = new float[light_count];
-
-		light_indices[0] = lights[0].index;
-		light_areas  [0] = lights[0].area;
-
-		for (int i = 1; i < light_count; i++) {
-			light_indices[i] = lights[i].index;
-			light_areas  [i] = lights[i].area + light_areas[i - 1]; // Light areas should be cumulative
-
-			assert(Vector3::length_squared(mesh->materials[bvh.primitives[lights[i].index].material_id].emittance) > 0.0f);
-		}
-
 		CUDAMemory::Ptr<int>   light_indices_ptr = CUDAMemory::malloc<int>  (light_count);
-		CUDAMemory::Ptr<float> light_areas_ptr   = CUDAMemory::malloc<float>(light_count);
-
 		CUDAMemory::memcpy(light_indices_ptr, light_indices, light_count);
-		CUDAMemory::memcpy(light_areas_ptr,   light_areas,   light_count);
-	
-		module.get_global("light_indices").set(light_indices_ptr);
-		module.get_global("light_areas").set(light_areas_ptr);
-		module.get_global("total_light_area").set(total_light_area);
 
-		delete [] light_indices;
-		delete [] light_areas;
+		module.get_global("light_indices").set(light_indices_ptr);
 	}
+
+	delete [] light_indices;
 
 	module.get_global("light_count").set(light_count);
 
