@@ -365,7 +365,7 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 }
 
 __device__ float3 sample(unsigned & seed, Ray & ray) {
-	const int ITERATIONS = 5;
+	const int ITERATIONS = 10;
 	
 	float3 colour     = make_float3(0.0f);
 	float3 throughput = make_float3(1.0f);
