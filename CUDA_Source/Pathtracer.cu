@@ -106,19 +106,17 @@ struct AABB {
 };
 
 struct Triangle {
-	AABB aabb;
-
 	float3 position0;
-	float3 position1;
-	float3 position2;
+	float3 position_edge1;
+	float3 position_edge2;
 
 	float3 normal0;
-	float3 normal1;
-	float3 normal2; 
+	float3 normal_edge1;
+	float3 normal_edge2; 
 	
 	float2 tex_coord0;
-	float2 tex_coord1;
-	float2 tex_coord2;
+	float2 tex_coord_edge1;
+	float2 tex_coord_edge2;
 
 	int material_id;
 };
@@ -158,11 +156,8 @@ __device__ float3 camera_x_axis;
 __device__ float3 camera_y_axis;
 
 __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHit & ray_hit) {
-	float3 edge1 = triangle.position1 - triangle.position0;
-	float3 edge2 = triangle.position2 - triangle.position0;
-
-	float3 h = cross(ray.direction, edge2);
-	float  a = dot(edge1, h);
+	float3 h = cross(ray.direction, triangle.position_edge2);
+	float  a = dot(triangle.position_edge1, h);
 
 	float  f = 1.0f / a;
 	float3 s = ray.origin - triangle.position0;
@@ -170,12 +165,12 @@ __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHi
 
 	if (u < 0.0f || u > 1.0f) return;
 
-	float3 q = cross(s, edge1);
+	float3 q = cross(s, triangle.position_edge1);
 	float  v = f * dot(ray.direction, q);
 
 	if (v < 0.0f || u + v > 1.0f) return;
 
-	float t = f * dot(edge2, q);
+	float t = f * dot(triangle.position_edge2, q);
 
 	if (t < EPSILON || t >= ray_hit.distance) return;
 
@@ -185,20 +180,17 @@ __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHi
 
 	ray_hit.point = ray.origin + t * ray.direction;
 	ray_hit.normal = normalize(triangle.normal0 
-		+ u * (triangle.normal1 - triangle.normal0) 
-		+ v * (triangle.normal2 - triangle.normal0)
+		+ u * triangle.normal_edge1
+		+ v * triangle.normal_edge2
 	);
 	ray_hit.uv = triangle.tex_coord0 
-		+ u * (triangle.tex_coord1 - triangle.tex_coord0) 
-		+ v * (triangle.tex_coord2 - triangle.tex_coord0);
+		+ u * triangle.tex_coord_edge1 
+		+ v * triangle.tex_coord_edge2;
 }
 
 __device__ bool triangle_intersect(const Triangle & triangle, const Ray & ray, float max_distance) {
-	float3 edge1 = triangle.position1 - triangle.position0;
-	float3 edge2 = triangle.position2 - triangle.position0;
-
-	float3 h = cross(ray.direction, edge2);
-	float  a = dot(edge1, h);
+	float3 h = cross(ray.direction, triangle.position_edge2);
+	float  a = dot(triangle.position_edge1, h);
 
 	float  f = 1.0f / a;
 	float3 s = ray.origin - triangle.position0;
@@ -206,12 +198,12 @@ __device__ bool triangle_intersect(const Triangle & triangle, const Ray & ray, f
 
 	if (u < 0.0f || u > 1.0f) return false;
 
-	float3 q = cross(s, edge1);
+	float3 q = cross(s, triangle.position_edge1);
 	float  v = f * dot(ray.direction, q);
 
 	if (v < 0.0f || u + v > 1.0f) return false;
 
-	float t = f * dot(edge2, q);
+	float t = f * dot(triangle.position_edge2, q);
 
 	if (t < EPSILON || t >= max_distance) return false;
 
@@ -407,13 +399,12 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 				v = 1.0f - v;
 			}
 
-			float3 edge1 = light_triangle.position1 - light_triangle.position0;
-			float3 edge2 = light_triangle.position2 - light_triangle.position0;
-
-			float3 random_point_on_light = light_triangle.position0 + u * edge1 + v * edge2;
+			float3 random_point_on_light = light_triangle.position0 
+				+ u * light_triangle.position_edge1 
+				+ v * light_triangle.position_edge2;
 
 			// Calculate the area of the triangle light
-			float light_area = 0.5f * length(cross(edge1, edge2));
+			float light_area = 0.5f * length(cross(light_triangle.position_edge1, light_triangle.position_edge2));
 
 			float3 to_light = random_point_on_light - hit.point;
 			float distance_to_light_squared = dot(to_light, to_light);
@@ -423,8 +414,8 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 			to_light /= distance_to_light;
 
 			float3 light_normal = light_triangle.normal0 
-				+ u * (light_triangle.normal1 - light_triangle.normal0)
-				+ v * (light_triangle.normal2 - light_triangle.normal0);
+				+ u * light_triangle.normal_edge1
+				+ v * light_triangle.normal_edge2;
 
 			float cos_o = -dot(to_light, light_normal);
 			float cos_i =  dot(to_light, hit.normal);

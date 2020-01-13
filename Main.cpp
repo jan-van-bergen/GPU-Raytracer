@@ -109,9 +109,41 @@ int main(int argument_count, char ** arguments) {
 		bvh.build_sbvh();
 	}
 
+	struct GPUTriangle {
+		Vector3 position0;
+		Vector3 position_edge1;
+		Vector3 position_edge2;
+
+		Vector3 normal0;
+		Vector3 normal_edge1;
+		Vector3 normal_edge2; 
+	
+		alignas(8) Vector2 tex_coord0;
+		alignas(8) Vector2 tex_coord_edge1;
+		alignas(8) Vector2 tex_coord_edge2;
+
+		int material_id;
+	} * gpu_triangles = new GPUTriangle[bvh.primitive_count];
+
+	for (int i = 0; i < bvh.primitive_count; i++) {
+		gpu_triangles[i].position0      = bvh.primitives[i].position0;
+		gpu_triangles[i].position_edge1 = bvh.primitives[i].position1 - bvh.primitives[i].position0;
+		gpu_triangles[i].position_edge2 = bvh.primitives[i].position2 - bvh.primitives[i].position0;
+
+		gpu_triangles[i].normal0      = bvh.primitives[i].normal0;
+		gpu_triangles[i].normal_edge1 = bvh.primitives[i].normal1 - bvh.primitives[i].normal0;
+		gpu_triangles[i].normal_edge2 = bvh.primitives[i].normal2 - bvh.primitives[i].normal0;
+
+		gpu_triangles[i].tex_coord0      = bvh.primitives[i].tex_coord0;
+		gpu_triangles[i].tex_coord_edge1 = bvh.primitives[i].tex_coord1 - bvh.primitives[i].tex_coord0;
+		gpu_triangles[i].tex_coord_edge2 = bvh.primitives[i].tex_coord2 - bvh.primitives[i].tex_coord0;
+
+		gpu_triangles[i].material_id = bvh.primitives[i].material_id;
+	}
+
 	// Set global Triangle buffer
-	CUDAMemory::Ptr<Triangle> triangles_ptr = CUDAMemory::malloc<Triangle>(bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_ptr, bvh.primitives, bvh.primitive_count);
+	CUDAMemory::Ptr<GPUTriangle> triangles_ptr = CUDAMemory::malloc<GPUTriangle>(bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_ptr, gpu_triangles, bvh.primitive_count);
 
 	module.get_global("triangles").set(triangles_ptr);
 
