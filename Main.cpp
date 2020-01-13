@@ -213,7 +213,7 @@ int main(int argument_count, char ** arguments) {
 			frames_since_camera_moved += 1.0f;
 		}
 
-		kernel.execute(rand() + SCREEN_WIDTH * SCREEN_HEIGHT, frames_since_camera_moved);
+		kernel.execute(current_frame, frames_since_camera_moved);
 
 		window.update();
 

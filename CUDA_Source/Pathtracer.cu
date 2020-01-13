@@ -484,11 +484,13 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 	return make_float3(0.0f);
 }
 
-extern "C" __global__ void trace_ray(int random, float frames_since_camera_moved) {
+extern "C" __global__ void trace_ray(int frame_number, float frames_since_camera_moved) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	unsigned seed = wang_hash((x + y * SCREEN_WIDTH) * random);
+	int thread_id = x + y * SCREEN_WIDTH;
+
+	unsigned seed = (thread_id + frame_number * 312080213) * 781939187;
 	
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = x + random_float(seed);
