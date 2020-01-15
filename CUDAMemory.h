@@ -7,7 +7,8 @@ namespace CUDAMemory {
 	struct Ptr {
 		CUdeviceptr ptr;
 
-		Ptr(CUdeviceptr ptr) : ptr(ptr) { }
+		Ptr()                : ptr(NULL) { }
+		Ptr(CUdeviceptr ptr) : ptr(ptr)  { }
 	};
 
 	template<typename T>

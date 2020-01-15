@@ -204,25 +204,46 @@ int main(int argument_count, char ** arguments) {
 	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("frame_buffer", CUDAContext::map_gl_texture(window.frame_buffer_handle));
 
-	struct WFRay {
-		Vector3 origin;
-		Vector3 direction;
+	struct PathBuffer {
+		CUDAMemory::Ptr<Vector3> origin;
+		CUDAMemory::Ptr<Vector3> direction;
 	
-		int triangle_id;
-		float u, v;
-		float t;
+		CUDAMemory::Ptr<int> triangle_id;
+		CUDAMemory::Ptr<float> u;
+		CUDAMemory::Ptr<float> v;
+		CUDAMemory::Ptr<float> t;
 
-		int pixel_index;
-		Vector3 colour;
-		Vector3 throughput;
+		CUDAMemory::Ptr<int> pixel_index;
+		CUDAMemory::Ptr<Vector3> colour;
+		CUDAMemory::Ptr<Vector3> throughput;
+
+		inline void init(int buffer_size) {
+			origin    = CUDAMemory::malloc<Vector3>(buffer_size);
+			direction = CUDAMemory::malloc<Vector3>(buffer_size);
+
+			triangle_id = CUDAMemory::malloc<int>(buffer_size);
+			u = CUDAMemory::malloc<float>(buffer_size);
+			v = CUDAMemory::malloc<float>(buffer_size);
+			t = CUDAMemory::malloc<float>(buffer_size);
+
+			pixel_index = CUDAMemory::malloc<int>(buffer_size);
+			colour     = CUDAMemory::malloc<Vector3>(buffer_size);
+			throughput = CUDAMemory::malloc<Vector3>(buffer_size);
+		}
 	};
 
+	PathBuffer buffer_0;
+	PathBuffer buffer_1;
+	
 	int pixel_count = SCREEN_WIDTH * SCREEN_HEIGHT;
-	CUDAMemory::Ptr<WFRay> buffer_rays_0_ptr = CUDAMemory::malloc<WFRay>(pixel_count);
-	CUDAMemory::Ptr<WFRay> buffer_rays_1_ptr = CUDAMemory::malloc<WFRay>(pixel_count);
+	buffer_0.init(pixel_count);
+	buffer_1.init(pixel_count);
 
-	module.get_global("buffer_rays_0").set_value(buffer_rays_0_ptr);
-	module.get_global("buffer_rays_1").set_value(buffer_rays_1_ptr);
+	CUDAModule::Global global_buffer_0 = module.get_global("buffer_0");
+	CUDAModule::Global global_buffer_1 = module.get_global("buffer_1");
+
+	global_buffer_0.set_value(buffer_0);
+	global_buffer_1.set_value(buffer_1);
 
 	CUDAModule::Global global_N_ext = module.get_global("N_ext");
 
@@ -306,15 +327,15 @@ int main(int argument_count, char ** arguments) {
 			camera.y_axis_rotated
 		);
 
-		CUDAMemory::Ptr<WFRay> ray_buffers[2] = { buffer_rays_0_ptr, buffer_rays_1_ptr };
+		CUdeviceptr ray_buffers[2] = { global_buffer_0.ptr, global_buffer_1.ptr };
 
 		int alive_paths = pixel_count;
 
 		const int NUM_BOUNCES = 5;
 		for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 			int buffer_index = bounce & 1;
-			const CUDAMemory::Ptr<WFRay> & ray_buffer_in  = ray_buffers[    buffer_index];
-			const CUDAMemory::Ptr<WFRay> & ray_buffer_out = ray_buffers[1 - buffer_index];
+			const CUdeviceptr & ray_buffer_in  = ray_buffers[    buffer_index];
+			const CUdeviceptr & ray_buffer_out = ray_buffers[1 - buffer_index];
 
 			global_N_ext.set_value(0);
 

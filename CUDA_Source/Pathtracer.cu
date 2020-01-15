@@ -545,21 +545,22 @@ __device__ void frame_buffer_write(int x, int y, const float3 & colour, float fr
 	surf2Dwrite<float4>(make_float4(colour_out, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
-struct WFRay {
-	float3 origin;
-	float3 direction;
+struct PathBuffer {
+	float3 * origin;
+	float3 * direction;
 	
-	int triangle_id;
-	float u, v;
-	float t;
+	int * triangle_id;
+	float * u;
+	float * v;
+	float * t;
 
-	int pixel_index;
-	float3 colour;
-	float3 throughput;
+	int * pixel_index;
+	float3 * colour;
+	float3 * throughput;
 };
 
-__device__ WFRay * buffer_rays_0;
-__device__ WFRay * buffer_rays_1;
+__device__ PathBuffer buffer_0;
+__device__ PathBuffer buffer_1;
 
 extern "C" __global__ void kernel_generate(
 	int rand_seed,
@@ -583,26 +584,26 @@ extern "C" __global__ void kernel_generate(
 	float v = y + random_float(seed);
 
 	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
-	buffer_rays_0[index].origin    = camera_position;
-	buffer_rays_0[index].direction = normalize(camera_top_left_corner
+	buffer_0.origin[index]    = camera_position;
+	buffer_0.direction[index] = normalize(camera_top_left_corner
 		+ u * camera_x_axis
 		+ v * camera_y_axis
 	);
-	buffer_rays_0[index].pixel_index = thread_id;
-	buffer_rays_0[index].colour      = make_float3(0.0f);
-	buffer_rays_0[index].throughput  = make_float3(1.0f);
+	buffer_0.pixel_index[index] = thread_id;
+	buffer_0.colour[index]      = make_float3(0.0f);
+	buffer_0.throughput[index]  = make_float3(1.0f);
 }
 
 extern "C" __global__ void kernel_extend(
 	int buffer_size,
-	WFRay * buffer_rays
+	const PathBuffer * path_buffer
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
 	Ray ray;
-	ray.origin    = buffer_rays[index].origin;
-	ray.direction = buffer_rays[index].direction;
+	ray.origin    = path_buffer->origin[index];
+	ray.direction = path_buffer->direction[index];
 	ray.direction_inv = make_float3(
 		1.0f / ray.direction.x, 
 		1.0f / ray.direction.y, 
@@ -613,15 +614,15 @@ extern "C" __global__ void kernel_extend(
 	bvh_trace(ray, hit);
 
 	if (hit.distance == INFINITY) {
-		buffer_rays[index].triangle_id = -1;
+		path_buffer->triangle_id[index] = -1;
 
 		return;
 	}
 
-	buffer_rays[index].triangle_id = hit.triangle_id;
-	buffer_rays[index].u = hit.uv.x;
-	buffer_rays[index].v = hit.uv.y;
-	buffer_rays[index].t = hit.distance;
+	path_buffer->triangle_id[index] = hit.triangle_id;
+	path_buffer->u[index] = hit.uv.x;
+	path_buffer->v[index] = hit.uv.y;
+	path_buffer->t[index] = hit.distance;
 }
 
 __device__ int N_ext;
@@ -631,42 +632,52 @@ extern "C" __global__ void kernel_shade(
 	int buffer_size,
 	int bounce,
 	float frames_since_camera_moved,
-	WFRay const * __restrict__ buffer_rays_in,
-	WFRay       * __restrict__ buffer_rays_out
+	const PathBuffer * __restrict__ path_buffer_in,
+	const PathBuffer * __restrict__ path_buffer_out
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
-	const WFRay & ray = buffer_rays_in[index];
+	float3 ray_origin    = path_buffer_in->origin[index];
+	float3 ray_direction = path_buffer_in->direction[index];
 
-	int x = ray.pixel_index % SCREEN_WIDTH;
-	int y = ray.pixel_index / SCREEN_WIDTH; 
+	int ray_triangle_id = path_buffer_in->triangle_id[index];
+	float ray_u = path_buffer_in->u[index];
+	float ray_v = path_buffer_in->v[index];
+	float ray_t = path_buffer_in->t[index];
+
+	int ray_pixel_index = path_buffer_in->pixel_index[index];
+	float3 ray_colour     = path_buffer_in->colour[index];
+	float3 ray_throughput = path_buffer_in->throughput[index];
+
+	int x = ray_pixel_index % SCREEN_WIDTH;
+	int y = ray_pixel_index / SCREEN_WIDTH; 
 
 	// If the Ray didn't hit a Triangle, terminate the Path
-	if (ray.triangle_id == -1) {
-		frame_buffer_write(x, y, ray.colour + ray.throughput * sample_sky(ray.direction), frames_since_camera_moved);
+	if (ray_triangle_id == -1) {
+		frame_buffer_write(x, y, ray_colour + ray_throughput * sample_sky(ray_direction), frames_since_camera_moved);
 
 		return;
 	}
 
-	unsigned seed = (ray.pixel_index + rand_seed * 312080213) * 781939187;
+	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
 
-	const Triangle & triangle = triangles[ray.triangle_id];
+	const Triangle & triangle = triangles[ray_triangle_id];
 	const Material & material = materials[triangle.material_id];
 
 	if (material.is_light()) {
-		frame_buffer_write(x, y, ray.colour + ray.throughput * material.emittance, frames_since_camera_moved);
+		frame_buffer_write(x, y, ray_colour + ray_throughput * material.emittance, frames_since_camera_moved);
 
 		return;
 	}
 
-	float3 throughput = ray.throughput;
+	float3 throughput = ray_throughput;
 
 	// Russian Roulette termination
 	if (bounce > 3) {
 		float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
 		if (random_float(seed) > one_minus_p) {
-			frame_buffer_write(x, y, ray.colour, frames_since_camera_moved);
+			frame_buffer_write(x, y, ray_colour, frames_since_camera_moved);
 
 			return;
 		}
@@ -676,27 +687,37 @@ extern "C" __global__ void kernel_shade(
 
 	int index_out = atomic_agg_inc(&N_ext);
 
-	buffer_rays_out[index_out].origin    = ray.origin + ray.t * ray.direction;
-	buffer_rays_out[index_out].direction = cosine_weighted_diffuse_reflection(seed, triangle.normal0
-		+ ray.u * triangle.normal_edge1
-		+ ray.v * triangle.normal_edge2
+	path_buffer_out->origin[index_out]    = ray_origin + ray_t * ray_direction;
+	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, triangle.normal0
+		+ ray_u * triangle.normal_edge1
+		+ ray_v * triangle.normal_edge2
 	);
 
-	buffer_rays_out[index_out].throughput  = throughput * material.albedo(ray.u, ray.v);
-	buffer_rays_out[index_out].pixel_index = ray.pixel_index;
+	path_buffer_out->throughput[index_out]  = throughput * material.albedo(ray_u, ray_v);
+	path_buffer_out->pixel_index[index_out] = ray_pixel_index;
 }
 
 extern "C" __global__ void kernel_connect(
 	int rand_seed,
 	int buffer_size,
-	WFRay * buffer_rays
+	PathBuffer * path_buffer
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
-	WFRay & ray  = buffer_rays[index];
-	
-	unsigned seed = (ray.pixel_index + rand_seed * 390292093) * 162898261;
+	float3 ray_origin    = path_buffer->origin[index];
+	float3 ray_direction = path_buffer->direction[index];
+
+	int ray_triangle_id = path_buffer->triangle_id[index];
+	float ray_u = path_buffer->u[index];
+	float ray_v = path_buffer->v[index];
+	float ray_t = path_buffer->t[index];
+
+	int ray_pixel_index = path_buffer->pixel_index[index];
+	float3 ray_colour     = path_buffer->colour[index];
+	float3 ray_throughput = path_buffer->throughput[index];
+
+	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
 
 	// Pick a random light emitting triangle
 	const Triangle & light_triangle = triangles[light_indices[rand_xorshift(seed) % light_count]];
@@ -719,10 +740,10 @@ extern "C" __global__ void kernel_connect(
 	// Calculate the area of the triangle light
 	float light_area = 0.5f * length(cross(light_triangle.position_edge1, light_triangle.position_edge2));
 
-	float3 hit_point = ray.origin + ray.t * ray.direction;
-	float3 hit_normal = triangles[ray.triangle_id].position0
-		+ u * triangles[ray.triangle_id].position_edge1
-		+ v * triangles[ray.triangle_id].position_edge2;
+	float3 hit_point = ray_origin + ray_t * ray_direction;
+	float3 hit_normal = triangles[ray_triangle_id].position0
+		+ u * triangles[ray_triangle_id].position_edge1
+		+ v * triangles[ray_triangle_id].position_edge2;
 
 	float3 to_light = random_point_on_light - hit_point;
 	float distance_to_light_squared = dot(to_light, to_light);
@@ -743,19 +764,19 @@ extern "C" __global__ void kernel_connect(
 		shadow_ray.origin    = hit_point;
 		shadow_ray.direction = to_light;
 		shadow_ray.direction_inv = make_float3(
-			1.0f / ray.direction.x, 
-			1.0f / ray.direction.y, 
-			1.0f / ray.direction.z
+			1.0f / ray_direction.x, 
+			1.0f / ray_direction.y, 
+			1.0f / ray_direction.z
 		);
 
 		// Check if the light is obstructed by any other object in the scene
 		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
-			float3 brdf = materials[triangles[ray.triangle_id].material_id].albedo(ray.u, ray.v) * ONE_OVER_PI;
+			float3 brdf = materials[triangles[ray_triangle_id].material_id].albedo(ray_u, ray_v) * ONE_OVER_PI;
 			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
 			float3 light_colour = materials[light_triangle.material_id].emittance;
 
-			ray.colour += ray.throughput * brdf * light_count * light_colour * solid_angle * cos_i;
+			ray_colour += ray_throughput * brdf * light_count * light_colour * solid_angle * cos_i;
 		}
 	}
 }
