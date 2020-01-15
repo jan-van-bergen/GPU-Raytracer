@@ -553,8 +553,9 @@ struct WFRay {
 	float u, v;
 	float t;
 
-	float3 throughput;
 	int pixel_index;
+	float3 colour;
+	float3 throughput;
 };
 
 __device__ WFRay * buffer_rays_0;
@@ -587,8 +588,9 @@ extern "C" __global__ void kernel_generate(
 		+ u * camera_x_axis
 		+ v * camera_y_axis
 	);
-	buffer_rays_0[index].throughput  = make_float3(1.0f);
 	buffer_rays_0[index].pixel_index = thread_id;
+	buffer_rays_0[index].colour      = make_float3(0.0f);
+	buffer_rays_0[index].throughput  = make_float3(1.0f);
 }
 
 extern "C" __global__ void kernel_extend(
@@ -629,8 +631,8 @@ extern "C" __global__ void kernel_shade(
 	int buffer_size,
 	int bounce,
 	float frames_since_camera_moved,
-	const WFRay * __restrict__ buffer_rays_in,
-	      WFRay * __restrict__ buffer_rays_out
+	WFRay const * __restrict__ buffer_rays_in,
+	WFRay       * __restrict__ buffer_rays_out
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
@@ -642,7 +644,7 @@ extern "C" __global__ void kernel_shade(
 
 	// If the Ray didn't hit a Triangle, terminate the Path
 	if (ray.triangle_id == -1) {
-		frame_buffer_write(x, y, ray.throughput * sample_sky(ray.direction), frames_since_camera_moved);
+		frame_buffer_write(x, y, ray.colour + ray.throughput * sample_sky(ray.direction), frames_since_camera_moved);
 
 		return;
 	}
@@ -653,7 +655,7 @@ extern "C" __global__ void kernel_shade(
 	const Material & material = materials[triangle.material_id];
 
 	if (material.is_light()) {
-		frame_buffer_write(x, y, ray.throughput * material.emittance, frames_since_camera_moved);
+		frame_buffer_write(x, y, ray.colour + ray.throughput * material.emittance, frames_since_camera_moved);
 
 		return;
 	}
@@ -664,6 +666,8 @@ extern "C" __global__ void kernel_shade(
 	if (bounce > 3) {
 		float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
 		if (random_float(seed) > one_minus_p) {
+			frame_buffer_write(x, y, ray.colour, frames_since_camera_moved);
+
 			return;
 		}
 
@@ -682,6 +686,76 @@ extern "C" __global__ void kernel_shade(
 	buffer_rays_out[index_out].pixel_index = ray.pixel_index;
 }
 
-extern "C" __global__ void kernel_connect() {
+extern "C" __global__ void kernel_connect(
+	int rand_seed,
+	int buffer_size,
+	WFRay * buffer_rays
+) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= buffer_size) return;
+
+	WFRay & ray  = buffer_rays[index];
 	
+	unsigned seed = (ray.pixel_index + rand_seed * 390292093) * 162898261;
+
+	// Pick a random light emitting triangle
+	const Triangle & light_triangle = triangles[light_indices[rand_xorshift(seed) % light_count]];
+
+	ASSERT(length(materials[light_triangle.material_id].emittance) > 0.0f, "Material was not emissive!\n");
+
+	// Pick a random point on the triangle using random barycentric coordinates
+	float u = random_float(seed);
+	float v = random_float(seed);
+
+	if (u + v > 1.0f) {
+		u = 1.0f - u;
+		v = 1.0f - v;
+	}
+
+	float3 random_point_on_light = light_triangle.position0 
+		+ u * light_triangle.position_edge1 
+		+ v * light_triangle.position_edge2;
+
+	// Calculate the area of the triangle light
+	float light_area = 0.5f * length(cross(light_triangle.position_edge1, light_triangle.position_edge2));
+
+	float3 hit_point = ray.origin + ray.t * ray.direction;
+	float3 hit_normal = triangles[ray.triangle_id].position0
+		+ u * triangles[ray.triangle_id].position_edge1
+		+ v * triangles[ray.triangle_id].position_edge2;
+
+	float3 to_light = random_point_on_light - hit_point;
+	float distance_to_light_squared = dot(to_light, to_light);
+	float distance_to_light         = sqrtf(distance_to_light_squared);
+
+	// Normalize the vector to the light
+	to_light /= distance_to_light;
+
+	float3 light_normal = light_triangle.normal0 
+		+ u * light_triangle.normal_edge1
+		+ v * light_triangle.normal_edge2;
+
+	float cos_o = -dot(to_light, light_normal);
+	float cos_i =  dot(to_light, hit_normal);
+
+	if (cos_o > 0.0f && cos_i > 0.0f) {
+		Ray shadow_ray;
+		shadow_ray.origin    = hit_point;
+		shadow_ray.direction = to_light;
+		shadow_ray.direction_inv = make_float3(
+			1.0f / ray.direction.x, 
+			1.0f / ray.direction.y, 
+			1.0f / ray.direction.z
+		);
+
+		// Check if the light is obstructed by any other object in the scene
+		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
+			float3 brdf = materials[triangles[ray.triangle_id].material_id].albedo(ray.u, ray.v) * ONE_OVER_PI;
+			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
+
+			float3 light_colour = materials[light_triangle.material_id].emittance;
+
+			ray.colour += ray.throughput * brdf * light_count * light_colour * solid_angle * cos_i;
+		}
+	}
 }

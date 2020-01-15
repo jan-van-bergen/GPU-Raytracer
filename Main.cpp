@@ -212,9 +212,9 @@ int main(int argument_count, char ** arguments) {
 		float u, v;
 		float t;
 
-		Vector3 throughput;
-
 		int pixel_index;
+		Vector3 colour;
+		Vector3 throughput;
 	};
 
 	int pixel_count = SCREEN_WIDTH * SCREEN_HEIGHT;
@@ -253,6 +253,13 @@ int main(int argument_count, char ** arguments) {
 
 	kernel_shade.set_block_dim(128, 1, 1);
 	kernel_shade.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_shade.block_dim_x, 1, 1);
+
+	// Connect Kernel
+	CUDAKernel kernel_connect;
+	kernel_connect.init(&module, "kernel_connect");
+
+	kernel_connect.set_block_dim(128, 1, 1);
+	kernel_connect.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_connect.block_dim_x, 1, 1);
 
 	last = SDL_GetPerformanceCounter();
 
