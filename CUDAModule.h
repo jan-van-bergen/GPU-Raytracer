@@ -16,8 +16,16 @@ struct CUDAModule {
 		CUdeviceptr ptr;
 		
 		template<typename T>
-		inline void set(const T & value) const {
+		inline void set_value(const T & value) const {
 			CUDACALL(cuMemcpyHtoD(ptr, &value, sizeof(T)));
+		}
+
+		template<typename T>
+		inline T get_value() const {
+			T result;
+			CUDACALL(cuMemcpyDtoH(&result, ptr, sizeof(T)));
+
+			return result;
 		}
 	};
 

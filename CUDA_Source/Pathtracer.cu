@@ -80,6 +80,7 @@ struct Ray {
 struct RayHit {
 	float distance = INFINITY;
 	
+	int triangle_id;
 	int material_id;
 
 	float3 point;
@@ -155,7 +156,7 @@ __device__ float3 camera_top_left_corner;
 __device__ float3 camera_x_axis;
 __device__ float3 camera_y_axis;
 
-__device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHit & ray_hit) {
+__device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHit & ray_hit, int triangle_id) {
 	float3 h = cross(ray.direction, triangle.position_edge2);
 	float  a = dot(triangle.position_edge1, h);
 
@@ -176,6 +177,7 @@ __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHi
 
 	ray_hit.distance = t;
 
+	ray_hit.triangle_id = triangle_id;
 	ray_hit.material_id = triangle.material_id;
 
 	ray_hit.point = ray.origin + t * ray.direction;
@@ -224,7 +226,7 @@ __device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		if (node.aabb.intersects(ray, ray_hit.distance)) {
 			if (node.is_leaf()) {
 				for (int i = node.first; i < node.first + node.count; i++) {
-					triangle_trace(triangles[i], ray, ray_hit);
+					triangle_trace(triangles[i], ray, ray_hit, i);
 				}
 			} else {
 				if (node.should_visit_left_first(ray)) {
@@ -508,4 +510,178 @@ extern "C" __global__ void trace_ray(int frame_number, float frames_since_camera
 	}
 
 	surf2Dwrite<float4>(make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#define MAX_BOUNCES 10
+
+// Based on: https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
+__device__ inline int atomic_agg_inc(int * ctr) {
+	int mask   = __ballot(1);
+	int leader = __ffs(mask) - 1;
+	int laneid = threadIdx.x % 32;
+	
+	int res;
+	if (laneid == leader) {
+		res = atomicAdd(ctr, __popc(mask));
+	}
+
+	res = __shfl(res, leader);
+	return res + __popc(mask & ((1 << laneid) - 1));
+}
+
+__device__ void frame_buffer_write(int x, int y, const float3 & colour, float frames_since_camera_moved) {
+	float3 colour_out = colour;
+
+	if (frames_since_camera_moved > 0.0f) {
+		float4 prev;
+		surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
+
+		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
+		colour_out = (make_float3(prev) * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
+	}
+
+	surf2Dwrite<float4>(make_float4(colour_out, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+}
+
+struct WFRay {
+	float3 origin;
+	float3 direction;
+	
+	int triangle_id;
+	float u, v;
+	float t;
+
+	float3 throughput;
+	int pixel_index;
+};
+
+__device__ WFRay * buffer_rays_0;
+__device__ WFRay * buffer_rays_1;
+
+extern "C" __global__ void kernel_generate(
+	int rand_seed,
+	int buffer_size,
+	float3 camera_position,
+	float3 camera_top_left_corner,
+	float3 camera_x_axis,
+	float3 camera_y_axis
+) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= buffer_size) return;
+
+	int x = index % SCREEN_WIDTH;
+	int y = index / SCREEN_WIDTH;
+
+	int thread_id = x + y * SCREEN_WIDTH;
+	unsigned seed = (thread_id + rand_seed * 199494991) * 949525949;
+	
+	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
+	float u = x + random_float(seed);
+	float v = y + random_float(seed);
+
+	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
+	buffer_rays_0[index].origin    = camera_position;
+	buffer_rays_0[index].direction = normalize(camera_top_left_corner
+		+ u * camera_x_axis
+		+ v * camera_y_axis
+	);
+	buffer_rays_0[index].throughput  = make_float3(1.0f);
+	buffer_rays_0[index].pixel_index = thread_id;
+}
+
+extern "C" __global__ void kernel_extend(
+	int buffer_size,
+	WFRay * buffer_rays
+) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= buffer_size) return;
+
+	Ray ray;
+	ray.origin    = buffer_rays[index].origin;
+	ray.direction = buffer_rays[index].direction;
+	ray.direction_inv = make_float3(
+		1.0f / ray.direction.x, 
+		1.0f / ray.direction.y, 
+		1.0f / ray.direction.z
+	);
+
+	RayHit hit;
+	bvh_trace(ray, hit);
+
+	if (hit.distance == INFINITY) {
+		buffer_rays[index].triangle_id = -1;
+
+		return;
+	}
+
+	buffer_rays[index].triangle_id = hit.triangle_id;
+	buffer_rays[index].u = hit.uv.x;
+	buffer_rays[index].v = hit.uv.y;
+	buffer_rays[index].t = hit.distance;
+}
+
+__device__ int N_ext;
+
+extern "C" __global__ void kernel_shade(
+	int rand_seed,
+	int buffer_size,
+	int bounce,
+	float frames_since_camera_moved,
+	const WFRay * __restrict__ buffer_rays_in,
+	      WFRay * __restrict__ buffer_rays_out
+) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= buffer_size) return;
+
+	const WFRay & ray = buffer_rays_in[index];
+
+	int x = ray.pixel_index % SCREEN_WIDTH;
+	int y = ray.pixel_index / SCREEN_WIDTH; 
+
+	// If the Ray didn't hit a Triangle, terminate the Path
+	if (ray.triangle_id == -1) {
+		frame_buffer_write(x, y, ray.throughput * sample_sky(ray.direction), frames_since_camera_moved);
+
+		return;
+	}
+
+	unsigned seed = (ray.pixel_index + rand_seed * 312080213) * 781939187;
+
+	const Triangle & triangle = triangles[ray.triangle_id];
+	const Material & material = materials[triangle.material_id];
+
+	if (material.is_light()) {
+		frame_buffer_write(x, y, ray.throughput * material.emittance, frames_since_camera_moved);
+
+		return;
+	}
+
+	float3 throughput = ray.throughput;
+
+	// Russian Roulette termination
+	if (bounce > 3) {
+		float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
+		if (random_float(seed) > one_minus_p) {
+			return;
+		}
+
+		throughput /= one_minus_p;
+	}
+
+	int index_out = atomic_agg_inc(&N_ext);
+
+	buffer_rays_out[index_out].origin    = ray.origin + ray.t * ray.direction;
+	buffer_rays_out[index_out].direction = cosine_weighted_diffuse_reflection(seed, triangle.normal0
+		+ ray.u * triangle.normal_edge1
+		+ ray.v * triangle.normal_edge2
+	);
+
+	buffer_rays_out[index_out].throughput  = throughput * material.albedo(ray.u, ray.v);
+	buffer_rays_out[index_out].pixel_index = ray.pixel_index;
+}
+
+extern "C" __global__ void kernel_connect() {
+	
 }

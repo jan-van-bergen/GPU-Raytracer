@@ -56,7 +56,7 @@ int main(int argument_count, char ** arguments) {
 	CUDAMemory::Ptr<Material> materials_ptr = CUDAMemory::malloc<Material>(mesh->material_count);
 	CUDAMemory::memcpy(materials_ptr, mesh->materials, mesh->material_count);
 
-	module.get_global("materials").set(materials_ptr);
+	module.get_global("materials").set_value(materials_ptr);
 
 	// Set global Texture table
 	if (Texture::texture_count > 0) {
@@ -85,7 +85,7 @@ int main(int argument_count, char ** arguments) {
 		CUDAMemory::Ptr<CUtexObject> textures_ptr = CUDAMemory::malloc<CUtexObject>(Texture::texture_count);
 		CUDAMemory::memcpy(textures_ptr, tex_objects, Texture::texture_count);
 
-		module.get_global("textures").set(textures_ptr);
+		module.get_global("textures").set_value(textures_ptr);
 	}
 
 	// Construct BVH for the Triangle soup
@@ -145,7 +145,7 @@ int main(int argument_count, char ** arguments) {
 	CUDAMemory::Ptr<GPUTriangle> triangles_ptr = CUDAMemory::malloc<GPUTriangle>(bvh.primitive_count);
 	CUDAMemory::memcpy(triangles_ptr, gpu_triangles, bvh.primitive_count);
 
-	module.get_global("triangles").set(triangles_ptr);
+	module.get_global("triangles").set_value(triangles_ptr);
 
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
@@ -171,29 +171,29 @@ int main(int argument_count, char ** arguments) {
 		CUDAMemory::Ptr<int> light_indices_ptr = CUDAMemory::malloc<int>(light_count);
 		CUDAMemory::memcpy(light_indices_ptr, light_indices, light_count);
 
-		module.get_global("light_indices").set(light_indices_ptr);
+		module.get_global("light_indices").set_value(light_indices_ptr);
 	}
 
 	delete [] light_indices;
 
-	module.get_global("light_count").set(light_count);
+	module.get_global("light_count").set_value(light_count);
 
 	// Set global BVHNode buffer
 	CUDAMemory::Ptr<BVHNode> nodes_ptr = CUDAMemory::malloc<BVHNode>(bvh.node_count);
 	CUDAMemory::memcpy(nodes_ptr, bvh.nodes, bvh.node_count);
 
-	module.get_global("bvh_nodes").set(nodes_ptr);
+	module.get_global("bvh_nodes").set_value(nodes_ptr);
 
 	// Set Sky globals
 	Sky sky;
 	sky.init(DATA_PATH("Sky_Probes/rnl_probe.float"));
 
-	module.get_global("sky_size").set(sky.size);
+	module.get_global("sky_size").set_value(sky.size);
 
 	CUDAMemory::Ptr<Vector3> sky_data_ptr = CUDAMemory::malloc<Vector3>(sky.size * sky.size);
 	CUDAMemory::memcpy(sky_data_ptr, sky.data, sky.size * sky.size);
 
-	module.get_global("sky_data").set(sky_data_ptr);
+	module.get_global("sky_data").set_value(sky_data_ptr);
 
 	// Set Camera globals
 	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
@@ -204,12 +204,55 @@ int main(int argument_count, char ** arguments) {
 	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("frame_buffer", CUDAContext::map_gl_texture(window.frame_buffer_handle));
 
+	struct WFRay {
+		Vector3 origin;
+		Vector3 direction;
+	
+		int triangle_id;
+		float u, v;
+		float t;
+
+		Vector3 throughput;
+
+		int pixel_index;
+	};
+
+	int pixel_count = SCREEN_WIDTH * SCREEN_HEIGHT;
+	CUDAMemory::Ptr<WFRay> buffer_rays_0_ptr = CUDAMemory::malloc<WFRay>(pixel_count);
+	CUDAMemory::Ptr<WFRay> buffer_rays_1_ptr = CUDAMemory::malloc<WFRay>(pixel_count);
+
+	module.get_global("buffer_rays_0").set_value(buffer_rays_0_ptr);
+	module.get_global("buffer_rays_1").set_value(buffer_rays_1_ptr);
+
+	CUDAModule::Global global_N_ext = module.get_global("N_ext");
+
 	// Initialize Kernel
 	CUDAKernel kernel;
 	kernel.init(&module, "trace_ray");
 
 	kernel.set_block_dim(32, 4, 1);
 	kernel.set_grid_dim(SCREEN_WIDTH / kernel.block_dim_x, SCREEN_HEIGHT / kernel.block_dim_y, 1);
+
+	// Generate Kernel
+	CUDAKernel kernel_generate;
+	kernel_generate.init(&module, "kernel_generate");
+
+	kernel_generate.set_block_dim(128, 1, 1);
+	kernel_generate.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_generate.block_dim_x, 1, 1);
+
+	// Extend Kernel
+	CUDAKernel kernel_extend;
+	kernel_extend.init(&module, "kernel_extend");
+
+	kernel_extend.set_block_dim(128, 1, 1);
+	kernel_extend.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_extend.block_dim_x, 1, 1);
+
+	// Shade Kernel
+	CUDAKernel kernel_shade;
+	kernel_shade.init(&module, "kernel_shade");
+
+	kernel_shade.set_block_dim(128, 1, 1);
+	kernel_shade.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_shade.block_dim_x, 1, 1);
 
 	last = SDL_GetPerformanceCounter();
 
@@ -234,10 +277,10 @@ int main(int argument_count, char ** arguments) {
 	while (!window.is_closed) {
 		camera.update(delta_time, SDL_GetKeyboardState(nullptr));
 		
-		global_camera_position.set(camera.position);
-		global_camera_top_left_corner.set(camera.top_left_corner_rotated);
-		global_camera_x_axis.set(camera.x_axis_rotated);
-		global_camera_y_axis.set(camera.y_axis_rotated);
+		//global_camera_position.set(camera.position);
+		//global_camera_top_left_corner.set(camera.top_left_corner_rotated);
+		//global_camera_x_axis.set(camera.x_axis_rotated);
+		//global_camera_y_axis.set(camera.y_axis_rotated);
 
 		if (camera.moved) {
 			frames_since_camera_moved = 0.0f;
@@ -245,7 +288,36 @@ int main(int argument_count, char ** arguments) {
 			frames_since_camera_moved += 1.0f;
 		}
 
-		kernel.execute(current_frame, frames_since_camera_moved);
+		//kernel.execute(current_frame, frames_since_camera_moved);
+		
+		kernel_generate.execute(
+			rand(), 
+			pixel_count,
+			camera.position, 
+			camera.top_left_corner_rotated, 
+			camera.x_axis_rotated, 
+			camera.y_axis_rotated
+		);
+
+		CUDAMemory::Ptr<WFRay> ray_buffers[2] = { buffer_rays_0_ptr, buffer_rays_1_ptr };
+
+		int alive_paths = pixel_count;
+
+		const int NUM_BOUNCES = 5;
+		for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
+			int buffer_index = bounce & 1;
+			const CUDAMemory::Ptr<WFRay> & ray_buffer_in  = ray_buffers[    buffer_index];
+			const CUDAMemory::Ptr<WFRay> & ray_buffer_out = ray_buffers[1 - buffer_index];
+
+			global_N_ext.set_value(0);
+
+			kernel_extend.execute(alive_paths, ray_buffer_in);
+
+			kernel_shade.execute(rand(), alive_paths, bounce, frames_since_camera_moved, ray_buffer_in, ray_buffer_out);
+
+			alive_paths = global_N_ext.get_value<int>();
+			if (alive_paths == 0) break;
+		}
 
 		window.update();
 
