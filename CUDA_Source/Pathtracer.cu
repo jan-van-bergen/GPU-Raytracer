@@ -771,11 +771,12 @@ extern "C" __global__ void kernel_connect(
 
 		// Check if the light is obstructed by any other object in the scene
 		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
-			float3 brdf = materials[triangles[ray_triangle_id].material_id].albedo(ray_u, ray_v) * ONE_OVER_PI;
+			const Material & material = materials[triangles[ray_triangle_id].material_id];
+
+			float3 brdf = material.albedo(ray_u, ray_v) * ONE_OVER_PI;
 			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
-			float3 light_colour = materials[light_triangle.material_id].emittance;
-
+			float3 light_colour = material.emittance;
 			ray_colour += ray_throughput * brdf * light_count * light_colour * solid_angle * cos_i;
 		}
 	}
