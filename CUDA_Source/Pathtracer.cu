@@ -155,13 +155,9 @@ __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHi
 
 	if (t < EPSILON || t >= ray_hit.t) return;
 
-	float2 uv = triangle.tex_coord0
-		+ u * triangle.tex_coord_edge1
-		+ v * triangle.tex_coord_edge2;
-	
 	ray_hit.t = t;
-	ray_hit.u = uv.x;
-	ray_hit.v = uv.y;
+	ray_hit.u = u;
+	ray_hit.v = v;
 	ray_hit.triangle_id = triangle_id;
 }
 
@@ -525,13 +521,17 @@ extern "C" __global__ void kernel_shade(
 
 	int index_out = atomic_agg_inc(&N_ext);
 
-	path_buffer_out->origin[index_out]    = ray_origin + ray_t * ray_direction;
-	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, triangle.normal0
+	float3 hit_normal = triangle.normal0
 		+ ray_u * triangle.normal_edge1
-		+ ray_v * triangle.normal_edge2
-	);
+		+ ray_v * triangle.normal_edge2;
+	float2 hit_tex_coord = triangle.tex_coord0
+		+ ray_u * triangle.tex_coord_edge1
+		+ ray_v * triangle.tex_coord_edge2;
 
-	path_buffer_out->throughput[index_out]  = throughput * material.albedo(ray_u, ray_v);
+	path_buffer_out->origin[index_out]    = ray_origin + ray_t * ray_direction;
+	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
+
+	path_buffer_out->throughput[index_out]  = throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	path_buffer_out->pixel_index[index_out] = ray_pixel_index;
 }
 
@@ -613,7 +613,11 @@ extern "C" __global__ void kernel_connect(
 		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
 			const Material & material = materials[triangle.material_id];
 
-			float3 brdf = material.albedo(ray_u, ray_v) * ONE_OVER_PI;
+			float2 hit_tex_coord = triangle.tex_coord0
+				+ ray_u * triangle.tex_coord_edge1
+				+ ray_v * triangle.tex_coord_edge2;
+
+			float3 brdf = material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
 			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
 			ray_colour += ray_throughput * brdf * light_count * material.emittance * solid_angle * cos_i;
