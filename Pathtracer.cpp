@@ -208,9 +208,8 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	PathBuffer buffer_0;
 	PathBuffer buffer_1;
 	
-	int pixel_count = SCREEN_WIDTH * SCREEN_HEIGHT;
-	buffer_0.init(pixel_count);
-	buffer_1.init(pixel_count);
+	buffer_0.init(PIXEL_COUNT);
+	buffer_1.init(PIXEL_COUNT);
 
 	global_buffer_0 = module.get_global("buffer_0");
 	global_buffer_1 = module.get_global("buffer_1");
