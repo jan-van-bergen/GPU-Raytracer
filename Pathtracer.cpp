@@ -218,29 +218,20 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 
 	global_N_ext = module.get_global("N_ext");
 
-	// Generate Kernel
 	kernel_generate.init(&module, "kernel_generate");
+	kernel_extend.init  (&module, "kernel_extend");
+	kernel_shade.init   (&module, "kernel_shade");
+	kernel_connect.init (&module, "kernel_connect");
 
 	kernel_generate.set_block_dim(128, 1, 1);
+	kernel_extend.set_block_dim  (128, 1, 1);
+	kernel_shade.set_block_dim   (128, 1, 1);
+	kernel_connect.set_block_dim (128, 1, 1);
+
 	kernel_generate.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_generate.block_dim_x, 1, 1);
-
-	// Extend Kernel
-	kernel_extend.init(&module, "kernel_extend");
-
-	kernel_extend.set_block_dim(128, 1, 1);
-	kernel_extend.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_extend.block_dim_x, 1, 1);
-
-	// Shade Kernel
-	kernel_shade.init(&module, "kernel_shade");
-
-	kernel_shade.set_block_dim(128, 1, 1);
-	kernel_shade.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_shade.block_dim_x, 1, 1);
-
-	// Connect Kernel
-	kernel_connect.init(&module, "kernel_connect");
-
-	kernel_connect.set_block_dim(128, 1, 1);
-	kernel_connect.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_connect.block_dim_x, 1, 1);
+	kernel_extend.set_grid_dim  ((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_extend.block_dim_x,   1, 1);
+	kernel_shade.set_grid_dim   ((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_shade.block_dim_x,    1, 1);
+	kernel_connect.set_grid_dim ((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_connect.block_dim_x,  1, 1);
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
