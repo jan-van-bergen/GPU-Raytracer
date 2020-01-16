@@ -573,15 +573,36 @@ extern "C" __global__ void kernel_generate(
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
-	int x = index % SCREEN_WIDTH;
-	int y = index / SCREEN_WIDTH;
-
-	int thread_id = x + y * SCREEN_WIDTH;
-	unsigned seed = (thread_id + rand_seed * 199494991) * 949525949;
+	unsigned seed = (index + rand_seed * 199494991) * 949525949;
 	
+	int block_index = index / 32;
+	int i = (block_index % (SCREEN_WIDTH / 8)) * 8;
+	int j = (block_index / (SCREEN_WIDTH / 8)) * 4;
+
+	ASSERT(i < SCREEN_WIDTH);
+	ASSERT(j < SCREEN_HEIGHT);
+
+	int k = (index % 32) % 8;
+	int l = (index % 32) / 8;
+
+	ASSERT(k < 8);
+	ASSERT(l < 4);
+
+	int x = i + k;
+	int y = j + l;
+
+	ASSERT(x < SCREEN_WIDTH);
+	ASSERT(y < SCREEN_HEIGHT);
+
+	int pixel_index = x + y * SCREEN_WIDTH;
+
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = x + random_float(seed);
 	float v = y + random_float(seed);
+
+	//printf("map %i to (%i, %i) + (%i, %i) - offset = %i\n", thread_id, i, j, k, l, pixel_index);
+
+	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
 
 	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
 	buffer_0.origin[index]    = camera_position;
@@ -589,7 +610,7 @@ extern "C" __global__ void kernel_generate(
 		+ u * camera_x_axis
 		+ v * camera_y_axis
 	);
-	buffer_0.pixel_index[index] = thread_id;
+	buffer_0.pixel_index[index] = pixel_index;
 	buffer_0.colour[index]      = make_float3(0.0f);
 	buffer_0.throughput[index]  = make_float3(1.0f);
 }
