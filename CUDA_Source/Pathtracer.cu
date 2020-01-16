@@ -738,6 +738,8 @@ extern "C" __global__ void kernel_connect(
 	float3 ray_colour     = path_buffer->colour[index];
 	float3 ray_throughput = path_buffer->throughput[index];
 
+	const Triangle & triangle = triangles[ray_triangle_id];
+
 	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
 
 	// Pick a random light emitting triangle
@@ -762,9 +764,9 @@ extern "C" __global__ void kernel_connect(
 	float light_area = 0.5f * length(cross(light_triangle.position_edge1, light_triangle.position_edge2));
 
 	float3 hit_point = ray_origin + ray_t * ray_direction;
-	float3 hit_normal = triangles[ray_triangle_id].position0
-		+ u * triangles[ray_triangle_id].position_edge1
-		+ v * triangles[ray_triangle_id].position_edge2;
+	float3 hit_normal = triangle.position0
+		+ u * triangle.position_edge1
+		+ v * triangle.position_edge2;
 
 	float3 to_light = random_point_on_light - hit_point;
 	float distance_to_light_squared = dot(to_light, to_light);
@@ -792,13 +794,12 @@ extern "C" __global__ void kernel_connect(
 
 		// Check if the light is obstructed by any other object in the scene
 		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
-			const Material & material = materials[triangles[ray_triangle_id].material_id];
+			const Material & material = materials[triangle.material_id];
 
 			float3 brdf = material.albedo(ray_u, ray_v) * ONE_OVER_PI;
 			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
-			float3 light_colour = material.emittance;
-			ray_colour += ray_throughput * brdf * light_count * light_colour * solid_angle * cos_i;
+			ray_colour += ray_throughput * brdf * light_count * material.emittance * solid_angle * cos_i;
 		}
 	}
 }
