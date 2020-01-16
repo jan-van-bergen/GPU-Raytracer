@@ -59,6 +59,8 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 		CUDAMemory::memcpy(textures_ptr, tex_objects, Texture::texture_count);
 
 		module.get_global("textures").set_value(textures_ptr);
+
+		delete [] tex_objects;
 	}
 
 	// Construct BVH for the Triangle soup
