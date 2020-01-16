@@ -182,6 +182,17 @@ int main(int argument_count, char ** arguments) {
 
 	module.get_global("triangles_material_id").set_value(triangles_material_id_ptr);
 
+	delete [] triangles_position0;  
+	delete [] triangles_position_edge1;
+	delete [] triangles_position_edge2;
+	delete [] triangles_normal0;
+	delete [] triangles_normal_edge1;
+	delete [] triangles_normal_edge2;
+	delete [] triangles_tex_coord0;  
+	delete [] triangles_tex_coord_edge1;
+	delete [] triangles_tex_coord_edge2;
+	delete [] triangles_material_id;
+
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
 
