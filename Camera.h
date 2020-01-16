@@ -16,7 +16,9 @@ struct Camera {
 
 	bool moved;
 
-	inline Camera(float fov) : fov(fov) { }
+	inline void init(float fov) {
+		this->fov = fov;
+	}
 
 	void resize(int width, int height);
 
