@@ -27,6 +27,17 @@ struct CUDAModule {
 
 			return result;
 		}
+
+		// Creates a new buffer on the Device, 
+		// copies the given buffer over from the Host, 
+		// and finally sets the value of this Global to the address of the buffer on the Device
+		template<typename T>
+		inline void set_buffer(const T * buffer, int count) const {
+			CUDAMemory::Ptr<T> ptr = CUDAMemory::malloc<T>(count);
+			CUDAMemory::memcpy(ptr, buffer, count);
+
+			set_value(ptr);
+		}
 	};
 
 	void init(const char * filename, int compute_capability);

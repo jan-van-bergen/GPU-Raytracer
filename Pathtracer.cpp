@@ -26,10 +26,7 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
 
 	// Set global Material table
-	CUDAMemory::Ptr<Material> materials_ptr = CUDAMemory::malloc<Material>(mesh->material_count);
-	CUDAMemory::memcpy(materials_ptr, mesh->materials, mesh->material_count);
-
-	module.get_global("materials").set_value(materials_ptr);
+	module.get_global("materials").set_buffer(mesh->materials, mesh->material_count);
 
 	// Set global Texture table
 	if (Texture::texture_count > 0) {
@@ -55,10 +52,7 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
 		}
 
-		CUDAMemory::Ptr<CUtexObject> textures_ptr = CUDAMemory::malloc<CUtexObject>(Texture::texture_count);
-		CUDAMemory::memcpy(textures_ptr, tex_objects, Texture::texture_count);
-
-		module.get_global("textures").set_value(textures_ptr);
+		module.get_global("textures").set_buffer(tex_objects, Texture::texture_count);
 
 		delete [] tex_objects;
 	}
@@ -114,48 +108,20 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 		triangles_material_id[i] = bvh.primitives[i].material_id;
 	}
 
-	// Set global Triangle buffer
-	CUDAMemory::Ptr<Vector3> triangles_position0_ptr      = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
-	CUDAMemory::Ptr<Vector3> triangles_position_edge1_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
-	CUDAMemory::Ptr<Vector3> triangles_position_edge2_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
+	// Set global Triangle buffers
+	module.get_global("triangles_position0"     ).set_buffer(triangles_position0,      bvh.primitive_count);
+	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, bvh.primitive_count);
+	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, bvh.primitive_count);
 
-	CUDAMemory::Ptr<Vector3> triangles_normal0_ptr      = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
-	CUDAMemory::Ptr<Vector3> triangles_normal_edge1_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
-	CUDAMemory::Ptr<Vector3> triangles_normal_edge2_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
+	module.get_global("triangles_normal0"     ).set_buffer(triangles_normal0,      bvh.primitive_count);
+	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, bvh.primitive_count);
+	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, bvh.primitive_count);
 
-	CUDAMemory::Ptr<Vector2> triangles_tex_coord0_ptr      = CUDAMemory::malloc<Vector2>(bvh.primitive_count);
-	CUDAMemory::Ptr<Vector2> triangles_tex_coord_edge1_ptr = CUDAMemory::malloc<Vector2>(bvh.primitive_count);
-	CUDAMemory::Ptr<Vector2> triangles_tex_coord_edge2_ptr = CUDAMemory::malloc<Vector2>(bvh.primitive_count);
+	module.get_global("triangles_tex_coord0"     ).set_buffer(triangles_tex_coord0,      bvh.primitive_count);
+	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, bvh.primitive_count);
+	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, bvh.primitive_count);
 
-	CUDAMemory::Ptr<int> triangles_material_id_ptr = CUDAMemory::malloc<int>(bvh.primitive_count);
-
-	CUDAMemory::memcpy(triangles_position0_ptr,      triangles_position0,      bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_position_edge1_ptr, triangles_position_edge1, bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_position_edge2_ptr, triangles_position_edge2, bvh.primitive_count);
-	
-	CUDAMemory::memcpy(triangles_normal0_ptr,      triangles_normal0,      bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_normal_edge1_ptr, triangles_normal_edge1, bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_normal_edge2_ptr, triangles_normal_edge2, bvh.primitive_count);
-
-	CUDAMemory::memcpy(triangles_tex_coord0_ptr,      triangles_tex_coord0,      bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_tex_coord_edge1_ptr, triangles_tex_coord_edge1, bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_tex_coord_edge2_ptr, triangles_tex_coord_edge2, bvh.primitive_count);
-
-	CUDAMemory::memcpy(triangles_material_id_ptr, triangles_material_id, bvh.primitive_count);
-
-	module.get_global("triangles_position0").set_value(triangles_position0_ptr);
-	module.get_global("triangles_position_edge1").set_value(triangles_position_edge1_ptr);
-	module.get_global("triangles_position_edge2").set_value(triangles_position_edge2_ptr);
-
-	module.get_global("triangles_normal0").set_value(triangles_normal0_ptr);
-	module.get_global("triangles_normal_edge1").set_value(triangles_normal_edge1_ptr);
-	module.get_global("triangles_normal_edge2").set_value(triangles_normal_edge2_ptr);
-
-	module.get_global("triangles_tex_coord0").set_value(triangles_tex_coord0_ptr);
-	module.get_global("triangles_tex_coord_edge1").set_value(triangles_tex_coord_edge1_ptr);
-	module.get_global("triangles_tex_coord_edge2").set_value(triangles_tex_coord_edge2_ptr);
-
-	module.get_global("triangles_material_id").set_value(triangles_material_id_ptr);
+	module.get_global("triangles_material_id").set_buffer(triangles_material_id, bvh.primitive_count);
 
 	delete [] triangles_position0;  
 	delete [] triangles_position_edge1;
@@ -189,10 +155,7 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	}
 	
 	if (light_count > 0) {
-		CUDAMemory::Ptr<int> light_indices_ptr = CUDAMemory::malloc<int>(light_count);
-		CUDAMemory::memcpy(light_indices_ptr, light_indices, light_count);
-
-		module.get_global("light_indices").set_value(light_indices_ptr);
+		module.get_global("light_indices").set_buffer(light_indices, light_count);
 	}
 
 	delete [] light_indices;
@@ -200,21 +163,14 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	module.get_global("light_count").set_value(light_count);
 
 	// Set global BVHNode buffer
-	CUDAMemory::Ptr<BVHNode> nodes_ptr = CUDAMemory::malloc<BVHNode>(bvh.node_count);
-	CUDAMemory::memcpy(nodes_ptr, bvh.nodes, bvh.node_count);
-
-	module.get_global("bvh_nodes").set_value(nodes_ptr);
+	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
 
 	// Set Sky globals
 	Sky sky;
 	sky.init(DATA_PATH("Sky_Probes/rnl_probe.float"));
 
 	module.get_global("sky_size").set_value(sky.size);
-
-	CUDAMemory::Ptr<Vector3> sky_data_ptr = CUDAMemory::malloc<Vector3>(sky.size * sky.size);
-	CUDAMemory::memcpy(sky_data_ptr, sky.data, sky.size * sky.size);
-
-	module.get_global("sky_data").set_value(sky_data_ptr);
+	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
 
 	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("frame_buffer", CUDAContext::map_gl_texture(frame_buffer_handle));
