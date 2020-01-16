@@ -10,6 +10,8 @@
 
 #include "ScopedTimer.h"
 
+const int PIXEL_COUNT = SCREEN_WIDTH * SCREEN_HEIGHT;
+
 void Pathtracer::init(unsigned frame_buffer_handle) {
 	CUDAContext::init();
 
@@ -228,10 +230,10 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	kernel_shade.set_block_dim   (128, 1, 1);
 	kernel_connect.set_block_dim (128, 1, 1);
 
-	kernel_generate.set_grid_dim((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_generate.block_dim_x, 1, 1);
-	kernel_extend.set_grid_dim  ((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_extend.block_dim_x,   1, 1);
-	kernel_shade.set_grid_dim   ((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_shade.block_dim_x,    1, 1);
-	kernel_connect.set_grid_dim ((SCREEN_WIDTH * SCREEN_HEIGHT) / kernel_connect.block_dim_x,  1, 1);
+	kernel_generate.set_grid_dim(PIXEL_COUNT / kernel_generate.block_dim_x, 1, 1);
+	kernel_extend.set_grid_dim  (PIXEL_COUNT / kernel_extend.block_dim_x,   1, 1);
+	kernel_shade.set_grid_dim   (PIXEL_COUNT / kernel_shade.block_dim_x,    1, 1);
+	kernel_connect.set_grid_dim (PIXEL_COUNT / kernel_connect.block_dim_x,  1, 1);
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
@@ -256,11 +258,9 @@ void Pathtracer::render() {
 		frames_since_camera_moved += 1.0f;
 	}
 
-	const int pixel_count = SCREEN_WIDTH * SCREEN_HEIGHT;
-		
 	kernel_generate.execute(
 		rand(), 
-		pixel_count,
+		PIXEL_COUNT,
 		camera.position, 
 		camera.top_left_corner_rotated, 
 		camera.x_axis_rotated, 
@@ -272,7 +272,7 @@ void Pathtracer::render() {
 		global_buffer_1.ptr
 	};
 
-	int alive_paths = pixel_count;
+	int alive_paths = PIXEL_COUNT;
 
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
