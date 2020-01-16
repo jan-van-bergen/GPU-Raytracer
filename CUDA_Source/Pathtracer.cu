@@ -579,20 +579,20 @@ extern "C" __global__ void kernel_generate(
 	int i = (block_index % (SCREEN_WIDTH / 8)) * 8;
 	int j = (block_index / (SCREEN_WIDTH / 8)) * 4;
 
-	ASSERT(i < SCREEN_WIDTH);
-	ASSERT(j < SCREEN_HEIGHT);
+	ASSERT(i < SCREEN_WIDTH, "");
+	ASSERT(j < SCREEN_HEIGHT, "");
 
 	int k = (index % 32) % 8;
 	int l = (index % 32) / 8;
 
-	ASSERT(k < 8);
-	ASSERT(l < 4);
+	ASSERT(k < 8, "");
+	ASSERT(l < 4, "");
 
 	int x = i + k;
 	int y = j + l;
 
-	ASSERT(x < SCREEN_WIDTH);
-	ASSERT(y < SCREEN_HEIGHT);
+	ASSERT(x < SCREEN_WIDTH, "");
+	ASSERT(y < SCREEN_HEIGHT, "");
 
 	int pixel_index = x + y * SCREEN_WIDTH;
 
