@@ -91,23 +91,19 @@ struct AABB {
 	}
 };
 
-struct Triangle {
-	float3 position0;
-	float3 position_edge1;
-	float3 position_edge2;
+__device__ float3 * triangles_position0;
+__device__ float3 * triangles_position_edge1;
+__device__ float3 * triangles_position_edge2;
 
-	float3 normal0;
-	float3 normal_edge1;
-	float3 normal_edge2; 
-	
-	float2 tex_coord0;
-	float2 tex_coord_edge1;
-	float2 tex_coord_edge2;
+__device__ float3 * triangles_normal0;
+__device__ float3 * triangles_normal_edge1;
+__device__ float3 * triangles_normal_edge2; 
+ 
+__device__ float2 * triangles_tex_coord0;
+__device__ float2 * triangles_tex_coord_edge1;
+__device__ float2 * triangles_tex_coord_edge2;
 
-	int material_id;
-};
-
-__device__ Triangle * triangles;
+__device__ int * triangles_material_id;
 
 struct BVHNode {
 	AABB aabb;
@@ -136,22 +132,26 @@ struct BVHNode {
 
 __device__ BVHNode * bvh_nodes;
 
-__device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHit & ray_hit, int triangle_id) {
-	float3 h = cross(ray.direction, triangle.position_edge2);
-	float  a = dot(triangle.position_edge1, h);
+__device__ void triangle_trace(int triangle_id, const Ray & ray, RayHit & ray_hit) {
+	const float3 & position0      = triangles_position0[triangle_id];
+	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
+	const float3 & position_edge2 = triangles_position_edge2[triangle_id];
+
+	float3 h = cross(ray.direction, position_edge2);
+	float  a = dot(position_edge1, h);
 
 	float  f = 1.0f / a;
-	float3 s = ray.origin - triangle.position0;
+	float3 s = ray.origin - position0;
 	float  u = f * dot(s, h);
 
 	if (u < 0.0f || u > 1.0f) return;
 
-	float3 q = cross(s, triangle.position_edge1);
+	float3 q = cross(s, position_edge1);
 	float  v = f * dot(ray.direction, q);
 
 	if (v < 0.0f || u + v > 1.0f) return;
 
-	float t = f * dot(triangle.position_edge2, q);
+	float t = f * dot(position_edge2, q);
 
 	if (t < EPSILON || t >= ray_hit.t) return;
 
@@ -161,22 +161,26 @@ __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHi
 	ray_hit.triangle_id = triangle_id;
 }
 
-__device__ bool triangle_intersect(const Triangle & triangle, const Ray & ray, float max_distance) {
-	float3 h = cross(ray.direction, triangle.position_edge2);
-	float  a = dot(triangle.position_edge1, h);
+__device__ bool triangle_intersect(int triangle_id, const Ray & ray, float max_distance) {
+	const float3 & position0      = triangles_position0[triangle_id];
+	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
+	const float3 & position_edge2 = triangles_position_edge2[triangle_id];
+
+	float3 h = cross(ray.direction, position_edge2);
+	float  a = dot(position_edge1, h);
 
 	float  f = 1.0f / a;
-	float3 s = ray.origin - triangle.position0;
+	float3 s = ray.origin - position0;
 	float  u = f * dot(s, h);
 
 	if (u < 0.0f || u > 1.0f) return false;
 
-	float3 q = cross(s, triangle.position_edge1);
+	float3 q = cross(s, position_edge1);
 	float  v = f * dot(ray.direction, q);
 
 	if (v < 0.0f || u + v > 1.0f) return false;
 
-	float t = f * dot(triangle.position_edge2, q);
+	float t = f * dot(position_edge2, q);
 
 	if (t < EPSILON || t >= max_distance) return false;
 
@@ -197,7 +201,7 @@ __device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		if (node.aabb.intersects(ray, ray_hit.t)) {
 			if (node.is_leaf()) {
 				for (int i = node.first; i < node.first + node.count; i++) {
-					triangle_trace(triangles[i], ray, ray_hit, i);
+					triangle_trace(i, ray, ray_hit);
 				}
 			} else {
 				if (node.should_visit_left_first(ray)) {
@@ -226,7 +230,7 @@ __device__ bool bvh_intersect(const Ray & ray, float max_distance) {
 		if (node.aabb.intersects(ray, max_distance)) {
 			if (node.is_leaf()) {
 				for (int i = node.first; i < node.first + node.count; i++) {
-					if (triangle_intersect(triangles[i], ray, max_distance)) {
+					if (triangle_intersect(i, ray, max_distance)) {
 						return true;
 					}
 				}
@@ -388,18 +392,22 @@ extern "C" __global__ void kernel_generate(
 
 	unsigned seed = (index + rand_seed * 199494991) * 949525949;
 	
-	int block_index = index / 32;
-	int i = (block_index % (SCREEN_WIDTH / 8)) * 8;
-	int j = (block_index / (SCREEN_WIDTH / 8)) * 4;
+	const int BLOCK_WIDTH  = 16;
+	const int BLOCK_HEIGHT = 8;
+	const int BLOCK_SIZE   = BLOCK_WIDTH * BLOCK_HEIGHT;
+
+	int block_index = index / BLOCK_SIZE;
+	int i = (block_index % (SCREEN_WIDTH / BLOCK_WIDTH)) * BLOCK_WIDTH;
+	int j = (block_index / (SCREEN_WIDTH / BLOCK_WIDTH)) * BLOCK_HEIGHT;
 
 	ASSERT(i < SCREEN_WIDTH, "");
 	ASSERT(j < SCREEN_HEIGHT, "");
 
-	int k = (index % 32) % 8;
-	int l = (index % 32) / 8;
+	int k = (index % BLOCK_SIZE) % BLOCK_WIDTH;
+	int l = (index % BLOCK_SIZE) / BLOCK_WIDTH;
 
-	ASSERT(k < 8, "");
-	ASSERT(l < 4, "");
+	ASSERT(k < BLOCK_WIDTH, "");
+	ASSERT(l < BLOCK_HEIGHT, "");
 
 	int x = i + k;
 	int y = j + l;
@@ -496,8 +504,7 @@ extern "C" __global__ void kernel_shade(
 
 	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
 
-	const Triangle & triangle = triangles[ray_triangle_id];
-	const Material & material = materials[triangle.material_id];
+	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
 	if (material.is_light()) {
 		frame_buffer_write(x, y, ray_colour + ray_throughput * material.emittance, frames_since_camera_moved);
@@ -521,12 +528,12 @@ extern "C" __global__ void kernel_shade(
 
 	int index_out = atomic_agg_inc(&N_ext);
 
-	float3 hit_normal = triangle.normal0
-		+ ray_u * triangle.normal_edge1
-		+ ray_v * triangle.normal_edge2;
-	float2 hit_tex_coord = triangle.tex_coord0
-		+ ray_u * triangle.tex_coord_edge1
-		+ ray_v * triangle.tex_coord_edge2;
+	float3 hit_normal = triangles_normal0[ray_triangle_id]
+		+ ray_u * triangles_normal_edge1[ray_triangle_id]
+		+ ray_v * triangles_normal_edge2[ray_triangle_id];
+	float2 hit_tex_coord = triangles_tex_coord0[ray_triangle_id]
+		+ ray_u * triangles_tex_coord_edge1[ray_triangle_id]
+		+ ray_v * triangles_tex_coord_edge2[ray_triangle_id];
 
 	path_buffer_out->origin[index_out]    = ray_origin + ray_t * ray_direction;
 	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
@@ -555,14 +562,12 @@ extern "C" __global__ void kernel_connect(
 	float3 ray_colour     = path_buffer->colour[index];
 	float3 ray_throughput = path_buffer->throughput[index];
 
-	const Triangle & triangle = triangles[ray_triangle_id];
-
 	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
 
 	// Pick a random light emitting triangle
-	const Triangle & light_triangle = triangles[light_indices[rand_xorshift(seed) % light_count]];
+	int light_triangle_id = light_indices[rand_xorshift(seed) % light_count];
 
-	ASSERT(length(materials[light_triangle.material_id].emittance) > 0.0f, "Material was not emissive!\n");
+	ASSERT(length(materials[triangles_material_id[light_triangle_id]].emittance) > 0.0f, "Material was not emissive!\n");
 
 	// Pick a random point on the triangle using random barycentric coordinates
 	float u = random_float(seed);
@@ -573,17 +578,17 @@ extern "C" __global__ void kernel_connect(
 		v = 1.0f - v;
 	}
 
-	float3 random_point_on_light = light_triangle.position0 
-		+ u * light_triangle.position_edge1 
-		+ v * light_triangle.position_edge2;
+	float3 random_point_on_light = triangles_position0[light_triangle_id]
+		+ u * triangles_position_edge1[light_triangle_id] 
+		+ v * triangles_position_edge2[light_triangle_id];
 
 	// Calculate the area of the triangle light
-	float light_area = 0.5f * length(cross(light_triangle.position_edge1, light_triangle.position_edge2));
+	float light_area = 0.5f * length(cross(triangles_position_edge1[light_triangle_id], triangles_position_edge2[light_triangle_id]));
 
 	float3 hit_point = ray_origin + ray_t * ray_direction;
-	float3 hit_normal = triangle.position0
-		+ u * triangle.position_edge1
-		+ v * triangle.position_edge2;
+	float3 hit_normal = triangles_position0[ray_triangle_id]
+		+ u * triangles_position_edge1[ray_triangle_id]
+		+ v * triangles_position_edge2[ray_triangle_id];
 
 	float3 to_light = random_point_on_light - hit_point;
 	float distance_to_light_squared = dot(to_light, to_light);
@@ -592,9 +597,9 @@ extern "C" __global__ void kernel_connect(
 	// Normalize the vector to the light
 	to_light /= distance_to_light;
 
-	float3 light_normal = light_triangle.normal0 
-		+ u * light_triangle.normal_edge1
-		+ v * light_triangle.normal_edge2;
+	float3 light_normal = triangles_normal0[light_triangle_id]
+		+ u * triangles_normal_edge1[light_triangle_id]
+		+ v * triangles_normal_edge2[light_triangle_id];
 
 	float cos_o = -dot(to_light, light_normal);
 	float cos_i =  dot(to_light, hit_normal);
@@ -611,11 +616,11 @@ extern "C" __global__ void kernel_connect(
 
 		// Check if the light is obstructed by any other object in the scene
 		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
-			const Material & material = materials[triangle.material_id];
+			const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
-			float2 hit_tex_coord = triangle.tex_coord0
-				+ ray_u * triangle.tex_coord_edge1
-				+ ray_v * triangle.tex_coord_edge2;
+			float2 hit_tex_coord = triangles_tex_coord0[ray_triangle_id]
+				+ ray_u * triangles_tex_coord_edge1[ray_triangle_id]
+				+ ray_v * triangles_tex_coord_edge2[ray_triangle_id];
 
 			float3 brdf = material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
 			float solid_angle = (cos_o * light_area) / distance_to_light_squared;

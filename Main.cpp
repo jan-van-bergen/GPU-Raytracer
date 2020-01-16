@@ -109,43 +109,78 @@ int main(int argument_count, char ** arguments) {
 		bvh.build_sbvh();
 	}
 
-	struct GPUTriangle {
-		Vector3 position0;
-		Vector3 position_edge1;
-		Vector3 position_edge2;
+	Vector3 * triangles_position0      = new Vector3[bvh.primitive_count];
+	Vector3 * triangles_position_edge1 = new Vector3[bvh.primitive_count];
+	Vector3 * triangles_position_edge2 = new Vector3[bvh.primitive_count];
 
-		Vector3 normal0;
-		Vector3 normal_edge1;
-		Vector3 normal_edge2; 
+	Vector3 * triangles_normal0      = new Vector3[bvh.primitive_count];
+	Vector3 * triangles_normal_edge1 = new Vector3[bvh.primitive_count];
+	Vector3 * triangles_normal_edge2 = new Vector3[bvh.primitive_count]; 
 	
-		alignas(8) Vector2 tex_coord0;
-		alignas(8) Vector2 tex_coord_edge1;
-		alignas(8) Vector2 tex_coord_edge2;
+	alignas(8) Vector2 * triangles_tex_coord0      = new Vector2[bvh.primitive_count];
+	alignas(8) Vector2 * triangles_tex_coord_edge1 = new Vector2[bvh.primitive_count];
+	alignas(8) Vector2 * triangles_tex_coord_edge2 = new Vector2[bvh.primitive_count];
 
-		int material_id;
-	} * gpu_triangles = new GPUTriangle[bvh.primitive_count];
+	int * triangles_material_id = new int[bvh.primitive_count];
 
 	for (int i = 0; i < bvh.primitive_count; i++) {
-		gpu_triangles[i].position0      = bvh.primitives[i].position0;
-		gpu_triangles[i].position_edge1 = bvh.primitives[i].position1 - bvh.primitives[i].position0;
-		gpu_triangles[i].position_edge2 = bvh.primitives[i].position2 - bvh.primitives[i].position0;
+		triangles_position0[i]      = bvh.primitives[i].position0;
+		triangles_position_edge1[i] = bvh.primitives[i].position1 - bvh.primitives[i].position0;
+		triangles_position_edge2[i] = bvh.primitives[i].position2 - bvh.primitives[i].position0;
 
-		gpu_triangles[i].normal0      = bvh.primitives[i].normal0;
-		gpu_triangles[i].normal_edge1 = bvh.primitives[i].normal1 - bvh.primitives[i].normal0;
-		gpu_triangles[i].normal_edge2 = bvh.primitives[i].normal2 - bvh.primitives[i].normal0;
+		triangles_normal0[i]      = bvh.primitives[i].normal0;
+		triangles_normal_edge1[i] = bvh.primitives[i].normal1 - bvh.primitives[i].normal0;
+		triangles_normal_edge2[i] = bvh.primitives[i].normal2 - bvh.primitives[i].normal0;
 
-		gpu_triangles[i].tex_coord0      = bvh.primitives[i].tex_coord0;
-		gpu_triangles[i].tex_coord_edge1 = bvh.primitives[i].tex_coord1 - bvh.primitives[i].tex_coord0;
-		gpu_triangles[i].tex_coord_edge2 = bvh.primitives[i].tex_coord2 - bvh.primitives[i].tex_coord0;
+		triangles_tex_coord0[i]      = bvh.primitives[i].tex_coord0;
+		triangles_tex_coord_edge1[i] = bvh.primitives[i].tex_coord1 - bvh.primitives[i].tex_coord0;
+		triangles_tex_coord_edge2[i] = bvh.primitives[i].tex_coord2 - bvh.primitives[i].tex_coord0;
 
-		gpu_triangles[i].material_id = bvh.primitives[i].material_id;
+		triangles_material_id[i] = bvh.primitives[i].material_id;
 	}
 
 	// Set global Triangle buffer
-	CUDAMemory::Ptr<GPUTriangle> triangles_ptr = CUDAMemory::malloc<GPUTriangle>(bvh.primitive_count);
-	CUDAMemory::memcpy(triangles_ptr, gpu_triangles, bvh.primitive_count);
+	CUDAMemory::Ptr<Vector3> triangles_position0_ptr      = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
+	CUDAMemory::Ptr<Vector3> triangles_position_edge1_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
+	CUDAMemory::Ptr<Vector3> triangles_position_edge2_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
 
-	module.get_global("triangles").set_value(triangles_ptr);
+	CUDAMemory::Ptr<Vector3> triangles_normal0_ptr      = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
+	CUDAMemory::Ptr<Vector3> triangles_normal_edge1_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
+	CUDAMemory::Ptr<Vector3> triangles_normal_edge2_ptr = CUDAMemory::malloc<Vector3>(bvh.primitive_count);
+
+	CUDAMemory::Ptr<Vector2> triangles_tex_coord0_ptr      = CUDAMemory::malloc<Vector2>(bvh.primitive_count);
+	CUDAMemory::Ptr<Vector2> triangles_tex_coord_edge1_ptr = CUDAMemory::malloc<Vector2>(bvh.primitive_count);
+	CUDAMemory::Ptr<Vector2> triangles_tex_coord_edge2_ptr = CUDAMemory::malloc<Vector2>(bvh.primitive_count);
+
+	CUDAMemory::Ptr<int> triangles_material_id_ptr = CUDAMemory::malloc<int>(bvh.primitive_count);
+
+	CUDAMemory::memcpy(triangles_position0_ptr,      triangles_position0,      bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_position_edge1_ptr, triangles_position_edge1, bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_position_edge2_ptr, triangles_position_edge2, bvh.primitive_count);
+	
+	CUDAMemory::memcpy(triangles_normal0_ptr,      triangles_normal0,      bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_normal_edge1_ptr, triangles_normal_edge1, bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_normal_edge2_ptr, triangles_normal_edge2, bvh.primitive_count);
+
+	CUDAMemory::memcpy(triangles_tex_coord0_ptr,      triangles_tex_coord0,      bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_tex_coord_edge1_ptr, triangles_tex_coord_edge1, bvh.primitive_count);
+	CUDAMemory::memcpy(triangles_tex_coord_edge2_ptr, triangles_tex_coord_edge2, bvh.primitive_count);
+
+	CUDAMemory::memcpy(triangles_material_id_ptr, triangles_material_id, bvh.primitive_count);
+
+	module.get_global("triangles_position0").set_value(triangles_position0_ptr);
+	module.get_global("triangles_position_edge1").set_value(triangles_position_edge1_ptr);
+	module.get_global("triangles_position_edge2").set_value(triangles_position_edge2_ptr);
+
+	module.get_global("triangles_normal0").set_value(triangles_normal0_ptr);
+	module.get_global("triangles_normal_edge1").set_value(triangles_normal_edge1_ptr);
+	module.get_global("triangles_normal_edge2").set_value(triangles_normal_edge2_ptr);
+
+	module.get_global("triangles_tex_coord0").set_value(triangles_tex_coord0_ptr);
+	module.get_global("triangles_tex_coord_edge1").set_value(triangles_tex_coord_edge1_ptr);
+	module.get_global("triangles_tex_coord_edge2").set_value(triangles_tex_coord_edge2_ptr);
+
+	module.get_global("triangles_material_id").set_value(triangles_material_id_ptr);
 
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
