@@ -12,17 +12,6 @@ surface<void, 2> frame_buffer;
 #define USE_IMPORTANCE_SAMPLING true
 
 // Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
-__device__ unsigned wang_hash(unsigned seed) {
-	seed = (seed ^ 61) ^ (seed >> 16);
-	seed = seed + (seed << 3);
-	seed = seed ^ (seed >> 4);
-	seed = seed * 0x27d4eb2d;
-	seed = seed ^ (seed >> 15);
-
-	return seed;
-}
-
-// Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 __device__ unsigned rand_xorshift(unsigned & seed) {
     seed ^= (seed << 13);
     seed ^= (seed >> 17);
@@ -78,14 +67,10 @@ struct Ray {
 };
 
 struct RayHit {
-	float distance = INFINITY;
-	
-	int triangle_id;
-	int material_id;
+	float t = INFINITY;
+	float u, v;
 
-	float3 point;
-	float3 normal;
-	float2 uv;
+	int triangle_id;
 };
 
 struct AABB {
@@ -151,11 +136,6 @@ struct BVHNode {
 
 __device__ BVHNode * bvh_nodes;
 
-__device__ float3 camera_position;
-__device__ float3 camera_top_left_corner;
-__device__ float3 camera_x_axis;
-__device__ float3 camera_y_axis;
-
 __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHit & ray_hit, int triangle_id) {
 	float3 h = cross(ray.direction, triangle.position_edge2);
 	float  a = dot(triangle.position_edge1, h);
@@ -173,21 +153,16 @@ __device__ void triangle_trace(const Triangle & triangle, const Ray & ray, RayHi
 
 	float t = f * dot(triangle.position_edge2, q);
 
-	if (t < EPSILON || t >= ray_hit.distance) return;
+	if (t < EPSILON || t >= ray_hit.t) return;
 
-	ray_hit.distance = t;
-
-	ray_hit.triangle_id = triangle_id;
-	ray_hit.material_id = triangle.material_id;
-
-	ray_hit.point = ray.origin + t * ray.direction;
-	ray_hit.normal = normalize(triangle.normal0 
-		+ u * triangle.normal_edge1
-		+ v * triangle.normal_edge2
-	);
-	ray_hit.uv = triangle.tex_coord0 
-		+ u * triangle.tex_coord_edge1 
+	float2 uv = triangle.tex_coord0
+		+ u * triangle.tex_coord_edge1
 		+ v * triangle.tex_coord_edge2;
+	
+	ray_hit.t = t;
+	ray_hit.u = uv.x;
+	ray_hit.v = uv.y;
+	ray_hit.triangle_id = triangle_id;
 }
 
 __device__ bool triangle_intersect(const Triangle & triangle, const Ray & ray, float max_distance) {
@@ -223,7 +198,7 @@ __device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		// Pop Node of the stack
 		const BVHNode & node = bvh_nodes[stack[--stack_size]];
 
-		if (node.aabb.intersects(ray, ray_hit.distance)) {
+		if (node.aabb.intersects(ray, ray_hit.t)) {
 			if (node.is_leaf()) {
 				for (int i = node.first; i < node.first + node.count; i++) {
 					triangle_trace(triangles[i], ray, ray_hit, i);
@@ -358,164 +333,6 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 	return direction;
 }
 
-__device__ float3 sample(unsigned & seed, Ray & ray) {
-	const int ITERATIONS = 10;
-	
-	float3 colour     = make_float3(0.0f);
-	float3 throughput = make_float3(1.0f);
-	
-	bool last_specular = true;
-
-	for (int bounce = 0; bounce < ITERATIONS; bounce++) {
-		// Check ray against all triangles
-		RayHit hit;
-		bvh_trace(ray, hit);
-
-		// Check if we didn't hit anything
-		if (hit.distance == INFINITY) {
-			return colour + throughput * sample_sky(ray.direction);
-		}
-
-		const Material & material = materials[hit.material_id];
-
-		if (light_count > 0) {
-			if (material.is_light()) {
-				if (last_specular) {
-					return colour + throughput * material.emittance;
-				} else {
-					return colour;
-				}
-			}
-
-			// Pick a random light emitting triangle
-			const Triangle & light_triangle = triangles[light_indices[rand_xorshift(seed) % light_count]];
-
-			ASSERT(length(materials[light_triangle.material_id].emittance) > 0.0f, "Material was not emissive!\n");
-		
-			// Pick a random point on the triangle using random barycentric coordinates
-			float u = random_float(seed);
-			float v = random_float(seed);
-
-			if (u + v > 1.0f) {
-				u = 1.0f - u;
-				v = 1.0f - v;
-			}
-
-			float3 random_point_on_light = light_triangle.position0 
-				+ u * light_triangle.position_edge1 
-				+ v * light_triangle.position_edge2;
-
-			// Calculate the area of the triangle light
-			float light_area = 0.5f * length(cross(light_triangle.position_edge1, light_triangle.position_edge2));
-
-			float3 to_light = random_point_on_light - hit.point;
-			float distance_to_light_squared = dot(to_light, to_light);
-			float distance_to_light         = sqrtf(distance_to_light_squared);
-
-			// Normalize the vector to the light
-			to_light /= distance_to_light;
-
-			float3 light_normal = light_triangle.normal0 
-				+ u * light_triangle.normal_edge1
-				+ v * light_triangle.normal_edge2;
-
-			float cos_o = -dot(to_light, light_normal);
-			float cos_i =  dot(to_light, hit.normal);
-
-			if (cos_o > 0.0f && cos_i > 0.0f) {
-				ray.origin    = hit.point;
-				ray.direction = to_light;
-				ray.direction_inv = make_float3(
-					1.0f / ray.direction.x, 
-					1.0f / ray.direction.y, 
-					1.0f / ray.direction.z
-				);
-
-				// Check if the light is obstructed by any other object in the scene
-				if (!bvh_intersect(ray, distance_to_light - EPSILON)) {
-					float3 brdf = material.albedo(hit.uv.x, hit.uv.y) * ONE_OVER_PI;
-					float solid_angle = (cos_o * light_area) / distance_to_light_squared;
-
-					float3 light_colour = materials[light_triangle.material_id].emittance;
-
-					colour += throughput * brdf * light_count * light_colour * solid_angle * cos_i;
-				}
-			}
-		}
-
-#if USE_IMPORTANCE_SAMPLING
-		float3 direction = cosine_weighted_diffuse_reflection(seed, hit.normal);
-
-		throughput *= material.albedo(hit.uv.x, hit.uv.y);
-#else
-		float3 direction = diffuse_reflection(seed, hit.normal);
-
-		throughput *= 2.0f * material.albedo(hit.uv.x, hit.uv.y) * dot(hit.normal, direction);
-#endif
-
-		// Russian Roulette termination after at least four bounces
-		if (bounce > 3) {
-			float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
-			if (random_float(seed) > one_minus_p) {
-				return colour;
-			}
-
-			throughput /= one_minus_p;
-		}
-
-		ray.origin    = hit.point;
-		ray.direction = direction;
-		ray.direction_inv = make_float3(
-			1.0f / ray.direction.x, 
-			1.0f / ray.direction.y, 
-			1.0f / ray.direction.z
-		);
-
-		last_specular = false;
-	}
-
-	return make_float3(0.0f);
-}
-
-extern "C" __global__ void trace_ray(int frame_number, float frames_since_camera_moved) {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-
-	int thread_id = x + y * SCREEN_WIDTH;
-
-	unsigned seed = (thread_id + frame_number * 312080213) * 781939187;
-	
-	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
-	float u = x + random_float(seed);
-	float v = y + random_float(seed);
-
-	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
-	Ray ray;
-	ray.origin    = camera_position;
-	ray.direction = normalize(camera_top_left_corner
-		+ u * camera_x_axis
-		+ v * camera_y_axis
-	);
-	ray.direction_inv = make_float3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
-	
-	float3 colour = sample(seed, ray);
-
-	// If the Camera hasn't moved, average over previous frames
-	if (frames_since_camera_moved > 0.0f) {
-		float4 prev;
-		surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
-
-		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour = (make_float3(prev) * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
-	}
-
-	surf2Dwrite<float4>(make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-#define MAX_BOUNCES 10
-
 // Based on: https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
 __device__ inline int atomic_agg_inc(int * ctr) {
 	int mask   = __ballot(1);
@@ -634,16 +451,16 @@ extern "C" __global__ void kernel_extend(
 	RayHit hit;
 	bvh_trace(ray, hit);
 
-	if (hit.distance == INFINITY) {
+	if (hit.t == INFINITY) {
 		path_buffer->triangle_id[index] = -1;
 
 		return;
 	}
 
+	path_buffer->t[index] = hit.t;
+	path_buffer->u[index] = hit.u;
+	path_buffer->v[index] = hit.v;
 	path_buffer->triangle_id[index] = hit.triangle_id;
-	path_buffer->u[index] = hit.uv.x;
-	path_buffer->v[index] = hit.uv.y;
-	path_buffer->t[index] = hit.distance;
 }
 
 __device__ int N_ext;

@@ -195,12 +195,6 @@ int main(int argument_count, char ** arguments) {
 
 	module.get_global("sky_data").set_value(sky_data_ptr);
 
-	// Set Camera globals
-	CUDAModule::Global global_camera_position        = module.get_global("camera_position");
-	CUDAModule::Global global_camera_top_left_corner = module.get_global("camera_top_left_corner");
-	CUDAModule::Global global_camera_x_axis          = module.get_global("camera_x_axis");
-	CUDAModule::Global global_camera_y_axis          = module.get_global("camera_y_axis");
-	
 	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("frame_buffer", CUDAContext::map_gl_texture(window.frame_buffer_handle));
 
@@ -246,13 +240,6 @@ int main(int argument_count, char ** arguments) {
 	global_buffer_1.set_value(buffer_1);
 
 	CUDAModule::Global global_N_ext = module.get_global("N_ext");
-
-	// Initialize Kernel
-	CUDAKernel kernel;
-	kernel.init(&module, "trace_ray");
-
-	kernel.set_block_dim(32, 4, 1);
-	kernel.set_grid_dim(SCREEN_WIDTH / kernel.block_dim_x, SCREEN_HEIGHT / kernel.block_dim_y, 1);
 
 	// Generate Kernel
 	CUDAKernel kernel_generate;
