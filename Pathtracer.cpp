@@ -12,7 +12,7 @@
 
 const int PIXEL_COUNT = SCREEN_WIDTH * SCREEN_HEIGHT;
 
-void Pathtracer::init(unsigned frame_buffer_handle) {
+void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	CUDAContext::init();
 
 	camera.init(DEG_TO_RAD(110.0f));
@@ -22,7 +22,6 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	CUDAModule module;
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
-	const char * scene_name = DATA_PATH("scene.obj");
 	const MeshData * mesh = MeshData::load(scene_name);
 
 	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();

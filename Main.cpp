@@ -29,7 +29,7 @@ int main(int argument_count, char ** arguments) {
 	int fps    = 0;
 	
 	Pathtracer pathtracer;
-	pathtracer.init(window.frame_buffer_handle);
+	pathtracer.init(DATA_PATH("scene.obj"), window.frame_buffer_handle);
 
 	srand(1337);
 

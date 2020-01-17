@@ -20,7 +20,7 @@ struct Pathtracer {
 	CUDAModule::Global global_N_ext;
 	CUDAModule::Global global_N_shadow;
 
-	void init(unsigned frame_buffer_handle);
+	void init(const char * scene_name, unsigned frame_buffer_handle);
 
 	void update(float delta, const unsigned char * keys);
 	void render();
