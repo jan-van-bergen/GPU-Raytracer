@@ -26,6 +26,11 @@ __device__ float random_float(unsigned & seed) {
 	return float(rand_xorshift(seed)) * one_over_max_unsigned;
 }
 
+template<typename T>
+__device__ T barycentric(float u, float v, const T & base, const T & edge_1, const T & edge_2) {
+	return base + u * edge_1 + v * edge_2;
+}
+
 struct Material;
 
 __device__ Material            * materials;
@@ -540,15 +545,9 @@ extern "C" __global__ void kernel_shade(
 
 	int index_out = atomic_agg_inc(&N_ext);
 
-	float3 hit_point = triangles_position0[ray_triangle_id]
-		+ ray_u * triangles_position_edge1[ray_triangle_id]
-		+ ray_v * triangles_position_edge2[ray_triangle_id];
-	float3 hit_normal = triangles_normal0[ray_triangle_id]
-		+ ray_u * triangles_normal_edge1[ray_triangle_id]
-		+ ray_v * triangles_normal_edge2[ray_triangle_id];
-	float2 hit_tex_coord = triangles_tex_coord0[ray_triangle_id]
-		+ ray_u * triangles_tex_coord_edge1[ray_triangle_id]
-		+ ray_v * triangles_tex_coord_edge2[ray_triangle_id];
+	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
+	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 
 	path_buffer_out->origin[index_out]    = hit_point;
 	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
@@ -586,16 +585,9 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 		v = 1.0f - v;
 	}
 
-	float3 random_point_on_light = triangles_position0[light_triangle_id]
-		+ u * triangles_position_edge1[light_triangle_id] 
-		+ v * triangles_position_edge2[light_triangle_id];
-
-	float3 hit_point = triangles_position0[ray_triangle_id]
-		+ ray_u * triangles_position_edge1[ray_triangle_id]
-		+ ray_v * triangles_position_edge2[ray_triangle_id];
-	float3 hit_normal = triangles_normal0[ray_triangle_id]
-		+ ray_u * triangles_normal_edge1[ray_triangle_id]
-		+ ray_v * triangles_normal_edge2[ray_triangle_id];
+	float3 random_point_on_light = barycentric(u,     v,     triangles_position0[light_triangle_id], triangles_position_edge1[light_triangle_id], triangles_position_edge2[light_triangle_id]);
+	float3 hit_point             = barycentric(ray_u, ray_v, triangles_position0[ray_triangle_id],   triangles_position_edge1[ray_triangle_id],   triangles_position_edge2[ray_triangle_id]);
+	float3 hit_normal            = barycentric(ray_u, ray_v, triangles_normal0  [ray_triangle_id],   triangles_normal_edge1  [ray_triangle_id],   triangles_normal_edge2  [ray_triangle_id]);
 
 	float3 to_light = random_point_on_light - hit_point;
 	float distance_to_light_squared = dot(to_light, to_light);
@@ -604,9 +596,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 	// Normalize the vector to the light
 	to_light /= distance_to_light;
 
-	float3 light_normal = triangles_normal0[light_triangle_id]
-		+ u * triangles_normal_edge1[light_triangle_id]
-		+ v * triangles_normal_edge2[light_triangle_id];
+	float3 light_normal = barycentric(u, v, triangles_normal0[light_triangle_id], triangles_normal_edge1[light_triangle_id], triangles_normal_edge2[light_triangle_id]);
 
 	float cos_o = -dot(to_light, light_normal);
 	float cos_i =  dot(to_light, hit_normal);
@@ -626,9 +616,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 			const Material & hit_material   = materials[triangles_material_id[ray_triangle_id]];
 			const Material & light_material = materials[triangles_material_id[light_triangle_id]];
 
-			float2 hit_tex_coord = triangles_tex_coord0[ray_triangle_id]
-				+ ray_u * triangles_tex_coord_edge1[ray_triangle_id]
-				+ ray_v * triangles_tex_coord_edge2[ray_triangle_id];
+			float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 
 			float3 brdf = hit_material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
 
