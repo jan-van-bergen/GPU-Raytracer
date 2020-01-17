@@ -184,7 +184,6 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 		CUDAMemory::Ptr<int> triangle_id;
 		CUDAMemory::Ptr<float> u;
 		CUDAMemory::Ptr<float> v;
-		CUDAMemory::Ptr<float> t;
 
 		CUDAMemory::Ptr<int> pixel_index;
 		CUDAMemory::Ptr<Vector3> colour;
@@ -197,7 +196,6 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 			triangle_id = CUDAMemory::malloc<int>(buffer_size);
 			u = CUDAMemory::malloc<float>(buffer_size);
 			v = CUDAMemory::malloc<float>(buffer_size);
-			t = CUDAMemory::malloc<float>(buffer_size);
 
 			pixel_index = CUDAMemory::malloc<int>(buffer_size);
 			colour     = CUDAMemory::malloc<Vector3>(buffer_size);

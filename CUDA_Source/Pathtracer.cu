@@ -369,7 +369,6 @@ struct PathBuffer {
 	int * triangle_id;
 	float * u;
 	float * v;
-	float * t;
 
 	int * pixel_index;
 	float3 * colour;
@@ -461,7 +460,6 @@ extern "C" __global__ void kernel_extend(
 		return;
 	}
 
-	path_buffer->t[index] = hit.t;
 	path_buffer->u[index] = hit.u;
 	path_buffer->v[index] = hit.v;
 	path_buffer->triangle_id[index] = hit.triangle_id;
@@ -480,13 +478,11 @@ extern "C" __global__ void kernel_shade(
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
-	float3 ray_origin    = path_buffer_in->origin[index];
 	float3 ray_direction = path_buffer_in->direction[index];
 
 	int ray_triangle_id = path_buffer_in->triangle_id[index];
 	float ray_u = path_buffer_in->u[index];
 	float ray_v = path_buffer_in->v[index];
-	float ray_t = path_buffer_in->t[index];
 
 	int ray_pixel_index = path_buffer_in->pixel_index[index];
 	float3 ray_colour     = path_buffer_in->colour[index];
@@ -528,6 +524,9 @@ extern "C" __global__ void kernel_shade(
 
 	int index_out = atomic_agg_inc(&N_ext);
 
+	float3 hit_point = triangles_position0[ray_triangle_id]
+		+ ray_u * triangles_position_edge1[ray_triangle_id]
+		+ ray_v * triangles_position_edge2[ray_triangle_id];
 	float3 hit_normal = triangles_normal0[ray_triangle_id]
 		+ ray_u * triangles_normal_edge1[ray_triangle_id]
 		+ ray_v * triangles_normal_edge2[ray_triangle_id];
@@ -535,7 +534,7 @@ extern "C" __global__ void kernel_shade(
 		+ ray_u * triangles_tex_coord_edge1[ray_triangle_id]
 		+ ray_v * triangles_tex_coord_edge2[ray_triangle_id];
 
-	path_buffer_out->origin[index_out]    = ray_origin + ray_t * ray_direction;
+	path_buffer_out->origin[index_out]    = hit_point;
 	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
 
 	path_buffer_out->throughput[index_out]  = throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -550,13 +549,9 @@ extern "C" __global__ void kernel_connect(
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
-	float3 ray_origin    = path_buffer->origin[index];
-	float3 ray_direction = path_buffer->direction[index];
-
 	int ray_triangle_id = path_buffer->triangle_id[index];
 	float ray_u = path_buffer->u[index];
 	float ray_v = path_buffer->v[index];
-	float ray_t = path_buffer->t[index];
 
 	int ray_pixel_index = path_buffer->pixel_index[index];
 	float3 ray_colour     = path_buffer->colour[index];
@@ -585,7 +580,9 @@ extern "C" __global__ void kernel_connect(
 	// Calculate the area of the triangle light
 	float light_area = 0.5f * length(cross(triangles_position_edge1[light_triangle_id], triangles_position_edge2[light_triangle_id]));
 
-	float3 hit_point = ray_origin + ray_t * ray_direction;
+	float3 hit_point = triangles_position0[ray_triangle_id]
+		+ u * triangles_position_edge1[ray_triangle_id]
+		+ v * triangles_position_edge2[ray_triangle_id];
 	float3 hit_normal = triangles_normal0[ray_triangle_id]
 		+ u * triangles_normal_edge1[ray_triangle_id]
 		+ v * triangles_normal_edge2[ray_triangle_id];
@@ -609,9 +606,9 @@ extern "C" __global__ void kernel_connect(
 		shadow_ray.origin    = hit_point;
 		shadow_ray.direction = to_light;
 		shadow_ray.direction_inv = make_float3(
-			1.0f / ray_direction.x, 
-			1.0f / ray_direction.y, 
-			1.0f / ray_direction.z
+			1.0f / shadow_ray.direction.x, 
+			1.0f / shadow_ray.direction.y, 
+			1.0f / shadow_ray.direction.z
 		);
 
 		// Check if the light is obstructed by any other object in the scene
