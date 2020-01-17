@@ -12,6 +12,7 @@ struct Pathtracer {
 	CUDAKernel kernel_extend;
 	CUDAKernel kernel_shade;
 	CUDAKernel kernel_connect;
+	CUDAKernel kernel_accumulate;
 
 	CUDAModule::Global global_buffer_0;
 	CUDAModule::Global global_buffer_1;

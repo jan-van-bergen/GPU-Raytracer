@@ -8,6 +8,7 @@
 #define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
 
 surface<void, 2> frame_buffer;
+surface<void, 2> accumulator;
 
 #define USE_IMPORTANCE_SAMPLING true
 
@@ -348,18 +349,8 @@ __device__ inline int atomic_agg_inc(int * ctr) {
 	return res + __popc(mask & ((1 << laneid) - 1));
 }
 
-__device__ void frame_buffer_write(int x, int y, const float3 & colour, float frames_since_camera_moved) {
-	float3 colour_out = colour;
-
-	if (frames_since_camera_moved > 0.0f) {
-		float4 prev;
-		surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
-
-		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour_out = (make_float3(prev) * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
-	}
-
-	surf2Dwrite<float4>(make_float4(colour_out, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+__device__ void frame_buffer_write(int x, int y, const float3 & colour) {
+	surf2Dwrite<float4>(make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
 struct PathBuffer {
@@ -469,7 +460,6 @@ extern "C" __global__ void kernel_shade(
 	int rand_seed,
 	int buffer_size,
 	int bounce,
-	float frames_since_camera_moved,
 	const PathBuffer * __restrict__ path_buffer_in,
 	const PathBuffer * __restrict__ path_buffer_out
 ) {
@@ -490,7 +480,7 @@ extern "C" __global__ void kernel_shade(
 
 	// If the Ray didn't hit a Triangle, terminate the Path
 	if (ray_triangle_id == -1) {
-		frame_buffer_write(x, y, ray_throughput * sample_sky(ray_direction), frames_since_camera_moved);
+		frame_buffer_write(x, y, ray_throughput * sample_sky(ray_direction));
 
 		return;
 	}
@@ -500,7 +490,7 @@ extern "C" __global__ void kernel_shade(
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
 	if (material.is_light()) {
-		frame_buffer_write(x, y, ray_throughput * material.emittance, frames_since_camera_moved);
+		frame_buffer_write(x, y, ray_throughput * material.emittance);
 
 		return;
 	}
@@ -511,7 +501,7 @@ extern "C" __global__ void kernel_shade(
 	if (bounce > 3) {
 		float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
 		if (random_float(seed) > one_minus_p) {
-			frame_buffer_write(x, y, make_float3(0.0f), frames_since_camera_moved);
+			frame_buffer_write(x, y, make_float3(0.0f));
 
 			return;
 		}
@@ -621,4 +611,25 @@ extern "C" __global__ void kernel_connect(
 			//ray_colour += ray_throughput * brdf * light_count * material.emittance * solid_angle * cos_i;
 		}
 	}
+}
+
+extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	float4 colour;
+	surf2Dread<float4>(&colour, frame_buffer, x * sizeof(float4), y);
+	
+	float4 colour_out;
+	if (frames_since_camera_moved > 0.0f) {
+		float4 prev;
+		surf2Dread<float4>(&prev, accumulator, x * sizeof(float4), y);
+
+		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
+		colour_out = (prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
+	} else {
+		colour_out = colour;
+	}
+
+	surf2Dwrite<float4>(colour_out, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }

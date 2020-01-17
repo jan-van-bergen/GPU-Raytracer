@@ -35,9 +35,24 @@ namespace CUDAMemory {
 		desc.Height = height;
 		desc.NumChannels = channels;
 		desc.Format = format;
-
+		
 		CUarray array;
 		CUDACALL(cuArrayCreate(&array, &desc));
+
+		return array;
+	}
+
+	inline CUarray create_array3d(int width, int height, int depth, int channels, CUarray_format format, unsigned flags) {
+		CUDA_ARRAY3D_DESCRIPTOR desc;
+		desc.Width  = width;
+		desc.Height = height;
+		desc.Depth  = depth;
+		desc.NumChannels = channels;
+		desc.Format = format;
+		desc.Flags  = flags;
+		
+		CUarray array;
+		CUDACALL(cuArray3DCreate(&array, &desc));
 
 		return array;
 	}

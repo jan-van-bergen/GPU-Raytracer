@@ -175,7 +175,8 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
 
 	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
-	module.set_surface("frame_buffer", CUDAContext::map_gl_texture(frame_buffer_handle));
+	module.set_surface("frame_buffer", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
+	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle));
 
 	struct PathBuffer {
 		CUDAMemory::Ptr<Vector3> origin;
@@ -215,20 +216,27 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 
 	global_N_ext = module.get_global("N_ext");
 
-	kernel_generate.init(&module, "kernel_generate");
-	kernel_extend.init  (&module, "kernel_extend");
-	kernel_shade.init   (&module, "kernel_shade");
-	kernel_connect.init (&module, "kernel_connect");
+	kernel_generate.init  (&module, "kernel_generate");
+	kernel_extend.init    (&module, "kernel_extend");
+	kernel_shade.init     (&module, "kernel_shade");
+	kernel_connect.init   (&module, "kernel_connect");
+	kernel_accumulate.init(&module, "kernel_accumulate");
 
-	kernel_generate.set_block_dim(128, 1, 1);
-	kernel_extend.set_block_dim  (128, 1, 1);
-	kernel_shade.set_block_dim   (128, 1, 1);
-	kernel_connect.set_block_dim (128, 1, 1);
+	kernel_generate.set_block_dim (128, 1, 1);
+	kernel_extend.set_block_dim   (128, 1, 1);
+	kernel_shade.set_block_dim    (128, 1, 1);
+	kernel_connect.set_block_dim  (128, 1, 1);
+	kernel_accumulate.set_block_dim(32, 4, 1);
 
 	kernel_generate.set_grid_dim(PIXEL_COUNT / kernel_generate.block_dim_x, 1, 1);
 	kernel_extend.set_grid_dim  (PIXEL_COUNT / kernel_extend.block_dim_x,   1, 1);
 	kernel_shade.set_grid_dim   (PIXEL_COUNT / kernel_shade.block_dim_x,    1, 1);
 	kernel_connect.set_grid_dim (PIXEL_COUNT / kernel_connect.block_dim_x,  1, 1);
+	kernel_accumulate.set_grid_dim(
+		SCREEN_WIDTH  / kernel_accumulate.block_dim_x, 
+		SCREEN_HEIGHT / kernel_accumulate.block_dim_y,
+		1
+	);
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
@@ -279,9 +287,11 @@ void Pathtracer::render() {
 
 		kernel_extend.execute(alive_paths, ray_buffer_in);
 
-		kernel_shade.execute(rand(), alive_paths, bounce, frames_since_camera_moved, ray_buffer_in, ray_buffer_out);
+		kernel_shade.execute(rand(), alive_paths, bounce, ray_buffer_in, ray_buffer_out);
 
 		alive_paths = global_N_ext.get_value<int>();
 		if (alive_paths == 0) break;
 	}
+
+	kernel_accumulate.execute(frames_since_camera_moved);
 }
