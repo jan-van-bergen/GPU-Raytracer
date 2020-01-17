@@ -586,9 +586,9 @@ extern "C" __global__ void kernel_connect(
 	float light_area = 0.5f * length(cross(triangles_position_edge1[light_triangle_id], triangles_position_edge2[light_triangle_id]));
 
 	float3 hit_point = ray_origin + ray_t * ray_direction;
-	float3 hit_normal = triangles_position0[ray_triangle_id]
-		+ u * triangles_position_edge1[ray_triangle_id]
-		+ v * triangles_position_edge2[ray_triangle_id];
+	float3 hit_normal = triangles_normal0[ray_triangle_id]
+		+ u * triangles_normal_edge1[ray_triangle_id]
+		+ v * triangles_normal_edge2[ray_triangle_id];
 
 	float3 to_light = random_point_on_light - hit_point;
 	float distance_to_light_squared = dot(to_light, to_light);
