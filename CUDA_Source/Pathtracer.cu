@@ -349,14 +349,31 @@ __device__ inline int atomic_agg_inc(int * ctr) {
 	return res + __popc(mask & ((1 << laneid) - 1));
 }
 
-__device__ void frame_buffer_write(int x, int y, const float3 & colour) {
-	surf2Dwrite<float4>(make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+__device__ void frame_buffer_add(int x, int y, const float3 & colour) {
+	float4 prev;
+	surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
+	
+	surf2Dwrite<float4>(prev + make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
 struct PathBuffer {
 	float3 * origin;
 	float3 * direction;
 	
+	int   * triangle_id;
+	float * u;
+	float * v;
+
+	int    * pixel_index;
+	float3 * throughput;
+
+	bool * last_specular;
+};
+
+__device__ PathBuffer buffer_0;
+__device__ PathBuffer buffer_1;
+
+struct ShadowRayBuffer {
 	int * triangle_id;
 	float * u;
 	float * v;
@@ -365,8 +382,7 @@ struct PathBuffer {
 	float3 * throughput;
 };
 
-__device__ PathBuffer buffer_0;
-__device__ PathBuffer buffer_1;
+__device__ ShadowRayBuffer shadow_ray_buffer;
 
 extern "C" __global__ void kernel_generate(
 	int rand_seed,
@@ -410,8 +426,6 @@ extern "C" __global__ void kernel_generate(
 	float u = x + random_float(seed);
 	float v = y + random_float(seed);
 
-	//printf("map %i to (%i, %i) + (%i, %i) - offset = %i\n", thread_id, i, j, k, l, pixel_index);
-
 	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
 
 	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
@@ -420,8 +434,11 @@ extern "C" __global__ void kernel_generate(
 		+ u * camera_x_axis
 		+ v * camera_y_axis
 	);
+	
 	buffer_0.pixel_index[index] = pixel_index;
 	buffer_0.throughput[index]  = make_float3(1.0f);
+
+	buffer_0.last_specular[index] = true;
 }
 
 extern "C" __global__ void kernel_extend(
@@ -455,6 +472,7 @@ extern "C" __global__ void kernel_extend(
 }
 
 __device__ int N_ext;
+__device__ int N_shadow;
 
 extern "C" __global__ void kernel_shade(
 	int rand_seed,
@@ -472,15 +490,17 @@ extern "C" __global__ void kernel_shade(
 	float ray_u = path_buffer_in->u[index];
 	float ray_v = path_buffer_in->v[index];
 
-	int ray_pixel_index = path_buffer_in->pixel_index[index];
+	int ray_pixel_index   = path_buffer_in->pixel_index[index];
 	float3 ray_throughput = path_buffer_in->throughput[index];
+
+	bool ray_last_specular = path_buffer_in->last_specular[index];
 
 	int x = ray_pixel_index % SCREEN_WIDTH;
 	int y = ray_pixel_index / SCREEN_WIDTH; 
 
 	// If the Ray didn't hit a Triangle, terminate the Path
 	if (ray_triangle_id == -1) {
-		frame_buffer_write(x, y, ray_throughput * sample_sky(ray_direction));
+		frame_buffer_add(x, y, ray_throughput * sample_sky(ray_direction));
 
 		return;
 	}
@@ -489,24 +509,33 @@ extern "C" __global__ void kernel_shade(
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
-	if (material.is_light()) {
-		frame_buffer_write(x, y, ray_throughput * material.emittance);
-
-		return;
-	}
-
-	float3 throughput = ray_throughput;
-
-	// Russian Roulette termination
-	if (bounce > 3) {
-		float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
-		if (random_float(seed) > one_minus_p) {
-			frame_buffer_write(x, y, make_float3(0.0f));
+	if (light_count > 0) {
+		if (material.is_light()) {
+			if (ray_last_specular) {
+				frame_buffer_add(x, y, ray_throughput * material.emittance);
+			}
 
 			return;
 		}
 
-		throughput /= one_minus_p;
+		int shadow_ray_index = atomic_agg_inc(&N_shadow);
+
+		shadow_ray_buffer.triangle_id[shadow_ray_index] = ray_triangle_id;
+		shadow_ray_buffer.u[shadow_ray_index] = ray_u;
+		shadow_ray_buffer.v[shadow_ray_index] = ray_v;
+
+		shadow_ray_buffer.pixel_index[shadow_ray_index] = ray_pixel_index;
+		shadow_ray_buffer.throughput[shadow_ray_index]  = ray_throughput;
+	}
+
+	// Russian Roulette termination
+	if (bounce > 3) {
+		float one_minus_p = fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z));
+		if (random_float(seed) > one_minus_p) {
+			return;
+		}
+
+		ray_throughput /= one_minus_p;
 	}
 
 	int index_out = atomic_agg_inc(&N_ext);
@@ -524,24 +553,22 @@ extern "C" __global__ void kernel_shade(
 	path_buffer_out->origin[index_out]    = hit_point;
 	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
 
-	path_buffer_out->throughput[index_out]  = throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+	path_buffer_out->throughput[index_out]  = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	path_buffer_out->pixel_index[index_out] = ray_pixel_index;
+
+	path_buffer_out->last_specular[index_out] = false;
 }
 
-extern "C" __global__ void kernel_connect(
-	int rand_seed,
-	int buffer_size,
-	PathBuffer * path_buffer
-) {
+extern "C" __global__ void kernel_connect(int rand_seed, int buffer_size) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
-	int ray_triangle_id = path_buffer->triangle_id[index];
-	float ray_u = path_buffer->u[index];
-	float ray_v = path_buffer->v[index];
+	int ray_triangle_id = shadow_ray_buffer.triangle_id[index];
+	float ray_u = shadow_ray_buffer.u[index];
+	float ray_v = shadow_ray_buffer.v[index];
 
-	int ray_pixel_index = path_buffer->pixel_index[index];
-	float3 ray_throughput = path_buffer->throughput[index];
+	int ray_pixel_index   = shadow_ray_buffer.pixel_index[index];
+	float3 ray_throughput = shadow_ray_buffer.throughput[index];
 
 	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
 
@@ -563,15 +590,12 @@ extern "C" __global__ void kernel_connect(
 		+ u * triangles_position_edge1[light_triangle_id] 
 		+ v * triangles_position_edge2[light_triangle_id];
 
-	// Calculate the area of the triangle light
-	float light_area = 0.5f * length(cross(triangles_position_edge1[light_triangle_id], triangles_position_edge2[light_triangle_id]));
-
 	float3 hit_point = triangles_position0[ray_triangle_id]
-		+ u * triangles_position_edge1[ray_triangle_id]
-		+ v * triangles_position_edge2[ray_triangle_id];
+		+ ray_u * triangles_position_edge1[ray_triangle_id]
+		+ ray_v * triangles_position_edge2[ray_triangle_id];
 	float3 hit_normal = triangles_normal0[ray_triangle_id]
-		+ u * triangles_normal_edge1[ray_triangle_id]
-		+ v * triangles_normal_edge2[ray_triangle_id];
+		+ ray_u * triangles_normal_edge1[ray_triangle_id]
+		+ ray_v * triangles_normal_edge2[ray_triangle_id];
 
 	float3 to_light = random_point_on_light - hit_point;
 	float distance_to_light_squared = dot(to_light, to_light);
@@ -599,16 +623,25 @@ extern "C" __global__ void kernel_connect(
 
 		// Check if the light is obstructed by any other object in the scene
 		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
-			const Material & material = materials[triangles_material_id[ray_triangle_id]];
+			const Material & hit_material   = materials[triangles_material_id[ray_triangle_id]];
+			const Material & light_material = materials[triangles_material_id[light_triangle_id]];
 
 			float2 hit_tex_coord = triangles_tex_coord0[ray_triangle_id]
 				+ ray_u * triangles_tex_coord_edge1[ray_triangle_id]
 				+ ray_v * triangles_tex_coord_edge2[ray_triangle_id];
 
-			float3 brdf = material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
+			float3 brdf = hit_material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
+
+			float light_area = 0.5f * length(cross(
+				triangles_position_edge1[light_triangle_id], 
+				triangles_position_edge2[light_triangle_id]
+			));
 			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
-			//ray_colour += ray_throughput * brdf * light_count * material.emittance * solid_angle * cos_i;
+			int x = ray_pixel_index % SCREEN_WIDTH;
+			int y = ray_pixel_index / SCREEN_WIDTH; 
+		
+			frame_buffer_add(x, y, ray_throughput * brdf * light_count * light_material.emittance * solid_angle * cos_i);
 		}
 	}
 }
@@ -632,4 +665,7 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	}
 
 	surf2Dwrite<float4>(colour_out, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
+
+	// Clear frame buffer for next frame
+	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }

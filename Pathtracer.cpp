@@ -189,6 +189,8 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 		CUDAMemory::Ptr<int> pixel_index;
 		CUDAMemory::Ptr<Vector3> throughput;
 
+		CUDAMemory::Ptr<bool> last_specular;
+
 		inline void init(int buffer_size) {
 			origin    = CUDAMemory::malloc<Vector3>(buffer_size);
 			direction = CUDAMemory::malloc<Vector3>(buffer_size);
@@ -199,6 +201,8 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 
 			pixel_index = CUDAMemory::malloc<int>(buffer_size);
 			throughput  = CUDAMemory::malloc<Vector3>(buffer_size);
+
+			last_specular = CUDAMemory::malloc<bool>(buffer_size);
 		}
 	};
 
@@ -214,7 +218,31 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	global_buffer_0.set_value(buffer_0);
 	global_buffer_1.set_value(buffer_1);
 
-	global_N_ext = module.get_global("N_ext");
+	struct ShadowRayBuffer {
+		CUDAMemory::Ptr<int> triangle_id;
+		CUDAMemory::Ptr<float> u;
+		CUDAMemory::Ptr<float> v;
+
+		CUDAMemory::Ptr<int> pixel_index;
+		CUDAMemory::Ptr<Vector3> throughput;
+
+		inline void init(int buffer_size) {
+			triangle_id = CUDAMemory::malloc<int>(buffer_size);
+			u = CUDAMemory::malloc<float>(buffer_size);
+			v = CUDAMemory::malloc<float>(buffer_size);
+
+			pixel_index = CUDAMemory::malloc<int>(buffer_size);
+			throughput  = CUDAMemory::malloc<Vector3>(buffer_size);
+		}
+	};
+
+	ShadowRayBuffer shadow_ray_buffer;
+	shadow_ray_buffer.init(PIXEL_COUNT);
+
+	module.get_global("shadow_ray_buffer").set_value(shadow_ray_buffer);
+
+	global_N_ext    = module.get_global("N_ext");
+	global_N_shadow = module.get_global("N_shadow");
 
 	kernel_generate.init  (&module, "kernel_generate");
 	kernel_extend.init    (&module, "kernel_extend");
@@ -284,10 +312,16 @@ void Pathtracer::render() {
 		CUdeviceptr ray_buffer_out = ray_buffers[1 - buffer_index];
 
 		global_N_ext.set_value(0);
+		global_N_shadow.set_value(0);
 
 		kernel_extend.execute(alive_paths, ray_buffer_in);
 
 		kernel_shade.execute(rand(), alive_paths, bounce, ray_buffer_in, ray_buffer_out);
+
+		int shadow_buffer_size = global_N_shadow.get_value<int>();
+		if (shadow_buffer_size > 0) {
+			kernel_connect.execute(rand(), shadow_buffer_size);
+		}
 
 		alive_paths = global_N_ext.get_value<int>();
 		if (alive_paths == 0) break;

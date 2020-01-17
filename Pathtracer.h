@@ -18,6 +18,7 @@ struct Pathtracer {
 	CUDAModule::Global global_buffer_1;
 
 	CUDAModule::Global global_N_ext;
+	CUDAModule::Global global_N_shadow;
 
 	void init(unsigned frame_buffer_handle);
 
