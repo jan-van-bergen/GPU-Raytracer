@@ -371,7 +371,6 @@ struct PathBuffer {
 	float * v;
 
 	int * pixel_index;
-	float3 * colour;
 	float3 * throughput;
 };
 
@@ -431,7 +430,6 @@ extern "C" __global__ void kernel_generate(
 		+ v * camera_y_axis
 	);
 	buffer_0.pixel_index[index] = pixel_index;
-	buffer_0.colour[index]      = make_float3(0.0f);
 	buffer_0.throughput[index]  = make_float3(1.0f);
 }
 
@@ -485,7 +483,6 @@ extern "C" __global__ void kernel_shade(
 	float ray_v = path_buffer_in->v[index];
 
 	int ray_pixel_index = path_buffer_in->pixel_index[index];
-	float3 ray_colour     = path_buffer_in->colour[index];
 	float3 ray_throughput = path_buffer_in->throughput[index];
 
 	int x = ray_pixel_index % SCREEN_WIDTH;
@@ -493,7 +490,7 @@ extern "C" __global__ void kernel_shade(
 
 	// If the Ray didn't hit a Triangle, terminate the Path
 	if (ray_triangle_id == -1) {
-		frame_buffer_write(x, y, ray_colour + ray_throughput * sample_sky(ray_direction), frames_since_camera_moved);
+		frame_buffer_write(x, y, ray_throughput * sample_sky(ray_direction), frames_since_camera_moved);
 
 		return;
 	}
@@ -503,7 +500,7 @@ extern "C" __global__ void kernel_shade(
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
 	if (material.is_light()) {
-		frame_buffer_write(x, y, ray_colour + ray_throughput * material.emittance, frames_since_camera_moved);
+		frame_buffer_write(x, y, ray_throughput * material.emittance, frames_since_camera_moved);
 
 		return;
 	}
@@ -514,7 +511,7 @@ extern "C" __global__ void kernel_shade(
 	if (bounce > 3) {
 		float one_minus_p = fmaxf(throughput.x, fmaxf(throughput.y, throughput.z));
 		if (random_float(seed) > one_minus_p) {
-			frame_buffer_write(x, y, ray_colour, frames_since_camera_moved);
+			frame_buffer_write(x, y, make_float3(0.0f), frames_since_camera_moved);
 
 			return;
 		}
@@ -554,7 +551,6 @@ extern "C" __global__ void kernel_connect(
 	float ray_v = path_buffer->v[index];
 
 	int ray_pixel_index = path_buffer->pixel_index[index];
-	float3 ray_colour     = path_buffer->colour[index];
 	float3 ray_throughput = path_buffer->throughput[index];
 
 	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
@@ -622,7 +618,7 @@ extern "C" __global__ void kernel_connect(
 			float3 brdf = material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
 			float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
-			ray_colour += ray_throughput * brdf * light_count * material.emittance * solid_angle * cos_i;
+			//ray_colour += ray_throughput * brdf * light_count * material.emittance * solid_angle * cos_i;
 		}
 	}
 }

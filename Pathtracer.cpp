@@ -186,7 +186,6 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 		CUDAMemory::Ptr<float> v;
 
 		CUDAMemory::Ptr<int> pixel_index;
-		CUDAMemory::Ptr<Vector3> colour;
 		CUDAMemory::Ptr<Vector3> throughput;
 
 		inline void init(int buffer_size) {
@@ -198,8 +197,7 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 			v = CUDAMemory::malloc<float>(buffer_size);
 
 			pixel_index = CUDAMemory::malloc<int>(buffer_size);
-			colour     = CUDAMemory::malloc<Vector3>(buffer_size);
-			throughput = CUDAMemory::malloc<Vector3>(buffer_size);
+			throughput  = CUDAMemory::malloc<Vector3>(buffer_size);
 		}
 	};
 
