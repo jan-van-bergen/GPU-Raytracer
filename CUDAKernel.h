@@ -7,6 +7,8 @@
 #include "CUDAModule.h"
 
 struct CUDAKernel {
+	static const int PARAMETER_BUFFER_SIZE = 32 * 64; // In bytes
+
 	const CUDAModule * module;
 	CUfunction kernel;
 
@@ -53,8 +55,6 @@ struct CUDAKernel {
 	}
 
 private:
-	static const int PARAMETER_BUFFER_SIZE = 32 * 64; // In bytes
-
 	template<typename T>
 	inline int fill_buffer(int buffer_offset, const T & parameter) {
 		int size  = sizeof(T);

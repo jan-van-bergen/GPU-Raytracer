@@ -266,7 +266,7 @@ void Pathtracer::render() {
 		camera.y_axis_rotated
 	);
 
-	CUdeviceptr ray_buffers[2] = { 
+	CUdeviceptr ray_buffers[] = { 
 		global_buffer_0.ptr, 
 		global_buffer_1.ptr
 	};
@@ -276,8 +276,8 @@ void Pathtracer::render() {
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		int buffer_index = bounce & 1;
-		const CUdeviceptr & ray_buffer_in  = ray_buffers[    buffer_index];
-		const CUdeviceptr & ray_buffer_out = ray_buffers[1 - buffer_index];
+		CUdeviceptr ray_buffer_in  = ray_buffers[    buffer_index];
+		CUdeviceptr ray_buffer_out = ray_buffers[1 - buffer_index];
 
 		global_N_ext.set_value(0);
 
