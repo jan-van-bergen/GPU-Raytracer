@@ -559,9 +559,9 @@ extern "C" __global__ void kernel_shade(
 	path_buffer_out->last_specular[index_out] = false;
 }
 
-extern "C" __global__ void kernel_connect(int rand_seed, int buffer_size) {
+extern "C" __global__ void kernel_connect(int rand_seed) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_size) return;
+	if (index >= N_shadow) return;
 
 	int ray_triangle_id = shadow_ray_buffer.triangle_id[index];
 	float ray_u = shadow_ray_buffer.u[index];

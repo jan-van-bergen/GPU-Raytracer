@@ -318,10 +318,7 @@ void Pathtracer::render() {
 
 		kernel_shade.execute(rand(), alive_paths, bounce, ray_buffer_in, ray_buffer_out);
 
-		int shadow_buffer_size = global_N_shadow.get_value<int>();
-		if (shadow_buffer_size > 0) {
-			kernel_connect.execute(rand(), shadow_buffer_size);
-		}
+		kernel_connect.execute(rand());
 
 		alive_paths = global_N_ext.get_value<int>();
 		if (alive_paths == 0) break;
