@@ -276,31 +276,6 @@ __device__ float3 sample_sky(const float3 & direction) {
 	return sky_data[index];
 }
 
-__device__ float3 diffuse_reflection(unsigned & seed, const float3 & normal) {
-	float3 direction;
-	float  length_squared;
-
-	// Find a random point inside the unit sphere
-	do {
-		direction.x = -1.0f + 2.0f * random_float(seed);
-		direction.y = -1.0f + 2.0f * random_float(seed);
-		direction.z = -1.0f + 2.0f * random_float(seed);
-
-		length_squared = dot(direction, direction);
-	} while (length_squared > 1.0f);
-
-	// Normalize direction to obtain a random point on the unit sphere
-	float  inv_length = rsqrt(length_squared);
-	float3 random_point_on_unit_sphere = inv_length * direction;
-
-	// If the point is on the wrong hemisphere, return its negative
-	if (dot(normal, random_point_on_unit_sphere) < 0.0f) {
-		return -random_point_on_unit_sphere;
-	}
-
-	return random_point_on_unit_sphere;
-}
-
 __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const float3 & normal) {
 	float r0 = random_float(seed);
 	float r1 = random_float(seed);
