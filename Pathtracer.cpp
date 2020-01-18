@@ -1,5 +1,7 @@
 #include "Pathtracer.h"
 
+#include <filesystem>
+
 #include "CUDAMemory.h"
 #include "CUDAContext.h"
 
@@ -60,23 +62,33 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	// Construct BVH for the Triangle soup
 	BVH<Triangle> bvh;
-	bvh.init(mesh->triangle_count);
-	
-	memcpy(bvh.primitives, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
 
-	for (int i = 0; i < bvh.primitive_count; i++) {
-		Vector3 vertices[3] = { 
-			bvh.primitives[i].position0, 
-			bvh.primitives[i].position1, 
-			bvh.primitives[i].position2
-		};
-		bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
-	}
+	std::string bvh_filename = std::string(scene_name) + ".bvh";
+	if (std::filesystem::exists(bvh_filename)) {
+		printf("Loading BVH %s from disk.\n", bvh_filename.c_str());
 
-	{
-		ScopedTimer timer("BVH Construction");
+		bvh.load_from_disk(bvh_filename.c_str());
+	} else {
+		bvh.init(mesh->triangle_count);
 
-		bvh.build_sbvh();
+		memcpy(bvh.primitives, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
+
+		for (int i = 0; i < bvh.primitive_count; i++) {
+			Vector3 vertices[3] = { 
+				bvh.primitives[i].position0, 
+				bvh.primitives[i].position1, 
+				bvh.primitives[i].position2
+			};
+			bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
+		}
+
+		{
+			ScopedTimer timer("BVH Construction");
+
+			bvh.build_sbvh();
+		}
+
+		bvh.save_to_disk(bvh_filename.c_str());
 	}
 
 	Vector3 * triangles_position0      = new Vector3[bvh.primitive_count];

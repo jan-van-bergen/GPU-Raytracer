@@ -1,4 +1,6 @@
 #pragma once
+#include <fstream>
+#include <ostream>
 #include <algorithm>
 
 #include "BVHBuilders.h"
@@ -14,8 +16,8 @@ struct BVHNode {
 
 template<typename PrimitiveType>
 struct BVH {
-	PrimitiveType * primitives;
 	int             primitive_count;
+	PrimitiveType * primitives;
 
 	int * indices_x;
 	int * indices_y;
@@ -115,5 +117,40 @@ struct BVH {
 
 		delete [] primitives;
 		primitives = new_primitives;
+	}
+
+	inline void save_to_disk(const char * bvh_filename) const {
+		FILE * file;
+		fopen_s(&file, bvh_filename, "wb");
+
+		fwrite(reinterpret_cast<const char *>(&primitive_count), sizeof(int), 1, file);
+		fwrite(reinterpret_cast<const char *>(primitives), sizeof(PrimitiveType), primitive_count, file);
+
+		fwrite(reinterpret_cast<const char *>(indices_x), sizeof(int), primitive_count, file);
+
+		fwrite(reinterpret_cast<const char *>(&node_count), sizeof(int), 1, file);
+		fwrite(reinterpret_cast<const char *>(nodes), sizeof(BVHNode), node_count, file);
+
+		fclose(file);
+	}
+
+	inline void load_from_disk(const char * bvh_filename) {
+		FILE * file;
+		fopen_s(&file, bvh_filename, "rb"); 
+
+		fread(reinterpret_cast<char *>(&primitive_count), sizeof(int), 1, file);
+
+		primitives = new PrimitiveType[primitive_count];
+		fread(reinterpret_cast<char *>(primitives), sizeof(PrimitiveType), primitive_count, file);
+			
+		indices_x = new int[primitive_count];
+		fread(reinterpret_cast<char *>(indices_x), sizeof(int), primitive_count, file);
+
+		fread(reinterpret_cast<char *>(&node_count), sizeof(int), 1, file);
+
+		nodes = new BVHNode[node_count];
+		fread(reinterpret_cast<char *>(nodes), sizeof(BVHNode), node_count, file);
+
+		fclose(file);
 	}
 };
