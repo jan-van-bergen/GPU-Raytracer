@@ -336,7 +336,7 @@ __device__ void frame_buffer_add(int x, int y, const float3 & colour) {
 	surf2Dwrite<float4>(prev + make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
-struct PathBuffer {
+struct RayBuffer {
 	float3 * origin;
 	float3 * direction;
 	
@@ -350,8 +350,8 @@ struct PathBuffer {
 	bool * last_specular;
 };
 
-__device__ PathBuffer buffer_0;
-__device__ PathBuffer buffer_1;
+__device__ RayBuffer ray_buffer_0;
+__device__ RayBuffer ray_buffer_1;
 
 struct ShadowRayBuffer {
 	int * triangle_id;
@@ -409,28 +409,25 @@ extern "C" __global__ void kernel_generate(
 	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
 
 	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
-	buffer_0.origin[index]    = camera_position;
-	buffer_0.direction[index] = normalize(camera_top_left_corner
+	ray_buffer_0.origin[index]    = camera_position;
+	ray_buffer_0.direction[index] = normalize(camera_top_left_corner
 		+ u * camera_x_axis
 		+ v * camera_y_axis
 	);
 	
-	buffer_0.pixel_index[index] = pixel_index;
-	buffer_0.throughput[index]  = make_float3(1.0f);
+	ray_buffer_0.pixel_index[index] = pixel_index;
+	ray_buffer_0.throughput[index]  = make_float3(1.0f);
 
-	buffer_0.last_specular[index] = true;
+	ray_buffer_0.last_specular[index] = true;
 }
 
-extern "C" __global__ void kernel_extend(
-	int buffer_size,
-	const PathBuffer * path_buffer
-) {
+extern "C" __global__ void kernel_extend(int buffer_size, const RayBuffer * ray_buffer) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
 	Ray ray;
-	ray.origin    = path_buffer->origin[index];
-	ray.direction = path_buffer->direction[index];
+	ray.origin    = ray_buffer->origin[index];
+	ray.direction = ray_buffer->direction[index];
 	ray.direction_inv = make_float3(
 		1.0f / ray.direction.x, 
 		1.0f / ray.direction.y, 
@@ -441,14 +438,14 @@ extern "C" __global__ void kernel_extend(
 	bvh_trace(ray, hit);
 
 	if (hit.t == INFINITY) {
-		path_buffer->triangle_id[index] = -1;
+		ray_buffer->triangle_id[index] = -1;
 
 		return;
 	}
 
-	path_buffer->u[index] = hit.u;
-	path_buffer->v[index] = hit.v;
-	path_buffer->triangle_id[index] = hit.triangle_id;
+	ray_buffer->u[index] = hit.u;
+	ray_buffer->v[index] = hit.v;
+	ray_buffer->triangle_id[index] = hit.triangle_id;
 }
 
 __device__ int N_ext;
@@ -458,22 +455,22 @@ extern "C" __global__ void kernel_shade(
 	int rand_seed,
 	int buffer_size,
 	int bounce,
-	const PathBuffer * __restrict__ path_buffer_in,
-	const PathBuffer * __restrict__ path_buffer_out
+	const RayBuffer * __restrict__ ray_buffer_in,
+	const RayBuffer * __restrict__ ray_buffer_out
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_size) return;
 
-	float3 ray_direction = path_buffer_in->direction[index];
+	float3 ray_direction = ray_buffer_in->direction[index];
 
-	int ray_triangle_id = path_buffer_in->triangle_id[index];
-	float ray_u = path_buffer_in->u[index];
-	float ray_v = path_buffer_in->v[index];
+	int ray_triangle_id = ray_buffer_in->triangle_id[index];
+	float ray_u = ray_buffer_in->u[index];
+	float ray_v = ray_buffer_in->v[index];
 
-	int ray_pixel_index   = path_buffer_in->pixel_index[index];
-	float3 ray_throughput = path_buffer_in->throughput[index];
+	int ray_pixel_index   = ray_buffer_in->pixel_index[index];
+	float3 ray_throughput = ray_buffer_in->throughput[index];
 
-	bool ray_last_specular = path_buffer_in->last_specular[index];
+	bool ray_last_specular = ray_buffer_in->last_specular[index];
 
 	int x = ray_pixel_index % SCREEN_WIDTH;
 	int y = ray_pixel_index / SCREEN_WIDTH; 
@@ -524,13 +521,13 @@ extern "C" __global__ void kernel_shade(
 	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
 	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 
-	path_buffer_out->origin[index_out]    = hit_point;
-	path_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
+	ray_buffer_out->origin[index_out]    = hit_point;
+	ray_buffer_out->direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
 
-	path_buffer_out->throughput[index_out]  = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
-	path_buffer_out->pixel_index[index_out] = ray_pixel_index;
+	ray_buffer_out->throughput[index_out]  = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+	ray_buffer_out->pixel_index[index_out] = ray_pixel_index;
 
-	path_buffer_out->last_specular[index_out] = false;
+	ray_buffer_out->last_specular[index_out] = false;
 }
 
 extern "C" __global__ void kernel_connect(int rand_seed) {

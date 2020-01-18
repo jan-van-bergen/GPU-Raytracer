@@ -177,7 +177,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	module.set_surface("frame_buffer", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle));
 
-	struct PathBuffer {
+	struct RayBuffer {
 		CUDAMemory::Ptr<Vector3> origin;
 		CUDAMemory::Ptr<Vector3> direction;
 	
@@ -205,17 +205,17 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		}
 	};
 
-	PathBuffer buffer_0;
-	PathBuffer buffer_1;
+	RayBuffer ray_buffer_0;
+	RayBuffer ray_buffer_1;
 	
-	buffer_0.init(PIXEL_COUNT);
-	buffer_1.init(PIXEL_COUNT);
+	ray_buffer_0.init(PIXEL_COUNT);
+	ray_buffer_1.init(PIXEL_COUNT);
 
-	global_buffer_0 = module.get_global("buffer_0");
-	global_buffer_1 = module.get_global("buffer_1");
+	global_ray_buffer_0 = module.get_global("ray_buffer_0");
+	global_ray_buffer_1 = module.get_global("ray_buffer_1");
 
-	global_buffer_0.set_value(buffer_0);
-	global_buffer_1.set_value(buffer_1);
+	global_ray_buffer_0.set_value(ray_buffer_0);
+	global_ray_buffer_1.set_value(ray_buffer_1);
 
 	struct ShadowRayBuffer {
 		CUDAMemory::Ptr<int> triangle_id;
@@ -298,8 +298,8 @@ void Pathtracer::render() {
 	);
 
 	CUdeviceptr ray_buffers[] = { 
-		global_buffer_0.ptr, 
-		global_buffer_1.ptr
+		global_ray_buffer_0.ptr, 
+		global_ray_buffer_1.ptr
 	};
 
 	int alive_paths = PIXEL_COUNT;
