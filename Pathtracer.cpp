@@ -207,12 +207,15 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	RayBuffer ray_buffer_extend;
 	RayBuffer ray_buffer_shade_diffuse;
+	RayBuffer ray_buffer_shade_dielectric;
 	
-	ray_buffer_extend.init(PIXEL_COUNT);
-	ray_buffer_shade_diffuse.init(PIXEL_COUNT);
+	ray_buffer_extend.init          (PIXEL_COUNT);
+	ray_buffer_shade_diffuse.init   (PIXEL_COUNT);
+	ray_buffer_shade_dielectric.init(PIXEL_COUNT);
 
-	module.get_global("ray_buffer_extend").set_value(ray_buffer_extend);
-	module.get_global("ray_buffer_shade_diffuse").set_value(ray_buffer_shade_diffuse);
+	module.get_global("ray_buffer_extend").set_value          (ray_buffer_extend);
+	module.get_global("ray_buffer_shade_diffuse").set_value   (ray_buffer_shade_diffuse);
+	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
 
 	struct ShadowRayBuffer {
 		CUDAMemory::Ptr<int> triangle_id;
@@ -237,26 +240,30 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	module.get_global("shadow_ray_buffer").set_value(shadow_ray_buffer);
 
-	global_N_ext     = module.get_global("N_ext");
-	global_N_diffuse = module.get_global("N_diffuse");
-	global_N_shadow  = module.get_global("N_shadow");
+	global_N_ext        = module.get_global("N_ext");
+	global_N_diffuse    = module.get_global("N_diffuse");
+	global_N_dielectric = module.get_global("N_dielectric");
+	global_N_shadow     = module.get_global("N_shadow");
 
-	kernel_generate.init  (&module, "kernel_generate");
-	kernel_extend.init    (&module, "kernel_extend");
-	kernel_shade.init     (&module, "kernel_shade");
-	kernel_connect.init   (&module, "kernel_connect");
-	kernel_accumulate.init(&module, "kernel_accumulate");
+	kernel_generate.init        (&module, "kernel_generate");
+	kernel_extend.init          (&module, "kernel_extend");
+	kernel_shade_diffuse.init   (&module, "kernel_shade_diffuse");
+	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
+	kernel_connect.init         (&module, "kernel_connect");
+	kernel_accumulate.init      (&module, "kernel_accumulate");
 
-	kernel_generate.set_block_dim (128, 1, 1);
-	kernel_extend.set_block_dim   (128, 1, 1);
-	kernel_shade.set_block_dim    (128, 1, 1);
-	kernel_connect.set_block_dim  (128, 1, 1);
+	kernel_generate.set_block_dim        (128, 1, 1);
+	kernel_extend.set_block_dim          (128, 1, 1);
+	kernel_shade_diffuse.set_block_dim   (128, 1, 1);
+	kernel_shade_dielectric.set_block_dim(128, 1, 1);
+	kernel_connect.set_block_dim         (128, 1, 1);
 	kernel_accumulate.set_block_dim(32, 4, 1);
 
-	kernel_generate.set_grid_dim(PIXEL_COUNT / kernel_generate.block_dim_x, 1, 1);
-	kernel_extend.set_grid_dim  (PIXEL_COUNT / kernel_extend.block_dim_x,   1, 1);
-	kernel_shade.set_grid_dim   (PIXEL_COUNT / kernel_shade.block_dim_x,    1, 1);
-	kernel_connect.set_grid_dim (PIXEL_COUNT / kernel_connect.block_dim_x,  1, 1);
+	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
+	kernel_extend.set_grid_dim          (PIXEL_COUNT / kernel_extend.block_dim_x,           1, 1);
+	kernel_shade_diffuse.set_grid_dim   (PIXEL_COUNT / kernel_shade_diffuse.block_dim_x,    1, 1);
+	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
+	kernel_connect.set_grid_dim         (PIXEL_COUNT / kernel_connect.block_dim_x,          1, 1);
 	kernel_accumulate.set_grid_dim(
 		SCREEN_WIDTH  / kernel_accumulate.block_dim_x, 
 		SCREEN_HEIGHT / kernel_accumulate.block_dim_y,
@@ -295,19 +302,22 @@ void Pathtracer::render() {
 	);
 
 	global_N_ext.set_value(PIXEL_COUNT);
-	global_N_diffuse.set_value(0);
-	global_N_shadow.set_value(0);
+	global_N_diffuse.set_value   (0);
+	global_N_dielectric.set_value(0);
+	global_N_shadow.set_value    (0);
 
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		kernel_extend.execute();
 		global_N_ext.set_value(0);
 
-		kernel_shade.execute(rand(), bounce);
+		kernel_shade_diffuse.execute(rand(), bounce);
+		kernel_shade_dielectric.execute(rand(), bounce);
 
 		kernel_connect.execute(rand());
 
 		global_N_diffuse.set_value(0);
+		global_N_dielectric.set_value(0);
 		global_N_shadow.set_value(0);
 	}
 

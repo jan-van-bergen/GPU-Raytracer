@@ -46,6 +46,13 @@ const MeshData * MeshData::load(const char * file_path) {
 		for (int i = 0; i < mesh_data->material_count; i++) {
 			const tinyobj::material_t & material = materials[i];
 
+			switch (material.illum) {
+				case 0: case 1:                 mesh_data->materials[i].type = Material::Type::DIFFUSE;    break;
+				case 4: case 5: case 6: case 7: mesh_data->materials[i].type = Material::Type::DIELECTRIC; break;
+
+				default: mesh_data->materials[i].type = Material::Type::DIFFUSE;
+			};
+
 			mesh_data->materials[i].diffuse = Vector3(material.diffuse[0], material.diffuse[1], material.diffuse[2]);
 
 			if (material.diffuse_texname.length() > 0) {
@@ -54,10 +61,10 @@ const MeshData * MeshData::load(const char * file_path) {
 
 			mesh_data->materials[i].emittance = Vector3(material.emission[0], material.emission[1], material.emission[2]);
 
-			//mesh_data->materials[i].reflection = Vector3(material.specular[0], material.specular[1], material.specular[2]);
+			mesh_data->materials[i].index_of_refraction = material.ior;
 
+			//mesh_data->materials[i].reflection = Vector3(material.specular[0], material.specular[1], material.specular[2]);
 			//mesh_data->materials[i].transmittance       = Vector3(material.transmittance[0], material.transmittance[1], material.transmittance[2]);
-			//mesh_data->materials[i].index_of_refraction = material.ior;
 		}
 	} else {
 		mesh_data->material_count = 1;
