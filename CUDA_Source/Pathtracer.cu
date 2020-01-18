@@ -668,7 +668,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_extend.direction[index_out] = direction;
 
 	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
-	ray_buffer_extend.throughput[index_out]  = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+	ray_buffer_extend.throughput[index_out]  = ray_throughput;
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
