@@ -300,10 +300,10 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 	
 	// Calculate a tangent vector from the normal vector
 	float3 tangent;
-	if (fabs(normal.x) > fabs(normal.y)) {
-		tangent = make_float3(normal.z, 0.0f, -normal.x) * rsqrt(normal.x * normal.x + normal.z * normal.z);
+	if (fabsf(normal.x) > 0.99f) {
+		tangent = make_float3(-normal.z, 0.0f, normal.x) * rsqrt(normal.x * normal.x + normal.z * normal.z);
 	} else {
-		tangent = make_float3(0.0f, -normal.z, normal.y) * rsqrt(normal.y * normal.y + normal.z * normal.z);
+		tangent = make_float3(0.0f, normal.z, -normal.y) * rsqrt(normal.y * normal.y + normal.z * normal.z);
 	}
 
 	// The binormal is perpendicular to both the normal and tangent vectors
