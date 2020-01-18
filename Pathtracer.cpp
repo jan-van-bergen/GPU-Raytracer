@@ -205,17 +205,14 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		}
 	};
 
-	RayBuffer ray_buffer_0;
-	RayBuffer ray_buffer_1;
+	RayBuffer ray_buffer_extend;
+	RayBuffer ray_buffer_shade_diffuse;
 	
-	ray_buffer_0.init(PIXEL_COUNT);
-	ray_buffer_1.init(PIXEL_COUNT);
+	ray_buffer_extend.init(PIXEL_COUNT);
+	ray_buffer_shade_diffuse.init(PIXEL_COUNT);
 
-	global_ray_buffer_0 = module.get_global("ray_buffer_0");
-	global_ray_buffer_1 = module.get_global("ray_buffer_1");
-
-	global_ray_buffer_0.set_value(ray_buffer_0);
-	global_ray_buffer_1.set_value(ray_buffer_1);
+	module.get_global("ray_buffer_extend").set_value(ray_buffer_extend);
+	module.get_global("ray_buffer_shade_diffuse").set_value(ray_buffer_shade_diffuse);
 
 	struct ShadowRayBuffer {
 		CUDAMemory::Ptr<int> triangle_id;
@@ -240,8 +237,9 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	module.get_global("shadow_ray_buffer").set_value(shadow_ray_buffer);
 
-	global_N_ext    = module.get_global("N_ext");
-	global_N_shadow = module.get_global("N_shadow");
+	global_N_ext     = module.get_global("N_ext");
+	global_N_diffuse = module.get_global("N_diffuse");
+	global_N_shadow  = module.get_global("N_shadow");
 
 	kernel_generate.init  (&module, "kernel_generate");
 	kernel_extend.init    (&module, "kernel_extend");
@@ -289,38 +287,28 @@ void Pathtracer::render() {
 	}
 
 	kernel_generate.execute(
-		rand(), 
-		PIXEL_COUNT,
+		rand(),
 		camera.position, 
 		camera.top_left_corner_rotated, 
 		camera.x_axis_rotated, 
 		camera.y_axis_rotated
 	);
 
-	CUdeviceptr ray_buffers[] = { 
-		global_ray_buffer_0.ptr, 
-		global_ray_buffer_1.ptr
-	};
-
-	int alive_paths = PIXEL_COUNT;
+	global_N_ext.set_value(PIXEL_COUNT);
+	global_N_diffuse.set_value(0);
+	global_N_shadow.set_value(0);
 
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
-		int buffer_index = bounce & 1;
-		CUdeviceptr ray_buffer_in  = ray_buffers[    buffer_index];
-		CUdeviceptr ray_buffer_out = ray_buffers[1 - buffer_index];
-
+		kernel_extend.execute();
 		global_N_ext.set_value(0);
-		global_N_shadow.set_value(0);
 
-		kernel_extend.execute(alive_paths, ray_buffer_in);
-
-		kernel_shade.execute(rand(), alive_paths, bounce, ray_buffer_in, ray_buffer_out);
+		kernel_shade.execute(rand(), bounce);
 
 		kernel_connect.execute(rand());
 
-		alive_paths = global_N_ext.get_value<int>();
-		if (alive_paths == 0) break;
+		global_N_diffuse.set_value(0);
+		global_N_shadow.set_value(0);
 	}
 
 	kernel_accumulate.execute(frames_since_camera_moved);
