@@ -12,12 +12,14 @@ struct Pathtracer {
 	CUDAKernel kernel_extend;
 	CUDAKernel kernel_shade_diffuse;
 	CUDAKernel kernel_shade_dielectric;
+	CUDAKernel kernel_shade_glossy;
 	CUDAKernel kernel_connect;
 	CUDAKernel kernel_accumulate;
 
 	CUDAModule::Global global_N_ext;
 	CUDAModule::Global global_N_diffuse;
 	CUDAModule::Global global_N_dielectric;
+	CUDAModule::Global global_N_glossy;
 	CUDAModule::Global global_N_shadow;
 
 	void init(const char * scene_name, unsigned frame_buffer_handle);

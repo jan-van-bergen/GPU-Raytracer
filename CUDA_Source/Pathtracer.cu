@@ -5,7 +5,8 @@
 
 #include "../Common.h"
 
-#define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
+//#define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
+#define ASSERT(proposition, fmt, ...) { }
 
 surface<void, 2> frame_buffer;
 surface<void, 2> accumulator;
@@ -39,7 +40,8 @@ __device__ cudaTextureObject_t * textures;
 struct Material {
 	enum Type : char{
 		DIFFUSE    = 0,
-		DIELECTRIC = 1
+		DIELECTRIC = 1,
+		GLOSSY     = 2
 	};
 
 	Type type;
@@ -50,6 +52,8 @@ struct Material {
 	float3 emittance;
 
 	float index_of_refraction;
+
+	float alpha;
 
 	__device__ float3 albedo(float u, float v) const {
 		if (texture_id == -1) return diffuse;
@@ -285,6 +289,30 @@ __device__ float3 sample_sky(const float3 & direction) {
 	return sky_data[index];
 }
 
+__device__ void orthonormal_basis(const float3 & normal, float3 & tangent, float3 & binormal) {
+	// Calculate a tangent vector from the normal vector
+	if (fabsf(normal.x) > 0.99f) {
+		tangent = make_float3(-normal.z, 0.0f, normal.x) * rsqrt(normal.x * normal.x + normal.z * normal.z);
+	} else {
+		tangent = make_float3(0.0f, normal.z, -normal.y) * rsqrt(normal.y * normal.y + normal.z * normal.z);
+	}
+
+	// The binormal is perpendicular to both the normal and tangent vectors
+	binormal = cross(normal, tangent);
+}
+
+__device__ float3 local_to_world(const float3 & vector, const float3 & tangent, const float3 & binormal, const float3 & normal) {
+	return make_float3(
+		tangent.x * vector.x + binormal.x * vector.y + normal.x * vector.z, 
+		tangent.y * vector.x + binormal.y * vector.y + normal.y * vector.z, 
+		tangent.z * vector.x + binormal.z * vector.y + normal.z * vector.z
+	);
+}
+
+__device__ float3 world_to_local(const float3 & vector, const float3 & tangent, const float3 & binormal, const float3 & normal) {
+	return make_float3(dot(tangent, vector), dot(binormal, vector), dot(normal, vector));
+}
+
 __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const float3 & normal) {
 	float r0 = random_float(seed);
 	float r1 = random_float(seed);
@@ -298,23 +326,11 @@ __device__ float3 cosine_weighted_diffuse_reflection(unsigned & seed, const floa
 	
 	float3 direction = normalize(make_float3(x, y, sqrtf(1.0f - r0)));
 	
-	// Calculate a tangent vector from the normal vector
-	float3 tangent;
-	if (fabsf(normal.x) > 0.99f) {
-		tangent = make_float3(-normal.z, 0.0f, normal.x) * rsqrt(normal.x * normal.x + normal.z * normal.z);
-	} else {
-		tangent = make_float3(0.0f, normal.z, -normal.y) * rsqrt(normal.y * normal.y + normal.z * normal.z);
-	}
-
-	// The binormal is perpendicular to both the normal and tangent vectors
-	float3 binormal = cross(normal, tangent);
+	float3 tangent, binormal;
+	orthonormal_basis(normal, tangent, binormal);
 
 	// Multiply the direction with the TBN matrix
-	direction = normalize(make_float3(
-		tangent.x * direction.x + binormal.x * direction.y + normal.x * direction.z, 
-		tangent.y * direction.x + binormal.y * direction.y + normal.y * direction.z, 
-		tangent.z * direction.x + binormal.z * direction.y + normal.z * direction.z
-	));
+	direction = local_to_world(direction, tangent, binormal, normal);
 
 	ASSERT(dot(direction, normal) > -1e-5, "Invalid dot: dot = %f, direction = (%f, %f, %f), normal = (%f, %f, %f)\n", 
 		dot(direction, normal), direction.x, direction.y, direction.z, normal.x, normal.y, normal.z
@@ -342,7 +358,7 @@ __device__ void frame_buffer_add(int x, int y, const float3 & colour) {
 	float4 prev;
 	surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
 	
-	surf2Dwrite<float4>(prev + make_float4(colour, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(prev + make_float4(colour, 0.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
 struct RayBuffer {
@@ -362,6 +378,7 @@ struct RayBuffer {
 __device__ RayBuffer ray_buffer_extend;
 __device__ RayBuffer ray_buffer_shade_diffuse;
 __device__ RayBuffer ray_buffer_shade_dielectric;
+__device__ RayBuffer ray_buffer_shade_glossy;
 
 struct ShadowRayBuffer {
 	int   * triangle_id;
@@ -377,6 +394,7 @@ __device__ ShadowRayBuffer shadow_ray_buffer;
 __device__ int N_ext;
 __device__ int N_diffuse;
 __device__ int N_dielectric;
+__device__ int N_glossy;
 __device__ int N_shadow;
 
 extern "C" __global__ void kernel_generate(
@@ -470,6 +488,8 @@ extern "C" __global__ void kernel_extend() {
 	if (material_type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&N_diffuse);
 
+		// ray_buffer_shade_diffuse.direction[index_out] = ray_direction;
+
 		ray_buffer_shade_diffuse.triangle_id[index_out] = hit.triangle_id;
 		ray_buffer_shade_diffuse.u[index_out] = hit.u;
 		ray_buffer_shade_diffuse.v[index_out] = hit.v;
@@ -491,12 +511,27 @@ extern "C" __global__ void kernel_extend() {
 		ray_buffer_shade_dielectric.throughput[index_out]  = ray_buffer_extend.throughput[index];
 
 		ray_buffer_shade_dielectric.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
+	} else if (material_type == Material::Type::GLOSSY) {
+		int index_out = atomic_agg_inc(&N_glossy);
+
+		ray_buffer_shade_glossy.direction[index_out] = ray_direction;
+
+		ray_buffer_shade_glossy.triangle_id[index_out] = hit.triangle_id;
+		ray_buffer_shade_glossy.u[index_out] = hit.u;
+		ray_buffer_shade_glossy.v[index_out] = hit.v;
+
+		ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
+		ray_buffer_shade_glossy.throughput[index_out]  = ray_buffer_extend.throughput[index];
+
+		ray_buffer_shade_glossy.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
 	}
 }
 
 extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_diffuse) return;
+
+	// float3 ray_direction = ray_buffer_shade_diffuse.direction[index];
 
 	int   ray_triangle_id = ray_buffer_shade_diffuse.triangle_id[index];
 	float ray_u = ray_buffer_shade_diffuse.u[index];
@@ -548,6 +583,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
 	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
 	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+
+	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	int index_out = atomic_agg_inc(&N_ext);
 
@@ -607,6 +644,8 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
 	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
 	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+
+	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	int index_out = atomic_agg_inc(&N_ext);
 
@@ -671,6 +710,118 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_extend.throughput[index_out]  = ray_throughput;
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
+}
+
+__device__ float beckmann_g1(const float3 & v, const float3 & m, const float3 & n, float alpha) {
+	float v_dot_n = dot(v, n);
+	if (dot(v, m) / v_dot_n <= 0.0f) return 0.0f;
+
+	float tan_theta_v = sqrt(1.0f - v_dot_n*v_dot_n) / v_dot_n; // tan(acos(x)) = sqrt(1 - x^2) / x
+	float a = 1.0f / (alpha * (tan_theta_v));
+	
+	// Rational approximation
+	if (a < 1.6f) {
+		return (3.535f * a + 2.181f * a*a) / (1.0f + 2.276f * a + 2.577f * a*a);
+	} else {
+		return 1.0f;
+	}
+}
+
+extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= N_glossy) return;
+
+	float3 direction_in = -ray_buffer_shade_glossy.direction[index];
+
+	int   ray_triangle_id = ray_buffer_shade_glossy.triangle_id[index];
+	float ray_u = ray_buffer_shade_glossy.u[index];
+	float ray_v = ray_buffer_shade_glossy.v[index];
+
+	int    ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
+	float3 ray_throughput  = ray_buffer_shade_glossy.throughput[index];
+	
+	Material::Type ray_last_material_type = Material::Type(ray_buffer_shade_glossy.last_material_type[index]);
+	
+	int x = ray_pixel_index % SCREEN_WIDTH;
+	int y = ray_pixel_index / SCREEN_WIDTH; 
+
+	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
+
+	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
+
+	const Material & material = materials[triangles_material_id[ray_triangle_id]];
+
+	if (light_count > 0) {
+		if (material.is_light()) {
+			if (ray_last_material_type == Material::Type::DIELECTRIC) {
+				frame_buffer_add(x, y, ray_throughput * material.emittance);
+			}
+
+			return;
+		}
+
+		// int shadow_ray_index = atomic_agg_inc(&N_shadow);
+
+		// shadow_ray_buffer.triangle_id[shadow_ray_index] = ray_triangle_id;
+		// shadow_ray_buffer.u[shadow_ray_index] = ray_u;
+		// shadow_ray_buffer.v[shadow_ray_index] = ray_v;
+
+		// shadow_ray_buffer.pixel_index[shadow_ray_index] = ray_pixel_index;
+		// shadow_ray_buffer.throughput[shadow_ray_index]  = ray_throughput;
+	}
+
+	// Russian Roulette termination
+	if (bounce > 3) {
+		float one_minus_p = fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z));
+		if (random_float(seed) > one_minus_p) {
+			return;
+		}
+
+		ray_throughput /= one_minus_p;
+	}
+
+	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
+	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+
+	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
+
+	float alpha = material.alpha; // (1.2f - 0.2f * sqrt(abs(dot(ray_direction, hit_normal)))) * material.alpha;
+	
+	// Sample normal distribution in spherical coordinates
+	float theta = atan(sqrt(-alpha * alpha * log(1.0f - random_float(seed))));
+	float phi   = TWO_PI * random_float(seed);
+
+	float sin_theta, cos_theta;
+	float sin_phi,   cos_phi;
+
+	sincos(theta, &sin_theta, &cos_theta);
+	sincos(phi,   &sin_phi,   &cos_phi);
+
+	// Convert from spherical coordinates to cartesian coordinates
+	float3 micro_normal_local = make_float3(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta);
+
+	float3 hit_tangent, hit_binormal;
+	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
+
+	float3 micro_normal_world = local_to_world(micro_normal_local, hit_tangent, hit_binormal, hit_normal);
+
+	float3 direction_out = 2.0f * abs(dot(direction_in, micro_normal_world)) * micro_normal_world - direction_in; // reflect(ray_direction, micro_normal_world);
+
+	float g = 
+		beckmann_g1(direction_in,  micro_normal_world, hit_normal, alpha) * 
+		beckmann_g1(direction_out, micro_normal_world, hit_normal, alpha);
+	float weight = abs(dot(direction_in, micro_normal_world)) * g / abs(dot(direction_in, hit_normal) * dot(micro_normal_world, hit_normal));
+
+	int index_out = atomic_agg_inc(&N_ext);
+
+	ray_buffer_extend.origin[index_out]    = hit_point;
+	ray_buffer_extend.direction[index_out] = direction_out;
+
+	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
+	ray_buffer_extend.throughput[index_out]  = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y) * weight;
+
+	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::GLOSSY);
 }
 
 extern "C" __global__ void kernel_connect(int rand_seed) {
