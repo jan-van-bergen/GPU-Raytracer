@@ -260,6 +260,11 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	global_N_dielectric = module.get_global("N_dielectric");
 	global_N_glossy     = module.get_global("N_glossy");
 	global_N_shadow     = module.get_global("N_shadow");
+	
+	global_N_diffuse.set_value   (0);
+	global_N_dielectric.set_value(0);
+	global_N_glossy.set_value    (0);
+	global_N_shadow.set_value    (0);
 
 	kernel_generate.init        (&module, "kernel_generate");
 	kernel_extend.init          (&module, "kernel_extend");
@@ -318,6 +323,7 @@ void Pathtracer::render() {
 		frames_since_camera_moved += 1.0f;
 	}
 
+	// Generate primary Rays from the current Camera orientation
 	kernel_generate.execute(
 		rand(),
 		camera.position, 
@@ -327,20 +333,19 @@ void Pathtracer::render() {
 	);
 
 	global_N_ext.set_value(PIXEL_COUNT);
-	global_N_diffuse.set_value   (0);
-	global_N_dielectric.set_value(0);
-	global_N_glossy.set_value    (0);
-	global_N_shadow.set_value    (0);
 
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
+		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute();
 		global_N_ext.set_value(0);
 
+		// Process the various Material types in different Kernels
 		kernel_shade_diffuse.execute   (rand(), bounce);
 		kernel_shade_dielectric.execute(rand(), bounce);
 		kernel_shade_glossy.execute    (rand(), bounce);
 
+		// Trace shadow Rays
 		kernel_connect.execute(rand());
 
 		global_N_diffuse.set_value   (0);
