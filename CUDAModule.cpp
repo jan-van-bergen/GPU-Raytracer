@@ -1,12 +1,30 @@
 #include "CUDAModule.h"
 
-#include <cassert>
 #include <cstdio>
+#include <cassert>
+#include <vector>
+#include <string>
+#include <fstream>
 #include <filesystem>
 
 #include "CUDAMemory.h"
 
+#include "Util.h"
 #include "ScopedTimer.h"
+
+static std::vector<std::string> get_includes(const std::string & filename) {
+	std::vector<std::string> result;
+
+	std::ifstream input(filename);
+
+	for (std::string line; getline(input, line); ) {
+		if (line.rfind("#include \"", 0) == 0) {
+			result.push_back(line.substr(10, line.length() - 11));
+		}
+	}
+
+	return result;
+}
 
 void CUDAModule::init(const char * filename, int compute_capability) {
 	assert(std::filesystem::exists(filename));
@@ -27,6 +45,24 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 
 		// Recompile if the source file is newer than the binary
 		should_recompile = last_write_time_cubin < last_write_time_source;
+	}
+	
+	// If any included file has changed we should recompile
+	if (!should_recompile) {
+		std::string directory = Util::get_path(filename);
+
+		std::filesystem::file_time_type last_write_time_cubin = std::filesystem::last_write_time(output_filename);
+
+		for (const std::string & include : get_includes(filename)) {
+			std::filesystem::file_time_type last_write_time_include = std::filesystem::last_write_time(directory + include);
+
+			// Recompile if the include file is newer than the binary
+			if (last_write_time_cubin < last_write_time_include) {
+				should_recompile = true;
+
+				break;
+			}
+		}
 	}
 
 	if (should_recompile) {

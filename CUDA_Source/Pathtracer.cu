@@ -1,7 +1,7 @@
-#include "vector_types.h"
-#include "cuda_math.h"
-
+#include <vector_types.h>
 #include <corecrt_math.h>
+
+#include "cuda_math.h"
 
 #include "../Common.h"
 
