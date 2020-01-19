@@ -296,13 +296,14 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
 		camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
 	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
-		//camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
-		//camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
-		camera.position = Vector3(1.222922f, -0.028984f, -2.364204f);
-		camera.rotation = Quaternion(-0.098740f, 0.388240f, -0.041882f, -0.915296f);
+		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
+		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
 	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
 		camera.position = Vector3(0.528027f, 1.004323f, 0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
+	} else if (strcmp(scene_name, DATA_PATH("glossy.obj")) == 0) {
+		camera.position = Vector3(9.467193f, 5.919240f, -0.646071f);
+		camera.rotation = Quaternion(0.179088f, -0.677310f, 0.175366f, 0.691683f);
 	}
 }
 

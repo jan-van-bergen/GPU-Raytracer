@@ -53,7 +53,7 @@ struct Material {
 
 	float index_of_refraction;
 
-	float alpha;
+	float roughness;
 
 	__device__ float3 albedo(float u, float v) const {
 		if (texture_id == -1) return diffuse;
@@ -786,7 +786,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 
 	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
 
-	float alpha = material.alpha; // (1.2f - 0.2f * sqrt(abs(dot(ray_direction, hit_normal)))) * material.alpha;
+	float alpha = material.roughness; // (1.2f - 0.2f * sqrt(dot(direction_in, hit_normal))) * material.alpha;
 	
 	// Sample normal distribution in spherical coordinates
 	float theta = atan(sqrt(-alpha * alpha * log(1.0f - random_float(seed))));
@@ -806,7 +806,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 
 	float3 micro_normal_world = local_to_world(micro_normal_local, hit_tangent, hit_binormal, hit_normal);
 
-	float3 direction_out = 2.0f * abs(dot(direction_in, micro_normal_world)) * micro_normal_world - direction_in; // reflect(ray_direction, micro_normal_world);
+	float3 direction_out = reflect(-direction_in, micro_normal_world);
 
 	float g = 
 		beckmann_g1(direction_in,  micro_normal_world, hit_normal, alpha) * 

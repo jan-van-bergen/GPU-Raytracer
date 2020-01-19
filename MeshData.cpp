@@ -64,7 +64,7 @@ const MeshData * MeshData::load(const char * file_path) {
 
 			mesh_data->materials[i].index_of_refraction = material.ior;
 
-			mesh_data->materials[i].alpha = Material::roughness_to_alpha(material.roughness);
+			mesh_data->materials[i].roughness = material.roughness;
 		}
 	} else {
 		mesh_data->material_count = 1;
