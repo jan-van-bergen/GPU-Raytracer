@@ -1,7 +1,8 @@
 # Advanced-Graphics-Pathtracer
 
 CUDA
-Wavefront
+Wavefront 
+Rays are generated with coherence in mind
 Importance Sampling (cosine weighted, NEE, MIS ???????????? )
 BVH serialization
 
