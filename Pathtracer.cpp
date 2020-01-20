@@ -190,28 +190,40 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle));
 
 	struct RayBuffer {
-		CUDAMemory::Ptr<Vector3> origin;
-		CUDAMemory::Ptr<Vector3> direction;
+		CUDAMemory::Ptr<float> origin_x;
+		CUDAMemory::Ptr<float> origin_y;
+		CUDAMemory::Ptr<float> origin_z;
+		CUDAMemory::Ptr<float> direction_x;
+		CUDAMemory::Ptr<float> direction_y;
+		CUDAMemory::Ptr<float> direction_z;
 	
 		CUDAMemory::Ptr<int> triangle_id;
 		CUDAMemory::Ptr<float> u;
 		CUDAMemory::Ptr<float> v;
 
 		CUDAMemory::Ptr<int> pixel_index;
-		CUDAMemory::Ptr<Vector3> throughput;
+		CUDAMemory::Ptr<float> throughput_x;
+		CUDAMemory::Ptr<float> throughput_y;
+		CUDAMemory::Ptr<float> throughput_z;
 
 		CUDAMemory::Ptr<bool> last_specular;
 
 		inline void init(int buffer_size) {
-			origin    = CUDAMemory::malloc<Vector3>(buffer_size);
-			direction = CUDAMemory::malloc<Vector3>(buffer_size);
+			origin_x    = CUDAMemory::malloc<float>(buffer_size);
+			origin_y    = CUDAMemory::malloc<float>(buffer_size);
+			origin_z    = CUDAMemory::malloc<float>(buffer_size);
+			direction_x = CUDAMemory::malloc<float>(buffer_size);
+			direction_y = CUDAMemory::malloc<float>(buffer_size);
+			direction_z = CUDAMemory::malloc<float>(buffer_size);
 
 			triangle_id = CUDAMemory::malloc<int>(buffer_size);
 			u = CUDAMemory::malloc<float>(buffer_size);
 			v = CUDAMemory::malloc<float>(buffer_size);
 
-			pixel_index = CUDAMemory::malloc<int>(buffer_size);
-			throughput  = CUDAMemory::malloc<Vector3>(buffer_size);
+			pixel_index   = CUDAMemory::malloc<int>(buffer_size);
+			throughput_x  = CUDAMemory::malloc<float>(buffer_size);
+			throughput_y  = CUDAMemory::malloc<float>(buffer_size);
+			throughput_z  = CUDAMemory::malloc<float>(buffer_size);
 
 			last_specular = CUDAMemory::malloc<bool>(buffer_size);
 		}
@@ -238,15 +250,19 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		CUDAMemory::Ptr<float> v;
 
 		CUDAMemory::Ptr<int> pixel_index;
-		CUDAMemory::Ptr<Vector3> throughput;
+		CUDAMemory::Ptr<float> throughput_x;
+		CUDAMemory::Ptr<float> throughput_y;
+		CUDAMemory::Ptr<float> throughput_z;
 
 		inline void init(int buffer_size) {
 			triangle_id = CUDAMemory::malloc<int>(buffer_size);
 			u = CUDAMemory::malloc<float>(buffer_size);
 			v = CUDAMemory::malloc<float>(buffer_size);
 
-			pixel_index = CUDAMemory::malloc<int>(buffer_size);
-			throughput  = CUDAMemory::malloc<Vector3>(buffer_size);
+			pixel_index  = CUDAMemory::malloc<int>(buffer_size);
+			throughput_x = CUDAMemory::malloc<float>(buffer_size);
+			throughput_y = CUDAMemory::malloc<float>(buffer_size);
+			throughput_z = CUDAMemory::malloc<float>(buffer_size);
 		}
 	};
 
@@ -274,12 +290,12 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	kernel_connect.init         (&module, "kernel_connect");
 	kernel_accumulate.init      (&module, "kernel_accumulate");
 
-	kernel_generate.set_block_dim        (128, 1, 1);
-	kernel_extend.set_block_dim          (128, 1, 1);
-	kernel_shade_diffuse.set_block_dim   (128, 1, 1);
-	kernel_shade_dielectric.set_block_dim(128, 1, 1);
-	kernel_shade_glossy.set_block_dim(128, 1, 1);
-	kernel_connect.set_block_dim         (128, 1, 1);
+	kernel_generate.set_block_dim        (64, 1, 1);
+	kernel_extend.set_block_dim          (64, 1, 1);
+	kernel_shade_diffuse.set_block_dim   (64, 1, 1);
+	kernel_shade_dielectric.set_block_dim(64, 1, 1);
+	kernel_shade_glossy.set_block_dim    (64, 1, 1);
+	kernel_connect.set_block_dim         (64, 1, 1);
 	kernel_accumulate.set_block_dim(32, 4, 1);
 
 	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);

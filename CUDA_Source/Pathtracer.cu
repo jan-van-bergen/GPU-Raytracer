@@ -20,16 +20,36 @@ __device__ void frame_buffer_add(int x, int y, const float3 & colour) {
 	surf2Dwrite<float4>(prev + make_float4(colour, 0.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
+struct Vector3 {
+	float * x;
+	float * y;
+	float * z;
+
+	__device__ void from_float3(int index, const float3 & vector) {
+		x[index] = vector.x;
+		y[index] = vector.y;
+		z[index] = vector.z;
+	}
+
+	__device__ float3 to_float3(int index) const {
+		return make_float3(
+			x[index],
+			y[index],
+			z[index]
+		);
+	}
+};
+
 struct RayBuffer {
-	float3 * origin;
-	float3 * direction;
+	Vector3 origin;
+	Vector3 direction;
 	
 	int   * triangle_id;
 	float * u;
 	float * v;
 
-	int    * pixel_index;
-	float3 * throughput;
+	int   * pixel_index;
+	Vector3 throughput;
 
 	char * last_material_type;
 };
@@ -44,8 +64,8 @@ struct ShadowRayBuffer {
 	float * u;
 	float * v;
 
-	int    * pixel_index;
-	float3 * throughput;
+	int   * pixel_index;
+	Vector3 throughput;
 };
 
 __device__ ShadowRayBuffer shadow_ray_buffer;
@@ -100,14 +120,16 @@ extern "C" __global__ void kernel_generate(
 	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
 
 	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
-	ray_buffer_extend.origin[index]    = camera_position;
-	ray_buffer_extend.direction[index] = normalize(camera_top_left_corner
+	ray_buffer_extend.origin.from_float3(index, camera_position);
+	ray_buffer_extend.direction.from_float3(index, normalize(camera_top_left_corner
 		+ u * camera_x_axis
 		+ v * camera_y_axis
-	);
-	
-	ray_buffer_extend.pixel_index[index] = pixel_index;
-	ray_buffer_extend.throughput[index]  = make_float3(1.0f);
+	));
+
+	ray_buffer_extend.pixel_index[index]  = pixel_index;
+	ray_buffer_extend.throughput.x[index] = 1.0f;
+	ray_buffer_extend.throughput.y[index] = 1.0f;
+	ray_buffer_extend.throughput.z[index] = 1.0f;
 
 	ray_buffer_extend.last_material_type[index] = char(Material::Type::DIELECTRIC);
 }
@@ -116,8 +138,8 @@ extern "C" __global__ void kernel_extend() {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_ext) return;
 
-	float3 ray_origin    = ray_buffer_extend.origin[index];
-	float3 ray_direction = ray_buffer_extend.direction[index];
+	float3 ray_origin    = ray_buffer_extend.origin.to_float3(index);
+	float3 ray_direction = ray_buffer_extend.direction.to_float3(index);
 	
 	Ray ray;
 	ray.origin    = ray_origin;
@@ -137,7 +159,7 @@ extern "C" __global__ void kernel_extend() {
 		int x = ray_pixel_index % SCREEN_WIDTH;
 		int y = ray_pixel_index / SCREEN_WIDTH; 
 
-		frame_buffer_add(x, y, ray_buffer_extend.throughput[index] * sample_sky(ray_direction));
+		frame_buffer_add(x, y, ray_buffer_extend.throughput.to_float3(index) * sample_sky(ray_direction));
 
 		return;
 	}
@@ -153,34 +175,40 @@ extern "C" __global__ void kernel_extend() {
 		ray_buffer_shade_diffuse.u[index_out] = hit.u;
 		ray_buffer_shade_diffuse.v[index_out] = hit.v;
 
-		ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_diffuse.throughput[index_out]  = ray_buffer_extend.throughput[index];
+		ray_buffer_shade_diffuse.pixel_index[index_out]  = ray_buffer_extend.pixel_index[index];
+		ray_buffer_shade_diffuse.throughput.x[index_out] = ray_buffer_extend.throughput.x[index];
+		ray_buffer_shade_diffuse.throughput.y[index_out] = ray_buffer_extend.throughput.y[index];
+		ray_buffer_shade_diffuse.throughput.z[index_out] = ray_buffer_extend.throughput.z[index];
 
 		ray_buffer_shade_diffuse.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
 	} else if (material_type == Material::Type::DIELECTRIC) {
 		int index_out = atomic_agg_inc(&N_dielectric);
 
-		ray_buffer_shade_dielectric.direction[index_out] = ray_direction;
+		ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
 		ray_buffer_shade_dielectric.triangle_id[index_out] = hit.triangle_id;
 		ray_buffer_shade_dielectric.u[index_out] = hit.u;
 		ray_buffer_shade_dielectric.v[index_out] = hit.v;
 
-		ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_dielectric.throughput[index_out]  = ray_buffer_extend.throughput[index];
+		ray_buffer_shade_dielectric.pixel_index[index_out]  = ray_buffer_extend.pixel_index[index];
+		ray_buffer_shade_dielectric.throughput.x[index_out] = ray_buffer_extend.throughput.x[index];
+		ray_buffer_shade_dielectric.throughput.y[index_out] = ray_buffer_extend.throughput.y[index];
+		ray_buffer_shade_dielectric.throughput.z[index_out] = ray_buffer_extend.throughput.z[index];
 
 		ray_buffer_shade_dielectric.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
 	} else if (material_type == Material::Type::GLOSSY) {
 		int index_out = atomic_agg_inc(&N_glossy);
 
-		ray_buffer_shade_glossy.direction[index_out] = ray_direction;
+		ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
 		ray_buffer_shade_glossy.triangle_id[index_out] = hit.triangle_id;
 		ray_buffer_shade_glossy.u[index_out] = hit.u;
 		ray_buffer_shade_glossy.v[index_out] = hit.v;
 
 		ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_glossy.throughput[index_out]  = ray_buffer_extend.throughput[index];
+		ray_buffer_shade_glossy.throughput.x[index_out]  = ray_buffer_extend.throughput.x[index];
+		ray_buffer_shade_glossy.throughput.y[index_out]  = ray_buffer_extend.throughput.y[index];
+		ray_buffer_shade_glossy.throughput.z[index_out]  = ray_buffer_extend.throughput.z[index];
 
 		ray_buffer_shade_glossy.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
 	}
@@ -197,7 +225,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 	float ray_v = ray_buffer_shade_diffuse.v[index];
 
 	int    ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_diffuse.throughput[index];
+	float3 ray_throughput  = ray_buffer_shade_diffuse.throughput.to_float3(index);
 
 	Material::Type ray_last_material_type = Material::Type(ray_buffer_shade_diffuse.last_material_type[index]);
 
@@ -225,8 +253,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 		shadow_ray_buffer.u[shadow_ray_index] = ray_u;
 		shadow_ray_buffer.v[shadow_ray_index] = ray_v;
 
-		shadow_ray_buffer.pixel_index[shadow_ray_index] = ray_pixel_index;
-		shadow_ray_buffer.throughput[shadow_ray_index]  = ray_throughput;
+		shadow_ray_buffer.pixel_index[shadow_ray_index]  = ray_pixel_index;
+		shadow_ray_buffer.throughput.from_float3(shadow_ray_index, ray_throughput);
 	}
 
 	// Russian Roulette termination
@@ -247,11 +275,15 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 
 	int index_out = atomic_agg_inc(&N_ext);
 
-	ray_buffer_extend.origin[index_out]    = hit_point;
-	ray_buffer_extend.direction[index_out] = cosine_weighted_diffuse_reflection(seed, hit_normal);
+	float3 direction = cosine_weighted_diffuse_reflection(seed, hit_normal);
 
-	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
-	ray_buffer_extend.throughput[index_out]  = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+	ray_buffer_extend.origin.from_float3(index_out, hit_point);
+	ray_buffer_extend.direction.from_float3(index_out, direction);
+
+	float3 throughput = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+
+	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
+	ray_buffer_extend.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIFFUSE);
 }
@@ -260,14 +292,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_dielectric) return;
 
-	float3 ray_direction = ray_buffer_shade_dielectric.direction[index];
+	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
 
 	int   ray_triangle_id = ray_buffer_shade_dielectric.triangle_id[index];
 	float ray_u = ray_buffer_shade_dielectric.u[index];
 	float ray_v = ray_buffer_shade_dielectric.v[index];
 
 	int    ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_dielectric.throughput[index];
+	float3 ray_throughput  = ray_buffer_shade_dielectric.throughput.to_float3(index);
 
 	Material::Type ray_last_material_type = Material::Type(ray_buffer_shade_dielectric.last_material_type[index]);
 
@@ -362,11 +394,11 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		}
 	}
 
-	ray_buffer_extend.origin[index_out]    = hit_point;
-	ray_buffer_extend.direction[index_out] = direction;
+	ray_buffer_extend.origin.from_float3(index_out, hit_point);
+	ray_buffer_extend.direction.from_float3(index_out, direction);
 
-	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
-	ray_buffer_extend.throughput[index_out]  = ray_throughput;
+	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
+	ray_buffer_extend.throughput.from_float3(index_out, ray_throughput);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
@@ -390,15 +422,15 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_glossy) return;
 
-	float3 direction_in = -ray_buffer_shade_glossy.direction[index];
+	float3 direction_in = -ray_buffer_shade_glossy.direction.to_float3(index);
 
 	int   ray_triangle_id = ray_buffer_shade_glossy.triangle_id[index];
 	float ray_u = ray_buffer_shade_glossy.u[index];
 	float ray_v = ray_buffer_shade_glossy.v[index];
 
 	int    ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_glossy.throughput[index];
-	
+	float3 ray_throughput  = ray_buffer_shade_glossy.throughput.to_float3(index);
+
 	Material::Type ray_last_material_type = Material::Type(ray_buffer_shade_glossy.last_material_type[index]);
 	
 	int x = ray_pixel_index % SCREEN_WIDTH;
@@ -474,11 +506,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 
 	int index_out = atomic_agg_inc(&N_ext);
 
-	ray_buffer_extend.origin[index_out]    = hit_point;
-	ray_buffer_extend.direction[index_out] = direction_out;
+	ray_buffer_extend.origin.from_float3(index_out, hit_point);
+	ray_buffer_extend.direction.from_float3(index_out, direction_out);
 
-	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
-	ray_buffer_extend.throughput[index_out]  = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y) * weight;
+	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
+	ray_buffer_extend.throughput.from_float3(index_out, ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y) * weight);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::GLOSSY);
 }
@@ -492,7 +524,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 	float ray_v = shadow_ray_buffer.v[index];
 
 	int    ray_pixel_index = shadow_ray_buffer.pixel_index[index];
-	float3 ray_throughput  = shadow_ray_buffer.throughput[index];
+	float3 ray_throughput  = shadow_ray_buffer.throughput.to_float3(index);
 
 	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
 
