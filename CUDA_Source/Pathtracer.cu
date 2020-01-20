@@ -403,21 +403,6 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
 
-__device__ float beckmann_g1(const float3 & v, const float3 & m, const float3 & n, float alpha) {
-	float v_dot_n = dot(v, n);
-	if (dot(v, m) / v_dot_n <= 0.0f) return 0.0f;
-
-	float tan_theta_v = sqrt(1.0f - v_dot_n*v_dot_n) / v_dot_n; // tan(acos(x)) = sqrt(1 - x^2) / x
-	float a = 1.0f / (alpha * (tan_theta_v));
-	
-	// Rational approximation
-	if (a < 1.6f) {
-		return (3.535f * a + 2.181f * a*a) / (1.0f + 2.276f * a + 2.577f * a*a);
-	} else {
-		return 1.0f;
-	}
-}
-
 extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_glossy) return;
