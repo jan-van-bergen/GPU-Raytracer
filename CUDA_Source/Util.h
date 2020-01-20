@@ -3,8 +3,8 @@
 
 #include "cuda_math.h"
 
-//#define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
-#define ASSERT(proposition, fmt, ...) { }
+#define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
+//#define ASSERT(proposition, fmt, ...) { }
 
 // Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 __device__ unsigned rand_xorshift(unsigned & seed) {

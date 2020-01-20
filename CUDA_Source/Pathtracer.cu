@@ -60,6 +60,8 @@ __device__ RayBuffer ray_buffer_shade_dielectric;
 __device__ RayBuffer ray_buffer_shade_glossy;
 
 struct ShadowRayBuffer {
+	Vector3 direction;
+
 	int   * triangle_id;
 	float * u;
 	float * v;
@@ -119,7 +121,7 @@ extern "C" __global__ void kernel_generate(
 
 	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
 
-	// Create primary Ray that starts at the Camera's position and goes trough the current pixel
+	// Create primary Ray that starts at the Camera's position and goes through the current pixel
 	ray_buffer_extend.origin.from_float3(index, camera_position);
 	ray_buffer_extend.direction.from_float3(index, normalize(camera_top_left_corner
 		+ u * camera_x_axis
@@ -134,13 +136,13 @@ extern "C" __global__ void kernel_generate(
 	ray_buffer_extend.last_material_type[index] = char(Material::Type::DIELECTRIC);
 }
 
-extern "C" __global__ void kernel_extend() {
+extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_ext) return;
 
 	float3 ray_origin    = ray_buffer_extend.origin.to_float3(index);
 	float3 ray_direction = ray_buffer_extend.direction.to_float3(index);
-	
+
 	Ray ray;
 	ray.origin    = ray_origin;
 	ray.direction = ray_direction;
@@ -153,9 +155,9 @@ extern "C" __global__ void kernel_extend() {
 	RayHit hit;
 	bvh_trace(ray, hit);
 
-	if (hit.t == INFINITY) {
-		int ray_pixel_index = ray_buffer_extend.pixel_index[index];
+	int ray_pixel_index = ray_buffer_extend.pixel_index[index];
 
+	if (hit.t == INFINITY) {
 		int x = ray_pixel_index % SCREEN_WIDTH;
 		int y = ray_pixel_index / SCREEN_WIDTH; 
 
@@ -164,24 +166,44 @@ extern "C" __global__ void kernel_extend() {
 		return;
 	}
 
-	Material::Type material_type = materials[triangles_material_id[hit.triangle_id]].type;
-	
-	if (material_type == Material::Type::DIFFUSE) {
+	float3 ray_throughput = ray_buffer_extend.throughput.to_float3(index);
+
+	unsigned seed = (ray_pixel_index + rand_seed * 906313609) * 341828143;
+
+	// Russian Roulette termination
+	if (bounce > 3) {
+		float one_minus_p = fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z));
+		if (random_float(seed) > one_minus_p) {
+			return;
+		}
+
+		ray_throughput /= one_minus_p;
+	}
+
+	// Get the Material of the Triangle we hit
+	const Material & material = materials[triangles_material_id[hit.triangle_id]];
+
+	if (material.type == Material::Type::LIGHT) {
+		if (ray_buffer_extend.last_material_type[index] == Material::Type::DIELECTRIC) {
+			int x = ray_pixel_index % SCREEN_WIDTH;
+			int y = ray_pixel_index / SCREEN_WIDTH; 
+
+			frame_buffer_add(x, y, ray_throughput * material.emittance);
+		}
+	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&N_diffuse);
 
 		// ray_buffer_shade_diffuse.direction[index_out] = ray_direction;
+
+		assert(!isnan(hit.u) && !isnan(hit.v));
 
 		ray_buffer_shade_diffuse.triangle_id[index_out] = hit.triangle_id;
 		ray_buffer_shade_diffuse.u[index_out] = hit.u;
 		ray_buffer_shade_diffuse.v[index_out] = hit.v;
 
-		ray_buffer_shade_diffuse.pixel_index[index_out]  = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_diffuse.throughput.x[index_out] = ray_buffer_extend.throughput.x[index];
-		ray_buffer_shade_diffuse.throughput.y[index_out] = ray_buffer_extend.throughput.y[index];
-		ray_buffer_shade_diffuse.throughput.z[index_out] = ray_buffer_extend.throughput.z[index];
-
-		ray_buffer_shade_diffuse.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
-	} else if (material_type == Material::Type::DIELECTRIC) {
+		ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
+		ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
+	} else if (material.type == Material::Type::DIELECTRIC) {
 		int index_out = atomic_agg_inc(&N_dielectric);
 
 		ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
@@ -190,13 +212,9 @@ extern "C" __global__ void kernel_extend() {
 		ray_buffer_shade_dielectric.u[index_out] = hit.u;
 		ray_buffer_shade_dielectric.v[index_out] = hit.v;
 
-		ray_buffer_shade_dielectric.pixel_index[index_out]  = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_dielectric.throughput.x[index_out] = ray_buffer_extend.throughput.x[index];
-		ray_buffer_shade_dielectric.throughput.y[index_out] = ray_buffer_extend.throughput.y[index];
-		ray_buffer_shade_dielectric.throughput.z[index_out] = ray_buffer_extend.throughput.z[index];
-
-		ray_buffer_shade_dielectric.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
-	} else if (material_type == Material::Type::GLOSSY) {
+		ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
+		ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
+	} else if (material.type == Material::Type::GLOSSY) {
 		int index_out = atomic_agg_inc(&N_glossy);
 
 		ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
@@ -206,15 +224,11 @@ extern "C" __global__ void kernel_extend() {
 		ray_buffer_shade_glossy.v[index_out] = hit.v;
 
 		ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_glossy.throughput.x[index_out]  = ray_buffer_extend.throughput.x[index];
-		ray_buffer_shade_glossy.throughput.y[index_out]  = ray_buffer_extend.throughput.y[index];
-		ray_buffer_shade_glossy.throughput.z[index_out]  = ray_buffer_extend.throughput.z[index];
-
-		ray_buffer_shade_glossy.last_material_type[index_out] = ray_buffer_extend.last_material_type[index];
+		ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
 	}
 }
 
-extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
+extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_diffuse) return;
 
@@ -227,27 +241,18 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 	int    ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_shade_diffuse.throughput.to_float3(index);
 
-	Material::Type ray_last_material_type = Material::Type(ray_buffer_shade_diffuse.last_material_type[index]);
-
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
-
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
 	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
+	ASSERT(material.type == Material::Type::DIFFUSE, "Material should be diffuse in this Kernel");
+
 	if (light_count > 0) {
-		if (material.is_light()) {
-			if (ray_last_material_type == Material::Type::DIELECTRIC) {
-				frame_buffer_add(x, y, ray_throughput * material.emittance);
-			}
-
-			return;
-		}
-
 		int shadow_ray_index = atomic_agg_inc(&N_shadow);
+
+		// shadow_ray_buffer.direction not required for diffuse BRDF evaluation
 
 		shadow_ray_buffer.triangle_id[shadow_ray_index] = ray_triangle_id;
 		shadow_ray_buffer.u[shadow_ray_index] = ray_u;
@@ -255,16 +260,6 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 
 		shadow_ray_buffer.pixel_index[shadow_ray_index]  = ray_pixel_index;
 		shadow_ray_buffer.throughput.from_float3(shadow_ray_index, ray_throughput);
-	}
-
-	// Russian Roulette termination
-	if (bounce > 3) {
-		float one_minus_p = fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z));
-		if (random_float(seed) > one_minus_p) {
-			return;
-		}
-
-		ray_throughput /= one_minus_p;
 	}
 
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
@@ -288,7 +283,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce) {
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIFFUSE);
 }
 
-extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
+extern "C" __global__ void kernel_shade_dielectric(int rand_seed) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_dielectric) return;
 
@@ -301,36 +296,13 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	int    ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_shade_dielectric.throughput.to_float3(index);
 
-	Material::Type ray_last_material_type = Material::Type(ray_buffer_shade_dielectric.last_material_type[index]);
-
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
-
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
 	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
-	if (light_count > 0) {
-		if (material.is_light()) {
-			if (ray_last_material_type == Material::Type::DIELECTRIC) {
-				frame_buffer_add(x, y, ray_throughput * material.emittance);
-			}
-
-			return;
-		}
-	}
-
-	// Russian Roulette termination
-	if (bounce > 3) {
-		float one_minus_p = fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z));
-		if (random_float(seed) > one_minus_p) {
-			return;
-		}
-
-		ray_throughput /= one_minus_p;
-	}
+	ASSERT(material.type == Material::Type::DIELECTRIC, "Material should be dielectric in this Kernel");
 
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
 	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
@@ -403,7 +375,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
 
-extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
+extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_glossy) return;
 
@@ -416,26 +388,15 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 	int    ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_shade_glossy.throughput.to_float3(index);
 
-	Material::Type ray_last_material_type = Material::Type(ray_buffer_shade_glossy.last_material_type[index]);
-	
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
-
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
 	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
+	ASSERT(material.type == Material::Type::GLOSSY, "Material should be glossy in this Kernel");
+
 	if (light_count > 0) {
-		if (material.is_light()) {
-			if (ray_last_material_type == Material::Type::DIELECTRIC) {
-				frame_buffer_add(x, y, ray_throughput * material.emittance);
-			}
-
-			return;
-		}
-
 		// int shadow_ray_index = atomic_agg_inc(&N_shadow);
 
 		// shadow_ray_buffer.triangle_id[shadow_ray_index] = ray_triangle_id;
@@ -444,16 +405,6 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 
 		// shadow_ray_buffer.pixel_index[shadow_ray_index] = ray_pixel_index;
 		// shadow_ray_buffer.throughput[shadow_ray_index]  = ray_throughput;
-	}
-
-	// Russian Roulette termination
-	if (bounce > 3) {
-		float one_minus_p = fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z));
-		if (random_float(seed) > one_minus_p) {
-			return;
-		}
-
-		ray_throughput /= one_minus_p;
 	}
 
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
@@ -466,7 +417,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 	float alpha = (1.2f - 0.2f * sqrt(dot(direction_in, hit_normal))) * material.roughness;
 	
 	// Sample normal distribution in spherical coordinates
-	float theta = atan(sqrt(-alpha * alpha * log(1.0f - random_float(seed))));
+	float theta = atan(sqrt(-alpha * alpha * log(random_float(seed) + 1e-8f)));
 	float phi   = TWO_PI * random_float(seed);
 
 	float sin_theta, cos_theta;

@@ -105,7 +105,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	int * triangles_material_id = new int[bvh.primitive_count];
 
-	for (int i = 0; i < bvh.primitive_count; i++) {
+	for (int i = 0; i < bvh.primitive_count; i++) { 
 		triangles_position0[i]      = bvh.primitives[i].position0;
 		triangles_position_edge1[i] = bvh.primitives[i].position1 - bvh.primitives[i].position0;
 		triangles_position_edge2[i] = bvh.primitives[i].position2 - bvh.primitives[i].position0;
@@ -180,7 +180,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	// Set Sky globals
 	Sky sky;
-	sky.init(DATA_PATH("Sky_Probes/rnl_probe.float"));
+	sky.init(DATA_PATH("Sky_Probes/grace_probe.float"));
 
 	module.get_global("sky_size").set_value(sky.size);
 	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
@@ -245,6 +245,10 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	module.get_global("ray_buffer_shade_glossy").set_value    (ray_buffer_shade_glossy);
 
 	struct ShadowRayBuffer {
+		CUDAMemory::Ptr<float> direction_x;
+		CUDAMemory::Ptr<float> direction_y;
+		CUDAMemory::Ptr<float> direction_z;
+
 		CUDAMemory::Ptr<int> triangle_id;
 		CUDAMemory::Ptr<float> u;
 		CUDAMemory::Ptr<float> v;
@@ -255,6 +259,10 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		CUDAMemory::Ptr<float> throughput_z;
 
 		inline void init(int buffer_size) {
+			direction_x = CUDAMemory::malloc<float>(buffer_size);
+			direction_y = CUDAMemory::malloc<float>(buffer_size);
+			direction_z = CUDAMemory::malloc<float>(buffer_size);
+
 			triangle_id = CUDAMemory::malloc<int>(buffer_size);
 			u = CUDAMemory::malloc<float>(buffer_size);
 			v = CUDAMemory::malloc<float>(buffer_size);
@@ -353,13 +361,13 @@ void Pathtracer::render() {
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
-		kernel_extend.execute();
+		kernel_extend.execute(rand(), bounce);
 		global_N_ext.set_value(0);
 
 		// Process the various Material types in different Kernels
-		kernel_shade_diffuse.execute   (rand(), bounce);
-		kernel_shade_dielectric.execute(rand(), bounce);
-		kernel_shade_glossy.execute    (rand(), bounce);
+		kernel_shade_diffuse.execute   (rand());
+		kernel_shade_dielectric.execute(rand());
+		kernel_shade_glossy.execute    (rand());
 
 		// Trace shadow Rays
 		kernel_connect.execute(rand());

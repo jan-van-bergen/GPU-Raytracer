@@ -3,9 +3,10 @@
 
 struct Material {
 	enum Type : char {
-		DIFFUSE    = 0,
-		DIELECTRIC = 1,
-		GLOSSY     = 2
+		LIGHT      = 0,
+		DIFFUSE    = 1,
+		DIELECTRIC = 2,
+		GLOSSY     = 3
 	};
 
 	Type type = DIFFUSE;

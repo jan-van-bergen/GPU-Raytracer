@@ -62,6 +62,10 @@ const MeshData * MeshData::load(const char * file_path) {
 
 			mesh_data->materials[i].emittance = Vector3(material.emission[0], material.emission[1], material.emission[2]);
 
+			if (Vector3::length_squared(mesh_data->materials[i].emittance) > 0.0f) {
+				mesh_data->materials[i].type = Material::Type::LIGHT;
+			}
+
 			mesh_data->materials[i].index_of_refraction = material.ior;
 
 			mesh_data->materials[i].roughness = material.roughness;
