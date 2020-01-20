@@ -60,6 +60,8 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 			if (last_write_time_cubin < last_write_time_include) {
 				should_recompile = true;
 
+				printf("Recompiling %s because included file %s changed.\n", filename, include.c_str());
+
 				break;
 			}
 		}
