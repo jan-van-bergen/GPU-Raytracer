@@ -105,7 +105,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	int * triangles_material_id = new int[bvh.primitive_count];
 
-	for (int i = 0; i < bvh.primitive_count; i++) { 
+	for (int i = 0; i < bvh.primitive_count; i++) {
 		triangles_position0[i]      = bvh.primitives[i].position0;
 		triangles_position_edge1[i] = bvh.primitives[i].position1 - bvh.primitives[i].position0;
 		triangles_position_edge2[i] = bvh.primitives[i].position2 - bvh.primitives[i].position0;
@@ -180,7 +180,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	// Set Sky globals
 	Sky sky;
-	sky.init(DATA_PATH("Sky_Probes/grace_probe.float"));
+	sky.init(DATA_PATH("Sky_Probes/rnl_probe.float"));
 
 	module.get_global("sky_size").set_value(sky.size);
 	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
@@ -327,6 +327,9 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
 		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
 		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
+
+		//camera.position = Vector3(-1.526055f, 0.739711f, -1.135700f);
+		//camera.rotation = Quaternion(-0.154179f, -0.830964f, 0.282224f, -0.453958f);
 	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
 		camera.position = Vector3(0.528027f, 1.004323f, 0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);

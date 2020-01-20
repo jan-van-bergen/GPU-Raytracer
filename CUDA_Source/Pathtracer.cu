@@ -184,7 +184,8 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	const Material & material = materials[triangles_material_id[hit.triangle_id]];
 
 	if (material.type == Material::Type::LIGHT) {
-		if (ray_buffer_extend.last_material_type[index] == Material::Type::DIELECTRIC) {
+		if (ray_buffer_extend.last_material_type[index] == Material::Type::DIELECTRIC ||
+			ray_buffer_extend.last_material_type[index] == Material::Type::GLOSSY) {
 			int x = ray_pixel_index % SCREEN_WIDTH;
 			int y = ray_pixel_index / SCREEN_WIDTH; 
 
