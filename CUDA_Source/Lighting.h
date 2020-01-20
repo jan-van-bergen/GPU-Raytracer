@@ -65,5 +65,5 @@ __device__ float beckmann_g1(const float3 & v, const float3 & m, const float3 & 
 
 	// Rational approximation
 	float a = 1.0f / one_over_a;
-	return (3.535f * a + 2.181f * a*a) / (1.0f + 2.276f * a + 2.577f * a*a);
+	return (a * (3.535f + 2.181f * a)) / (1.0f + a * (2.276f + 2.577f * a));
 }

@@ -462,7 +462,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce) {
 
 	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
 
-	float alpha = material.roughness; // (1.2f - 0.2f * sqrt(dot(direction_in, hit_normal))) * material.alpha;
+	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
+	float alpha = (1.2f - 0.2f * sqrt(dot(direction_in, hit_normal))) * material.roughness;
 	
 	// Sample normal distribution in spherical coordinates
 	float theta = atan(sqrt(-alpha * alpha * log(1.0f - random_float(seed))));
