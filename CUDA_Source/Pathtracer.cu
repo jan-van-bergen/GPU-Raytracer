@@ -172,12 +172,12 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 
 	// Russian Roulette termination
 	if (bounce > 3) {
-		float one_minus_p = fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z));
-		if (random_float(seed) > one_minus_p) {
+		float p_survive = clamp(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)), 0.0f, 1.0f);
+		if (random_float(seed) > p_survive) {
 			return;
 		}
 
-		ray_throughput /= one_minus_p;
+		ray_throughput /= p_survive;
 	}
 
 	// Get the Material of the Triangle we hit
