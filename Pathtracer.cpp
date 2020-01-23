@@ -91,6 +91,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		bvh.save_to_disk(bvh_filename.c_str());
 	}
 
+	// Allocate Triangles in SoA format
 	Vector3 * triangles_position0      = new Vector3[bvh.primitive_count];
 	Vector3 * triangles_position_edge1 = new Vector3[bvh.primitive_count];
 	Vector3 * triangles_position_edge2 = new Vector3[bvh.primitive_count];
@@ -99,9 +100,9 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	Vector3 * triangles_normal_edge1 = new Vector3[bvh.primitive_count];
 	Vector3 * triangles_normal_edge2 = new Vector3[bvh.primitive_count]; 
 	
-	alignas(8) Vector2 * triangles_tex_coord0      = new Vector2[bvh.primitive_count];
-	alignas(8) Vector2 * triangles_tex_coord_edge1 = new Vector2[bvh.primitive_count];
-	alignas(8) Vector2 * triangles_tex_coord_edge2 = new Vector2[bvh.primitive_count];
+	Vector2 * triangles_tex_coord0      = new Vector2[bvh.primitive_count];
+	Vector2 * triangles_tex_coord_edge1 = new Vector2[bvh.primitive_count];
+	Vector2 * triangles_tex_coord_edge2 = new Vector2[bvh.primitive_count];
 
 	int * triangles_material_id = new int[bvh.primitive_count];
 
@@ -136,6 +137,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	module.get_global("triangles_material_id").set_buffer(triangles_material_id, bvh.primitive_count);
 
+	// Clean up buffers on Host side
 	delete [] triangles_position0;  
 	delete [] triangles_position_edge1;
 	delete [] triangles_position_edge2;
@@ -298,12 +300,12 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	kernel_connect.init         (&module, "kernel_connect");
 	kernel_accumulate.init      (&module, "kernel_accumulate");
 
-	kernel_generate.set_block_dim        (64, 1, 1);
-	kernel_extend.set_block_dim          (64, 1, 1);
-	kernel_shade_diffuse.set_block_dim   (64, 1, 1);
-	kernel_shade_dielectric.set_block_dim(64, 1, 1);
-	kernel_shade_glossy.set_block_dim    (64, 1, 1);
-	kernel_connect.set_block_dim         (64, 1, 1);
+	kernel_generate.set_block_dim        (256, 1, 1);
+	kernel_extend.set_block_dim          (256, 1, 1);
+	kernel_shade_diffuse.set_block_dim   (256, 1, 1);
+	kernel_shade_dielectric.set_block_dim(256, 1, 1);
+	kernel_shade_glossy.set_block_dim    (256, 1, 1);
+	kernel_connect.set_block_dim         (256, 1, 1);
 	kernel_accumulate.set_block_dim(32, 4, 1);
 
 	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
@@ -367,7 +369,7 @@ void Pathtracer::render() {
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
-		kernel_extend.execute(rand(), bounce);
+		kernel_extend.execute(rand());
 		global_N_ext.set_value(0);
 
 		// Process the various Material types in different Kernels

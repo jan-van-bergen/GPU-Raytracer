@@ -136,7 +136,7 @@ extern "C" __global__ void kernel_generate(
 	ray_buffer_extend.last_material_type[index] = char(Material::Type::DIELECTRIC);
 }
 
-extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
+extern "C" __global__ void kernel_extend(int rand_seed) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_ext) return;
 
@@ -171,14 +171,12 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	unsigned seed = (ray_pixel_index + rand_seed * 906313609) * 341828143;
 
 	// Russian Roulette termination
-	if (bounce > 3) {
-		float p_survive = clamp(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)), 0.0f, 1.0f);
-		if (random_float(seed) > p_survive) {
-			return;
-		}
-
-		ray_throughput /= p_survive;
+	float p_survive = clamp(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)), 0.0f, 1.0f);
+	if (random_float(seed) > p_survive) {
+		return;
 	}
+
+	ray_throughput /= p_survive;
 
 	// Get the Material of the Triangle we hit
 	const Material & material = materials[triangles_material_id[hit.triangle_id]];
