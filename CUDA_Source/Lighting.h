@@ -4,6 +4,10 @@
 #include "cuda_math.h"
 
 #include "../Common.h"
+#include "Util.h"
+
+// Glossy materials with roughness below the cutoff don't use direct Light sampling
+#define ROUGNESS_CUTOFF 0.1f
 
 struct Material;
 
@@ -42,10 +46,6 @@ struct Material {
 
 		return diffuse * make_float3(tex_colour);
 	}
-
-	__device__ bool is_light() const {
-		return dot(emittance, emittance) > 0.0f;
-	}
 };
 
 __device__ int     light_count;
@@ -53,12 +53,26 @@ __device__ int   * light_indices;
 __device__ float * light_areas;
 __device__ float total_light_area;
 
-// Monodirectional shadowing term G1 for the Smith shadowing function G for the Beckmann distribution
-__device__ float beckmann_g1(const float3 & v, const float3 & m, const float3 & n, float alpha) {
-	float v_dot_n = dot(v, n);
-	if (dot(v, m) / v_dot_n <= 0.0f) return 0.0f;
+__device__ float beckmann_D(float m_dot_n, float alpha) {
+	if (m_dot_n <= 0.0f) return 0.0f;
 
-	float tan_theta_v = sqrt(1.0f - v_dot_n*v_dot_n) / v_dot_n; // tan(acos(x)) = sqrt(1 - x^2) / x
+	float cos_theta_m  = m_dot_n;
+	float cos2_theta_m = cos_theta_m  * cos_theta_m;
+	float cos4_theta_m = cos2_theta_m * cos2_theta_m;
+
+	float tan2_theta_m  = max(0.0f, 1.0f - cos2_theta_m) / cos2_theta_m; // tan^2(x) = sec^2(x) - 1 = (1 - cos^2(x)) / cos^2(x)
+
+	float alpha2 = alpha * alpha;
+
+ 	return exp(-tan2_theta_m / alpha2) / (PI * alpha2 * cos4_theta_m);
+}
+
+// Monodirectional shadowing term G1 for the Smith shadowing function G for the Beckmann distribution
+__device__ float beckmann_G1(float v_dot_n, float v_dot_m, float alpha) {
+	if (v_dot_m / v_dot_n <= 0.0f) return 0.0f;
+	float cos_theta_v = v_dot_n;
+
+	float tan_theta_v = sqrt(max(1e-8f, 1.0f - cos_theta_v*cos_theta_v)) / cos_theta_v; // tan(acos(x)) = sqrt(1 - x^2) / x
 	float one_over_a  = alpha * tan_theta_v;
 	
 	// Check if a >= 1.6 by checking if 1/a <= 1/1.6

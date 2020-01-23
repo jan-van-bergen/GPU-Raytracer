@@ -27,7 +27,7 @@ __device__ T barycentric(float u, float v, const T & base, const T & edge_1, con
 
 __device__ void orthonormal_basis(const float3 & normal, float3 & tangent, float3 & binormal) {
 	// Calculate a tangent vector from the normal vector
-	if (fabsf(normal.x) > 0.99f) {
+	if (abs(normal.x) > 0.99f) {
 		tangent = make_float3(-normal.z, 0.0f, normal.x) * rsqrt(normal.x * normal.x + normal.z * normal.z);
 	} else {
 		tangent = make_float3(0.0f, normal.z, -normal.y) * rsqrt(normal.y * normal.y + normal.z * normal.z);

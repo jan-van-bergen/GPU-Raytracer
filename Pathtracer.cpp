@@ -328,6 +328,9 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
 		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
 
+		//camera.position = Vector3(-1.843730f, -0.213465f, -0.398855f);
+		//camera.rotation = Quaternion(0.045417f, 0.900693f, -0.097165f, 0.421010f);
+
 		//camera.position = Vector3(-1.526055f, 0.739711f, -1.135700f);
 		//camera.rotation = Quaternion(-0.154179f, -0.830964f, 0.282224f, -0.453958f);
 	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
