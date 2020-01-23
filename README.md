@@ -1,9 +1,15 @@
 # Advanced-Graphics-Pathtracer
 
 CUDA
+- Triangle Meshes
+- SBVH
+
 Wavefront 
+
 Rays are generated with coherence in mind
+
 Importance Sampling (cosine weighted, NEE, MIS ???????????? )
+
 BVH serialization
 
 ## Papers
