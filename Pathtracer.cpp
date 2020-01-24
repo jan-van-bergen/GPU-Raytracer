@@ -283,7 +283,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	module.get_global("shadow_ray_buffer").set_value(shadow_ray_buffer);
 
-	global_N_ext        = module.get_global("N_ext");
+	global_N_extend     = module.get_global("N_extend");
 	global_N_diffuse    = module.get_global("N_diffuse");
 	global_N_dielectric = module.get_global("N_dielectric");
 	global_N_glossy     = module.get_global("N_glossy");
@@ -366,13 +366,13 @@ void Pathtracer::render() {
 		camera.y_axis_rotated
 	);
 
-	global_N_ext.set_value(PIXEL_COUNT);
+	global_N_extend.set_value(PIXEL_COUNT);
 
 	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute(rand());
-		global_N_ext.set_value(0);
+		global_N_extend.set_value(0);
 
 		// Process the various Material types in different Kernels
 		kernel_shade_diffuse.execute(rand());

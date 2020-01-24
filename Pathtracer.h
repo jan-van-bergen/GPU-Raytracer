@@ -16,7 +16,7 @@ struct Pathtracer {
 	CUDAKernel kernel_connect;
 	CUDAKernel kernel_accumulate;
 
-	CUDAModule::Global global_N_ext;
+	CUDAModule::Global global_N_extend;
 	CUDAModule::Global global_N_diffuse;
 	CUDAModule::Global global_N_dielectric;
 	CUDAModule::Global global_N_glossy;

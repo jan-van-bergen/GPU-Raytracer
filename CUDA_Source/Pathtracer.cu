@@ -73,7 +73,7 @@ struct ShadowRayBuffer {
 
 __device__ ShadowRayBuffer shadow_ray_buffer;
 
-__device__ int N_ext;
+__device__ int N_extend;
 __device__ int N_diffuse;
 __device__ int N_dielectric;
 __device__ int N_glossy;
@@ -139,7 +139,7 @@ extern "C" __global__ void kernel_generate(
 
 extern "C" __global__ void kernel_extend(int rand_seed) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= N_ext) return;
+	if (index >= N_extend) return;
 
 	float3 ray_origin    = ray_buffer_extend.origin.to_float3(index);
 	float3 ray_direction = ray_buffer_extend.direction.to_float3(index);
@@ -291,7 +291,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 	hit_normal = normalize(hit_normal);
 	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
-	int index_out = atomic_agg_inc(&N_ext);
+	int index_out = atomic_agg_inc(&N_extend);
 
 	float3 direction = cosine_weighted_diffuse_reflection(seed, hit_normal);
 
@@ -335,7 +335,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed) {
 	hit_normal = normalize(hit_normal);
 	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
-	int index_out = atomic_agg_inc(&N_ext);
+	int index_out = atomic_agg_inc(&N_extend);
 
 	float3 direction;
 	float3 direction_reflected = reflect(ray_direction, hit_normal);
@@ -475,7 +475,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 		beckmann_G1(o_dot_n, m_dot_n, alpha);
 	float weight = abs(i_dot_m) * G / abs(i_dot_n * m_dot_n);
 
-	int index_out = atomic_agg_inc(&N_ext);
+	int index_out = atomic_agg_inc(&N_extend);
 
 	ray_buffer_extend.origin.from_float3(index_out, hit_point);
 	ray_buffer_extend.direction.from_float3(index_out, direction_out);
