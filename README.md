@@ -21,7 +21,7 @@ Glossy materials are implemented using the Beckmann microfacet model.
 Glossy materials also use NEE and MIS.
 
 ### BVH Serialization
-Less serious feature, but because SBVH construction took quite a while for larger Scenes, BVH's are now constructed once and then stored to disk for later reuse.
+A less serious feature, but because SBVH construction took quite a while for larger Scenes, BVH's are now constructed once and then stored to disk for later reuse.
 
 ## Papers
 - Megakernels Considered Harmful: Wavefront Path Tracing on GPUs - Laine et al.
