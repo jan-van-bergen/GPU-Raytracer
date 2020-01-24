@@ -4,9 +4,10 @@
 
 ### GPU implementation
 The Pathtracer was implemented on the GPU using Cuda. A wavefront approach is used where separate kernels are invoked to the perform separate stages of Pathtracing.
-The implementation supports basic triangle intersection, BVH traversal using a high-quality SBVH, three types of materials/BRDFS (diffuse, dielectrics, and glossy (Beckmann))
+The implementation supports basic triangle intersection, BVH traversal using a high-quality SBVH, three types of materials/BRDFS (diffuse, dielectrics, and glossy (Beckmann)).
+The different types of materials are implemented in different kernels.
 
-Rays are generated with coherence in mind
+Rays are generated with coherence in mind. Instead of simply assigning each consecutive thread a consecutive pixel index in the frame buffer, every 32 threads (size of a warp) gets assigned an 8x4 block of pixels. This increases coherence for primary Rays, which slightly improves frame times.
 
 ### Importance Sampling
 Various forms of importance sampling were implemented.
@@ -17,6 +18,7 @@ Multiple Importance Sampling is used by Diffuse and Glossy materials.
 
 ### Microfacet Materials
 Glossy materials are implemented using the Beckmann microfacet model.
+Glossy materials also use NEE and MIS.
 
 ### BVH Serialization
 Less serious feature, but because SBVH construction took quite a while for larger Scenes, BVH's are now constructed once and then stored to disk for later reuse.
