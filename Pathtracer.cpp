@@ -254,22 +254,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 			throughput_z  = CUDAMemory::malloc<float>(buffer_size);
 		}
 	};
-
-	ExtendBuffer   ray_buffer_extend;
-	MaterialBuffer ray_buffer_shade_diffuse;
-	MaterialBuffer ray_buffer_shade_dielectric;
-	MaterialBuffer ray_buffer_shade_glossy;
 	
-	ray_buffer_extend.init          (PIXEL_COUNT);
-	ray_buffer_shade_diffuse.init   (PIXEL_COUNT);
-	ray_buffer_shade_dielectric.init(PIXEL_COUNT);
-	ray_buffer_shade_glossy.init    (PIXEL_COUNT);
-
-	module.get_global("ray_buffer_extend").set_value          (ray_buffer_extend);
-	module.get_global("ray_buffer_shade_diffuse").set_value   (ray_buffer_shade_diffuse);
-	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
-	module.get_global("ray_buffer_shade_glossy").set_value    (ray_buffer_shade_glossy);
-
 	struct ShadowRayBuffer {
 		CUDAMemory::Ptr<float> direction_x;
 		CUDAMemory::Ptr<float> direction_y;
@@ -300,10 +285,23 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		}
 	};
 
-	ShadowRayBuffer shadow_ray_buffer;
-	shadow_ray_buffer.init(PIXEL_COUNT);
+	ExtendBuffer    ray_buffer_extend;
+	MaterialBuffer  ray_buffer_shade_diffuse;
+	MaterialBuffer  ray_buffer_shade_dielectric;
+	MaterialBuffer  ray_buffer_shade_glossy;
+	ShadowRayBuffer ray_buffer_connect;
 
-	module.get_global("shadow_ray_buffer").set_value(shadow_ray_buffer);
+	ray_buffer_extend.init          (PIXEL_COUNT);
+	ray_buffer_shade_diffuse.init   (PIXEL_COUNT);
+	ray_buffer_shade_dielectric.init(PIXEL_COUNT);
+	ray_buffer_shade_glossy.init    (PIXEL_COUNT);
+	ray_buffer_connect.init         (PIXEL_COUNT);
+
+	module.get_global("ray_buffer_extend").set_value          (ray_buffer_extend);
+	module.get_global("ray_buffer_shade_diffuse").set_value   (ray_buffer_shade_diffuse);
+	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
+	module.get_global("ray_buffer_shade_glossy").set_value    (ray_buffer_shade_glossy);
+	module.get_global("ray_buffer_connect").set_value         (ray_buffer_connect);
 
 	global_N_extend     = module.get_global("N_extend");
 	global_N_diffuse    = module.get_global("N_diffuse");

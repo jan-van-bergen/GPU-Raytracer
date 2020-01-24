@@ -40,6 +40,7 @@ struct Vector3 {
 	}
 };
 
+// Input to the Extend Kernel in SoA layout
 struct ExtendBuffer {
 	// Ray related
 	Vector3 origin;
@@ -54,6 +55,7 @@ struct ExtendBuffer {
 	float * last_pdf;
 };
 
+// Input to the various Shade Kernels in SoA layout
 struct MaterialBuffer {
 	// Ray related
 	Vector3 direction;
@@ -68,24 +70,28 @@ struct MaterialBuffer {
 	Vector3 throughput;
 };
 
-__device__ ExtendBuffer   ray_buffer_extend;
-__device__ MaterialBuffer ray_buffer_shade_diffuse;
-__device__ MaterialBuffer ray_buffer_shade_dielectric;
-__device__ MaterialBuffer ray_buffer_shade_glossy;
-
+// Input to the Connect Kernel in SoA layout
 struct ShadowRayBuffer {
+	// Ray related
 	Vector3 prev_direction_in;
 
+	// Hit related
 	int   * triangle_id;
 	float * u;
 	float * v;
 
+	// Pixel colour related
 	int   * pixel_index;
 	Vector3 throughput;
 };
 
-__device__ ShadowRayBuffer shadow_ray_buffer;
+__device__ ExtendBuffer    ray_buffer_extend;
+__device__ MaterialBuffer  ray_buffer_shade_diffuse;
+__device__ MaterialBuffer  ray_buffer_shade_dielectric;
+__device__ MaterialBuffer  ray_buffer_shade_glossy;
+__device__ ShadowRayBuffer ray_buffer_connect;
 
+// Number of elements in each Buffer
 __device__ int N_extend;
 __device__ int N_diffuse;
 __device__ int N_dielectric;
@@ -289,12 +295,12 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 	if (light_count > 0) {
 		int shadow_ray_index = atomic_agg_inc(&N_shadow);
 
-		shadow_ray_buffer.triangle_id[shadow_ray_index] = ray_triangle_id;
-		shadow_ray_buffer.u[shadow_ray_index] = ray_u;
-		shadow_ray_buffer.v[shadow_ray_index] = ray_v;
+		ray_buffer_connect.triangle_id[shadow_ray_index] = ray_triangle_id;
+		ray_buffer_connect.u[shadow_ray_index] = ray_u;
+		ray_buffer_connect.v[shadow_ray_index] = ray_v;
 
-		shadow_ray_buffer.pixel_index[shadow_ray_index]  = ray_pixel_index;
-		shadow_ray_buffer.throughput.from_float3(shadow_ray_index, ray_throughput);
+		ray_buffer_connect.pixel_index[shadow_ray_index]  = ray_pixel_index;
+		ray_buffer_connect.throughput.from_float3(shadow_ray_index, ray_throughput);
 	}
 
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
@@ -437,14 +443,14 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 	if (light_count > 0 && material.roughness >= ROUGNESS_CUTOFF) {
 		int shadow_ray_index = atomic_agg_inc(&N_shadow);
 
-		shadow_ray_buffer.prev_direction_in.from_float3(shadow_ray_index, direction_in);
+		ray_buffer_connect.prev_direction_in.from_float3(shadow_ray_index, direction_in);
 
-		shadow_ray_buffer.triangle_id[shadow_ray_index] = ray_triangle_id;
-		shadow_ray_buffer.u[shadow_ray_index] = ray_u;
-		shadow_ray_buffer.v[shadow_ray_index] = ray_v;
+		ray_buffer_connect.triangle_id[shadow_ray_index] = ray_triangle_id;
+		ray_buffer_connect.u[shadow_ray_index] = ray_u;
+		ray_buffer_connect.v[shadow_ray_index] = ray_v;
 
-		shadow_ray_buffer.pixel_index[shadow_ray_index] = ray_pixel_index;
-		shadow_ray_buffer.throughput.from_float3(shadow_ray_index, ray_throughput);
+		ray_buffer_connect.pixel_index[shadow_ray_index] = ray_pixel_index;
+		ray_buffer_connect.throughput.from_float3(shadow_ray_index, ray_throughput);
 	}
 
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
@@ -504,12 +510,12 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_shadow) return;
 
-	int   ray_triangle_id = shadow_ray_buffer.triangle_id[index];
-	float ray_u = shadow_ray_buffer.u[index];
-	float ray_v = shadow_ray_buffer.v[index];
+	int   ray_triangle_id = ray_buffer_connect.triangle_id[index];
+	float ray_u = ray_buffer_connect.u[index];
+	float ray_v = ray_buffer_connect.v[index];
 
-	int    ray_pixel_index = shadow_ray_buffer.pixel_index[index];
-	float3 ray_throughput  = shadow_ray_buffer.throughput.to_float3(index);
+	int    ray_pixel_index = ray_buffer_connect.pixel_index[index];
+	float3 ray_throughput  = ray_buffer_connect.throughput.to_float3(index);
 
 	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
 
@@ -571,7 +577,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 				brdf = cos_i * ONE_OVER_PI;
 				pdf  = cos_i * ONE_OVER_PI;
 			} else if (hit_material.type == Material::Type::GLOSSY) {			
-				float3 prev_direction_in = shadow_ray_buffer.prev_direction_in.to_float3(index);
+				float3 prev_direction_in = ray_buffer_connect.prev_direction_in.to_float3(index);
 
 				float3 half_vector = normalize(to_light + prev_direction_in);
 
