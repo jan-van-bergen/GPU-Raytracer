@@ -208,7 +208,8 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 		CUDAMemory::Ptr<float> throughput_y;
 		CUDAMemory::Ptr<float> throughput_z;
 
-		CUDAMemory::Ptr<bool> last_specular;
+		CUDAMemory::Ptr<char>  last_material_type;
+		CUDAMemory::Ptr<float> last_pdf;
 
 		inline void init(int buffer_size) {
 			origin_x    = CUDAMemory::malloc<float>(buffer_size);
@@ -227,7 +228,8 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 			throughput_y  = CUDAMemory::malloc<float>(buffer_size);
 			throughput_z  = CUDAMemory::malloc<float>(buffer_size);
 
-			last_specular = CUDAMemory::malloc<bool>(buffer_size);
+			last_material_type = CUDAMemory::malloc<char>(buffer_size);
+			last_pdf           = CUDAMemory::malloc<float>(buffer_size);
 		}
 	};
 
@@ -373,17 +375,17 @@ void Pathtracer::render() {
 		global_N_ext.set_value(0);
 
 		// Process the various Material types in different Kernels
-		kernel_shade_diffuse.execute   (rand());
+		kernel_shade_diffuse.execute(rand());
 		kernel_shade_dielectric.execute(rand());
-		kernel_shade_glossy.execute    (rand());
+		kernel_shade_glossy.execute(rand());
 
 		// Trace shadow Rays
 		kernel_connect.execute(rand());
 
-		global_N_diffuse.set_value   (0);
+		global_N_diffuse.set_value(0);
 		global_N_dielectric.set_value(0);
-		global_N_glossy.set_value    (0);
-		global_N_shadow.set_value    (0);
+		global_N_glossy.set_value(0);
+		global_N_shadow.set_value(0);
 	}
 
 	kernel_accumulate.execute(frames_since_camera_moved);
