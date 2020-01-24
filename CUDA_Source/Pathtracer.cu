@@ -286,7 +286,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
+	unsigned seed = (ray_pixel_index + rand_seed * 794454497) * 781939187;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
@@ -341,7 +341,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
+	unsigned seed = (ray_pixel_index + rand_seed * 758505857) * 364686463;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
@@ -434,7 +434,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (ray_pixel_index + rand_seed * 312080213) * 781939187;
+	unsigned seed = (ray_pixel_index + rand_seed * 354767453) * 346434643;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
@@ -570,12 +570,12 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 			float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 			
 			float brdf;
-			float pdf;
+			float brdf_pdf;
 
 			if (hit_material.type == Material::Type::DIFFUSE) {
 				// NOTE: N dot L is included here
-				brdf = cos_i * ONE_OVER_PI;
-				pdf  = cos_i * ONE_OVER_PI;
+				brdf     = cos_i * ONE_OVER_PI;
+				brdf_pdf = cos_i * ONE_OVER_PI;
 			} else if (hit_material.type == Material::Type::GLOSSY) {			
 				float3 prev_direction_in = ray_buffer_connect.prev_direction_in.to_float3(index);
 
@@ -596,19 +596,17 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 				float D = beckmann_D(m_dot_n, alpha);
 
 				// NOTE: N dot L is omitted from the denominator here
-				brdf = (G * D) / (4.0f * i_dot_n);
-				pdf  = D * m_dot_n / (4.0f * dot(half_vector, prev_direction_in));
+				brdf     = (G * D) / (4.0f * i_dot_n);
+				brdf_pdf = D * m_dot_n / (4.0f * dot(half_vector, prev_direction_in));
 			}
 
 			float light_area = 0.5f * length(cross(
 				triangles_position_edge1[light_triangle_id], 
 				triangles_position_edge2[light_triangle_id]
 			));
-			// float solid_angle = (cos_o * light_area) / distance_to_light_squared;
-
 			float light_pdf = distance_to_light_squared / (cos_o * light_area); // 1 / solid_angle
 			
-			float mis_pdf = pdf + light_pdf;
+			float mis_pdf = brdf_pdf + light_pdf;
 
 			int x = ray_pixel_index % SCREEN_WIDTH;
 			int y = ray_pixel_index / SCREEN_WIDTH; 
