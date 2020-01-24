@@ -134,7 +134,7 @@ __device__ bool triangle_intersect(int triangle_id, const Ray & ray, float max_d
 }
 
 __device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
-	int stack[64];
+	int stack[32];
 	int stack_size = 1;
 
 	// Push root on stack
@@ -163,7 +163,7 @@ __device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 }
 
 __device__ bool bvh_intersect(const Ray & ray, float max_distance) {
-	int stack[64];
+	int stack[32];
 	int stack_size = 1;
 
 	// Push root on stack
