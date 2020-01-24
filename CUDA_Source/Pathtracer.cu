@@ -40,25 +40,38 @@ struct Vector3 {
 	}
 };
 
-struct RayBuffer {
+struct ExtendBuffer {
+	// Ray related
 	Vector3 origin;
 	Vector3 direction;
-	
-	int   * triangle_id;
-	float * u;
-	float * v;
 
+	// Pixel colour related
 	int   * pixel_index;
 	Vector3 throughput;
 
+	// Material related
 	char  * last_material_type;
 	float * last_pdf;
 };
 
-__device__ RayBuffer ray_buffer_extend;
-__device__ RayBuffer ray_buffer_shade_diffuse;
-__device__ RayBuffer ray_buffer_shade_dielectric;
-__device__ RayBuffer ray_buffer_shade_glossy;
+struct MaterialBuffer {
+	// Ray related
+	Vector3 direction;
+	
+	// Hit related
+	int   * triangle_id;
+	float * u;
+	float * v;
+
+	// Pixel colour related
+	int   * pixel_index;
+	Vector3 throughput;
+};
+
+__device__ ExtendBuffer   ray_buffer_extend;
+__device__ MaterialBuffer ray_buffer_shade_diffuse;
+__device__ MaterialBuffer ray_buffer_shade_dielectric;
+__device__ MaterialBuffer ray_buffer_shade_glossy;
 
 struct ShadowRayBuffer {
 	Vector3 prev_direction_in;
