@@ -7,7 +7,7 @@
 #include "Util.h"
 
 // Glossy materials with roughness below the cutoff don't use direct Light sampling
-#define ROUGNESS_CUTOFF 0.1f
+#define ROUGNESS_CUTOFF 0.3f
 
 struct Material;
 
