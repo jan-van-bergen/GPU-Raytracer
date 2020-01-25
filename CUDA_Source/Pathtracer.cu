@@ -207,7 +207,7 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 		int y = ray_pixel_index / SCREEN_WIDTH; 
 
 		if ((ray_buffer_extend.last_material_type[index] == Material::Type::DIELECTRIC) ||
-			(ray_buffer_extend.last_material_type[index] == Material::Type::GLOSSY && material.roughness < ROUGNESS_CUTOFF)) {
+			(ray_buffer_extend.last_material_type[index] == Material::Type::GLOSSY && material.roughness < ROUGHNESS_CUTOFF)) {
 			frame_buffer_add(x, y, ray_throughput * material.emittance);
 
 			return;
@@ -441,7 +441,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 
 	ASSERT(material.type == Material::Type::GLOSSY, "Material should be glossy in this Kernel");
 
-	if (light_count > 0 && material.roughness >= ROUGNESS_CUTOFF) {
+	if (light_count > 0 && material.roughness >= ROUGHNESS_CUTOFF) {
 		int shadow_ray_index = atomic_agg_inc(&N_shadow);
 
 		ray_buffer_connect.prev_direction_in.from_float3(shadow_ray_index, direction_in);

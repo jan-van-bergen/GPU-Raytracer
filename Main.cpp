@@ -12,6 +12,11 @@
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
+#define MEGAKERNEL 0
+#define WAVEFRONT  1
+
+#define PATH_TRACER WAVEFRONT
+
 #define TOTAL_TIMING_COUNT 1000
 float timings[TOTAL_TIMING_COUNT];
 int   current_frame = 0;
@@ -29,11 +34,13 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 	
-	// Pathtracer pathtracer;
-	// pathtracer.init(DATA_PATH("scene.obj"), window.frame_buffer_handle);
-
+#if PATH_TRACER == MEGAKERNEL
 	MegaKernel megakernel;
 	megakernel.init(DATA_PATH("scene.obj"), window.frame_buffer_handle);
+#elif PATH_TRACER == WAVEFRONT
+	Pathtracer pathtracer;
+	pathtracer.init(DATA_PATH("scene.obj"), window.frame_buffer_handle);
+#endif
 
 	srand(1337);
 
@@ -41,11 +48,13 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
-		//pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
-		//pathtracer.render();
-
+#if PATH_TRACER == MEGAKERNEL
 		megakernel.update(delta_time, SDL_GetKeyboardState(nullptr));
 		megakernel.render();
+#elif PATH_TRACER == WAVEFRONT
+		pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
+		pathtracer.render();
+#endif
 
 		window.update();
 
