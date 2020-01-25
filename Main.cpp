@@ -12,10 +12,12 @@
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
-#define MEGAKERNEL 0
-#define WAVEFRONT  1
 
-#define PATH_TRACER MEGAKERNEL
+#define MEGAKERNEL MegaKernel
+#define WAVEFRONT  Wavefront
+
+#define PATH_TRACER WAVEFRONT
+
 
 #define TOTAL_TIMING_COUNT 1000
 float timings[TOTAL_TIMING_COUNT];
@@ -27,7 +29,7 @@ int main(int argument_count, char ** arguments) {
 	// Initialize timing stuff
 	Uint64 now  = 0;
 	Uint64 last = 0;
-	float inv_perf_freq = 1.0f / (float)SDL_GetPerformanceFrequency();
+	float inv_perf_freq = 1.0f / float(SDL_GetPerformanceFrequency());
 	float delta_time = 0;
 
 	float second = 0.0f;
@@ -36,11 +38,7 @@ int main(int argument_count, char ** arguments) {
 	
 	const char * scene_filename = DATA_PATH("sponza/sponza.obj");
 
-#if PATH_TRACER == MEGAKERNEL
-	MegaKernel pathtracer;
-#elif PATH_TRACER == WAVEFRONT
-	Wavefront pathtracer;
-#endif
+	PATH_TRACER pathtracer;
 	pathtracer.init(scene_filename, window.frame_buffer_handle);
 
 	srand(1337);
