@@ -24,10 +24,10 @@
     <ClCompile Include="Sky.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="Pathtracer.cpp">
+    <ClCompile Include="MegaKernel.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="MegaKernel.cpp">
+    <ClCompile Include="Wavefront.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
   </ItemGroup>
@@ -99,10 +99,10 @@
     <ClInclude Include="Sky.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
-    <ClInclude Include="Pathtracer.h">
+    <ClInclude Include="MegaKernel.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
-    <ClInclude Include="MegaKernel.h">
+    <ClInclude Include="Wavefront.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
   </ItemGroup>

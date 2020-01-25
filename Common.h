@@ -12,6 +12,8 @@
 #define TWO_PI          6.28318530718f
 #define ONE_OVER_TWO_PI 0.15915494309f
 
+#define NUM_BOUNCES 5
+
 #define MAX_MATERIALS 32
 #define MAX_TEXTURES  32
 

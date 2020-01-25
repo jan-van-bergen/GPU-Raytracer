@@ -13,14 +13,12 @@
 surface<void, 2> frame_buffer;
 
 __device__ float3 sample(unsigned & seed, Ray & ray) {
-	const int ITERATIONS = 10;
-	
 	float3 colour     = make_float3(0.0f);
 	float3 throughput = make_float3(1.0f);
 	
 	bool last_specular = true;
 
-	for (int bounce = 0; bounce < ITERATIONS; bounce++) {
+	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Check ray against all triangles
 		RayHit hit;
 		bvh_trace(ray, hit);

@@ -1,4 +1,4 @@
-#include "Pathtracer.h"
+#include "Wavefront.h"
 
 #include <filesystem>
 
@@ -14,7 +14,7 @@
 
 const int PIXEL_COUNT = SCREEN_WIDTH * SCREEN_HEIGHT;
 
-void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
+void Wavefront::init(const char * scene_name, unsigned frame_buffer_handle) {
 	CUDAContext::init();
 
 	camera.init(DEG_TO_RAD(110.0f));
@@ -22,7 +22,7 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	// Init CUDA Module and its Kernel
 	CUDAModule module;
-	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
+	module.init("CUDA_Source/Wavefront.cu", CUDAContext::compute_capability);
 
 	const MeshData * mesh = MeshData::load(scene_name);
 
@@ -366,11 +366,11 @@ void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle) {
 	}
 }
 
-void Pathtracer::update(float delta, const unsigned char * keys) {
+void Wavefront::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
 }
 
-void Pathtracer::render() {
+void Wavefront::render() {
 	if (camera.moved) {
 		frames_since_camera_moved = 0.0f;
 	} else {
@@ -388,7 +388,6 @@ void Pathtracer::render() {
 
 	global_N_extend.set_value(PIXEL_COUNT);
 
-	const int NUM_BOUNCES = 5;
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute(rand());

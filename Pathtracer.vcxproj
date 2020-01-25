@@ -102,7 +102,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MegaKernel.cpp" />
     <ClCompile Include="MeshData.cpp" />
-    <ClCompile Include="Pathtracer.cpp" />
+    <ClCompile Include="Wavefront.cpp" />
     <ClCompile Include="Sky.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="Util.cpp" />
@@ -125,7 +125,7 @@
     <ClInclude Include="Matrix4.h" />
     <ClInclude Include="MegaKernel.h" />
     <ClInclude Include="MeshData.h" />
-    <ClInclude Include="Pathtracer.h" />
+    <ClInclude Include="Wavefront.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="Sky.h" />

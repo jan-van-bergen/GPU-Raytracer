@@ -4,6 +4,7 @@
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 
+// Megakernel based Pathtracer
 struct MegaKernel {
 	Camera camera;
 	float frames_since_camera_moved = 0.0f;
