@@ -5,7 +5,7 @@
 ### GPU implementation
 The Pathtracer was implemented on the GPU using Cuda. 
 I have implemented it using two different techniques, Megakernel vs Wavefront, for comparison purposes.
-Both implementations supports basic triangle intersection, texture mapping, BVH traversal using a high-quality SBVH, three types of materials/BRDFS (diffuse, dielectrics, and glossy (microfacet using Beckmann distribution)).
+Both implementations supports basic triangle intersection, texture mapping, triangle lights, BVH traversal using a high-quality SBVH, three types of materials/BRDFS (diffuse, dielectrics, and glossy (microfacet using Beckmann distribution)).
 For the Wavefront Pathtracer the different types of materials are implemented in different kernels.
 
 Rays are generated with coherence in mind. Instead of simply assigning each consecutive thread a consecutive pixel index in the frame buffer, every 32 threads (size of a warp) gets assigned an 8x4 block of pixels. This increases coherence for primary Rays, which slightly improves frame times.
