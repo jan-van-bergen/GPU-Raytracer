@@ -90,21 +90,21 @@ __device__ void triangle_trace(int triangle_id, const Ray & ray, RayHit & ray_hi
 	float3 s = ray.origin - position0;
 	float  u = f * dot(s, h);
 
-	if (u < 0.0f || u > 1.0f) return;
+	if (u >= 0.0f && u <= 1.0f) {
+		float3 q = cross(s, position_edge1);
+		float  v = f * dot(ray.direction, q);
 
-	float3 q = cross(s, position_edge1);
-	float  v = f * dot(ray.direction, q);
+		if (v >= 0.0f && u + v <= 1.0f) {
+			float t = f * dot(position_edge2, q);
 
-	if (v < 0.0f || u + v > 1.0f) return;
-
-	float t = f * dot(position_edge2, q);
-
-	if (t < EPSILON || t >= ray_hit.t) return;
-
-	ray_hit.t = t;
-	ray_hit.u = u;
-	ray_hit.v = v;
-	ray_hit.triangle_id = triangle_id;
+			if (t > EPSILON && t < ray_hit.t) {
+				ray_hit.t = t;
+				ray_hit.u = u;
+				ray_hit.v = v;
+				ray_hit.triangle_id = triangle_id;
+			}
+		}
+	}
 }
 
 __device__ bool triangle_intersect(int triangle_id, const Ray & ray, float max_distance) {
