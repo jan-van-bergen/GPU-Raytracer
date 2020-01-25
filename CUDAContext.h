@@ -5,7 +5,7 @@
 #include "CUDACall.h"
 
 namespace CUDAContext {
-	inline static int compute_capability = -1;
+	inline int compute_capability = -1;
 
 	// Creates a new CUDA Context
 	inline void init() {

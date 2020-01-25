@@ -7,6 +7,7 @@
 #include "ScopedTimer.h"
 
 #include "Pathtracer.h"
+#include "MegaKernel.h"
 
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
@@ -28,8 +29,11 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 	
-	Pathtracer pathtracer;
-	pathtracer.init(DATA_PATH("scene.obj"), window.frame_buffer_handle);
+	// Pathtracer pathtracer;
+	// pathtracer.init(DATA_PATH("scene.obj"), window.frame_buffer_handle);
+
+	MegaKernel megakernel;
+	megakernel.init(DATA_PATH("scene.obj"), window.frame_buffer_handle);
 
 	srand(1337);
 
@@ -37,8 +41,11 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
-		pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
-		pathtracer.render();
+		//pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
+		//pathtracer.render();
+
+		megakernel.update(delta_time, SDL_GetKeyboardState(nullptr));
+		megakernel.render();
 
 		window.update();
 

@@ -27,6 +27,9 @@
     <ClCompile Include="Pathtracer.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
+    <ClCompile Include="MegaKernel.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CUDAModule.h">
@@ -97,6 +100,9 @@
       <Filter>Pathtracer</Filter>
     </ClInclude>
     <ClInclude Include="Pathtracer.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="MegaKernel.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
   </ItemGroup>

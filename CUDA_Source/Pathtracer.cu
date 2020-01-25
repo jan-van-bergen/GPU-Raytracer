@@ -20,6 +20,7 @@ __device__ void frame_buffer_add(int x, int y, const float3 & colour) {
 	surf2Dwrite<float4>(prev + make_float4(colour, 0.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
+// Vector3 in AoS layout
 struct Vector3 {
 	float * x;
 	float * y;
