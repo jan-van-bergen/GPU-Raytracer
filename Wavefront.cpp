@@ -49,7 +49,7 @@ void Wavefront::init(const char * scene_name, unsigned frame_buffer_handle) {
 			CUDA_TEXTURE_DESC tex_desc = { };
 			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_POINT;
 			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 			
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
