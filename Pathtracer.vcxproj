@@ -126,7 +126,6 @@
     <ClInclude Include="MBVH.h" />
     <ClInclude Include="MegaKernel.h" />
     <ClInclude Include="MeshData.h" />
-    <ClInclude Include="Vector4.h" />
     <ClInclude Include="Wavefront.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="ScopedTimer.h" />

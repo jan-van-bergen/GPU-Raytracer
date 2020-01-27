@@ -33,16 +33,10 @@ struct Material {
 
 	float roughness;
 
-	__device__ float3 albedo(float u, float v) const {
+	__device__ float3 albedo(float s, float t) const {
 		if (texture_id == -1) return diffuse;
 
-		float4 tex_colour;
-
-		for (int i = 0; i < MAX_TEXTURES; i++) {
-			if (texture_id == i) {
-				tex_colour = tex2D<float4>(textures[i], u, v);
-			}
-		}
+		float4 tex_colour = tex2D<float4>(textures[texture_id], s, t);
 
 		return diffuse * make_float3(tex_colour);
 	}
@@ -53,6 +47,7 @@ __device__ int   * light_indices;
 __device__ float * light_areas;
 __device__ float total_light_area;
 
+// Normal distribution term D for the Beckmann microfacet model
 __device__ float beckmann_D(float m_dot_n, float alpha) {
 	if (m_dot_n <= 0.0f) return 0.0f;
 
@@ -67,7 +62,7 @@ __device__ float beckmann_D(float m_dot_n, float alpha) {
  	return exp(-tan2_theta_m / alpha2) / (PI * alpha2 * cos4_theta_m);
 }
 
-// Monodirectional shadowing term G1 for the Smith shadowing function G for the Beckmann distribution
+// Monodirectional shadowing term G1 for the Smith shadowing function G for the Beckmann microfacet model
 __device__ float beckmann_G1(float v_dot_n, float v_dot_m, float alpha) {
 	if (v_dot_m / v_dot_n <= 0.0f) return 0.0f;
 	float cos_theta_v = v_dot_n;
