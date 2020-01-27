@@ -1,5 +1,8 @@
 # Advanced-Graphics-Pathtracer
 
+![Sponza](Screenshots/Sponza.png "Sponza")
+![Glass](Screenshots/Glass.png "Dielectrics")
+
 ## Features
 
 ### GPU implementation
@@ -18,6 +21,9 @@ Next Event estimtation is used by Diffuse and Glossy materials (for Dielectris i
 Multiple Importance Sampling is used by Diffuse and Glossy materials.
 
 ### Microfacet Materials
+
+![Microfacet Model](Screenshots/Microfacets.png "Glossy materials using the Beckmann microfacet model")
+
 Glossy materials are implemented using the Beckmann microfacet model.
 Glossy materials also use NEE and MIS.
 When tracing non-shadow rays (i.e. looking for indirect light) the BRDF is importance sampled using the formulas described in Walter et al. 2007.
