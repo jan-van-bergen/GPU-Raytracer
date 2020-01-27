@@ -17,8 +17,7 @@ struct Wavefront : Pathtracer {
 	CUDAModule::Global global_N_glossy;
 	CUDAModule::Global global_N_shadow;
 
-	void init(const char * scene_name, unsigned frame_buffer_handle);
+	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
 
-	void update(float delta, const unsigned char * keys);
 	void render();
 };

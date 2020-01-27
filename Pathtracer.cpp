@@ -13,7 +13,7 @@
 
 #include "ScopedTimer.h"
 
-void Pathtracer::init(const char * cuda_src_name, const char * scene_name) {
+void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const char * sky_name) {
 	CUDAContext::init();
 
 	camera.init(DEG_TO_RAD(110.0f));
@@ -192,8 +192,12 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name) {
 
 	// Set Sky globals
 	Sky sky;
-	sky.init(DATA_PATH("Sky_Probes/rnl_probe.float"));
+	sky.init(sky_name);
 
 	module.get_global("sky_size").set_value(sky.size);
 	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
+}
+
+void Pathtracer::update(float delta, const unsigned char * keys) {
+	camera.update(delta, keys);
 }

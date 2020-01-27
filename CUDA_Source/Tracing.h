@@ -111,9 +111,9 @@ __device__ MBVHNode * mbvh_nodes;
 
 struct MBVHHit {
 	union {
-		float4 tmin;
-		float  tminf[4];
-		int    tmini[4];
+		float4 t_near;
+		float  t_near_f[4];
+		int    t_near_i[4];
 	};
 	bool hit[4];
 };
@@ -135,29 +135,29 @@ __device__ inline MBVHHit mbvh_node_intersect(const MBVHNode & node, const Ray &
 	float4 tz_min = fminf(tz0, tz1);
 	float4 tz_max = fmaxf(tz0, tz1);
 	
-	result.tmin  = fmaxf(fmaxf(make_float4(EPSILON),      tx_min), fmaxf(ty_min, tz_min));
-	float4 t_far = fminf(fminf(make_float4(max_distance), tx_max), fminf(ty_max, tz_max));
+	result.t_near = fmaxf(fmaxf(make_float4(EPSILON),      tx_min), fmaxf(ty_min, tz_min));
+	float4 t_far  = fminf(fminf(make_float4(max_distance), tx_max), fminf(ty_max, tz_max));
 
-	result.hit[0] = result.tminf[0] < t_far.x;
-	result.hit[1] = result.tminf[1] < t_far.y;
-	result.hit[2] = result.tminf[2] < t_far.z;
-	result.hit[3] = result.tminf[3] < t_far.w;
+	result.hit[0] = result.t_near_f[0] < t_far.x;
+	result.hit[1] = result.t_near_f[1] < t_far.y;
+	result.hit[2] = result.t_near_f[2] < t_far.z;
+	result.hit[3] = result.t_near_f[3] < t_far.w;
 
 	// Use the two least significant bits of the float to store the index
-	result.tmini[0] = (result.tmini[0] & 0xfffffffc) | 0;
-	result.tmini[1] = (result.tmini[1] & 0xfffffffc) | 1;
-	result.tmini[2] = (result.tmini[2] & 0xfffffffc) | 2;
-	result.tmini[3] = (result.tmini[3] & 0xfffffffc) | 3;
+	result.t_near_i[0] = (result.t_near_i[0] & 0xfffffffc) | 0;
+	result.t_near_i[1] = (result.t_near_i[1] & 0xfffffffc) | 1;
+	result.t_near_i[2] = (result.t_near_i[2] & 0xfffffffc) | 2;
+	result.t_near_i[3] = (result.t_near_i[3] & 0xfffffffc) | 3;
 
 	// Bubble sort to order the hit distances
 	for (int i = 1; i < MBVH_WIDTH; i++) {
 		int j = i - 1;
 
-		while (j >= 0 && result.tminf[j] < result.tminf[j + 1]) {
+		while (j >= 0 && result.t_near_f[j] < result.t_near_f[j + 1]) {
 			// XOR swap
-			result.tmini[j    ] ^= result.tmini[j + 1];	
-			result.tmini[j + 1] ^= result.tmini[j    ];	
-			result.tmini[j    ] ^= result.tmini[j + 1];	
+			result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
+			result.t_near_i[j + 1] ^= result.t_near_i[j    ];	
+			result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
 
 			j--;
 		}
@@ -187,6 +187,7 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 
 		assert(count != -1);
 
+		// Check if the Node is a leaf
 		if (count > 0) {
 			for (int j = index; j < index + count; j++) {
 				triangle_trace(j, ray, ray_hit);
@@ -195,8 +196,10 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 			MBVHHit hit = mbvh_node_intersect(mbvh_nodes[index], ray, ray_hit.t);
 			
 			for (int i = 0; i < MBVH_WIDTH; i++) {
-				int id = hit.tmini[i] & 0b11;
+				// Extract index from the 2 least significant bits
+				int id = hit.t_near_i[i] & 0b11;
 				
+				// If the node is valid and was hit by the Ray
 				if (mbvh_nodes[index].count[id] != -1 && hit.hit[id]) {
 					stack[stack_size  ].index = mbvh_nodes[index].child[id];
 					stack[stack_size++].count = mbvh_nodes[index].count[id];
@@ -222,6 +225,7 @@ __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
 
 		assert(count != -1);
 
+		// Check if the Node is a leaf
 		if (count > 0) {
 			for (int j = index; j < index + count; j++) {
 				if (triangle_intersect(j, ray, max_distance)) {
@@ -232,7 +236,10 @@ __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
 			MBVHHit hit = mbvh_node_intersect(mbvh_nodes[index], ray, max_distance);
 			
 			for (int i = 0; i < MBVH_WIDTH; i++) {
-				int id = hit.tmini[i] & 0b11;
+				// Extract index from the 2 least significant bits
+				int id = hit.t_near_i[i] & 0b11;
+				
+				// If the node is valid and was hit by the Ray
 
 				if (mbvh_nodes[index].count[id] != -1 && hit.hit[id]) {
 					stack[stack_size  ].index = mbvh_nodes[index].child[id];

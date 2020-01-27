@@ -11,5 +11,8 @@ protected:
 
 	CUDAModule module;
 
-	void init(const char * cuda_src_name, const char * scene_name);
+	void init(const char * cuda_src_name, const char * scene_name, const char * sky_name);
+
+public:
+	void update(float delta, const unsigned char * keys);
 };

@@ -31,10 +31,11 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 	
-	const char * scene_filename = DATA_PATH("sponza/sponza.obj");
+	const char * scene_filename = DATA_PATH("glossy.obj");
+	const char * sky_filename   = DATA_PATH("Sky_Probes/grace_probe.float");
 
 	PATH_TRACER pathtracer;
-	pathtracer.init(scene_filename, window.frame_buffer_handle);
+	pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
 
 	srand(1337);
 

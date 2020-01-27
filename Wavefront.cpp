@@ -3,8 +3,8 @@
 #include "CUDAMemory.h"
 #include "CUDAContext.h"
 
-void Wavefront::init(const char * scene_name, unsigned frame_buffer_handle) {
-	Pathtracer::init("CUDA_Source/wavefront.cu", scene_name);
+void Wavefront::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
+	Pathtracer::init("CUDA_Source/wavefront.cu", scene_name, sky_name);
 
 	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("frame_buffer", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
@@ -183,10 +183,6 @@ void Wavefront::init(const char * scene_name, unsigned frame_buffer_handle) {
 		camera.position = Vector3(9.467193f, 5.919240f, -0.646071f);
 		camera.rotation = Quaternion(0.179088f, -0.677310f, 0.175366f, 0.691683f);
 	}
-}
-
-void Wavefront::update(float delta, const unsigned char * keys) {
-	camera.update(delta, keys);
 }
 
 void Wavefront::render() {
