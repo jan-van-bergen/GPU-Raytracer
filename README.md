@@ -23,7 +23,7 @@ Glossy materials also use NEE and MIS.
 When tracing non-shadow rays (i.e. looking for indirect light) the BRDF is importance sampled using the formulas described in Walter et al. 2007.
 
 ### MBVH
-A 4-way MBVH is constructed by collapsing an SBVH. The collapsing procedure was implemented as described in the slides. The MBVH results in a huge speedup on larger scenes. Sponza went from ~180 ms to ~100 ms per frame! But smaller scenes also benefit.
+A 4-way MBVH is constructed by collapsing the SBVH. The collapsing procedure was implemented as described in the slides. The MBVH results in a huge speedup on larger scenes. Sponza went from ~180 ms to ~100 ms per frame! But smaller scenes also benefit.
 
 ### BVH Serialization
 A less serious feature, but because SBVH construction took quite a while for larger Scenes, BVH's are now constructed once and then stored to disk for later reuse.
