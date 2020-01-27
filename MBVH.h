@@ -26,7 +26,7 @@ struct MBVHNode {
 		return result;
 	}
 
-	inline void build(MBVHNode nodes[]) {
+	inline void collapse(MBVHNode nodes[]) {
 		while (true) {
 			int child_count = get_child_count();
 
@@ -89,7 +89,7 @@ struct MBVHNode {
 
 			// If child Node i is an internal node, recurse
 			if (count[i] == 0) {
-				nodes[child[i]].build(nodes);
+				nodes[child[i]].collapse(nodes);
 			}
 		}
 	}
@@ -163,6 +163,7 @@ struct MBVH {
 			}
 		}
 
-		//nodes[0].build(nodes);
+		// Collapse binary BVH into an MBVH
+		nodes[0].collapse(nodes);
 	}
 };
