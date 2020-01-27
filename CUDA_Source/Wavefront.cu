@@ -189,7 +189,7 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 
 	float3 ray_throughput = ray_buffer_extend.throughput.to_float3(index);
 
-	unsigned seed = (ray_pixel_index + rand_seed * 906313609) * 341828143;
+	unsigned seed = (index + rand_seed * 906313609) * 341828143;
 
 	// Russian Roulette termination
 	float p_survive = clamp(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)), 0.0f, 1.0f);
@@ -287,7 +287,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (ray_pixel_index + rand_seed * 794454497) * 781939187;
+	unsigned seed = (index + rand_seed * 794454497) * 781939187;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
@@ -300,7 +300,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 		ray_buffer_connect.u[shadow_ray_index] = ray_u;
 		ray_buffer_connect.v[shadow_ray_index] = ray_v;
 
-		ray_buffer_connect.pixel_index[shadow_ray_index]  = ray_pixel_index;
+		ray_buffer_connect.pixel_index[shadow_ray_index] = ray_pixel_index;
 		ray_buffer_connect.throughput.from_float3(shadow_ray_index, ray_throughput);
 	}
 
@@ -342,7 +342,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (ray_pixel_index + rand_seed * 758505857) * 364686463;
+	unsigned seed = (index + rand_seed * 758505857) * 364686463;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
@@ -435,7 +435,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (ray_pixel_index + rand_seed * 354767453) * 346434643;
+	unsigned seed = (index + rand_seed * 354767453) * 346434643;
 
 	const Material & material = materials[triangles_material_id[ray_triangle_id]];
 
@@ -518,7 +518,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 	int    ray_pixel_index = ray_buffer_connect.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_connect.throughput.to_float3(index);
 
-	unsigned seed = (ray_pixel_index + rand_seed * 390292093) * 162898261;
+	unsigned seed = (index + rand_seed * 390292093) * 162898261;
 
 	// Pick a random light emitting triangle
 	int light_triangle_id = light_indices[rand_xorshift(seed) % light_count];
