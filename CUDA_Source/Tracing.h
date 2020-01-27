@@ -167,24 +167,31 @@ __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray 
 	return result;
 }
 
-struct MBVHTraverser {
-	int index;
-	int count;
-};
+__device__ inline unsigned pack_mbvh_node(int index, int id) {
+	return (id << 30) | index;
+}
+
+__device__ inline void unpack_mbvh_node(unsigned packed, int & index, int & id) {
+	index = packed & 0x3fffffff;
+	id    = packed >> 30;
+}
 
 __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
-	MBVHTraverser stack[32];
+	unsigned stack[32];
 	int stack_size = 1;
 
 	// Push root on stack
-	stack[0].index = 0;
-	stack[0].count = 0;
+	stack[0] = 1;
 
 	while (stack_size > 0) {
 		// Pop Node of the stack
-		MBVHTraverser trav = stack[--stack_size];
-		int index = trav.index;
-		int count = trav.count;
+		unsigned packed = stack[--stack_size];
+
+		int node_index, node_id;
+		unpack_mbvh_node(packed, node_index, node_id);
+
+		int index = mbvh_nodes[node_index].child[node_id];
+		int count = mbvh_nodes[node_index].count[node_id];
 
 		assert(count != -1);
 
@@ -202,8 +209,7 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 				
 				// If the node is valid and was hit by the Ray
 				if (mbvh_nodes[index].count[id] != -1 && aabb_hits.hit[id]) {
-					stack[stack_size  ].index = mbvh_nodes[index].child[id];
-					stack[stack_size++].count = mbvh_nodes[index].count[id];
+					stack[stack_size++] = pack_mbvh_node(index, id);
 				}
 			}
 		}
@@ -211,39 +217,45 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 }
 
 __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
-	MBVHTraverser stack[32];
+	unsigned stack[32];
 	int stack_size = 1;
 
 	// Push root on stack
-	stack[0].index = 0;
-	stack[0].count = 0;
+	stack[0] = 1;
 
 	while (stack_size > 0) {
 		// Pop Node of the stack
-		MBVHTraverser trav = stack[--stack_size];
-		int index = trav.index;
-		int count = trav.count;
+		unsigned packed = stack[--stack_size];
+
+		int node_index, node_id;
+		unpack_mbvh_node(packed, node_index, node_id);
+
+		int index = mbvh_nodes[node_index].child[node_id];
+		int count = mbvh_nodes[node_index].count[node_id];
 
 		assert(count != -1);
 
 		// Check if the Node is a leaf
 		if (count > 0) {
+			int index = mbvh_nodes[node_index].index[node_id];
+
 			for (int j = index; j < index + count; j++) {
 				if (triangle_intersect(j, ray, max_distance)) {
 					return true;
 				}
 			}
 		} else {
-			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[index], ray, max_distance);
+			int child = mbvh_nodes[node_index].child[node_id];
+
+			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[child], ray, max_distance);
 			
 			for (int i = 0; i < MBVH_WIDTH; i++) {
 				// Extract index from the 2 least significant bits
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				// If the node is valid and was hit by the Ray
-				if (mbvh_nodes[index].count[id] != -1 && aabb_hits.hit[id]) {
-					stack[stack_size  ].index = mbvh_nodes[index].child[id];
-					stack[stack_size++].count = mbvh_nodes[index].count[id];
+				if (mbvh_nodes[child].count[id] != -1 && aabb_hits.hit[id]) {
+					stack[stack_size++] = pack_mbvh_node(child, id);
 				}
 			}
 		}

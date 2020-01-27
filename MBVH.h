@@ -119,7 +119,11 @@ struct MBVH {
 		leaf_count = bvh.leaf_count;
 
 		for (int i = 0; i < node_count; i++) {
-			if (i == 1) continue; // Index 1 is always invalid!
+			// We use index 1 as a starting point, such that it points to the first child of the root
+			if (i == 1) {
+				nodes[i].child[0] = 0;
+				nodes[i].count[0] = 0;
+			}
 
 			if (bvh.nodes[i].is_leaf() == false) {
 				const BVHNode & child_left  = bvh.nodes[bvh.nodes[i].left];
