@@ -34,15 +34,14 @@ A 4-way MBVH is constructed by collapsing the SBVH. The collapsing procedure was
 ## MegaKernel vs Wavefront
 Timings for different scenes:
 
-| Scene     |  Average time using Wavefront |  Average time using MegaKernel |
-|-----------|-------------------------------|--------------------------------|
-| Scene.obj |  44 ms                        |  49 ms                         |
-|  Sponza   |  102 ms                       |  156 ms                        |
-|           |                               |                                |
+| Scene     |  Triangle count |  Average time using Wavefront |  Average time using MegaKernel |
+|-----------|-----------------|-------------------------------|--------------------------------|
+| Scene.obj |  2681           |  44 ms                        |  49 ms                         |
+| Sponza    |  262205         |  102 ms                       |  156 ms                        |
+| Gallery   |  998941         |  282 ms                       |  307 ms                        |
 
-The Scene.obj scene contains all instances of the three different supported material types, but consists of only 2681 triangles.
-The Sponza scene contains only diffuse materials, but consists of 262205.
-In both cases Wavefront outperforms the MegaKernel.
+The Scene.obj scene contains all instances of the three different supported material types, the other two scenes contain only diffuse materials.
+This means we can conclude that the Wavefront not only helps in cases where we have to deal with lots of complex materials, but also in the simplest case of a uniformly diffuse scene.
 
 You can switch between using the MegaKernel / Wavefront approach by changing the ```PATH_TRACER``` define in Main.cpp to either ```MegaKernel``` or ```Wavefront```.
 
