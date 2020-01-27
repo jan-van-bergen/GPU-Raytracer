@@ -27,7 +27,7 @@ struct Material {
 	float3 diffuse;
 	int texture_id;
 
-	float3 emittance;
+	float3 emission;
 
 	float index_of_refraction;
 

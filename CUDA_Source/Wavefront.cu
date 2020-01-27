@@ -208,7 +208,7 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 
 		if ((ray_buffer_extend.last_material_type[index] == Material::Type::DIELECTRIC) ||
 			(ray_buffer_extend.last_material_type[index] == Material::Type::GLOSSY && material.roughness < ROUGHNESS_CUTOFF)) {
-			frame_buffer_add(x, y, ray_throughput * material.emittance);
+			frame_buffer_add(x, y, ray_throughput * material.emission);
 
 			return;
 		}
@@ -237,7 +237,7 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 
 		float mis_pdf = light_pdf + brdf_pdf;
 
-		frame_buffer_add(x, y, ray_throughput * material.emittance / mis_pdf);
+		frame_buffer_add(x, y, ray_throughput * material.emission / mis_pdf);
 	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&N_diffuse);
 
@@ -523,7 +523,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 	// Pick a random light emitting triangle
 	int light_triangle_id = light_indices[rand_xorshift(seed) % light_count];
 
-	ASSERT(length(materials[triangles_material_id[light_triangle_id]].emittance) > 0.0f, "Material was not emissive!\n");
+	ASSERT(length(materials[triangles_material_id[light_triangle_id]].emission) > 0.0f, "Material was not emissive!\n");
 
 	// Pick a random point on the triangle using random barycentric coordinates
 	float u = random_float(seed);
@@ -612,7 +612,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 			int x = ray_pixel_index % SCREEN_WIDTH;
 			int y = ray_pixel_index / SCREEN_WIDTH; 
 
-			frame_buffer_add(x, y, hit_material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ray_throughput * brdf * light_count * light_material.emittance / mis_pdf);
+			frame_buffer_add(x, y, hit_material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ray_throughput * brdf * light_count * light_material.emission / mis_pdf);
 		}
 	}
 }

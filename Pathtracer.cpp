@@ -165,7 +165,7 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 	for (int i = 0; i < mesh->triangle_count; i++) {
 		const Triangle & triangle = mesh->triangles[i];
 
-		if (Vector3::length_squared(mesh->materials[triangle.material_id].emittance) > 0.0f) {
+		if (Vector3::length_squared(mesh->materials[triangle.material_id].emission) > 0.0f) {
 			int index = -1;
 			for (int j = 0; j < mbvh.leaf_count; j++) {
 				if (mbvh.indices[j] == i) {

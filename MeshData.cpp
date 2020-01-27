@@ -60,9 +60,9 @@ const MeshData * MeshData::load(const char * file_path) {
 				mesh_data->materials[i].texture_id = Texture::load((std::string(path) + material.diffuse_texname).c_str());
 			}
 
-			mesh_data->materials[i].emittance = Vector3(material.emission[0], material.emission[1], material.emission[2]);
+			mesh_data->materials[i].emission = Vector3(material.emission[0], material.emission[1], material.emission[2]);
 
-			if (Vector3::length_squared(mesh_data->materials[i].emittance) > 0.0f) {
+			if (Vector3::length_squared(mesh_data->materials[i].emission) > 0.0f) {
 				mesh_data->materials[i].type = Material::Type::LIGHT;
 			}
 

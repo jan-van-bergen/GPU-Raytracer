@@ -41,7 +41,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 		if (light_count > 0) {
 			if (material.type == Material::Type::LIGHT) {
 				if (last_specular) {
-					return colour + throughput * material.emittance;
+					return colour + throughput * material.emission;
 				} else {
 					return colour;
 				}
@@ -54,7 +54,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 				int light_triangle_id = light_indices[rand_xorshift(seed) % light_count];
 				int light_material_id = triangles_material_id[light_triangle_id];
 
-				ASSERT(length(materials[light_material_id].emittance) > 0.0f, "Material was not emissive!\n");
+				ASSERT(length(materials[light_material_id].emission) > 0.0f, "Material was not emissive!\n");
 			
 				// Pick a random point on the triangle using random barycentric coordinates
 				float u = random_float(seed);
@@ -100,7 +100,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 						float3 brdf = material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
 						float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
-						float3 light_colour = materials[light_material_id].emittance;
+						float3 light_colour = materials[light_material_id].emission;
 
 						colour += throughput * brdf * light_count * light_colour * solid_angle * cos_i;
 					}
