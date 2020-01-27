@@ -1,6 +1,7 @@
 # Advanced-Graphics-Pathtracer
 
-![Sponza](ScreenShots/Sponza.png "Sponza")
+![Sponza](Screenshots/Sponza.png "Sponza")
+![Glass](Screenshots/Glass.png "Dielectrics")
 
 ## Features
 
@@ -21,7 +22,7 @@ Multiple Importance Sampling is used by Diffuse and Glossy materials.
 
 ### Microfacet Materials
 
-![Microfacet Model](ScreenShots/Mircofacets.png "Glossy materials using the Beckmann microfacet model")
+![Microfacet Model](Screenshots/Microfacets.png "Glossy materials using the Beckmann microfacet model")
 
 Glossy materials are implemented using the Beckmann microfacet model.
 Glossy materials also use NEE and MIS.
