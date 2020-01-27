@@ -51,6 +51,8 @@ You can change what scene is being used by changing the ```scene_filename``` var
 - ```scene.obj``` - Custom test scene, can be used to check the various materials.
 - ```glossy.obj``` - Custom test scene, shows spheres with varying degrees of roughness.
 
+You can also check the Screenshots subfolder for various examples of the materials etc.
+
 ## Papers
 - Megakernels Considered Harmful: Wavefront Path Tracing on GPUs - Laine et al.
 - Microfacet Models for Refraction through Rough Surfaces - Walter et al.
