@@ -1,14 +1,8 @@
 #pragma once
-#include "Camera.h"
-
-#include "CUDAModule.h"
-#include "CUDAKernel.h"
+#include "Pathtracer.h"
 
 // Megakernel based Pathtracer
-struct MegaKernel {
-	Camera camera;
-	float frames_since_camera_moved = 0.0f;
-
+struct MegaKernel : Pathtracer {
 	CUDAModule::Global global_camera_position;
 	CUDAModule::Global global_camera_top_left_corner;
 	CUDAModule::Global global_camera_x_axis;

@@ -4,6 +4,8 @@
 #define SCREEN_WIDTH  800
 #define SCREEN_HEIGHT 480
 
+#define PIXEL_COUNT (SCREEN_WIDTH * SCREEN_HEIGHT)
+
 #define EPSILON 0.001f
 
 #define PI          3.14159265359f

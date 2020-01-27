@@ -1,14 +1,8 @@
 #pragma once
-#include "Camera.h"
-
-#include "CUDAModule.h"
-#include "CUDAKernel.h"
+#include "Pathtracer.h"
 
 // Wavefront based Pathtracer
-struct Wavefront {
-	Camera camera;
-	float frames_since_camera_moved = 0.0f;
-
+struct Wavefront : Pathtracer {
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_extend;
 	CUDAKernel kernel_shade_diffuse;

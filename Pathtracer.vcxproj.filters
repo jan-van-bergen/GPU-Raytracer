@@ -30,6 +30,9 @@
     <ClCompile Include="Wavefront.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
+    <ClCompile Include="Pathtracer.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CUDAModule.h">
@@ -107,6 +110,9 @@
     </ClInclude>
     <ClInclude Include="MBVH.h">
       <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="Pathtracer.h">
+      <Filter>Pathtracer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
