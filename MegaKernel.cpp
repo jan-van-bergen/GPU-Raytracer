@@ -7,6 +7,7 @@
 
 #include "MeshData.h"
 #include "BVH.h"
+#include "MBVH.h"
 
 #include "Sky.h"
 
@@ -91,29 +92,32 @@ void MegaKernel::init(const char * scene_name, unsigned frame_buffer_handle) {
 		bvh.save_to_disk(bvh_filename.c_str());
 	}
 
+	MBVH<Triangle> mbvh;
+	mbvh.init(bvh);
+
 	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
 	// (This does mean more memory consumption)
-	Triangle * flat_triangles = new Triangle[bvh.leaf_count];
-	for (int i = 0; i < bvh.leaf_count; i++) {
-		flat_triangles[i] = bvh.primitives[bvh.indices_x[i]];
+	Triangle * flat_triangles = new Triangle[mbvh.leaf_count];
+	for (int i = 0; i < mbvh.leaf_count; i++) {
+		flat_triangles[i] = mbvh.primitives[mbvh.indices[i]];
 	}
 
 	// Allocate Triangles in SoA format
-	Vector3 * triangles_position0      = new Vector3[bvh.leaf_count];
-	Vector3 * triangles_position_edge1 = new Vector3[bvh.leaf_count];
-	Vector3 * triangles_position_edge2 = new Vector3[bvh.leaf_count];
+	Vector3 * triangles_position0      = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_position_edge1 = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_position_edge2 = new Vector3[mbvh.leaf_count];
 
-	Vector3 * triangles_normal0      = new Vector3[bvh.leaf_count];
-	Vector3 * triangles_normal_edge1 = new Vector3[bvh.leaf_count];
-	Vector3 * triangles_normal_edge2 = new Vector3[bvh.leaf_count]; 
+	Vector3 * triangles_normal0      = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_normal_edge1 = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_normal_edge2 = new Vector3[mbvh.leaf_count]; 
 	
-	Vector2 * triangles_tex_coord0      = new Vector2[bvh.leaf_count];
-	Vector2 * triangles_tex_coord_edge1 = new Vector2[bvh.leaf_count];
-	Vector2 * triangles_tex_coord_edge2 = new Vector2[bvh.leaf_count];
+	Vector2 * triangles_tex_coord0      = new Vector2[mbvh.leaf_count];
+	Vector2 * triangles_tex_coord_edge1 = new Vector2[mbvh.leaf_count];
+	Vector2 * triangles_tex_coord_edge2 = new Vector2[mbvh.leaf_count];
 
-	int * triangles_material_id = new int[bvh.leaf_count];
+	int * triangles_material_id = new int[mbvh.leaf_count];
 
-	for (int i = 0; i < bvh.leaf_count; i++) {
+	for (int i = 0; i < mbvh.leaf_count; i++) {
 		triangles_position0[i]      = flat_triangles[i].position0;
 		triangles_position_edge1[i] = flat_triangles[i].position1 - flat_triangles[i].position0;
 		triangles_position_edge2[i] = flat_triangles[i].position2 - flat_triangles[i].position0;
@@ -132,19 +136,19 @@ void MegaKernel::init(const char * scene_name, unsigned frame_buffer_handle) {
 	delete [] flat_triangles;
 
 	// Set global Triangle buffers
-	module.get_global("triangles_position0"     ).set_buffer(triangles_position0,      bvh.leaf_count);
-	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, bvh.leaf_count);
-	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, bvh.leaf_count);
+	module.get_global("triangles_position0"     ).set_buffer(triangles_position0,      mbvh.leaf_count);
+	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, mbvh.leaf_count);
+	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_normal0"     ).set_buffer(triangles_normal0,      bvh.leaf_count);
-	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, bvh.leaf_count);
-	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, bvh.leaf_count);
+	module.get_global("triangles_normal0"     ).set_buffer(triangles_normal0,      mbvh.leaf_count);
+	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, mbvh.leaf_count);
+	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_tex_coord0"     ).set_buffer(triangles_tex_coord0,      bvh.leaf_count);
-	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, bvh.leaf_count);
-	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, bvh.leaf_count);
+	module.get_global("triangles_tex_coord0"     ).set_buffer(triangles_tex_coord0,      mbvh.leaf_count);
+	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, mbvh.leaf_count);
+	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_material_id").set_buffer(triangles_material_id, bvh.leaf_count);
+	module.get_global("triangles_material_id").set_buffer(triangles_material_id, mbvh.leaf_count);
 
 	// Clean up buffers on Host side
 	delete [] triangles_position0;  
@@ -166,8 +170,8 @@ void MegaKernel::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 		if (Vector3::length_squared(mesh->materials[triangle.material_id].emittance) > 0.0f) {
 			int index = -1;
-			for (int j = 0; j < bvh.leaf_count; j++) {
-				if (bvh.indices_x[j] == i) {
+			for (int j = 0; j < mbvh.leaf_count; j++) {
+				if (mbvh.indices[j] == i) {
 					index = j;
 
 					break;
@@ -186,8 +190,8 @@ void MegaKernel::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	module.get_global("light_count").set_value(light_count);
 
-	// Set global BVHNode buffer
-	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+	// Set global MBVHNode buffer
+	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
 
 	// Set Sky globals
 	Sky sky;

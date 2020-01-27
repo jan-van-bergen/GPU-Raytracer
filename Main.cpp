@@ -12,10 +12,7 @@
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
-#define MEGAKERNEL MegaKernel
-#define WAVEFRONT  Wavefront
-
-#define PATH_TRACER WAVEFRONT
+#define PATH_TRACER Wavefront
 
 #define TOTAL_TIMING_COUNT 1000
 float timings[TOTAL_TIMING_COUNT];

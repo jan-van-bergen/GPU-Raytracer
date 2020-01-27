@@ -21,7 +21,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Check ray against all triangles
 		RayHit hit;
-		bvh_trace(ray, hit);
+		mbvh_trace(ray, hit);
 
 		// Check if we didn't hit anything
 		if (hit.t == INFINITY) {
@@ -96,7 +96,7 @@ __device__ float3 sample(unsigned & seed, Ray & ray) {
 					);
 
 					// Check if the light is obstructed by any other object in the scene
-					if (!bvh_intersect(ray, distance_to_light - EPSILON)) {
+					if (!mbvh_intersect(ray, distance_to_light - EPSILON)) {
 						float3 brdf = material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ONE_OVER_PI;
 						float solid_angle = (cos_o * light_area) / distance_to_light_squared;
 
