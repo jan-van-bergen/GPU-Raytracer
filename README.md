@@ -8,7 +8,7 @@
 ### GPU implementation
 The Pathtracer was implemented on the GPU using Cuda. 
 I have implemented it using two different techniques, Megakernel vs Wavefront, for comparison purposes.
-Both implementations supports basic triangle intersection, texture mapping, triangle lights, scene traversal using an MBVH, and 3 types of materials/BRDFS (diffuse, dielectrics, and glossy (microfacet using Beckmann distribution)).
+Both implementations supports basic triangle intersection, texture mapping, triangle lights, scene traversal using an MBVH, and 3 types of materials/BRDFS (diffuse, dielectrics, and glossy).
 For the Wavefront Pathtracer the different types of materials are implemented in different kernels.
 
 Rays are generated with coherence in mind when using the Wavefront approach. Instead of simply assigning each consecutive thread a consecutive pixel index in the frame buffer, every 32 threads (size of a warp) gets assigned an 8x4 block of pixels. This increases coherence for primary Rays, which slightly improves frame times.
@@ -17,7 +17,7 @@ Rays are generated with coherence in mind when using the Wavefront approach. Ins
 Various forms of importance sampling were implemented.
 The BRDF for Diffuse materials is importance sampled using a cosine weighted distribution. 
 The BRDF for Glossy materials is importance sampled using the technique described in Walter et al. 2007.
-Next Event estimtation is used by Diffuse and Glossy materials (for Dielectris it doesn't really make sense to do this). 
+Next Event estimtation is used by Diffuse and Glossy materials. 
 Multiple Importance Sampling is used by Diffuse and Glossy materials.
 
 ### Microfacet Materials
@@ -41,7 +41,7 @@ Timings for different scenes:
 | Gallery   |  998941         |  282 ms                       |  307 ms                        |
 
 The Scene.obj scene contains all instances of the three different supported material types, the other two scenes contain only diffuse materials.
-This means we can conclude that the Wavefront not only helps in cases where we have to deal with lots of complex materials, but also in the simplest case of a uniformly diffuse scene.
+This means we can conclude that the Wavefront not only helps in cases where we have to deal with lots of different materials, but also in the simplest case of a uniformly diffuse scene.
 
 You can switch between using the MegaKernel / Wavefront approach by changing the ```PATH_TRACER``` define in Main.cpp to either ```MegaKernel``` or ```Wavefront```.
 
