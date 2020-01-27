@@ -12,12 +12,10 @@
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
-
 #define MEGAKERNEL MegaKernel
 #define WAVEFRONT  Wavefront
 
 #define PATH_TRACER WAVEFRONT
-
 
 #define TOTAL_TIMING_COUNT 1000
 float timings[TOTAL_TIMING_COUNT];
@@ -36,6 +34,7 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 	
+	// "C:/Dev/Git/Advanced Graphics/gallery/gallery.obj"
 	const char * scene_filename = DATA_PATH("sponza/sponza.obj");
 
 	PATH_TRACER pathtracer;

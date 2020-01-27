@@ -7,6 +7,7 @@
 
 #include "MeshData.h"
 #include "BVH.h"
+#include "MBVH.h"
 
 #include "Sky.h"
 
@@ -91,51 +92,63 @@ void Wavefront::init(const char * scene_name, unsigned frame_buffer_handle) {
 		bvh.save_to_disk(bvh_filename.c_str());
 	}
 
-	// Allocate Triangles in SoA format
-	Vector3 * triangles_position0      = new Vector3[bvh.primitive_count];
-	Vector3 * triangles_position_edge1 = new Vector3[bvh.primitive_count];
-	Vector3 * triangles_position_edge2 = new Vector3[bvh.primitive_count];
+	MBVH<Triangle> mbvh;
+	mbvh.init(bvh);
 
-	Vector3 * triangles_normal0      = new Vector3[bvh.primitive_count];
-	Vector3 * triangles_normal_edge1 = new Vector3[bvh.primitive_count];
-	Vector3 * triangles_normal_edge2 = new Vector3[bvh.primitive_count]; 
-	
-	Vector2 * triangles_tex_coord0      = new Vector2[bvh.primitive_count];
-	Vector2 * triangles_tex_coord_edge1 = new Vector2[bvh.primitive_count];
-	Vector2 * triangles_tex_coord_edge2 = new Vector2[bvh.primitive_count];
-
-	int * triangles_material_id = new int[bvh.primitive_count];
-
-	for (int i = 0; i < bvh.primitive_count; i++) {
-		triangles_position0[i]      = bvh.primitives[i].position0;
-		triangles_position_edge1[i] = bvh.primitives[i].position1 - bvh.primitives[i].position0;
-		triangles_position_edge2[i] = bvh.primitives[i].position2 - bvh.primitives[i].position0;
-
-		triangles_normal0[i]      = bvh.primitives[i].normal0;
-		triangles_normal_edge1[i] = bvh.primitives[i].normal1 - bvh.primitives[i].normal0;
-		triangles_normal_edge2[i] = bvh.primitives[i].normal2 - bvh.primitives[i].normal0;
-
-		triangles_tex_coord0[i]      = bvh.primitives[i].tex_coord0;
-		triangles_tex_coord_edge1[i] = bvh.primitives[i].tex_coord1 - bvh.primitives[i].tex_coord0;
-		triangles_tex_coord_edge2[i] = bvh.primitives[i].tex_coord2 - bvh.primitives[i].tex_coord0;
-
-		triangles_material_id[i] = bvh.primitives[i].material_id;
+	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
+	// (This does mean more memory consumption)
+	Triangle * flat_triangles = new Triangle[mbvh.leaf_count];
+	for (int i = 0; i < mbvh.leaf_count; i++) {
+		flat_triangles[i] = mbvh.primitives[mbvh.indices[i]];
 	}
 
+	// Allocate Triangles in SoA format
+	Vector3 * triangles_position0      = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_position_edge1 = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_position_edge2 = new Vector3[mbvh.leaf_count];
+
+	Vector3 * triangles_normal0      = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_normal_edge1 = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_normal_edge2 = new Vector3[mbvh.leaf_count]; 
+	
+	Vector2 * triangles_tex_coord0      = new Vector2[mbvh.leaf_count];
+	Vector2 * triangles_tex_coord_edge1 = new Vector2[mbvh.leaf_count];
+	Vector2 * triangles_tex_coord_edge2 = new Vector2[mbvh.leaf_count];
+
+	int * triangles_material_id = new int[mbvh.leaf_count];
+
+	for (int i = 0; i < mbvh.leaf_count; i++) {
+		triangles_position0[i]      = flat_triangles[i].position0;
+		triangles_position_edge1[i] = flat_triangles[i].position1 - flat_triangles[i].position0;
+		triangles_position_edge2[i] = flat_triangles[i].position2 - flat_triangles[i].position0;
+
+		triangles_normal0[i]      = flat_triangles[i].normal0;
+		triangles_normal_edge1[i] = flat_triangles[i].normal1 - flat_triangles[i].normal0;
+		triangles_normal_edge2[i] = flat_triangles[i].normal2 - flat_triangles[i].normal0;
+
+		triangles_tex_coord0[i]      = flat_triangles[i].tex_coord0;
+		triangles_tex_coord_edge1[i] = flat_triangles[i].tex_coord1 - flat_triangles[i].tex_coord0;
+		triangles_tex_coord_edge2[i] = flat_triangles[i].tex_coord2 - flat_triangles[i].tex_coord0;
+
+		triangles_material_id[i] = flat_triangles[i].material_id;
+	}
+
+	delete [] flat_triangles;
+
 	// Set global Triangle buffers
-	module.get_global("triangles_position0"     ).set_buffer(triangles_position0,      bvh.primitive_count);
-	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, bvh.primitive_count);
-	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, bvh.primitive_count);
+	module.get_global("triangles_position0"     ).set_buffer(triangles_position0,      mbvh.leaf_count);
+	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, mbvh.leaf_count);
+	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_normal0"     ).set_buffer(triangles_normal0,      bvh.primitive_count);
-	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, bvh.primitive_count);
-	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, bvh.primitive_count);
+	module.get_global("triangles_normal0"     ).set_buffer(triangles_normal0,      mbvh.leaf_count);
+	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, mbvh.leaf_count);
+	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_tex_coord0"     ).set_buffer(triangles_tex_coord0,      bvh.primitive_count);
-	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, bvh.primitive_count);
-	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, bvh.primitive_count);
+	module.get_global("triangles_tex_coord0"     ).set_buffer(triangles_tex_coord0,      mbvh.leaf_count);
+	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, mbvh.leaf_count);
+	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_material_id").set_buffer(triangles_material_id, bvh.primitive_count);
+	module.get_global("triangles_material_id").set_buffer(triangles_material_id, mbvh.leaf_count);
 
 	// Clean up buffers on Host side
 	delete [] triangles_position0;  
@@ -157,8 +170,8 @@ void Wavefront::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 		if (Vector3::length_squared(mesh->materials[triangle.material_id].emittance) > 0.0f) {
 			int index = -1;
-			for (int j = 0; j < bvh.primitive_count; j++) {
-				if (bvh.indices_x[j] == i) {
+			for (int j = 0; j < mbvh.leaf_count; j++) {
+				if (mbvh.indices[j] == i) {
 					index = j;
 
 					break;
@@ -177,8 +190,8 @@ void Wavefront::init(const char * scene_name, unsigned frame_buffer_handle) {
 
 	module.get_global("light_count").set_value(light_count);
 
-	// Set global BVHNode buffer
-	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+	// Set global MBVHNode buffer
+	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
 
 	// Set Sky globals
 	Sky sky;

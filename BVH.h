@@ -12,6 +12,14 @@ struct BVHNode {
 		int first;
 	};
 	int count; // Stores split axis in its 2 highest bits, count in its lowest 30 bits
+
+	inline int get_count() const {
+		return count & ~BVH_AXIS_MASK;
+	}
+
+	inline bool is_leaf() const {
+		return get_count() > 0;
+	}
 };
 
 template<typename PrimitiveType>
@@ -25,6 +33,8 @@ struct BVH {
 
 	int       node_count;
 	BVHNode * nodes;
+
+	int leaf_count;
 
 	inline void init(int count) {
 		assert(count > 0);
@@ -68,18 +78,10 @@ struct BVH {
 		assert(node_index <= 2 * primitive_count);
 
 		node_count = node_index;
+		leaf_count = primitive_count;
 
 		delete [] temp;
 		delete [] sah;
-		
-		PrimitiveType * new_primitives = new PrimitiveType[primitive_count];
-
-		for (int i = 0; i < primitive_count; i++) {
-			new_primitives[i] = primitives[indices_x[i]];
-		}
-
-		delete [] primitives;
-		primitives = new_primitives;
 	}
 
 	inline void build_sbvh() {
@@ -96,7 +98,7 @@ struct BVH {
 		AABB root_aabb = BVHPartitions::calculate_bounds(primitives, indices[0], 0, primitive_count);
 
 		int node_index = 2;
-		int leaf_count = BVHBuilders::build_sbvh<Triangle>(nodes[0], primitives, indices, nodes, node_index, 0, primitive_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
+		leaf_count = BVHBuilders::build_sbvh<Triangle>(nodes[0], primitives, indices, nodes, node_index, 0, primitive_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
 
 		printf("SBVH Leaf count: %i\n", leaf_count);
 
@@ -107,29 +109,23 @@ struct BVH {
 		delete [] temp[0];
 		delete [] temp[1];
 		delete [] sah;
-		
-		primitive_count = leaf_count;
-		PrimitiveType * new_primitives = new PrimitiveType[primitive_count];
-
-		for (int i = 0; i < primitive_count; i++) {
-			new_primitives[i] = primitives[indices_x[i]];
-		}
-
-		delete [] primitives;
-		primitives = new_primitives;
 	}
 
 	inline void save_to_disk(const char * bvh_filename) const {
 		FILE * file;
 		fopen_s(&file, bvh_filename, "wb");
 
+		if (file == nullptr) abort();
+
 		fwrite(reinterpret_cast<const char *>(&primitive_count), sizeof(int), 1, file);
 		fwrite(reinterpret_cast<const char *>(primitives), sizeof(PrimitiveType), primitive_count, file);
 
-		fwrite(reinterpret_cast<const char *>(indices_x), sizeof(int), primitive_count, file);
-
 		fwrite(reinterpret_cast<const char *>(&node_count), sizeof(int), 1, file);
 		fwrite(reinterpret_cast<const char *>(nodes), sizeof(BVHNode), node_count, file);
+
+		fwrite(reinterpret_cast<const char *>(&leaf_count), sizeof(int), 1, file);
+		
+		fwrite(reinterpret_cast<const char *>(indices_x), sizeof(int), leaf_count, file);
 
 		fclose(file);
 	}
@@ -137,19 +133,23 @@ struct BVH {
 	inline void load_from_disk(const char * bvh_filename) {
 		FILE * file;
 		fopen_s(&file, bvh_filename, "rb"); 
+		
+		if (file == nullptr) abort();
 
 		fread(reinterpret_cast<char *>(&primitive_count), sizeof(int), 1, file);
 
 		primitives = new PrimitiveType[primitive_count];
 		fread(reinterpret_cast<char *>(primitives), sizeof(PrimitiveType), primitive_count, file);
-			
-		indices_x = new int[primitive_count];
-		fread(reinterpret_cast<char *>(indices_x), sizeof(int), primitive_count, file);
-
+		
 		fread(reinterpret_cast<char *>(&node_count), sizeof(int), 1, file);
 
 		nodes = new BVHNode[node_count];
 		fread(reinterpret_cast<char *>(nodes), sizeof(BVHNode), node_count, file);
+
+		fread(reinterpret_cast<char *>(&leaf_count), sizeof(int), 1, file);
+			
+		indices_x = new int[leaf_count];
+		fread(reinterpret_cast<char *>(indices_x), sizeof(int), leaf_count, file);
 
 		fclose(file);
 	}

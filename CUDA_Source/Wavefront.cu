@@ -174,7 +174,7 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 	);
 
 	RayHit hit;
-	bvh_trace(ray, hit);
+	mbvh_trace(ray, hit);
 
 	int ray_pixel_index = ray_buffer_extend.pixel_index[index];
 
@@ -564,7 +564,7 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 		);
 
 		// Check if the light is obstructed by any other object in the scene
-		if (!bvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
+		if (!mbvh_intersect(shadow_ray, distance_to_light - EPSILON)) {
 			const Material & hit_material   = materials[triangles_material_id[ray_triangle_id]];
 			const Material & light_material = materials[triangles_material_id[light_triangle_id]];
 

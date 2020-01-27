@@ -105,6 +105,12 @@
     <ClInclude Include="Wavefront.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
+    <ClInclude Include="MBVH.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector4.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Cuda">

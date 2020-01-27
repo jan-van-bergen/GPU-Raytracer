@@ -1,4 +1,6 @@
 #pragma once
+#include <utility>
+
 #include <vector_types.h>
 #include <corecrt_math.h>
 
@@ -187,6 +189,160 @@ __device__ bool bvh_intersect(const Ray & ray, float max_distance) {
 				} else {
 					stack[stack_size++] = node.left;
 					stack[stack_size++] = node.left + 1;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+// static_assert(MBVH_WIDTH == 4);
+
+struct MBVHNode {
+	float4 aabb_min_x;
+	float4 aabb_min_y;
+	float4 aabb_min_z;
+	float4 aabb_max_x;
+	float4 aabb_max_y;
+	float4 aabb_max_z;
+	union {
+		int index[MBVH_WIDTH];
+		int child[MBVH_WIDTH];
+	};
+	int count[MBVH_WIDTH];
+};
+
+__device__ MBVHNode * mbvh_nodes;
+
+struct MBVHHit {
+	union {
+		float4 tmin;
+		float  tminf[4];
+		int    tmini[4];
+	};
+	bool hit[4];
+};
+
+__device__ inline MBVHHit mbvh_node_intersect(const MBVHNode & node, const Ray & ray, float max_distance) {
+	MBVHHit result;
+
+	float4 tx0 = (node.aabb_min_x - ray.origin.x) * ray.direction_inv.x;
+	float4 tx1 = (node.aabb_max_x - ray.origin.x) * ray.direction_inv.x;
+	float4 ty0 = (node.aabb_min_y - ray.origin.y) * ray.direction_inv.y;
+	float4 ty1 = (node.aabb_max_y - ray.origin.y) * ray.direction_inv.y;
+	float4 tz0 = (node.aabb_min_z - ray.origin.z) * ray.direction_inv.z;
+	float4 tz1 = (node.aabb_max_z - ray.origin.z) * ray.direction_inv.z;
+
+	float4 tx_min = fminf(tx0, tx1);
+	float4 tx_max = fmaxf(tx0, tx1);
+	float4 ty_min = fminf(ty0, ty1);
+	float4 ty_max = fmaxf(ty0, ty1);
+	float4 tz_min = fminf(tz0, tz1);
+	float4 tz_max = fmaxf(tz0, tz1);
+	
+	result.tmin  = fmaxf(fmaxf(make_float4(EPSILON),      tx_min), fmaxf(ty_min, tz_min));
+	float4 t_far = fminf(fminf(make_float4(max_distance), tx_max), fminf(ty_max, tz_max));
+
+	result.hit[0] = result.tminf[0] < t_far.x;
+	result.hit[1] = result.tminf[1] < t_far.y;
+	result.hit[2] = result.tminf[2] < t_far.z;
+	result.hit[3] = result.tminf[3] < t_far.w;
+
+	// Use the two least significant bits of the float to store the index
+	result.tmini[0] = (result.tmini[0] & 0xfffffffc) | 0;
+	result.tmini[1] = (result.tmini[1] & 0xfffffffc) | 1;
+	result.tmini[2] = (result.tmini[2] & 0xfffffffc) | 2;
+	result.tmini[3] = (result.tmini[3] & 0xfffffffc) | 3;
+
+	// Bubble sort to order the hit distances
+	for (int i = 1; i < MBVH_WIDTH; i++) {
+		int j = i - 1;
+
+		while (j >= 0 && result.tminf[j] < result.tminf[j + 1]) {
+			// XOR swap
+			result.tmini[j    ] ^= result.tmini[j + 1];	
+			result.tmini[j + 1] ^= result.tmini[j    ];	
+			result.tmini[j    ] ^= result.tmini[j + 1];	
+
+			j--;
+		}
+	}
+
+	return result;
+}
+
+struct MBVHTraverser {
+	int index;
+	int count;
+};
+
+__device__ void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
+	MBVHTraverser stack[32];
+	int stack_size = 1;
+
+	// Push root on stack
+	stack[0].index = 0;
+	stack[0].count = 0;
+
+	while (stack_size > 0) {
+		// Pop Node of the stack
+		MBVHTraverser trav = stack[--stack_size];
+		int index = trav.index;
+		int count = trav.count;
+
+		assert(count != -1);
+
+		if (count > 0) {
+			for (int j = index; j < index + count; j++) {
+				triangle_trace(j, ray, ray_hit);
+			}
+		} else {
+			MBVHHit hit = mbvh_node_intersect(mbvh_nodes[index], ray, ray_hit.t);
+			
+			for (int i = 0; i < MBVH_WIDTH; i++) {
+				int id = hit.tmini[i] & 0b11;
+				
+				if (mbvh_nodes[index].count[id] != -1 && hit.hit[id]) {
+					stack[stack_size  ].index = mbvh_nodes[index].child[id];
+					stack[stack_size++].count = mbvh_nodes[index].count[id];
+				}
+			}
+		}
+	}
+}
+
+__device__ bool mbvh_intersect(const Ray & ray, float max_distance) {
+	MBVHTraverser stack[32];
+	int stack_size = 1;
+
+	// Push root on stack
+	stack[0].index = 0;
+	stack[0].count = 0;
+
+	while (stack_size > 0) {
+		// Pop Node of the stack
+		MBVHTraverser trav = stack[--stack_size];
+		int index = trav.index;
+		int count = trav.count;
+
+		assert(count != -1);
+
+		if (count > 0) {
+			for (int j = index; j < index + count; j++) {
+				if (triangle_intersect(j, ray, max_distance)) {
+					return true;
+				}
+			}
+		} else {
+			MBVHHit hit = mbvh_node_intersect(mbvh_nodes[index], ray, max_distance);
+			
+			for (int i = 0; i < MBVH_WIDTH; i++) {
+				int id = hit.tmini[i] & 0b11;
+
+				if (mbvh_nodes[index].count[id] != -1 && hit.hit[id]) {
+					stack[stack_size  ].index = mbvh_nodes[index].child[id];
+					stack[stack_size++].count = mbvh_nodes[index].count[id];
 				}
 			}
 		}
