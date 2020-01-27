@@ -52,3 +52,4 @@ You can switch between using the MegaKernel / Wavefront approach by changing the
 ## Attribution
 - http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 - https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
+- CUDA starting code was based on the provided CUDA template.
