@@ -45,6 +45,12 @@ This means we can conclude that the Wavefront not only helps in cases where we h
 
 You can switch between using the MegaKernel / Wavefront approach by changing the ```PATH_TRACER``` define in Main.cpp to either ```MegaKernel``` or ```Wavefront```.
 
+## Scenes
+You can change what scene is being used by changing the ```scene_filename``` variable on line 34 of Main.cpp. Valid options are:
+- ```sponza/sponza.obj``` - Sponza scene, can be used to test performance.
+- ```scene.obj``` - Custom test scene, can be used to check the various materials.
+- ```glossy.obj``` - Custom test scene, shows spheres with varying degrees of roughness.
+
 ## Papers
 - Megakernels Considered Harmful: Wavefront Path Tracing on GPUs - Laine et al.
 - Microfacet Models for Refraction through Rough Surfaces - Walter et al.
