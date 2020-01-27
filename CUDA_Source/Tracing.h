@@ -109,7 +109,7 @@ struct MBVHNode {
 
 __device__ MBVHNode * mbvh_nodes;
 
-struct MBVHHit {
+struct AABBHits {
 	union {
 		float4 t_near;
 		float  t_near_f[4];
@@ -118,8 +118,9 @@ struct MBVHHit {
 	bool hit[4];
 };
 
-__device__ inline MBVHHit mbvh_node_intersect(const MBVHNode & node, const Ray & ray, float max_distance) {
-	MBVHHit result;
+// Check the Ray agains the four AABB's of the children of the given MBVH Node
+__device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray & ray, float max_distance) {
+	AABBHits result;
 
 	float4 tx0 = (node.aabb_min_x - ray.origin.x) * ray.direction_inv.x;
 	float4 tx1 = (node.aabb_max_x - ray.origin.x) * ray.direction_inv.x;
@@ -193,14 +194,14 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 				triangle_trace(j, ray, ray_hit);
 			}
 		} else {
-			MBVHHit hit = mbvh_node_intersect(mbvh_nodes[index], ray, ray_hit.t);
+			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[index], ray, ray_hit.t);
 			
 			for (int i = 0; i < MBVH_WIDTH; i++) {
 				// Extract index from the 2 least significant bits
-				int id = hit.t_near_i[i] & 0b11;
+				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				// If the node is valid and was hit by the Ray
-				if (mbvh_nodes[index].count[id] != -1 && hit.hit[id]) {
+				if (mbvh_nodes[index].count[id] != -1 && aabb_hits.hit[id]) {
 					stack[stack_size  ].index = mbvh_nodes[index].child[id];
 					stack[stack_size++].count = mbvh_nodes[index].count[id];
 				}
@@ -233,15 +234,14 @@ __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
 				}
 			}
 		} else {
-			MBVHHit hit = mbvh_node_intersect(mbvh_nodes[index], ray, max_distance);
+			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[index], ray, max_distance);
 			
 			for (int i = 0; i < MBVH_WIDTH; i++) {
 				// Extract index from the 2 least significant bits
-				int id = hit.t_near_i[i] & 0b11;
+				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				// If the node is valid and was hit by the Ray
-
-				if (mbvh_nodes[index].count[id] != -1 && hit.hit[id]) {
+				if (mbvh_nodes[index].count[id] != -1 && aabb_hits.hit[id]) {
 					stack[stack_size  ].index = mbvh_nodes[index].child[id];
 					stack[stack_size++].count = mbvh_nodes[index].count[id];
 				}
