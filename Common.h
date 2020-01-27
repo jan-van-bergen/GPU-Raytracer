@@ -16,7 +16,7 @@
 
 #define NUM_BOUNCES 5
 
-#define MAX_MATERIALS 32
+#define MAX_MATERIALS 128
 #define MAX_TEXTURES  32
 
 #define BVH_AXIS_X_BITS 0x40000000 // 01 00 zeroes...
