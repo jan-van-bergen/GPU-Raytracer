@@ -31,6 +31,21 @@ When tracing non-shadow rays (i.e. looking for indirect light) the BRDF is impor
 ### MBVH
 A 4-way MBVH is constructed by collapsing the SBVH. The collapsing procedure was implemented as described in the slides. The MBVH results in a huge speedup on larger scenes. Sponza went from ~180 ms to ~100 ms per frame! But smaller scenes also benefit.
 
+## MegaKernel vs Wavefront
+Timings for different scenes:
+
+| Scene     |  Average time using Wavefront |  Average time using MegaKernel |
+|-----------|-------------------------------|--------------------------------|
+| Scene.obj |  44 ms                        |  49 ms                         |
+|  Sponza   |  102 ms                       |  156 ms                        |
+|           |                               |                                |
+
+The Scene.obj scene contains all instances of the three different supported material types, but consists of only 2681 triangles.
+The Sponza scene contains only diffuse materials, but consists of 262205.
+In both cases Wavefront outperforms the MegaKernel.
+
+You can switch between using the MegaKernel / Wavefront approach by changing the ```PATH_TRACER``` define in Main.cpp to either ```MegaKernel``` or ```Wavefront```.
+
 ## Papers
 - Megakernels Considered Harmful: Wavefront Path Tracing on GPUs - Laine et al.
 - Microfacet Models for Refraction through Rough Surfaces - Walter et al.
