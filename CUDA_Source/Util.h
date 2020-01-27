@@ -26,15 +26,12 @@ __device__ T barycentric(float u, float v, const T & base, const T & edge_1, con
 }
 
 __device__ void orthonormal_basis(const float3 & normal, float3 & tangent, float3 & binormal) {
-	// Calculate a tangent vector from the normal vector
-	if (abs(normal.x) > 0.99f) {
-		tangent = make_float3(-normal.z, 0.0f, normal.x) * rsqrt(normal.x * normal.x + normal.z * normal.z);
-	} else {
-		tangent = make_float3(0.0f, normal.z, -normal.y) * rsqrt(normal.y * normal.y + normal.z * normal.z);
-	}
-
-	// The binormal is perpendicular to both the normal and tangent vectors
-	binormal = cross(normal, tangent);
+	float sign = copysignf(1.0f, normal.z);
+	float a = -1.0f / (sign + normal.z);
+	float b = normal.x * normal.y * a;
+	
+	tangent  = make_float3(1.0f + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
+	binormal = make_float3(b, sign + normal.y * normal.y * a, -normal.y);
 }
 
 __device__ float3 local_to_world(const float3 & vector, const float3 & tangent, const float3 & binormal, const float3 & normal) {

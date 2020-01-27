@@ -141,12 +141,12 @@ void Wavefront::init(const char * scene_name, const char * sky_name, unsigned fr
 	kernel_connect.init         (&module, "kernel_connect");
 	kernel_accumulate.init      (&module, "kernel_accumulate");
 
-	kernel_generate.set_block_dim        (256, 1, 1);
-	kernel_extend.set_block_dim          (256, 1, 1);
-	kernel_shade_diffuse.set_block_dim   (256, 1, 1);
-	kernel_shade_dielectric.set_block_dim(256, 1, 1);
-	kernel_shade_glossy.set_block_dim    (256, 1, 1);
-	kernel_connect.set_block_dim         (256, 1, 1);
+	kernel_generate.set_block_dim        (128, 1, 1);
+	kernel_extend.set_block_dim          (128, 1, 1);
+	kernel_shade_diffuse.set_block_dim   (128, 1, 1);
+	kernel_shade_dielectric.set_block_dim(128, 1, 1);
+	kernel_shade_glossy.set_block_dim    (128, 1, 1);
+	kernel_connect.set_block_dim         (128, 1, 1);
 	kernel_accumulate.set_block_dim(32, 4, 1);
 
 	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);

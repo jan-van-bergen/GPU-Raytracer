@@ -537,8 +537,8 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 	float3 light_point  = barycentric(u, v, triangles_position0[light_triangle_id], triangles_position_edge1[light_triangle_id], triangles_position_edge2[light_triangle_id]);
 	float3 light_normal = barycentric(u, v, triangles_normal0[light_triangle_id],   triangles_normal_edge1[light_triangle_id],   triangles_normal_edge2[light_triangle_id]);
 
-	float3 hit_point  = barycentric(ray_u, ray_v, triangles_position0[ray_triangle_id],   triangles_position_edge1[ray_triangle_id],   triangles_position_edge2[ray_triangle_id]);
-	float3 hit_normal = barycentric(ray_u, ray_v, triangles_normal0  [ray_triangle_id],   triangles_normal_edge1  [ray_triangle_id],   triangles_normal_edge2  [ray_triangle_id]);
+	float3 hit_point  = barycentric(ray_u, ray_v, triangles_position0[ray_triangle_id], triangles_position_edge1[ray_triangle_id], triangles_position_edge2[ray_triangle_id]);
+	float3 hit_normal = barycentric(ray_u, ray_v, triangles_normal0  [ray_triangle_id], triangles_normal_edge1  [ray_triangle_id], triangles_normal_edge2  [ray_triangle_id]);
 
 	hit_normal   = normalize(hit_normal);
 	light_normal = normalize(light_normal);
