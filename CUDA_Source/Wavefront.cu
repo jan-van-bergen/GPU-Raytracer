@@ -111,10 +111,6 @@ extern "C" __global__ void kernel_generate(
 
 	unsigned seed = (index + rand_seed * 199494991) * 949525949;
 	
-	const int BLOCK_WIDTH  = 8;
-	const int BLOCK_HEIGHT = 4;
-	const int BLOCK_SIZE   = BLOCK_WIDTH * BLOCK_HEIGHT;
-
 	int block_index = index / BLOCK_SIZE;
 	int i = (block_index % (SCREEN_WIDTH / BLOCK_WIDTH)) * BLOCK_WIDTH;
 	int j = (block_index / (SCREEN_WIDTH / BLOCK_WIDTH)) * BLOCK_HEIGHT;
