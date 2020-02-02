@@ -1,49 +1,79 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Main.cpp" />
     <ClCompile Include="CUDAModule.cpp">
-      <Filter>Cuda</Filter>
+      <Filter>CUDA</Filter>
     </ClCompile>
-    <ClCompile Include="MeshData.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Window.cpp" />
     <ClCompile Include="Util.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Texture.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
-    <ClCompile Include="Window.cpp" />
     <ClCompile Include="AABB.cpp">
       <Filter>BVH</Filter>
     </ClCompile>
     <ClCompile Include="Camera.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="Sky.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
     <ClCompile Include="MegaKernel.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Wavefront.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
     <ClCompile Include="Pathtracer.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
+    <ClCompile Include="Sky.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="Wavefront.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshData.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Texture.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CUDAModule.h">
-      <Filter>Cuda</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDAKernel.h">
-      <Filter>Cuda</Filter>
+    <Filter Include="CUDA">
+      <UniqueIdentifier>{05d166cc-0368-4859-a6e2-171631634c79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{8eb0591e-caaa-4325-b7bf-48400ec23114}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Util">
+      <UniqueIdentifier>{6eaa1676-e701-4882-b170-3a0e78e0e0fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BVH">
+      <UniqueIdentifier>{ebb62919-8744-439d-9578-09dfe535ab82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pathtracer">
+      <UniqueIdentifier>{294a8797-60a4-4a69-b01a-7c9af82a64c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{6f3338e2-ac89-4452-8dcb-2d4fb9144c6e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Common.h">
+      <Filter>CUDA</Filter>
     </ClInclude>
     <ClInclude Include="CUDACall.h">
-      <Filter>Cuda</Filter>
+      <Filter>CUDA</Filter>
     </ClInclude>
+    <ClInclude Include="CUDAContext.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="CUDAKernel.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="CUDAMemory.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="CUDAModule.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="Window.h" />
     <ClInclude Include="Math.h">
       <Filter>Math</Filter>
     </ClInclude>
@@ -59,30 +89,11 @@
     <ClInclude Include="Vector3.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="ScopedTimer.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Util.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Common.h">
-      <Filter>Cuda</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshData.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDAMemory.h">
-      <Filter>Cuda</Filter>
-    </ClInclude>
-    <ClInclude Include="Material.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Texture.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Window.h" />
-    <ClInclude Include="CUDAContext.h">
-      <Filter>Cuda</Filter>
+    <ClInclude Include="ScopedTimer.h">
+      <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="AABB.h">
       <Filter>BVH</Filter>
@@ -99,40 +110,29 @@
     <ClInclude Include="Camera.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
-    <ClInclude Include="Sky.h">
+    <ClInclude Include="MegaKernel.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
-    <ClInclude Include="MegaKernel.h">
+    <ClInclude Include="Pathtracer.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Sky.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
     <ClInclude Include="Wavefront.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
+    <ClInclude Include="Material.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshData.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
     <ClInclude Include="MBVH.h">
       <Filter>BVH</Filter>
     </ClInclude>
-    <ClInclude Include="Pathtracer.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="Cuda">
-      <UniqueIdentifier>{a4f54f2b-a390-4d7d-b120-4a13438f1cf5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Math">
-      <UniqueIdentifier>{609e9c81-27a0-455e-a02b-cede3b58af74}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Util">
-      <UniqueIdentifier>{f58db33f-0e75-4032-816e-4a1b082d4199}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Assets">
-      <UniqueIdentifier>{94ffa964-4e08-4625-8fa7-8b6ff6a47f52}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="BVH">
-      <UniqueIdentifier>{ca19624d-e9f7-4458-8ea8-45f4cb4bbb27}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Pathtracer">
-      <UniqueIdentifier>{af7aefda-a2b2-435c-a9b7-349025f02acf}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
 </Project>

@@ -39,7 +39,7 @@ namespace CUDAContext {
 		delete [] devices;
 
 		CUcontext context;
-		CUDACALL(cuGLCtxCreate(&context, 0, best_device));
+		CUDACALL(cuCtxCreate(&context, 0, best_device));
 	}
 
 	// Creates a CUDA Array that is mapped to the given GL Texture handle
