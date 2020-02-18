@@ -61,3 +61,9 @@ You can also check the Screenshots subfolder for various examples of the materia
 - http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 - https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
 - CUDA starting code was based on the provided CUDA template.
+
+## Dependencies
+
+The project uses SDL and GLEW. Their dll's for both x86 and x64 targets are included in the repositories, as well as all required headers.
+
+The project is dependent on CUDA 10.2 and requires that the ```CUDA_PATH``` system variable is set to the path where CUDA 10.2 is installed.
