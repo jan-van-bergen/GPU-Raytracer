@@ -26,7 +26,7 @@ int Texture::load(const char * file_path) {
 	texture.channels = 4;
 	
 	// Check if the Texture is valid
-	if (textures[texture_id].width == 0 || textures[texture_id].height == 0) {
+	if (texture.data == nullptr || texture.width == 0 || texture.height == 0) {
 		printf("An error occured while loading Texture '%s'!\n", file_path);
 
 		abort();

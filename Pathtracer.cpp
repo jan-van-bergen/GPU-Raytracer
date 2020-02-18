@@ -48,7 +48,7 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_POINT;
-			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
+			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
 			
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
 		}
