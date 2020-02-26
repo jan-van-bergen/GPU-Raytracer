@@ -1,4 +1,4 @@
-# Advanced-Graphics-Pathtracer
+# CUDA Pathtracer
 
 ![Sponza](Screenshots/Sponza.png "Sponza")
 ![Glass](Screenshots/Glass.png "Dielectrics")
@@ -56,11 +56,6 @@ You can also check the Screenshots subfolder for various examples of the materia
 ## Papers
 - Megakernels Considered Harmful: Wavefront Path Tracing on GPUs - Laine et al.
 - Microfacet Models for Refraction through Rough Surfaces - Walter et al.
-
-## Attribution
-- http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
-- https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
-- CUDA starting code was based on the provided CUDA template.
 
 ## Dependencies
 
