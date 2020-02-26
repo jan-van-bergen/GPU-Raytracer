@@ -200,9 +200,9 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
 	
 	// Set Blue Noise Sampler globals
-	module.get_global("sobol_256spp_256d").set_buffer(sobol_256spp_256d, 256 * 256);
-	module.get_global("scrambling_tile").set_buffer(scrambling_tile, 128*128*8);
-	module.get_global("ranking_tile").set_buffer(ranking_tile, 128*128*8);
+	module.get_global("sobol_256spp_256d").set_buffer(sobol_256spp_256d);
+	module.get_global("scrambling_tile").set_buffer(scrambling_tile);
+	module.get_global("ranking_tile").set_buffer(ranking_tile);
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);

@@ -2,17 +2,15 @@
 
 __device__ int * sobol_256spp_256d; // 256 * 256
 __device__ int * scrambling_tile;   // 128 * 128 * 8
-__device__ int * ranking_tile;      // 128 * 128 * 8
+__device__ int * ranking_tile;      // 128 * 128 * 4
 
 // Based on: A Low-Discrepancy Sampler that Distributes Monte Carlo Errors as a Blue Noise in Screen Space - Heitz et al. 19
 __device__ float random_heitz(int x, int y, int sample_index, int sample_dimension) {
 	x &= 127;
 	y &= 127;
-	sample_index     &= 255;
-	sample_dimension &= 7;
-
+	
 	// xor index based on optimized ranking
-	int ranked_sample_index = sample_index ^ ranking_tile[sample_dimension + (x + y * 128) * 8];
+	int ranked_sample_index = sample_index ^ ranking_tile[(sample_dimension + (x + y * 128) * 8) >> 1];
 
 	// fetch value in sequence
 	int value = sobol_256spp_256d[sample_dimension + ranked_sample_index * 256];

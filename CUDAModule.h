@@ -38,6 +38,11 @@ struct CUDAModule {
 
 			set_value(ptr);
 		}
+
+		template<typename T, int N>
+		inline void set_buffer(const T (& buffer)[N]) const {
+			set_buffer(buffer, N);
+		}
 	};
 
 	void init(const char * filename, int compute_capability);
