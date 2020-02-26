@@ -19,4 +19,8 @@ struct Material {
 	float index_of_refraction = 1.0f;
 
 	float roughness = 0.5f;
+
+	inline bool is_light() const {
+		return Vector3::length_squared(emission) > 0.0f;
+	}
 };

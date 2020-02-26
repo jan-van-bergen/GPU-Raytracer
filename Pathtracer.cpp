@@ -83,7 +83,7 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 		}
 
 		{
-			ScopedTimer timer("BVH Construction");
+			ScopedTimer timer("SBVH Construction");
 
 			bvh.build_sbvh();
 		}
@@ -164,11 +164,14 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
 
+	// For every Triangle, check whether it is a Light based on its Material
 	for (int i = 0; i < mesh->triangle_count; i++) {
 		const Triangle & triangle = mesh->triangles[i];
 
-		if (Vector3::length_squared(mesh->materials[triangle.material_id].emission) > 0.0f) {
-			int index = -1;
+		if (mesh->materials[triangle.material_id].is_light()) {
+			int index = INVALID;
+
+			// Apply the BVH index permutation
 			for (int j = 0; j < mbvh.leaf_count; j++) {
 				if (mbvh.indices[j] == i) {
 					index = j;
@@ -176,6 +179,8 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 					break;
 				}
 			}
+
+			assert(index != INVALID);
 
 			light_indices[light_count++] = index;
 		}
@@ -213,12 +218,6 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
 		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
 		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
-
-		//camera.position = Vector3(-1.843730f, -0.213465f, -0.398855f);
-		//camera.rotation = Quaternion(0.045417f, 0.900693f, -0.097165f, 0.421010f);
-
-		//camera.position = Vector3(-1.526055f, 0.739711f, -1.135700f);
-		//camera.rotation = Quaternion(-0.154179f, -0.830964f, 0.282224f, -0.453958f);
 	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
 		camera.position = Vector3(0.528027f, 1.004323f, 0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
@@ -239,5 +238,4 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 	} else {
 		frames_since_camera_moved++;
 	}
-
 }
