@@ -134,5 +134,8 @@
     <ClInclude Include="MBVH.h">
       <Filter>BVH</Filter>
     </ClInclude>
+    <ClInclude Include="BlueNoise.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

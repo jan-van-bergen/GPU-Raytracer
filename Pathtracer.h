@@ -7,7 +7,7 @@
 struct Pathtracer {
 protected:
 	Camera camera;
-	float frames_since_camera_moved = 0.0f;
+	int frames_since_camera_moved = -1;
 
 	CUDAModule module;
 

@@ -22,12 +22,6 @@ void MegaKernel::init(const char * scene_name, const char * sky_name, unsigned f
 }
 
 void MegaKernel::render() {
-	if (camera.moved) {
-		frames_since_camera_moved = 0.0f;
-	} else {
-		frames_since_camera_moved += 1.0f;
-	}
-	
 	global_camera_position.set_value(camera.position);
 	global_camera_top_left_corner.set_value(camera.top_left_corner_rotated);
 	global_camera_x_axis.set_value(camera.x_axis_rotated);

@@ -163,15 +163,10 @@ void Wavefront::init(const char * scene_name, const char * sky_name, unsigned fr
 }
 
 void Wavefront::render() {
-	if (camera.moved) {
-		frames_since_camera_moved = 0.0f;
-	} else {
-		frames_since_camera_moved += 1.0f;
-	}
-
 	// Generate primary Rays from the current Camera orientation
 	kernel_generate.execute(
 		rand(),
+		frames_since_camera_moved,
 		camera.position, 
 		camera.top_left_corner_rotated, 
 		camera.x_axis_rotated, 
@@ -186,12 +181,12 @@ void Wavefront::render() {
 		global_N_extend.set_value(0);
 
 		// Process the various Material types in different Kernels
-		kernel_shade_diffuse.execute(rand());
+		kernel_shade_diffuse.execute   (rand(), frames_since_camera_moved, bounce);
 		kernel_shade_dielectric.execute(rand());
-		kernel_shade_glossy.execute(rand());
+		kernel_shade_glossy.execute    (rand(), frames_since_camera_moved, bounce);
 
 		// Trace shadow Rays
-		kernel_connect.execute(rand());
+		kernel_connect.execute(rand(), frames_since_camera_moved, bounce);
 
 		global_N_diffuse.set_value(0);
 		global_N_dielectric.set_value(0);
@@ -199,5 +194,5 @@ void Wavefront::render() {
 		global_N_shadow.set_value(0);
 	}
 
-	kernel_accumulate.execute(frames_since_camera_moved);
+	kernel_accumulate.execute(float(frames_since_camera_moved));
 }

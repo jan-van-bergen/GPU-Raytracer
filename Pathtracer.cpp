@@ -11,6 +11,8 @@
 
 #include "Sky.h"
 
+#include "BlueNoise.h"
+
 #include "ScopedTimer.h"
 
 void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const char * sky_name) {
@@ -197,6 +199,11 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 	module.get_global("sky_size").set_value(sky.size);
 	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
 	
+	// Set Blue Noise Sampler globals
+	module.get_global("sobol_256spp_256d").set_buffer(sobol_256spp_256d, 256 * 256);
+	module.get_global("scrambling_tile").set_buffer(scrambling_tile, 128*128*8);
+	module.get_global("ranking_tile").set_buffer(ranking_tile, 128*128*8);
+
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
 		camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
@@ -226,4 +233,11 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 
 void Pathtracer::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
+
+	if (camera.moved) {
+		frames_since_camera_moved = 0;
+	} else {
+		frames_since_camera_moved++;
+	}
+
 }

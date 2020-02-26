@@ -8,6 +8,7 @@
 #include "Tracing.h"
 #include "Lighting.h"
 #include "Sky.h"
+#include "Random.h"
 #include "Util.h"
 
 surface<void, 2> frame_buffer;

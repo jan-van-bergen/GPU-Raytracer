@@ -8,6 +8,7 @@
 #include "Tracing.h"
 #include "Lighting.h"
 #include "Sky.h"
+#include "Sampler.h"
 #include "Util.h"
 
 surface<void, 2> frame_buffer;
@@ -101,6 +102,7 @@ __device__ int N_shadow;
 
 extern "C" __global__ void kernel_generate(
 	int rand_seed,
+	int sample_index,
 	float3 camera_position,
 	float3 camera_top_left_corner,
 	float3 camera_x_axis,
@@ -131,13 +133,15 @@ extern "C" __global__ void kernel_generate(
 	ASSERT(y < SCREEN_HEIGHT, "");
 
 	int pixel_index = x + y * SCREEN_WIDTH;
-
-	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
-	float u = x + random_float(seed);
-	float v = y + random_float(seed);
-
 	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
 
+	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
+	float u;
+	float v;
+
+	u = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
+	v = float(y) + random_float_heitz(x, y, sample_index, 0, 1, seed);
+	
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
 	ray_buffer_extend.origin.from_float3(index, camera_position);
 	ray_buffer_extend.direction.from_float3(index, normalize(camera_top_left_corner
@@ -173,11 +177,10 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 	mbvh_trace(ray, hit);
 
 	int ray_pixel_index = ray_buffer_extend.pixel_index[index];
+	int x = ray_pixel_index % SCREEN_WIDTH;
+	int y = ray_pixel_index / SCREEN_WIDTH; 
 
 	if (hit.t == INFINITY) {
-		int x = ray_pixel_index % SCREEN_WIDTH;
-		int y = ray_pixel_index / SCREEN_WIDTH; 
-
 		frame_buffer_add(x, y, ray_buffer_extend.throughput.to_float3(index) * sample_sky(ray_direction));
 
 		return;
@@ -189,7 +192,7 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 
 	// Russian Roulette termination
 	float p_survive = clamp(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)), 0.0f, 1.0f);
-	if (random_float(seed) > p_survive) {
+	if (random_float_xorshift(seed) > p_survive) {
 		return;
 	}
 
@@ -268,7 +271,7 @@ extern "C" __global__ void kernel_extend(int rand_seed) {
 	}
 }
 
-extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
+extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int sample_index, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_diffuse) return;
 
@@ -278,8 +281,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 	float ray_u = ray_buffer_shade_diffuse.u[index];
 	float ray_v = ray_buffer_shade_diffuse.v[index];
 
-	int    ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_diffuse.throughput.to_float3(index);
+	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
+	int x = ray_pixel_index % SCREEN_WIDTH;
+	int y = ray_pixel_index / SCREEN_WIDTH; 
+
+	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.to_float3(index);
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -309,7 +315,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed) {
 
 	int index_out = atomic_agg_inc(&N_extend);
 
-	float3 direction = cosine_weighted_diffuse_reflection(seed, hit_normal);
+	float3 direction = random_cosine_weighted_diffuse_reflection(x, y, sample_index, bounce, seed, hit_normal);
 
 	ray_buffer_extend.origin.from_float3(index_out, hit_point);
 	ray_buffer_extend.direction.from_float3(index_out, direction);
@@ -333,8 +339,11 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed) {
 	float ray_u = ray_buffer_shade_dielectric.u[index];
 	float ray_v = ray_buffer_shade_dielectric.v[index];
 
-	int    ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_dielectric.throughput.to_float3(index);
+	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
+	int x = ray_pixel_index % SCREEN_WIDTH;
+	int y = ray_pixel_index / SCREEN_WIDTH; 
+
+	float3 ray_throughput = ray_buffer_shade_dielectric.throughput.to_float3(index);
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -400,7 +409,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed) {
 
 		float F_r = r_0 + ((1.0f - r_0) * one_minus_cos_squared) * (one_minus_cos_squared * one_minus_cos);
 
-		if (random_float(seed) < F_r) {
+		if (random_float_xorshift(seed) < F_r) {
 			direction = direction_reflected;
 		} else {
 			direction = direction_refracted;
@@ -416,7 +425,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed) {
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
 
-extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
+extern "C" __global__ void kernel_shade_glossy(int rand_seed, int sample_index, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_glossy) return;
 
@@ -426,8 +435,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 	float ray_u = ray_buffer_shade_glossy.u[index];
 	float ray_v = ray_buffer_shade_glossy.v[index];
 
-	int    ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_glossy.throughput.to_float3(index);
+	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
+	int x = ray_pixel_index % SCREEN_WIDTH;
+	int y = ray_pixel_index / SCREEN_WIDTH; 
+
+	float3 ray_throughput = ray_buffer_shade_glossy.throughput.to_float3(index);
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -461,8 +473,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 	float alpha = (1.2f - 0.2f * sqrt(dot(direction_in, hit_normal))) * material.roughness;
 	
 	// Sample normal distribution in spherical coordinates
-	float theta = atan(sqrt(-alpha * alpha * log(random_float(seed) + 1e-8f)));
-	float phi   = TWO_PI * random_float(seed);
+	float theta = atan(sqrt(-alpha * alpha * log(random_float_heitz(x, y, sample_index, bounce, 4, seed) + 1e-8f)));
+	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 5, seed);
 
 	float sin_theta, cos_theta;
 	float sin_phi,   cos_phi;
@@ -503,7 +515,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed) {
 	ray_buffer_extend.last_pdf[index_out] = D * m_dot_n / (4.0f * dot(micro_normal_world, direction_in));
 }
 
-extern "C" __global__ void kernel_connect(int rand_seed) {
+extern "C" __global__ void kernel_connect(int rand_seed, int sample_index, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= N_shadow) return;
 
@@ -511,19 +523,22 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 	float ray_u = ray_buffer_connect.u[index];
 	float ray_v = ray_buffer_connect.v[index];
 
-	int    ray_pixel_index = ray_buffer_connect.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_connect.throughput.to_float3(index);
+	int ray_pixel_index = ray_buffer_connect.pixel_index[index];
+	int x = ray_pixel_index % SCREEN_WIDTH;
+	int y = ray_pixel_index / SCREEN_WIDTH; 
+
+	float3 ray_throughput = ray_buffer_connect.throughput.to_float3(index);
 
 	unsigned seed = (index + rand_seed * 390292093) * 162898261;
 
 	// Pick a random light emitting triangle
-	int light_triangle_id = light_indices[rand_xorshift(seed) % light_count];
+	int light_triangle_id = light_indices[random_xorshift(seed) % light_count];
 
 	ASSERT(length(materials[triangles_material_id[light_triangle_id]].emission) > 0.0f, "Material was not emissive!\n");
 
 	// Pick a random point on the triangle using random barycentric coordinates
-	float u = random_float(seed);
-	float v = random_float(seed);
+	float u = random_float_heitz(x, y, sample_index, bounce, 6, seed);
+	float v = random_float_heitz(x, y, sample_index, bounce, 7, seed);
 
 	if (u + v > 1.0f) {
 		u = 1.0f - u;
@@ -604,9 +619,6 @@ extern "C" __global__ void kernel_connect(int rand_seed) {
 			float light_pdf = distance_to_light_squared / (cos_o * light_area); // 1 / solid_angle
 			
 			float mis_pdf = brdf_pdf + light_pdf;
-
-			int x = ray_pixel_index % SCREEN_WIDTH;
-			int y = ray_pixel_index / SCREEN_WIDTH; 
 
 			frame_buffer_add(x, y, hit_material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ray_throughput * brdf * light_count * light_material.emission / mis_pdf);
 		}
