@@ -6,13 +6,10 @@
 
 #include "ScopedTimer.h"
 
-#include "MegaKernel.h"
-#include "Wavefront.h"
+#include "Pathtracer.h"
 
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
-
-#define PATH_TRACER Wavefront // Choose between Wavefront and MegaKernel
 
 #define TOTAL_TIMING_COUNT 1000
 float timings[TOTAL_TIMING_COUNT];
@@ -34,7 +31,7 @@ int main(int argument_count, char ** arguments) {
 	const char * scene_filename = DATA_PATH("sponza/sponza.obj");
 	const char * sky_filename   = DATA_PATH("Sky_Probes/rnl_probe.float");
 
-	PATH_TRACER pathtracer;
+	Pathtracer pathtracer;
 	pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
 
 	srand(1337);

@@ -15,16 +15,10 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="MegaKernel.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
     <ClCompile Include="Pathtracer.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
     <ClCompile Include="Sky.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Wavefront.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
     <ClCompile Include="MeshData.cpp">
@@ -110,16 +104,10 @@
     <ClInclude Include="Camera.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
-    <ClInclude Include="MegaKernel.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
     <ClInclude Include="Pathtracer.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
     <ClInclude Include="Sky.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Wavefront.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
     <ClInclude Include="Material.h">
