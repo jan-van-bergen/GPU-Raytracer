@@ -3,6 +3,16 @@
 #include "CUDAMemory.h"
 #include "CUDAContext.h"
 
+struct BufferSizes {
+	int N_extend    [NUM_BOUNCES] = { PIXEL_COUNT, 0 }; // On the first bounce the ExtendBuffer contains exactly PIXEL_COUNT Rays
+	int N_diffuse   [NUM_BOUNCES] = { 0 };
+	int N_dielectric[NUM_BOUNCES] = { 0 };
+	int N_glossy    [NUM_BOUNCES] = { 0 };
+	int N_shadow    [NUM_BOUNCES] = { 0 };
+};
+
+static BufferSizes buffer_sizes;
+
 void Wavefront::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
 	Pathtracer::init("CUDA_Source/wavefront.cu", scene_name, sky_name);
 
@@ -122,16 +132,8 @@ void Wavefront::init(const char * scene_name, const char * sky_name, unsigned fr
 	module.get_global("ray_buffer_shade_glossy").set_value    (ray_buffer_shade_glossy);
 	module.get_global("ray_buffer_connect").set_value         (ray_buffer_connect);
 
-	global_N_extend     = module.get_global("N_extend");
-	global_N_diffuse    = module.get_global("N_diffuse");
-	global_N_dielectric = module.get_global("N_dielectric");
-	global_N_glossy     = module.get_global("N_glossy");
-	global_N_shadow     = module.get_global("N_shadow");
-	
-	global_N_diffuse.set_value   (0);
-	global_N_dielectric.set_value(0);
-	global_N_glossy.set_value    (0);
-	global_N_shadow.set_value    (0);
+	global_buffer_sizes = module.get_global("buffer_sizes");
+	global_buffer_sizes.set_value(buffer_sizes);
 
 	kernel_generate.init        (&module, "kernel_generate");
 	kernel_extend.init          (&module, "kernel_extend");
@@ -173,25 +175,19 @@ void Wavefront::render() {
 		camera.y_axis_rotated
 	);
 
-	global_N_extend.set_value(PIXEL_COUNT);
+	global_buffer_sizes.set_value(buffer_sizes);
 
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
-		kernel_extend.execute(rand());
-		global_N_extend.set_value(0);
+		kernel_extend.execute(rand(), bounce);
 
 		// Process the various Material types in different Kernels
-		kernel_shade_diffuse.execute   (rand(), frames_since_camera_moved, bounce);
-		kernel_shade_dielectric.execute(rand());
-		kernel_shade_glossy.execute    (rand(), frames_since_camera_moved, bounce);
+		kernel_shade_diffuse.execute   (rand(), bounce, frames_since_camera_moved);
+		kernel_shade_dielectric.execute(rand(), bounce);
+		kernel_shade_glossy.execute    (rand(), bounce, frames_since_camera_moved);
 
 		// Trace shadow Rays
 		kernel_connect.execute(rand(), frames_since_camera_moved, bounce);
-
-		global_N_diffuse.set_value(0);
-		global_N_dielectric.set_value(0);
-		global_N_glossy.set_value(0);
-		global_N_shadow.set_value(0);
 	}
 
 	kernel_accumulate.execute(float(frames_since_camera_moved));
