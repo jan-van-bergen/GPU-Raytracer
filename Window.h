@@ -21,17 +21,10 @@ struct Window {
 	
 	GLuint frame_buffer_handle;
 
-	const int width;
-	const int height;
-	
 	bool is_closed = false;
 
-	Window(int width, int height, const char * title);
+	Window(const char * title);
 	~Window();
 
 	void update();
-
-	inline void set_title(const char * title) {
-		SDL_SetWindowTitle(window, title);
-	}
 };

@@ -1,6 +1,6 @@
 #include "Window.h"
 
-Window::Window(int width, int height, const char * title) : width(width), height(height)
+Window::Window(const char * title)
 {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -13,7 +13,7 @@ Window::Window(int width, int height, const char * title) : width(width), height
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
 	context = SDL_GL_CreateContext(window);
 
 	SDL_GL_SetSwapInterval(0);
@@ -30,7 +30,7 @@ Window::Window(int width, int height, const char * title) : width(width), height
 
 	glEnable(GL_FRAMEBUFFER_SRGB);
 
-	glViewport(0, 0, width, height);
+	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 4.0f);
@@ -40,7 +40,7 @@ Window::Window(int width, int height, const char * title) : width(width), height
 	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
 
 	// Setup camera
 	glMatrixMode(GL_MODELVIEW);
