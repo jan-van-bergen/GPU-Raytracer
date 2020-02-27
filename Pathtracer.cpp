@@ -168,7 +168,7 @@ void Pathtracer::init(const char * cuda_src_name, const char * scene_name, const
 	for (int i = 0; i < mesh->triangle_count; i++) {
 		const Triangle & triangle = mesh->triangles[i];
 
-		if (mesh->materials[triangle.material_id].is_light()) {
+		if (mesh->materials[triangle.material_id].type == Material::Type::LIGHT) {
 			int index = INVALID;
 
 			// Apply the BVH index permutation
