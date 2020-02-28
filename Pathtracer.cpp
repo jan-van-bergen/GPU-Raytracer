@@ -110,7 +110,7 @@ static struct ShadowRayBuffer {
 };
 
 static struct BufferSizes {
-	int N_extend    [NUM_BOUNCES] = { PIXEL_COUNT, 0 }; // On the first bounce the ExtendBuffer contains exactly PIXEL_COUNT Rays
+	int N_extend    [NUM_BOUNCES] = { PIXEL_COUNT }; // On the first bounce the ExtendBuffer contains exactly PIXEL_COUNT Rays
 	int N_diffuse   [NUM_BOUNCES] = { 0 };
 	int N_dielectric[NUM_BOUNCES] = { 0 };
 	int N_glossy    [NUM_BOUNCES] = { 0 };
