@@ -17,7 +17,8 @@ static std::vector<std::string> get_includes(const std::string & filename) {
 
 	std::ifstream input(filename);
 
-	for (std::string line; getline(input, line); ) {
+	std::string line;
+	while (getline(input, line)) {
 		if (line.rfind("#include \"", 0) == 0) {
 			result.push_back(line.substr(10, line.length() - 11));
 		}
