@@ -34,7 +34,7 @@ When tracing non-shadow rays (i.e. looking for indirect light) the BRDF is impor
 
 ### MBVH
 
-Instead of a binary BVH, the Pathtracer uses a 4-way MBVH (also known as a QBVH). This MBVH is constructed by iteratively collapsing the Nodes of a binary SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](Getting Rid of Packets– Efficient SIMD Single-Ray Traversal using Multi-branching BVHs).
+Instead of a binary BVH, the Pathtracer uses a 4-way MBVH (also known as a QBVH). This MBVH is constructed by iteratively collapsing the Nodes of a binary SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
 
 ## Dependencies
 
