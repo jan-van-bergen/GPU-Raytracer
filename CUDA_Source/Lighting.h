@@ -55,7 +55,7 @@ __device__ float beckmann_D(float m_dot_n, float alpha) {
 	float cos2_theta_m = cos_theta_m  * cos_theta_m;
 	float cos4_theta_m = cos2_theta_m * cos2_theta_m;
 
-	float tan2_theta_m  = max(0.0f, 1.0f - cos2_theta_m) / cos2_theta_m; // tan^2(x) = sec^2(x) - 1 = (1 - cos^2(x)) / cos^2(x)
+	float tan2_theta_m = max(0.0f, 1.0f - cos2_theta_m) / cos2_theta_m; // tan^2(x) = sec^2(x) - 1 = (1 - cos^2(x)) / cos^2(x)
 
 	float alpha2 = alpha * alpha;
 
