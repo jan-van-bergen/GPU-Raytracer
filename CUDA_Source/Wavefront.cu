@@ -140,11 +140,8 @@ extern "C" __global__ void kernel_generate(
 	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
 
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
-	float u;
-	float v;
-
-	u = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
-	v = float(y) + random_float_heitz(x, y, sample_index, 0, 1, seed);
+	float u = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
+	float v = float(y) + random_float_heitz(x, y, sample_index, 0, 1, seed);
 	
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
 	ray_buffer_extend.origin.from_float3(index, camera_position);
@@ -523,7 +520,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_extend.last_pdf[index_out] = D * m_dot_n / (4.0f * dot(micro_normal_world, direction_in));
 }
 
-extern "C" __global__ void kernel_connect(int rand_seed, int sample_index, int bounce) {
+extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.N_shadow[bounce]) return;
 

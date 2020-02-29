@@ -9,6 +9,8 @@ private:
 	Camera camera;
 	int frames_since_camera_moved = -1;
 
+	CUstream stream;
+
 	CUDAModule module;
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_extend;

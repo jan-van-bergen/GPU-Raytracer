@@ -21,6 +21,11 @@ struct CUDAModule {
 		}
 
 		template<typename T>
+		inline void set_value_async(const T & value, CUstream stream) const {
+			CUDACALL(cuMemcpyHtoDAsync(ptr, &value, sizeof(T), stream));
+		}
+
+		template<typename T>
 		inline T get_value() const {
 			T result;
 			CUDACALL(cuMemcpyDtoH(&result, ptr, sizeof(T)));

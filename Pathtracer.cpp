@@ -329,6 +329,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	ray_buffer_shade_glossy.init    (PIXEL_COUNT);
 	ray_buffer_connect.init         (PIXEL_COUNT);
 
+	CUDACALL(cuStreamCreate(&stream, CU_STREAM_NON_BLOCKING));
+
 	module.get_global("ray_buffer_extend").set_value          (ray_buffer_extend);
 	module.get_global("ray_buffer_shade_diffuse").set_value   (ray_buffer_shade_diffuse);
 	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
@@ -398,6 +400,9 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 }
 
 void Pathtracer::render() {
+	// Sync Main stream
+	CUDACALL(cuStreamSynchronize(nullptr));
+
 	// Generate primary Rays from the current Camera orientation
 	kernel_generate.execute(
 		rand(),
@@ -407,9 +412,10 @@ void Pathtracer::render() {
 		camera.x_axis_rotated, 
 		camera.y_axis_rotated
 	);
-
-	global_buffer_sizes.set_value(buffer_sizes);
-
+	
+	// Sync Async Memcpy stream
+	CUDACALL(cuStreamSynchronize(stream));
+	
 	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute(rand(), bounce);
@@ -420,8 +426,12 @@ void Pathtracer::render() {
 		kernel_shade_glossy.execute    (rand(), bounce, frames_since_camera_moved);
 
 		// Trace shadow Rays
-		kernel_connect.execute(rand(), frames_since_camera_moved, bounce);
+		kernel_connect.execute(rand(), bounce, frames_since_camera_moved);
 	}
-
+	
+	// Reset buffer sizes to default for next frame
+	global_buffer_sizes.set_value_async(buffer_sizes, stream);
+	
+	// Accumulate FrameBuffer temporally
 	kernel_accumulate.execute(float(frames_since_camera_moved));
 }

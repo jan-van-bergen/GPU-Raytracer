@@ -11,7 +11,7 @@
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
-#define TOTAL_TIMING_COUNT 1000
+#define TOTAL_TIMING_COUNT 100
 float timings[TOTAL_TIMING_COUNT];
 int   current_frame = 0;
 
