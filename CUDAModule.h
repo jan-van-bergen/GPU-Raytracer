@@ -11,8 +11,6 @@ struct CUDAModule {
 	CUmodule module;
 	
 	struct Global {
-		const char * name;
-
 		CUdeviceptr ptr;
 		
 		template<typename T>

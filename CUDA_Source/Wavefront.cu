@@ -181,6 +181,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	int x = ray_pixel_index % SCREEN_WIDTH;
 	int y = ray_pixel_index / SCREEN_WIDTH; 
 
+	// If we didn't hit anything, sample the Sky
 	if (hit.t == INFINITY) {
 		frame_buffer_add(x, y, ray_buffer_extend.throughput.to_float3(index) * sample_sky(ray_direction));
 

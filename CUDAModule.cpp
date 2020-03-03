@@ -7,6 +7,8 @@
 #include <fstream>
 #include <filesystem>
 
+#include <nvrtc.h>
+
 #include "CUDAMemory.h"
 
 #include "Util.h"
@@ -117,10 +119,9 @@ void CUDAModule::set_texture(const char * texture_name, const Texture * texture)
 
 CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {
 	Global global;
-	global.name = variable_name;
 
 	size_t size;
-	CUDACALL(cuModuleGetGlobal(&global.ptr, &size, module, global.name));
+	CUDACALL(cuModuleGetGlobal(&global.ptr, &size, module, variable_name));
 
 	return global;
 }

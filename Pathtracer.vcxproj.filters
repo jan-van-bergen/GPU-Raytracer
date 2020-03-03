@@ -27,6 +27,9 @@
     <ClCompile Include="Texture.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
+    <ClCompile Include="Shader.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -124,6 +127,9 @@
     </ClInclude>
     <ClInclude Include="BlueNoise.h">
       <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

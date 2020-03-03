@@ -1,7 +1,9 @@
 #include "Window.h"
 
-Window::Window(const char * title)
-{
+#include "Util.h"
+#include "Shader.h"
+
+Window::Window(const char * title) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
@@ -28,13 +30,6 @@ Window::Window(const char * title)
 	glDisable(GL_DEPTH_TEST);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
-	glEnable(GL_FRAMEBUFFER_SRGB);
-
-	glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 4.0f);
-
 	glGenTextures(1, &frame_buffer_handle);
 
 	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
@@ -42,11 +37,10 @@ Window::Window(const char * title)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	// Setup camera
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
+	Shader shader = Shader::load(DATA_PATH("Shaders/vertex.glsl"), DATA_PATH("Shaders/fragment.glsl"));
+	shader.bind();
+	
+	glUniform1i(shader.get_uniform("screen"), 0);
 }
 
 Window::~Window() {
@@ -58,13 +52,9 @@ Window::~Window() {
 void Window::update() {
 	glClear(GL_COLOR_BUFFER_BIT);
 	
-	// Draw screen filling quad
-	glBegin(GL_QUADS);
-	glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0f, -1.0f);
-	glTexCoord2f(1.0f, 1.0f); glVertex2f( 1.0f, -1.0f);
-	glTexCoord2f(1.0f, 0.0f); glVertex2f( 1.0f,  1.0f);
-	glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0f,  1.0f);
-	glEnd();
+	// Draws a single Triangle, without any buffers
+	// The Vertex Shader makes sure positions + uvs work out
+	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 	SDL_GL_SwapWindow(window);
 
