@@ -341,5 +341,8 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 
+# Bounding Volume Hierarchy binary
+*.bvh'
+
 # Cuda Binary
 *.cubin

@@ -17,9 +17,9 @@ struct Triangle {
 	Vector3 normal1;
 	Vector3 normal2;
 
-	alignas(8) Vector2 tex_coord0;
-	alignas(8) Vector2 tex_coord1;
-	alignas(8) Vector2 tex_coord2;
+	Vector2 tex_coord0;
+	Vector2 tex_coord1;
+	Vector2 tex_coord2;
 
 	int material_id = -1;
 
