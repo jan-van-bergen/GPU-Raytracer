@@ -207,8 +207,8 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 		int x = ray_pixel_index % SCREEN_WIDTH;
 		int y = ray_pixel_index / SCREEN_WIDTH; 
 
-		if ((ray_buffer_extend.last_material_type[index] == Material::Type::DIELECTRIC) ||
-			(ray_buffer_extend.last_material_type[index] == Material::Type::GLOSSY && material.roughness < ROUGHNESS_CUTOFF)) {
+		if ((ray_buffer_extend.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
+			(ray_buffer_extend.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
 			frame_buffer_add(x, y, ray_throughput * material.emission);
 
 			return;

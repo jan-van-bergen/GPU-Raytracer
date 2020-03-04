@@ -15,7 +15,7 @@ __device__ Material            * materials;
 __device__ cudaTextureObject_t * textures;
 
 struct Material {
-	enum Type : char{
+	enum class Type : char {
 		LIGHT      = 0,
 		DIFFUSE    = 1,
 		DIELECTRIC = 2,
