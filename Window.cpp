@@ -1,7 +1,6 @@
 #include "Window.h"
 
 #include "Util.h"
-#include "Shader.h"
 
 Window::Window(const char * title) {
 	SDL_Init(SDL_INIT_EVERYTHING);
@@ -27,7 +26,7 @@ Window::Window(const char * title) {
 	}
 
 	glEnable(GL_TEXTURE_2D);
-	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
 	glGenTextures(1, &frame_buffer_handle);
@@ -37,7 +36,7 @@ Window::Window(const char * title) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	Shader shader = Shader::load(DATA_PATH("Shaders/vertex.glsl"), DATA_PATH("Shaders/fragment.glsl"));
+	shader = Shader::load(DATA_PATH("Shaders/screen_vertex.glsl"), DATA_PATH("Shaders/screen_fragment.glsl"));
 	shader.bind();
 	
 	glUniform1i(shader.get_uniform("screen"), 0);
@@ -49,12 +48,20 @@ Window::~Window() {
 	SDL_Quit();
 }
 
-void Window::update() {
-	glClear(GL_COLOR_BUFFER_BIT);
-	
-	// Draws a single Triangle, without any buffers
-	// The Vertex Shader makes sure positions + uvs work out
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+void Window::clear() const {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Window::update(bool rasterize) {
+	if (!rasterize) {
+		shader.bind();
+
+		// Draws a single Triangle, without any buffers
+		// The Vertex Shader makes sure positions + uvs work out
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		shader.unbind();
+	}
 
 	SDL_GL_SwapWindow(window);
 

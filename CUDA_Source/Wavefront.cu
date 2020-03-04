@@ -60,7 +60,7 @@ struct ExtendBuffer {
 // Input to the various Shade Kernels in SoA layout
 struct MaterialBuffer {
 	// Ray related
-	Vector3 direction;
+	Vector3 direction;	
 	
 	// Hit related
 	int   * triangle_id;

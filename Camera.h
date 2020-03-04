@@ -1,6 +1,7 @@
 #pragma once
 #include "Vector3.h"
 #include "Quaternion.h"
+#include "Matrix4.h"
 
 #include "Util.h"
 
@@ -14,7 +15,12 @@ struct Camera {
 	Vector3 x_axis,          x_axis_rotated;
 	Vector3 y_axis,          y_axis_rotated;
 
+	Matrix4 projection;
+	Matrix4 view_projection;
+
 	bool moved;
+
+	bool debug_rasterize = true;
 
 	inline void init(float fov) {
 		this->fov = fov;

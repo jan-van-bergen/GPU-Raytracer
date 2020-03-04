@@ -230,9 +230,9 @@ namespace BVHPartitions {
 				const Triangle & triangle = triangles[indices[dimension][i]];
 				
 				Vector3 vertices[3] = { 
-					triangle.position0,
-					triangle.position1, 
-					triangle.position2 
+					triangle.position_0,
+					triangle.position_1, 
+					triangle.position_2 
 				};
 				
 				// Sort the vertices along the current dimension using unrolled Bubble Sort

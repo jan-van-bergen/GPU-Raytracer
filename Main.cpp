@@ -40,10 +40,12 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
+		window.clear();
+
 		pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
 		pathtracer.render();
 
-		window.update();
+		window.update(pathtracer.camera.debug_rasterize);
 
 		// Perform frame timing
 		now = SDL_GetPerformanceCounter();

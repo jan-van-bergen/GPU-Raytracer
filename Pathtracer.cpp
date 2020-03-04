@@ -15,6 +15,13 @@
 
 #include "ScopedTimer.h"
 
+struct Vertex {
+	Vector3 position;
+	Vector3 normal;
+	Vector2 uv;
+	int triangle_id;
+};
+
 static struct ExtendBuffer {
 	CUDAMemory::Ptr<float> origin_x;
 	CUDAMemory::Ptr<float> origin_y;
@@ -179,9 +186,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 		for (int i = 0; i < bvh.primitive_count; i++) {
 			Vector3 vertices[3] = { 
-				bvh.primitives[i].position0, 
-				bvh.primitives[i].position1, 
-				bvh.primitives[i].position2
+				bvh.primitives[i].position_0, 
+				bvh.primitives[i].position_1, 
+				bvh.primitives[i].position_2
 			};
 			bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
 		}
@@ -221,17 +228,17 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	int * triangles_material_id = new int[mbvh.leaf_count];
 
 	for (int i = 0; i < mbvh.leaf_count; i++) {
-		triangles_position0[i]      = flat_triangles[i].position0;
-		triangles_position_edge1[i] = flat_triangles[i].position1 - flat_triangles[i].position0;
-		triangles_position_edge2[i] = flat_triangles[i].position2 - flat_triangles[i].position0;
+		triangles_position0[i]      = flat_triangles[i].position_0;
+		triangles_position_edge1[i] = flat_triangles[i].position_1 - flat_triangles[i].position_0;
+		triangles_position_edge2[i] = flat_triangles[i].position_2 - flat_triangles[i].position_0;
 
-		triangles_normal0[i]      = flat_triangles[i].normal0;
-		triangles_normal_edge1[i] = flat_triangles[i].normal1 - flat_triangles[i].normal0;
-		triangles_normal_edge2[i] = flat_triangles[i].normal2 - flat_triangles[i].normal0;
+		triangles_normal0[i]      = flat_triangles[i].normal_0;
+		triangles_normal_edge1[i] = flat_triangles[i].normal_1 - flat_triangles[i].normal_0;
+		triangles_normal_edge2[i] = flat_triangles[i].normal_2 - flat_triangles[i].normal_0;
 
-		triangles_tex_coord0[i]      = flat_triangles[i].tex_coord0;
-		triangles_tex_coord_edge1[i] = flat_triangles[i].tex_coord1 - flat_triangles[i].tex_coord0;
-		triangles_tex_coord_edge2[i] = flat_triangles[i].tex_coord2 - flat_triangles[i].tex_coord0;
+		triangles_tex_coord0[i]      = flat_triangles[i].tex_coord_0;
+		triangles_tex_coord_edge1[i] = flat_triangles[i].tex_coord_1 - flat_triangles[i].tex_coord_0;
+		triangles_tex_coord_edge2[i] = flat_triangles[i].tex_coord_2 - flat_triangles[i].tex_coord_0;
 
 		triangles_material_id[i] = flat_triangles[i].material_id;
 	}
@@ -264,6 +271,45 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] triangles_tex_coord_edge1;
 	delete [] triangles_tex_coord_edge2;
 	delete [] triangles_material_id;
+
+	vertex_count = mbvh.primitive_count * 3;
+	Vertex * vertices = new Vertex[vertex_count];
+
+	for (int i = 0; i < mbvh.primitive_count; i++) {
+		int index_0 = 3 * i;
+		int index_1 = 3 * i + 1;
+		int index_2 = 3 * i + 2;
+
+		vertices[index_0].position = mbvh.primitives[i].position_0;
+		vertices[index_1].position = mbvh.primitives[i].position_1;
+		vertices[index_2].position = mbvh.primitives[i].position_2;
+
+		vertices[index_0].normal = mbvh.primitives[i].normal_0;
+		vertices[index_1].normal = mbvh.primitives[i].normal_1;
+		vertices[index_2].normal = mbvh.primitives[i].normal_2;
+
+		// Barycentric coordinates
+		vertices[index_0].uv = Vector2(0.0f, 0.0f);
+		vertices[index_1].uv = Vector2(1.0f, 0.0f);
+		vertices[index_2].uv = Vector2(0.0f, 1.0f);
+
+		vertices[index_0].triangle_id = i;
+		vertices[index_1].triangle_id = i;
+		vertices[index_2].triangle_id = i;
+	}
+
+	GLuint vbo;
+	glGenBuffers(1, &vbo);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
+
+	delete [] vertices;
+	
+	shader = Shader::load(DATA_PATH("Shaders/primary_vertex.glsl"), DATA_PATH("Shaders/primary_fragment.glsl"));
+
+	shader.bind();
+	uniform_view_projection = shader.get_uniform("view_projection");
 
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
@@ -369,22 +415,22 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	);
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
-		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
+		camera.position = Vector3(-14.875896f, 5.407789f, -22.486183f);
 		camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
 	} else if (strcmp(scene_name, DATA_PATH("sponza/sponza.obj")) == 0) {
-		camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
-		camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
+		camera.position = Vector3(2.698714f, 39.508224f, -15.633610f);
+		camera.rotation = Quaternion(0.000000f, 0.891950f, 0.000000f, 0.452135f);
 	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
 		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
 		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
 	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
-		camera.position = Vector3(0.528027f, 1.004323f, 0.774033f);
+		camera.position = Vector3(0.528027f, 1.004323f, -0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
 	} else if (strcmp(scene_name, DATA_PATH("glossy.obj")) == 0) {
-		camera.position = Vector3(9.467193f, 5.919240f, -0.646071f);
+		camera.position = Vector3(9.467193f, 5.919240f, 0.646071f);
 		camera.rotation = Quaternion(0.179088f, -0.677310f, 0.175366f, 0.691683f);
 	} else {
-		camera.position = Vector3(1.272743f, 3.097532f, 3.189943f);
+		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
 	}
 }
@@ -400,6 +446,33 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 }
 
 void Pathtracer::render() {
+	if (camera.debug_rasterize) {
+		shader.bind();
+
+		glUniformMatrix4fv(uniform_view_projection, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
+
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
+		glEnableVertexAttribArray(3);
+
+		glVertexAttribPointer (0, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, position)));
+		glVertexAttribPointer (1, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, normal)));
+		glVertexAttribPointer (2, 2, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, uv)));
+		glVertexAttribIPointer(3, 1, GL_INT,          sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, triangle_id)));
+
+		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+	
+		glDisableVertexAttribArray(3);
+		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(0);
+
+		shader.unbind();
+
+		return;
+	}
+
 	// Sync Main stream
 	CUDACALL(cuStreamSynchronize(nullptr));
 

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "Vector3.h"
+#include "Quaternion.h"
 
 struct Matrix4 {
 	float cells[16];
@@ -42,6 +43,68 @@ struct Matrix4 {
 			matrix(0, 1) * direction.x + matrix(1, 1) * direction.y + matrix(2, 1) * direction.z,
 			matrix(0, 2) * direction.x + matrix(1, 2) * direction.y + matrix(2, 2) * direction.z
 		);
+	}
+
+	inline static Matrix4 create_translation(const Vector3 & translation) {
+		Matrix4 result;
+		result(3, 0) = translation.x;
+		result(3, 1) = translation.y;
+		result(3, 2) = translation.z;
+
+		return result;
+	}
+
+	inline static Matrix4 create_rotation(const Quaternion & rotation) {
+		float xx = rotation.x * rotation.x;
+		float yy = rotation.y * rotation.y;
+		float zz = rotation.z * rotation.z;
+		float xz = rotation.x * rotation.z;
+		float xy = rotation.x * rotation.y;
+		float yz = rotation.y * rotation.z;
+		float wx = rotation.w * rotation.x;
+		float wy = rotation.w * rotation.y;
+		float wz = rotation.w * rotation.z;
+
+		Matrix4 result;
+		result(0, 0) = 1.0f - 2.0f * (yy + zz);
+		result(0, 1) =        2.0f * (xy + wz);
+		result(0, 2) =        2.0f * (xz - wy);
+		
+		result(1, 0) =        2.0f * (xy - wz);
+		result(1, 1) = 1.0f - 2.0f * (xx + zz);
+		result(1, 2) =        2.0f * (yz + wx);
+		
+		result(2, 0) =        2.0f * (xz + wy);
+		result(2, 1) =        2.0f * (yz - wx);
+		result(2, 2) = 1.0f - 2.0f * (xx + yy);
+		
+		return result;
+	}
+
+	inline static Matrix4 perspective(float fov, float aspect, float near, float far) {
+		float tan_half_fov = tanf(0.5f * fov);
+
+		Matrix4 result;
+		result(0, 0) = 1.0f / (aspect * tan_half_fov);
+		result(1, 1) = 1.0f / tan_half_fov;
+		result(2, 2) = -(far + near) / (far - near);
+		result(2, 3) = -1.0f;
+		result(3, 2) = -2.0f * (far * near) / (far - near);
+		result(3, 3) = 0.0f;
+
+		return result;
+	}
+
+	inline static Matrix4 transpose(const Matrix4 & matrix) {
+		Matrix4 result;
+
+		for (int j = 0; j < 4; j++) {
+			for (int i = 0; i < 4; i++) {
+				result(i, j) = matrix(j, i);
+			}
+		}
+
+		return result;
 	}
 
 	// Based on: http://stackoverflow.com/questions/1148309/inverting-a-4x4-matrix
