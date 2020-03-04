@@ -11,7 +11,8 @@ struct Vector3 {
 	};
 
 	inline Vector3() : x(0.0f), y(0.0f), z(0.0f) { }
-	inline Vector3(float f) : x(f), y(f), z(f) {}
+	inline Vector3(float f) : x(f), y(f), z(f) { }
+	inline Vector3(const float f[3]) : x(f[0]), y(f[1]), z(f[2]) { }
 	inline Vector3(float x, float y, float z) : x(x), y(y), z(z) { }
 
 	inline static float length_squared(const Vector3 & vector) {
