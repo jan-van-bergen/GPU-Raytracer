@@ -209,9 +209,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
 	// (This does mean more memory consumption)
-	Triangle * flat_triangles = new Triangle[mbvh.leaf_count];
+	Triangle * flat_triangles  = new Triangle[mbvh.leaf_count];
+	int      * reverse_indices = new int     [mbvh.leaf_count];
+
 	for (int i = 0; i < mbvh.leaf_count; i++) {
 		flat_triangles[i] = mbvh.primitives[mbvh.indices[i]];
+
+		reverse_indices[mbvh.indices[i]] = i;
 	}
 
 	// Allocate Triangles in SoA format
@@ -295,22 +299,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		vertices[index_1].uv = Vector2(1.0f, 0.0f);
 		vertices[index_2].uv = Vector2(0.0f, 1.0f);
 
-		int index = INVALID;
-
-		// Apply the BVH index permutation
-		for (int j = 0; j < mbvh.leaf_count; j++) {
-			if (mbvh.indices[j] == i) {
-				index = j;
-
-				break;
-			}
-		}
-
-		assert(index != INVALID);
-
-		vertices[index_0].triangle_id = index;
-		vertices[index_1].triangle_id = index;
-		vertices[index_2].triangle_id = index;
+		vertices[index_0].triangle_id = reverse_indices[i];
+		vertices[index_1].triangle_id = reverse_indices[i];
+		vertices[index_2].triangle_id = reverse_indices[i];
 	}
 
 	GLuint vbo;
@@ -341,20 +332,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		const Triangle & triangle = mesh->triangles[i];
 
 		if (mesh->materials[triangle.material_id].type == Material::Type::LIGHT) {
-			int index = INVALID;
-
-			// Apply the BVH index permutation
-			for (int j = 0; j < mbvh.leaf_count; j++) {
-				if (mbvh.indices[j] == i) {
-					index = j;
-
-					break;
-				}
-			}
-
-			assert(index != INVALID);
-
-			light_indices[light_count++] = index;
+			light_indices[light_count++] = reverse_indices[i];
 		}
 	}
 	
