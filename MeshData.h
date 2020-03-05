@@ -9,22 +9,22 @@
 struct Triangle {
 	AABB aabb;
 
-	Vector3 position0;
-	Vector3 position1;
-	Vector3 position2;
+	Vector3 position_0;
+	Vector3 position_1;
+	Vector3 position_2;
 
-	Vector3 normal0;
-	Vector3 normal1;
-	Vector3 normal2;
+	Vector3 normal_0;
+	Vector3 normal_1;
+	Vector3 normal_2;
 
-	Vector2 tex_coord0;
-	Vector2 tex_coord1;
-	Vector2 tex_coord2;
+	Vector2 tex_coord_0;
+	Vector2 tex_coord_1;
+	Vector2 tex_coord_2;
 
 	int material_id = -1;
 
 	Vector3 get_position() const {
-		return (position0 + position1 + position2) * 0.333333333333333f;
+		return (position_0 + position_1 + position_2) * 0.333333333333333f;
 	}
 };
 

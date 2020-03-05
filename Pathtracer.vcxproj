@@ -188,6 +188,7 @@
     <ClCompile Include="AABB.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CUDAModule.cpp" />
+    <ClCompile Include="GBuffer.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="Pathtracer.cpp" />
@@ -210,6 +211,7 @@
     <ClInclude Include="CUDAKernel.h" />
     <ClInclude Include="CUDAMemory.h" />
     <ClInclude Include="CUDAModule.h" />
+    <ClInclude Include="GBuffer.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="Math.h" />
     <ClInclude Include="Matrix4.h" />

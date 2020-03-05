@@ -4,6 +4,8 @@
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 
+#include "Shader.h"
+
 struct Pathtracer {
 private:
 	Camera camera;
@@ -12,6 +14,7 @@ private:
 	CUstream stream;
 
 	CUDAModule module;
+	CUDAKernel kernel_primary;
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_extend;
 	CUDAKernel kernel_shade_diffuse;
@@ -21,6 +24,11 @@ private:
 	CUDAKernel kernel_accumulate;
 
 	CUDAModule::Global global_buffer_sizes;
+
+	int vertex_count;
+	Shader shader;
+
+	GLuint uniform_view_projection;
 
 public:
 	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);

@@ -196,13 +196,13 @@ namespace BVHBuilders {
 				const Triangle & triangle = triangles[index];
 				
 				bool goes_left = 
-					triangle.position0[spatial_split_dimension] < spatial_split_plane_distance || 
-					triangle.position1[spatial_split_dimension] < spatial_split_plane_distance || 
-					triangle.position2[spatial_split_dimension] < spatial_split_plane_distance;
+					triangle.position_0[spatial_split_dimension] < spatial_split_plane_distance || 
+					triangle.position_1[spatial_split_dimension] < spatial_split_plane_distance || 
+					triangle.position_2[spatial_split_dimension] < spatial_split_plane_distance;
 				bool goes_right = 
-					triangle.position0[spatial_split_dimension] >= spatial_split_plane_distance || 
-					triangle.position1[spatial_split_dimension] >= spatial_split_plane_distance || 
-					triangle.position2[spatial_split_dimension] >= spatial_split_plane_distance;
+					triangle.position_0[spatial_split_dimension] >= spatial_split_plane_distance || 
+					triangle.position_1[spatial_split_dimension] >= spatial_split_plane_distance || 
+					triangle.position_2[spatial_split_dimension] >= spatial_split_plane_distance;
 
 				assert(goes_left || goes_right);
 

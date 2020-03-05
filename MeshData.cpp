@@ -134,17 +134,17 @@ const MeshData * MeshData::load(const char * file_path) {
 
 		// Iterate over faces
 		for (int v = 0; v < vertex_count / 3; v++) {
-			mesh_data->triangles[triangle_offset + v].position0 = positions[3*v    ];
-			mesh_data->triangles[triangle_offset + v].position1 = positions[3*v + 1];
-			mesh_data->triangles[triangle_offset + v].position2 = positions[3*v + 2];
+			mesh_data->triangles[triangle_offset + v].position_0 = positions[3*v    ];
+			mesh_data->triangles[triangle_offset + v].position_1 = positions[3*v + 1];
+			mesh_data->triangles[triangle_offset + v].position_2 = positions[3*v + 2];
 
-			mesh_data->triangles[triangle_offset + v].normal0 = normals[3*v    ];
-			mesh_data->triangles[triangle_offset + v].normal1 = normals[3*v + 1];
-			mesh_data->triangles[triangle_offset + v].normal2 = normals[3*v + 2];
+			mesh_data->triangles[triangle_offset + v].normal_0 = normals[3*v    ];
+			mesh_data->triangles[triangle_offset + v].normal_1 = normals[3*v + 1];
+			mesh_data->triangles[triangle_offset + v].normal_2 = normals[3*v + 2];
 			
-			mesh_data->triangles[triangle_offset + v].tex_coord0 = tex_coords[3*v    ];
-			mesh_data->triangles[triangle_offset + v].tex_coord1 = tex_coords[3*v + 1];
-			mesh_data->triangles[triangle_offset + v].tex_coord2 = tex_coords[3*v + 2];
+			mesh_data->triangles[triangle_offset + v].tex_coord_0 = tex_coords[3*v    ];
+			mesh_data->triangles[triangle_offset + v].tex_coord_1 = tex_coords[3*v + 1];
+			mesh_data->triangles[triangle_offset + v].tex_coord_2 = tex_coords[3*v + 2];
 
 			int material_id = shapes[s].mesh.material_ids[v];
 			if (material_id == INVALID) material_id = 0;

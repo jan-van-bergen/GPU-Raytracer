@@ -14,6 +14,11 @@
 surface<void, 2> frame_buffer;
 surface<void, 2> accumulator;
 
+texture<float4, cudaTextureType2D> gbuffer_position;
+texture<float4, cudaTextureType2D> gbuffer_normal;
+texture<float2, cudaTextureType2D> gbuffer_uv;
+texture<int,    cudaTextureType2D> gbuffer_triangle_id;
+
 __device__ void frame_buffer_add(int x, int y, const float3 & colour) {
 	float4 prev;
 	surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
@@ -60,7 +65,7 @@ struct ExtendBuffer {
 // Input to the various Shade Kernels in SoA layout
 struct MaterialBuffer {
 	// Ray related
-	Vector3 direction;
+	Vector3 direction;	
 	
 	// Hit related
 	int   * triangle_id;
@@ -104,11 +109,85 @@ struct BufferSizes {
 
 __device__ BufferSizes buffer_sizes;
 
+extern "C" __global__ void kernel_primary(
+	float3 camera_position,
+	float3 camera_bottom_left_corner,
+	float3 camera_x_axis,
+	float3 camera_y_axis
+) {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	int pixel_index = x + y * SCREEN_WIDTH;
+
+	float u_screenspace = float(x) + 0.5f;
+	float v_screenspace = float(y) + 0.5f;
+
+	float u = u_screenspace / float(SCREEN_WIDTH);
+	float v = v_screenspace / float(SCREEN_HEIGHT);
+
+	//float4 position    = tex2D(gbuffer_position,    u, v);
+	//float4 normal      = tex2D(gbuffer_normal,      u, v);
+	float2 uv          = tex2D(gbuffer_uv,          u, v);
+	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
+
+	float3 ray_direction = normalize(camera_bottom_left_corner
+		+ u_screenspace * camera_x_axis
+		+ v_screenspace * camera_y_axis
+	);
+
+	// Triangle ID -1 means no hit
+	if (triangle_id == -1) {
+		frame_buffer_add(x, y, sample_sky(ray_direction));
+
+		return;
+	}
+
+	const Material & material = materials[triangles_material_id[triangle_id]];
+
+	if (material.type == Material::Type::LIGHT) {
+		frame_buffer_add(x, y, material.emission);
+	} else if (material.type == Material::Type::DIFFUSE) {
+		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
+
+		ray_buffer_shade_diffuse.triangle_id[index_out] = triangle_id;
+		ray_buffer_shade_diffuse.u[index_out] = uv.x;
+		ray_buffer_shade_diffuse.v[index_out] = uv.y;
+
+		ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
+		ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f, 1.0f, 1.0f));
+	} else if (material.type == Material::Type::DIELECTRIC) {
+		int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[0]);
+
+		ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
+
+		ray_buffer_shade_dielectric.triangle_id[index_out] = triangle_id;
+		ray_buffer_shade_dielectric.u[index_out] = uv.x;
+		ray_buffer_shade_dielectric.v[index_out] = uv.y;
+
+		ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
+		ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f, 1.0f, 1.0f));
+	} else if (material.type == Material::Type::GLOSSY) {
+		int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[0]);
+
+		ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
+
+		ray_buffer_shade_glossy.triangle_id[index_out] = triangle_id;
+		ray_buffer_shade_glossy.u[index_out] = uv.x;
+		ray_buffer_shade_glossy.v[index_out] = uv.y;
+
+		ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
+		ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f, 1.0f, 1.0f));
+	}
+}
+
 extern "C" __global__ void kernel_generate(
 	int rand_seed,
 	int sample_index,
 	float3 camera_position,
-	float3 camera_top_left_corner,
+	float3 camera_bottom_left_corner,
 	float3 camera_x_axis,
 	float3 camera_y_axis
 ) {
@@ -145,7 +224,7 @@ extern "C" __global__ void kernel_generate(
 	
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
 	ray_buffer_extend.origin.from_float3(index, camera_position);
-	ray_buffer_extend.direction.from_float3(index, normalize(camera_top_left_corner
+	ray_buffer_extend.direction.from_float3(index, normalize(camera_bottom_left_corner
 		+ u * camera_x_axis
 		+ v * camera_y_axis
 	));
@@ -638,6 +717,8 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
 	float4 colour;
 	surf2Dread<float4>(&colour, frame_buffer, x * sizeof(float4), y);

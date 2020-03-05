@@ -51,6 +51,7 @@ struct CUDAModule {
 	void init(const char * filename, int compute_capability);
 
 	void set_surface(const char * surface_name, CUarray array) const;
+	void set_texture(const char * texture_name, CUarray array, CUfilter_mode filter, CUarray_format format, int channels) const;
 	void set_texture(const char * texture_name, const Texture * texture) const;
 
 	Global get_global(const char * variable_name) const;
