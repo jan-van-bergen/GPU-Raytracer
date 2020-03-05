@@ -97,24 +97,25 @@ void CUDAModule::set_surface(const char * surface_name, CUarray array) const {
 	CUDACALL(cuSurfRefSetArray(surface, array, 0));
 }
 
+void CUDAModule::set_texture(const char * texture_name, CUarray array, CUfilter_mode filter, CUarray_format format, int channels) const {
+	CUtexref texture;
+	CUDACALL(cuModuleGetTexRef(&texture, module, texture_name));
+	CUDACALL(cuTexRefSetArray(texture, array, CU_TRSA_OVERRIDE_FORMAT));
+
+	CUDACALL(cuTexRefSetAddressMode(texture, 0, CU_TR_ADDRESS_MODE_WRAP));
+	CUDACALL(cuTexRefSetAddressMode(texture, 1, CU_TR_ADDRESS_MODE_WRAP));
+
+	CUDACALL(cuTexRefSetFilterMode(texture, filter));
+	CUDACALL(cuTexRefSetFlags(texture, CU_TRSF_NORMALIZED_COORDINATES));
+	CUDACALL(cuTexRefSetFormat(texture, format, channels));
+}
+
 void CUDAModule::set_texture(const char * texture_name, const Texture * texture) const {	
-	// Create Array on Device
-	CUarray tex_array = CUDAMemory::create_array(texture->width, texture->height, texture->channels, CU_AD_FORMAT_UNSIGNED_INT8);
+	// Create Array on Device and copy Texture data over
+	CUarray array = CUDAMemory::create_array(texture->width, texture->height, texture->channels, CU_AD_FORMAT_UNSIGNED_INT8);
+	CUDAMemory::copy_array(array, texture->channels * texture->width, texture->height, texture->data);
 
-	// Copy data from the Host Texture to the Device Array
-	CUDAMemory::copy_array(tex_array, texture->channels * texture->width, texture->height, texture->data);
-
-	// Set Texture parameters on Device
-	CUtexref tex;
-	CUDACALL(cuModuleGetTexRef(&tex, module, texture_name));
-	CUDACALL(cuTexRefSetArray(tex, tex_array, CU_TRSA_OVERRIDE_FORMAT));
-
-	CUDACALL(cuTexRefSetAddressMode(tex, 0, CU_TR_ADDRESS_MODE_WRAP));
-	CUDACALL(cuTexRefSetAddressMode(tex, 1, CU_TR_ADDRESS_MODE_WRAP));
-
-	CUDACALL(cuTexRefSetFilterMode(tex, CU_TR_FILTER_MODE_LINEAR));
-	CUDACALL(cuTexRefSetFlags(tex, CU_TRSF_NORMALIZED_COORDINATES));
-	CUDACALL(cuTexRefSetFormat(tex, CU_AD_FORMAT_UNSIGNED_INT8, texture->channels));
+	set_texture(texture_name, array, CU_TR_FILTER_MODE_LINEAR, CU_AD_FORMAT_UNSIGNED_INT8, texture->channels);
 }
 
 CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {

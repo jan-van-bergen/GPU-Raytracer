@@ -9,12 +9,12 @@ void Camera::resize(int width, int height) {
 	float half_height = 0.5f * height;
 
 	// Distance to the viewing plane
-	float d = half_width / tanf(0.5f * fov);
+	float d = half_height / tanf(0.5f * fov);
 
 	// Initialize viewing pyramid vectors
-	top_left_corner = Vector3(-half_width, half_height, -d);
-	x_axis = Vector3(1.0f,  0.0f, 0.0f);
-	y_axis = Vector3(0.0f, -1.0f, 0.0f);
+	bottom_left_corner = Vector3(-half_width, -half_height, -d);
+	x_axis             = Vector3(1.0f, 0.0f, 0.0f);
+	y_axis             = Vector3(0.0f, 1.0f, 0.0f);
 
 	projection = Matrix4::perspective(fov, half_width / half_height, 0.1f, 250.0f);
 }
@@ -46,25 +46,24 @@ void Camera::update(float delta, const unsigned char * keys) {
 	if (keys[SDL_SCANCODE_F]) {
 		printf("camera.position = Vector3(%ff, %ff, %ff);\n",         position.x, position.y, position.z);
 		printf("camera.rotation = Quaternion(%ff, %ff, %ff, %ff);\n", rotation.x, rotation.y, rotation.z, rotation.w);
-
-		printf("camera.right   = Vector3(%ff, %ff, %ff);\n", right.x,   right.y,   right.z);
-		printf("camera.forward = Vector3(%ff, %ff, %ff);\n", forward.x, forward.y, forward.z);
 	}
 
-	//////////////////////////////////////////////////////////////////
-	static unsigned char last_frame = 0;
-	if (keys[SDL_SCANCODE_Q] && keys[SDL_SCANCODE_Q] != last_frame) {
-		debug_rasterize = !debug_rasterize;
+	///////////////////////////////////////////////////////////
+	static unsigned char last = 0;
+	if (keys[SDL_SCANCODE_Q] && keys[SDL_SCANCODE_Q] != last) {
+		rasterize = !rasterize;
+
+		printf("Rasterization: %s                                                       \n", rasterize ? "On" : "Off");
 
 		moved = true;
 	}
-	last_frame = keys[SDL_SCANCODE_Q];
-	//////////////////////////////////////////////////////////////////
+	last = keys[SDL_SCANCODE_Q];
+	///////////////////////////////////////////////////////////
 
 	// Transform view pyramid according to rotation
-	top_left_corner_rotated = rotation * top_left_corner;
-	x_axis_rotated          = rotation * x_axis;
-	y_axis_rotated          = rotation * y_axis;
+	bottom_left_corner_rotated = rotation * bottom_left_corner;
+	x_axis_rotated             = rotation * x_axis;
+	y_axis_rotated             = rotation * y_axis;
 
 	// The view matrix V is the inverse of the World M
 	// M^-1 = (RT)^-1 = T^-1 * R^-1

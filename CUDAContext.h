@@ -43,11 +43,11 @@ namespace CUDAContext {
 	}
 
 	// Creates a CUDA Array that is mapped to the given GL Texture handle
-	inline CUarray map_gl_texture(unsigned gl_texture) {
+	inline CUarray map_gl_texture(unsigned gl_texture, unsigned flags) {
 		CUarray result;
 
 		CUgraphicsResource cuda_resource; 
-		CUDACALL(cuGraphicsGLRegisterImage(&cuda_resource, gl_texture, GL_TEXTURE_2D, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
+		CUDACALL(cuGraphicsGLRegisterImage(&cuda_resource, gl_texture, GL_TEXTURE_2D, flags));
 		CUDACALL(cuGraphicsMapResources(1, &cuda_resource, 0));
 
 		CUDACALL(cuGraphicsSubResourceGetMappedArray(&result, cuda_resource, 0, 0));

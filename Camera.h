@@ -11,7 +11,7 @@ struct Camera {
 
 	float fov; // Field of View in radians
 
-	Vector3 top_left_corner, top_left_corner_rotated;
+	Vector3 bottom_left_corner, bottom_left_corner_rotated;
 	Vector3 x_axis,          x_axis_rotated;
 	Vector3 y_axis,          y_axis_rotated;
 
@@ -20,7 +20,7 @@ struct Camera {
 
 	bool moved;
 
-	bool debug_rasterize = true;
+	bool rasterize = true;
 
 	inline void init(float fov) {
 		this->fov = fov;

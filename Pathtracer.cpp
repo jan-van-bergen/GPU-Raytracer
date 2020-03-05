@@ -9,6 +9,8 @@
 #include "BVH.h"
 #include "MBVH.h"
 
+#include "GBuffer.h"
+
 #include "Sky.h"
 
 #include "BlueNoise.h"
@@ -19,7 +21,7 @@ struct Vertex {
 	Vector3 position;
 	Vector3 normal;
 	Vector2 uv;
-	int triangle_id;
+	int     triangle_id;
 };
 
 static struct ExtendBuffer {
@@ -293,9 +295,22 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		vertices[index_1].uv = Vector2(1.0f, 0.0f);
 		vertices[index_2].uv = Vector2(0.0f, 1.0f);
 
-		vertices[index_0].triangle_id = i;
-		vertices[index_1].triangle_id = i;
-		vertices[index_2].triangle_id = i;
+		int index = INVALID;
+
+		// Apply the BVH index permutation
+		for (int j = 0; j < mbvh.leaf_count; j++) {
+			if (mbvh.indices[j] == i) {
+				index = j;
+
+				break;
+			}
+		}
+
+		assert(index != INVALID);
+
+		vertices[index_0].triangle_id = index;
+		vertices[index_1].triangle_id = index;
+		vertices[index_2].triangle_id = index;
 	}
 
 	GLuint vbo;
@@ -310,6 +325,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	shader.bind();
 	uniform_view_projection = shader.get_uniform("view_projection");
+
+	GBuffer::init(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+	module.set_texture("gbuffer_position",    CUDAContext::map_gl_texture(GBuffer::gbuffer_position,    CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_normal",      CUDAContext::map_gl_texture(GBuffer::gbuffer_normal,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_uv",          CUDAContext::map_gl_texture(GBuffer::gbuffer_uv,          CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_triangle_id", CUDAContext::map_gl_texture(GBuffer::gbuffer_triangle_id, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
 
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
@@ -361,7 +383,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	
 	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("frame_buffer", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
-	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle));
+	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;
@@ -386,6 +408,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
 
+	kernel_primary.init         (&module, "kernel_primary");
 	kernel_generate.init        (&module, "kernel_generate");
 	kernel_extend.init          (&module, "kernel_extend");
 	kernel_shade_diffuse.init   (&module, "kernel_shade_diffuse");
@@ -394,6 +417,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_connect.init         (&module, "kernel_connect");
 	kernel_accumulate.init      (&module, "kernel_accumulate");
 
+	kernel_primary.set_block_dim         (32, 4, 1);
 	kernel_generate.set_block_dim        (128, 1, 1);
 	kernel_extend.set_block_dim          (128, 1, 1);
 	kernel_shade_diffuse.set_block_dim   (128, 1, 1);
@@ -402,6 +426,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_connect.set_block_dim         (128, 1, 1);
 	kernel_accumulate.set_block_dim(32, 4, 1);
 
+	kernel_primary.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
+		1
+	);
 	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
 	kernel_extend.set_grid_dim          (PIXEL_COUNT / kernel_extend.block_dim_x,           1, 1);
 	kernel_shade_diffuse.set_grid_dim   (PIXEL_COUNT / kernel_shade_diffuse.block_dim_x,    1, 1);
@@ -409,8 +438,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_glossy.set_grid_dim    (PIXEL_COUNT / kernel_shade_glossy.block_dim_x,     1, 1);
 	kernel_connect.set_grid_dim         (PIXEL_COUNT / kernel_connect.block_dim_x,          1, 1);
 	kernel_accumulate.set_grid_dim(
-		SCREEN_WIDTH  / kernel_accumulate.block_dim_x, 
-		SCREEN_HEIGHT / kernel_accumulate.block_dim_y,
+		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
 		1
 	);
 
@@ -421,8 +450,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		camera.position = Vector3(2.698714f, 39.508224f, -15.633610f);
 		camera.rotation = Quaternion(0.000000f, 0.891950f, 0.000000f, 0.452135f);
 	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
-		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
-		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
+		camera.position = Vector3(-0.126737f, 0.613379f, 3.716630f);
+		camera.rotation = Quaternion(-0.107255f, -0.002421f, 0.000262f, -0.994227f);
 	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
 		camera.position = Vector3(0.528027f, 1.004323f, -0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
@@ -446,7 +475,11 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 }
 
 void Pathtracer::render() {
-	if (camera.debug_rasterize) {
+	if (camera.rasterize) {
+		GBuffer::bind_for_writing();
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		shader.bind();
 
 		glUniformMatrix4fv(uniform_view_projection, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
@@ -462,34 +495,50 @@ void Pathtracer::render() {
 		glVertexAttribIPointer(3, 1, GL_INT,          sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, triangle_id)));
 
 		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
-	
+
 		glDisableVertexAttribArray(3);
 		glDisableVertexAttribArray(2);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(0);
 
 		shader.unbind();
+	
+		// Sync Async Memcpy stream
+		CUDACALL(cuStreamSynchronize(stream));
+	
+		glFinish();
+	
+		kernel_primary.execute(
+			camera.position,
+			camera.bottom_left_corner_rotated,
+			camera.x_axis_rotated,
+			camera.y_axis_rotated
+		);
+	} else {
+		// Generate primary Rays from the current Camera orientation
+		kernel_generate.execute(
+			rand(),
+			frames_since_camera_moved,
+			camera.position, 
+			camera.bottom_left_corner_rotated, 
+			camera.x_axis_rotated, 
+			camera.y_axis_rotated
+		);
 
-		return;
+		CUDACALL(cuStreamSynchronize(stream));
+
+		kernel_extend.execute(rand(), 0);
 	}
 
-	// Sync Main stream
-	CUDACALL(cuStreamSynchronize(nullptr));
+	// Process the various Material types in different Kernels
+	kernel_shade_diffuse.execute   (rand(), 0, frames_since_camera_moved);
+	kernel_shade_dielectric.execute(rand(), 0);
+	kernel_shade_glossy.execute    (rand(), 0, frames_since_camera_moved);
 
-	// Generate primary Rays from the current Camera orientation
-	kernel_generate.execute(
-		rand(),
-		frames_since_camera_moved,
-		camera.position, 
-		camera.top_left_corner_rotated, 
-		camera.x_axis_rotated, 
-		camera.y_axis_rotated
-	);
-	
-	// Sync Async Memcpy stream
-	CUDACALL(cuStreamSynchronize(stream));
-	
-	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
+	// Trace shadow Rays
+	kernel_connect.execute(rand(), 0, frames_since_camera_moved);
+
+	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute(rand(), bounce);
 
@@ -504,7 +553,10 @@ void Pathtracer::render() {
 	
 	// Reset buffer sizes to default for next frame
 	global_buffer_sizes.set_value_async(buffer_sizes, stream);
-	
+
 	// Accumulate FrameBuffer temporally
 	kernel_accumulate.execute(float(frames_since_camera_moved));
+	
+	// Sync Main stream
+	CUDACALL(cuStreamSynchronize(nullptr));
 }

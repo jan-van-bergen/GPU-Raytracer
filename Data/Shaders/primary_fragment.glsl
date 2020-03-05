@@ -5,14 +5,14 @@ layout (location = 1) in      vec3 in_normal;
 layout (location = 2) in      vec2 in_uv;
 layout (location = 3) in flat int  in_triangle_id;
 
-layout (location = 0) out vec3 out_position;
-// layout (location = 1) out vec3 out_normal;
-// layout (location = 2) out vec2 out_uv;
-// layout (location = 3) out int  out_triangle_id;
+layout (location = 0) out vec4 out_position;
+layout (location = 1) out vec4 out_normal;
+layout (location = 2) out vec2 out_uv;
+layout (location = 3) out int  out_triangle_id;
 
 void main() {
-	out_position    = 0.5 + 0.5 * in_normal;
-	// out_normal      = in_normal;
-	// out_uv          = in_uv;
-	// out_triangle_id = in_triangle_id;
+	out_position    = vec4(in_position, 0.0f);
+	out_normal      = vec4(in_normal,   0.0f);
+	out_uv          = in_uv;
+	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
 }

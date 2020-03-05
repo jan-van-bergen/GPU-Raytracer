@@ -1,6 +1,12 @@
 #include "Window.h"
 
+#include "GBuffer.h"
+
 #include "Util.h"
+
+static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * user_param) {
+	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", type, severity, message);
+}
 
 Window::Window(const char * title) {
 	SDL_Init(SDL_INIT_EVERYTHING);
@@ -25,8 +31,12 @@ Window::Window(const char * title) {
 		abort();
 	}
 
+	glEnable(GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(gl_message_callback, NULL);
+
 	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_CULL_FACE);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
 	glGenTextures(1, &frame_buffer_handle);
@@ -48,20 +58,20 @@ Window::~Window() {
 	SDL_Quit();
 }
 
-void Window::clear() const {
+void Window::update() {
+	GBuffer::unbind();
+	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
 
-void Window::update(bool rasterize) {
-	if (!rasterize) {
-		shader.bind();
+	shader.bind();
 
-		// Draws a single Triangle, without any buffers
-		// The Vertex Shader makes sure positions + uvs work out
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
 
-		shader.unbind();
-	}
+	// Draws a single Triangle, without any buffers
+	// The Vertex Shader makes sure positions + uvs work out
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	shader.unbind();
 
 	SDL_GL_SwapWindow(window);
 
