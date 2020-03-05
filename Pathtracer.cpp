@@ -376,7 +376,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	ray_buffer_shade_glossy.init    (PIXEL_COUNT);
 	ray_buffer_connect.init         (PIXEL_COUNT);
 
-	CUDACALL(cuStreamCreate(&stream, CU_STREAM_NON_BLOCKING));
+	CUDACALL(cuStreamCreate(&memcpy_stream, CU_STREAM_NON_BLOCKING));
 
 	module.get_global("ray_buffer_extend").set_value          (ray_buffer_extend);
 	module.get_global("ray_buffer_shade_diffuse").set_value   (ray_buffer_shade_diffuse);
@@ -455,7 +455,7 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 
 void Pathtracer::render() {
 	if (camera.rasterize) {
-		GBuffer::bind_for_writing();
+		GBuffer::bind();
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -483,10 +483,10 @@ void Pathtracer::render() {
 		shader.unbind();
 	
 		// Sync Async Memcpy stream
-		CUDACALL(cuStreamSynchronize(stream));
+		CUDACALL(cuStreamSynchronize(memcpy_stream));
 	
 		glFinish();
-	
+
 		kernel_primary.execute(
 			camera.position,
 			camera.bottom_left_corner_rotated,
@@ -504,7 +504,7 @@ void Pathtracer::render() {
 			camera.y_axis_rotated
 		);
 
-		CUDACALL(cuStreamSynchronize(stream));
+		CUDACALL(cuStreamSynchronize(memcpy_stream));
 
 		kernel_extend.execute(rand(), 0);
 	}
@@ -531,11 +531,11 @@ void Pathtracer::render() {
 	}
 	
 	// Reset buffer sizes to default for next frame
-	global_buffer_sizes.set_value_async(buffer_sizes, stream);
+	global_buffer_sizes.set_value_async(buffer_sizes, memcpy_stream);
 
 	// Accumulate FrameBuffer temporally
 	kernel_accumulate.execute(float(frames_since_camera_moved));
-	
+
 	// Sync Main stream
 	CUDACALL(cuStreamSynchronize(nullptr));
 }

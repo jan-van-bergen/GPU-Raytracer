@@ -109,6 +109,8 @@ struct BufferSizes {
 
 __device__ BufferSizes buffer_sizes;
 
+// Sends the rasterized GBuffer to the right Material kernels,
+// as if the primary Rays they were Raytraced 
 extern "C" __global__ void kernel_primary(
 	float3 camera_position,
 	float3 camera_bottom_left_corner,
@@ -128,8 +130,6 @@ extern "C" __global__ void kernel_primary(
 	float u = u_screenspace / float(SCREEN_WIDTH);
 	float v = v_screenspace / float(SCREEN_HEIGHT);
 
-	//float4 position    = tex2D(gbuffer_position,    u, v);
-	//float4 normal      = tex2D(gbuffer_normal,      u, v);
 	float2 uv          = tex2D(gbuffer_uv,          u, v);
 	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
 

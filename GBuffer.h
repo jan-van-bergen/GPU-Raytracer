@@ -10,8 +10,6 @@ namespace GBuffer {
 
 	void init(int width, int height);
 
-	void bind_for_reading();
-	void bind_for_writing();
-
+	void bind();
 	void unbind();
 }
