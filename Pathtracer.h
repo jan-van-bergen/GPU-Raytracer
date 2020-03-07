@@ -7,10 +7,10 @@
 #include "Shader.h"
 
 struct Pathtracer {
-private:
 	Camera camera;
 	int frames_since_camera_moved = -1;
 
+private:
 	CUstream memcpy_stream;
 
 	CUDAModule module;
