@@ -311,8 +311,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
 
 	delete [] vertices;
-	delete [] reverse_indices;
-
+	
 	shader = Shader::load(DATA_PATH("Shaders/primary_vertex.glsl"), DATA_PATH("Shaders/primary_fragment.glsl"));
 
 	shader.bind();
@@ -342,6 +341,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	}
 
 	delete [] light_indices;
+	delete [] reverse_indices;
 
 	module.get_global("light_count").set_value(light_count);
 
