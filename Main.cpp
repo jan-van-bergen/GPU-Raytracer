@@ -28,7 +28,7 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 	
-	const char * scene_filename = DATA_PATH("sponza/sponza.obj");
+	const char * scene_filename = DATA_PATH("scene.obj");
 	const char * sky_filename   = DATA_PATH("Sky_Probes/rnl_probe.float");
 
 	Pathtracer pathtracer;
@@ -72,7 +72,7 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		// Report timings
-		printf("%d - Delta: %.2f ms, Average: %.2f ms, FPS: %d        \r", current_frame, delta_time * 1000.0f, avg * 1000.0f, fps);
+		printf("%i - %i - Delta: %.2f ms, Average: %.2f ms, FPS: %d        \r", current_frame, pathtracer.frames_since_camera_moved, delta_time * 1000.0f, avg * 1000.0f, fps);
 	}
 
 	return EXIT_SUCCESS;

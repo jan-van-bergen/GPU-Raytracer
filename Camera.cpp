@@ -4,6 +4,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "Common.h"
+
 void Camera::resize(int width, int height) {
 	float half_width  = 0.5f * width;
 	float half_height = 0.5f * height;
@@ -70,5 +72,11 @@ void Camera::update(float delta, const unsigned char * keys) {
 	view_projection = 
 		Matrix4::create_translation(-position) * 
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
-		projection;
+		projection *
+		// Apply screen space jitter in NDC
+		Matrix4::create_translation(Vector3(
+			(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
+			(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT)),
+			0.0f
+		));
 }

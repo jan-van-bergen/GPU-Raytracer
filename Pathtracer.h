@@ -4,14 +4,17 @@
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 
+#include "GBuffer.h"
 #include "Shader.h"
 
 struct Pathtracer {
-private:
 	Camera camera;
 	int frames_since_camera_moved = -1;
 
-	CUstream stream;
+private:
+	GBuffer gbuffer;
+
+	CUstream memcpy_stream;
 
 	CUDAModule module;
 	CUDAKernel kernel_primary;

@@ -64,23 +64,7 @@ void GBuffer::init(int width, int height) {
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
-void GBuffer::bind_for_reading() {
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-	
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gbuffer_position);
-
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, gbuffer_normal);
-
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, gbuffer_uv);
-
-	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_2D, gbuffer_triangle_id);
-}
-
-void GBuffer::bind_for_writing() {
+void GBuffer::bind() {
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gbuffer);
 }
 

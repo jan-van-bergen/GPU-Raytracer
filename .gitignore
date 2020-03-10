@@ -342,7 +342,7 @@ ASALocalRun/
 healthchecksdb
 
 # Bounding Volume Hierarchy binary
-*.bvh'
+*.bvh
 
 # Cuda Binary
 *.cubin

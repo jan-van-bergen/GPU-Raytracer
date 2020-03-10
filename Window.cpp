@@ -30,9 +30,17 @@ Window::Window(const char * title) {
 		printf("Glew failed to initialize!\n");
 		abort();
 	}
-
+	
+	printf("OpenGL Info:\n");
+	printf("Version:  %s\n",   glGetString(GL_VERSION));
+	printf("GLSL:     %s\n",   glGetString(GL_SHADING_LANGUAGE_VERSION));
+	printf("Vendor:   %s\n",   glGetString(GL_VENDOR));
+	printf("Renderer: %s\n\n", glGetString(GL_RENDERER));
+	
+#if false
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(gl_message_callback, NULL);
+#endif
 
 	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
@@ -59,8 +67,6 @@ Window::~Window() {
 }
 
 void Window::update() {
-	GBuffer::unbind();
-	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	shader.bind();
