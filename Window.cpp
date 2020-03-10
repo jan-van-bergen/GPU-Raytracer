@@ -30,7 +30,13 @@ Window::Window(const char * title) {
 		printf("Glew failed to initialize!\n");
 		abort();
 	}
-
+	
+	printf("OpenGL Info:\n");
+	printf("Version:  %s\n",   glGetString(GL_VERSION));
+	printf("GLSL:     %s\n",   glGetString(GL_SHADING_LANGUAGE_VERSION));
+	printf("Vendor:   %s\n",   glGetString(GL_VENDOR));
+	printf("Renderer: %s\n\n", glGetString(GL_RENDERER));
+	
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(gl_message_callback, NULL);
 
