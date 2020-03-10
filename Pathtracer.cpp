@@ -9,8 +9,6 @@
 #include "BVH.h"
 #include "MBVH.h"
 
-#include "GBuffer.h"
-
 #include "Sky.h"
 
 #include "BlueNoise.h"
@@ -135,7 +133,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	camera.resize(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	// Init CUDA Module and its Kernel
-	module.init("CUDA_Source/wavefront.cu", CUDAContext::compute_capability);
+	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
 	const MeshData * mesh = MeshData::load(scene_name);
 
@@ -317,12 +315,12 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	shader.bind();
 	uniform_view_projection = shader.get_uniform("view_projection");
 
-	GBuffer::init(SCREEN_WIDTH, SCREEN_HEIGHT);
+	gbuffer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-	module.set_texture("gbuffer_position",    CUDAContext::map_gl_texture(GBuffer::gbuffer_position,    CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_normal",      CUDAContext::map_gl_texture(GBuffer::gbuffer_normal,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_uv",          CUDAContext::map_gl_texture(GBuffer::gbuffer_uv,          CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_triangle_id", CUDAContext::map_gl_texture(GBuffer::gbuffer_triangle_id, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
+	module.set_texture("gbuffer_position",    CUDAContext::map_gl_texture(gbuffer.gbuffer_position,    CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_normal",      CUDAContext::map_gl_texture(gbuffer.gbuffer_normal,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_uv",          CUDAContext::map_gl_texture(gbuffer.gbuffer_uv,          CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_triangle_id", CUDAContext::map_gl_texture(gbuffer.gbuffer_triangle_id, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
 
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
@@ -360,8 +358,12 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("scrambling_tile").set_buffer(scrambling_tile);
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 	
-	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
-	module.set_surface("frame_buffer", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
+	// Create Frame Buffers
+	module.set_surface("frame_buffer_albedo",   CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
+	module.set_surface("frame_buffer_direct",   CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
+	module.set_surface("frame_buffer_indirect", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
+	
+	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	ExtendBuffer    ray_buffer_extend;
@@ -455,7 +457,7 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 
 void Pathtracer::render() {
 	if (camera.rasterize) {
-		GBuffer::bind();
+		gbuffer.bind();
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -481,12 +483,14 @@ void Pathtracer::render() {
 		glDisableVertexAttribArray(0);
 
 		shader.unbind();
+		gbuffer.unbind();
 	
 		// Sync Async Memcpy stream
 		CUDACALL(cuStreamSynchronize(memcpy_stream));
 	
 		glFinish();
 
+		// Convert rasterized GBuffers into primary Rays
 		kernel_primary.execute(
 			camera.position,
 			camera.bottom_left_corner_rotated,

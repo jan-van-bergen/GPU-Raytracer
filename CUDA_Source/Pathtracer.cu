@@ -11,7 +11,9 @@
 #include "Sampler.h"
 #include "Util.h"
 
-surface<void, 2> frame_buffer;
+surface<void, 2> frame_buffer_albedo;
+surface<void, 2> frame_buffer_direct;
+surface<void, 2> frame_buffer_indirect;
 surface<void, 2> accumulator;
 
 texture<float4, cudaTextureType2D> gbuffer_position;
@@ -19,7 +21,10 @@ texture<float4, cudaTextureType2D> gbuffer_normal;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
 
-__device__ void frame_buffer_add(int x, int y, const float3 & colour) {
+__device__ void frame_buffer_add(surface<void, 2> frame_buffer, int x, int y, const float3 & colour) {
+	assert(x >= 0 && x < SCREEN_WIDTH);
+	assert(y >= 0 && y < SCREEN_HEIGHT);
+
 	float4 prev;
 	surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
 	
@@ -140,7 +145,8 @@ extern "C" __global__ void kernel_primary(
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
-		frame_buffer_add(x, y, sample_sky(ray_direction));
+		frame_buffer_add(frame_buffer_albedo, x, y, sample_sky(ray_direction));
+		frame_buffer_add(frame_buffer_direct, x, y, make_float3(1.0f, 1.0f, 1.0f));
 
 		return;
 	}
@@ -148,7 +154,8 @@ extern "C" __global__ void kernel_primary(
 	const Material & material = materials[triangles_material_id[triangle_id]];
 
 	if (material.type == Material::Type::LIGHT) {
-		frame_buffer_add(x, y, material.emission);
+		frame_buffer_add(frame_buffer_albedo, x, y, material.emission);
+		frame_buffer_add(frame_buffer_direct, x, y, make_float3(1.0f, 1.0f, 1.0f));
 	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
 
@@ -262,7 +269,13 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 
 	// If we didn't hit anything, sample the Sky
 	if (hit.t == INFINITY) {
-		frame_buffer_add(x, y, ray_buffer_extend.throughput.to_float3(index) * sample_sky(ray_direction));
+		float3 illumination = ray_buffer_extend.throughput.to_float3(index) * sample_sky(ray_direction);
+
+		if (bounce == 1) {
+			frame_buffer_add(frame_buffer_direct, x, y, illumination);
+		} else {
+			frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+		}
 
 		return;
 	}
@@ -288,7 +301,15 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 
 		if ((ray_buffer_extend.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
 			(ray_buffer_extend.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
-			frame_buffer_add(x, y, ray_throughput * material.emission);
+			float3 illumination = ray_throughput * material.emission;
+			
+			frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+
+			if (bounce == 1) {
+				frame_buffer_add(frame_buffer_direct, x, y, illumination);
+			} else {
+				frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+			}
 
 			return;
 		}
@@ -317,7 +338,13 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 
 		float mis_pdf = light_pdf + brdf_pdf;
 
-		frame_buffer_add(x, y, ray_throughput * material.emission / mis_pdf);
+		float3 illumination = ray_throughput * material.emission / mis_pdf;
+
+		if (bounce == 1) {
+			frame_buffer_add(frame_buffer_direct, x, y, illumination);
+		} else {
+			frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+		}
 	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[bounce]);
 
@@ -376,6 +403,19 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	ASSERT(material.type == Material::Type::DIFFUSE, "Material should be diffuse in this Kernel");
 
+	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
+	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+
+	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+	float3 throughput = ray_throughput;
+
+	if (bounce == 0) {
+		frame_buffer_add(frame_buffer_albedo, x, y, albedo);
+	} else {
+		throughput *= albedo;
+	}
+
 	if (light_count > 0) {
 		int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
 
@@ -384,14 +424,10 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		ray_buffer_connect.v[shadow_ray_index] = ray_v;
 
 		ray_buffer_connect.pixel_index[shadow_ray_index] = ray_pixel_index;
-		ray_buffer_connect.throughput.from_float3(shadow_ray_index, ray_throughput);
+		ray_buffer_connect.throughput.from_float3(shadow_ray_index, throughput);
 	}
 
 	if (bounce == NUM_BOUNCES - 1) return;
-
-	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
-	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 
 	hit_normal = normalize(hit_normal);
 	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -402,8 +438,6 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	ray_buffer_extend.origin.from_float3(index_out, hit_point);
 	ray_buffer_extend.direction.from_float3(index_out, direction);
-
-	float3 throughput = ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 
 	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
 	ray_buffer_extend.throughput.from_float3(index_out, throughput);
@@ -499,10 +533,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		}
 	}
 
+	if (bounce == 0) {
+		frame_buffer_add(frame_buffer_albedo, x, y, make_float3(1.0f, 1.0f, 1.0f));
+	}
+
 	ray_buffer_extend.origin.from_float3(index_out, hit_point);
 	ray_buffer_extend.direction.from_float3(index_out, direction);
 
-	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
+	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
 	ray_buffer_extend.throughput.from_float3(index_out, ray_throughput);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
@@ -532,6 +570,19 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	ASSERT(material.type == Material::Type::GLOSSY, "Material should be glossy in this Kernel");
 
+	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
+	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+
+	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+	float3 throughput = ray_throughput;
+
+	if (bounce == 0) {
+		frame_buffer_add(frame_buffer_albedo, x, y, albedo);
+	} else {
+		throughput *= albedo;
+	}
+
 	if (light_count > 0 && material.roughness >= ROUGHNESS_CUTOFF) {
 		int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
 
@@ -542,14 +593,10 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		ray_buffer_connect.v[shadow_ray_index] = ray_v;
 
 		ray_buffer_connect.pixel_index[shadow_ray_index] = ray_pixel_index;
-		ray_buffer_connect.throughput.from_float3(shadow_ray_index, ray_throughput);
+		ray_buffer_connect.throughput.from_float3(shadow_ray_index, throughput);
 	}
 
 	if (bounce == NUM_BOUNCES - 1) return;
-
-	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
-	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 
 	hit_normal = normalize(hit_normal);
 	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
@@ -594,7 +641,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_extend.direction.from_float3(index_out, direction_out);
 
 	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
-	ray_buffer_extend.throughput.from_float3(index_out, ray_throughput * material.albedo(hit_tex_coord.x, hit_tex_coord.y) * weight);
+	ray_buffer_extend.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::GLOSSY);
 	ray_buffer_extend.last_pdf[index_out] = D * m_dot_n / (4.0f * dot(micro_normal_world, direction_in));
@@ -664,12 +711,6 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 			const Material & hit_material   = materials[triangles_material_id[ray_triangle_id]];
 			const Material & light_material = materials[triangles_material_id[light_triangle_id]];
 
-			float2 hit_tex_coord = barycentric(ray_u, ray_v, 
-				triangles_tex_coord0     [ray_triangle_id], 
-				triangles_tex_coord_edge1[ray_triangle_id], 
-				triangles_tex_coord_edge2[ray_triangle_id]
-			);
-			
 			float brdf;
 			float brdf_pdf;
 
@@ -706,10 +747,16 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 				triangles_position_edge2[light_triangle_id]
 			));
 			float light_pdf = distance_to_light_squared / (cos_o * light_area); // 1 / solid_angle
-			
+
 			float mis_pdf = brdf_pdf + light_pdf;
 
-			frame_buffer_add(x, y, hit_material.albedo(hit_tex_coord.x, hit_tex_coord.y) * ray_throughput * brdf * light_count * light_material.emission / mis_pdf);
+			float3 illumination = ray_throughput * brdf * light_count * light_material.emission / mis_pdf;
+
+			if (bounce == 0) {
+				frame_buffer_add(frame_buffer_direct, x, y, illumination);
+			} else {
+				frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+			}
 		}
 	}
 }
@@ -720,9 +767,13 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	float4 colour;
-	surf2Dread<float4>(&colour, frame_buffer, x * sizeof(float4), y);
+	float4 albedo, direct, indirect;
+	surf2Dread<float4>(&albedo,   frame_buffer_albedo,   x * sizeof(float4), y);
+	surf2Dread<float4>(&direct,   frame_buffer_direct,   x * sizeof(float4), y);
+	surf2Dread<float4>(&indirect, frame_buffer_indirect, x * sizeof(float4), y);
 	
+	float4 colour = indirect; // albedo * (direct + indirect);
+
 	float4 colour_out;
 	if (frames_since_camera_moved > 0.0f) {
 		float4 prev;
@@ -736,6 +787,8 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 
 	surf2Dwrite<float4>(colour_out, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
 
-	// Clear frame buffer for next frame
-	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	// Clear frame buffers for next frame
+	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_albedo,   x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_direct,   x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_indirect, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
