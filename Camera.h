@@ -19,6 +19,7 @@ struct Camera {
 
 	Matrix4 projection;
 	Matrix4 view_projection;
+	Matrix4 view_projection_prev;
 
 	bool moved;
 

@@ -32,6 +32,7 @@ private:
 	Shader shader;
 
 	GLuint uniform_view_projection;
+	GLuint uniform_view_projection_prev;
 
 public:
 	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);

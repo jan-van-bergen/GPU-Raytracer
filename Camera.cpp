@@ -67,6 +67,8 @@ void Camera::update(float delta, const unsigned char * keys) {
 	x_axis_rotated             = rotation * x_axis;
 	y_axis_rotated             = rotation * y_axis;
 
+	view_projection_prev = view_projection;
+
 	// The view matrix V is the inverse of the World M
 	// M^-1 = (RT)^-1 = T^-1 * R^-1
 	view_projection = 

@@ -20,6 +20,7 @@ texture<float4, cudaTextureType2D> gbuffer_position;
 texture<float4, cudaTextureType2D> gbuffer_normal;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
+texture<float2, cudaTextureType2D> gbuffer_motion;
 
 __device__ void frame_buffer_add(surface<void, 2> frame_buffer, int x, int y, const float3 & colour) {
 	assert(x >= 0 && x < SCREEN_WIDTH);
@@ -772,7 +773,7 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	surf2Dread<float4>(&direct,   frame_buffer_direct,   x * sizeof(float4), y);
 	surf2Dread<float4>(&indirect, frame_buffer_indirect, x * sizeof(float4), y);
 	
-	float4 colour = indirect; // albedo * (direct + indirect);
+	float4 colour = albedo * (direct + indirect);
 
 	float4 colour_out;
 	if (frames_since_camera_moved > 0.0f) {
