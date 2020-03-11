@@ -313,14 +313,16 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	shader = Shader::load(DATA_PATH("Shaders/primary_vertex.glsl"), DATA_PATH("Shaders/primary_fragment.glsl"));
 
 	shader.bind();
-	uniform_view_projection = shader.get_uniform("view_projection");
+	uniform_view_projection      = shader.get_uniform("view_projection");
+	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
 
 	gbuffer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-	module.set_texture("gbuffer_position",    CUDAContext::map_gl_texture(gbuffer.gbuffer_position,    CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_normal",      CUDAContext::map_gl_texture(gbuffer.gbuffer_normal,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_uv",          CUDAContext::map_gl_texture(gbuffer.gbuffer_uv,          CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_triangle_id", CUDAContext::map_gl_texture(gbuffer.gbuffer_triangle_id, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
+	module.set_texture("gbuffer_position",    CUDAContext::map_gl_texture(gbuffer.buffer_position,    CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_normal",      CUDAContext::map_gl_texture(gbuffer.buffer_normal,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_uv",          CUDAContext::map_gl_texture(gbuffer.buffer_uv,          CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_triangle_id", CUDAContext::map_gl_texture(gbuffer.buffer_triangle_id, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
+	module.set_texture("gbuffer_motion",      CUDAContext::map_gl_texture(gbuffer.buffer_motion,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
 
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
@@ -463,7 +465,8 @@ void Pathtracer::render() {
 
 		shader.bind();
 
-		glUniformMatrix4fv(uniform_view_projection, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
+		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
+		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection_prev));
 
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);

@@ -28,7 +28,7 @@ int main(int argument_count, char ** arguments) {
 	int frames = 0;
 	int fps    = 0;
 	
-	const char * scene_filename = DATA_PATH("scene.obj");
+	const char * scene_filename = DATA_PATH("sponza/sponza.obj");
 	const char * sky_filename   = DATA_PATH("Sky_Probes/rnl_probe.float");
 
 	Pathtracer pathtracer;
