@@ -7,17 +7,29 @@ layout (location = 3) in flat int  in_triangle_id;
 layout (location = 4) in      vec4 in_screen_position;
 layout (location = 5) in      vec4 in_screen_position_prev;
 
-layout (location = 0) out vec4 out_position;
-layout (location = 1) out vec4 out_normal;
-layout (location = 2) out vec2 out_uv;
-layout (location = 3) out int  out_triangle_id;
-layout (location = 4) out vec2 out_motion;
+layout (location = 0) out vec4  out_position;
+layout (location = 1) out vec4  out_normal;
+layout (location = 2) out vec2  out_uv;
+layout (location = 3) out int   out_triangle_id;
+layout (location = 4) out vec2  out_motion;
+layout (location = 5) out float out_depth;
+
+uniform mat4 view_projection;
+uniform mat4 view_projection_prev;
 
 void main() {
-	out_position    = vec4(in_position, 0.0f);
-	out_normal      = vec4(in_normal,   0.0f);
+	out_position    = vec4(in_position,          0.0f);
+	out_normal      = vec4(normalize(in_normal), 0.0f);
 	out_uv          = in_uv;
 	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
 	
-	out_motion = in_screen_position.xy / in_screen_position.w - in_screen_position_prev.xy / in_screen_position_prev.w;
+	//vec4 screen_position      = view_projection      * vec4(in_position, 1.0f);
+	vec4 screen_position_prev = view_projection_prev * vec4(in_position, 1.0f);
+
+	out_motion = screen_position_prev.xy / screen_position_prev.w;
+	
+	const float near =   0.1f;
+	const float far  = 250.0f;
+
+	out_depth = (gl_FragCoord.z / gl_FragCoord.w) / (far - near); // ((far-near)/2) * (2.0 * gl_FragCoord.z - 1.0) + (far+near)/2;
 }

@@ -21,6 +21,14 @@ texture<float4, cudaTextureType2D> gbuffer_normal;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
 texture<float2, cudaTextureType2D> gbuffer_motion;
+texture<float,  cudaTextureType2D> gbuffer_depth;
+
+surface<void, 2> history_normal;
+surface<void, 2> history_triangle_id;
+surface<void, 2> history_depth;
+
+// texture<float4, cudaTextureType2D> tex_history_normal;
+// texture<int,    cudaTextureType2D> tex_history_triangle_id;
 
 __device__ void frame_buffer_add(surface<void, 2> frame_buffer, int x, int y, const float3 & colour) {
 	assert(x >= 0 && x < SCREEN_WIDTH);
@@ -768,6 +776,56 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
+
+	float4 normal      = tex2D(gbuffer_normal,      u, v);
+	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
+	float2 motion      = tex2D(gbuffer_motion,      u, v);
+	float  depth       = tex2D(gbuffer_depth,       u, v);
+
+	float u_prev = 0.5f + 0.5f * motion.x;
+	float v_prev = 0.5f + 0.5f * motion.y;
+
+	int x_prev = int(u_prev * float(SCREEN_WIDTH));
+	int y_prev = int(v_prev * float(SCREEN_HEIGHT));
+
+	bool consistent =
+		x_prev >= 0 && x_prev < SCREEN_WIDTH &&
+		y_prev >= 0 && y_prev < SCREEN_HEIGHT;
+
+	if (consistent) {
+		float4 normal_prev;
+		int    triangle_id_prev;
+		float  depth_prev;
+
+		surf2Dread<float4>(&normal_prev,      history_normal,      x_prev * sizeof(float4), y_prev);
+		surf2Dread<int>   (&triangle_id_prev, history_triangle_id, x_prev * sizeof(int),    y_prev);
+		surf2Dread<float> (&depth_prev,       history_depth,       x_prev * sizeof(float),  y_prev);
+
+		const float normal_threshold = 0.5f;
+
+		bool consistent_normals      = (normal.x * normal_prev.x + normal.y * normal_prev.y + normal.z * normal_prev.z) > normal_threshold;
+		bool consistent_triangle_ids = triangle_id == triangle_id_prev;
+		bool consistent_depth        = abs(depth - depth_prev) < 0.05f;
+
+		consistent = consistent_triangle_ids || (consistent_normals && consistent_depth);
+	}
+
+	float4 colour;
+	if (consistent) {
+	 	colour = make_float4(0.5f) + 0.5f * normal;
+	} else {
+		colour = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	}
+
+	surf2Dwrite<float4>(colour, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
+
+	surf2Dwrite<float4>(normal,      history_normal,      x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<int>   (triangle_id, history_triangle_id, x * sizeof(int),    y, cudaBoundaryModeClamp);
+	surf2Dwrite<float> (depth,       history_depth,       x * sizeof(float),  y, cudaBoundaryModeClamp);
+
+	/*
 	float4 albedo, direct, indirect;
 	surf2Dread<float4>(&albedo,   frame_buffer_albedo,   x * sizeof(float4), y);
 	surf2Dread<float4>(&direct,   frame_buffer_direct,   x * sizeof(float4), y);
@@ -792,4 +850,5 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_albedo,   x * sizeof(float4), y, cudaBoundaryModeClamp);
 	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_direct,   x * sizeof(float4), y, cudaBoundaryModeClamp);
 	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_indirect, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	*/
 }
