@@ -25,6 +25,7 @@ private:
 	CUDAKernel kernel_shade_glossy;
 	CUDAKernel kernel_connect;
 	CUDAKernel kernel_accumulate;
+	CUDAKernel kernel_cleanup;
 
 	CUDAModule::Global global_buffer_sizes;
 

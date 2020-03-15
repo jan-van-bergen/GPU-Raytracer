@@ -22,14 +22,16 @@ void main() {
 	out_normal      = vec4(normalize(in_normal), 0.0f);
 	out_uv          = in_uv;
 	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
-	
-	//vec4 screen_position      = view_projection      * vec4(in_position, 1.0f);
+
+	vec4 screen_position      = view_projection      * vec4(in_position, 1.0f);
 	vec4 screen_position_prev = view_projection_prev * vec4(in_position, 1.0f);
 
-	out_motion = screen_position_prev.xy / screen_position_prev.w;
-	
+	out_motion = 
+		screen_position.xy      / screen_position.w - 
+		screen_position_prev.xy / screen_position_prev.w;
+
 	const float near =   0.1f;
 	const float far  = 250.0f;
 
-	out_depth = (gl_FragCoord.z / gl_FragCoord.w) / (far - near); // ((far-near)/2) * (2.0 * gl_FragCoord.z - 1.0) + (far+near)/2;
+	out_depth = (gl_FragCoord.z / gl_FragCoord.w) / (far - near);
 }

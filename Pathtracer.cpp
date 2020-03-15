@@ -370,10 +370,12 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	// Create History Buffers
+	CUarray array_history_colour      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_normal      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_triangle_id = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, CUarray_format::CU_AD_FORMAT_SIGNED_INT32, CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_depth       = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 
+	module.set_surface("history_colour",      array_history_colour);
 	module.set_surface("history_normal",      array_history_normal);
 	module.set_surface("history_triangle_id", array_history_triangle_id);
 	module.set_surface("history_depth",       array_history_depth);
@@ -412,6 +414,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_glossy.init    (&module, "kernel_shade_glossy");
 	kernel_connect.init         (&module, "kernel_connect");
 	kernel_accumulate.init      (&module, "kernel_accumulate");
+	kernel_cleanup.init         (&module, "kernel_cleanup");
 
 	kernel_primary.set_block_dim         (32, 4, 1);
 	kernel_generate.set_block_dim        (128, 1, 1);
@@ -421,10 +424,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_glossy.set_block_dim    (128, 1, 1);
 	kernel_connect.set_block_dim         (128, 1, 1);
 	kernel_accumulate.set_block_dim(32, 4, 1);
+	kernel_cleanup.set_block_dim   (32, 4, 1);
 
 	kernel_primary.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
+		(SCREEN_WIDTH  + kernel_primary.block_dim_x - 1) / kernel_primary.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_primary.block_dim_y - 1) / kernel_primary.block_dim_y,
 		1
 	);
 	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
@@ -436,6 +440,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_accumulate.set_grid_dim(
 		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
 		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
+		1
+	);
+	kernel_cleanup.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_cleanup.block_dim_x - 1) / kernel_cleanup.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_cleanup.block_dim_y - 1) / kernel_cleanup.block_dim_y,
 		1
 	);
 
@@ -463,11 +472,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 void Pathtracer::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
 
-	if (camera.moved) {
-		frames_since_camera_moved = 0;
-	} else {
+	//if (camera.moved) {
+	//	frames_since_camera_moved = 0;
+	//} else {
 		frames_since_camera_moved++;
-	}
+	//}
 }
 
 void Pathtracer::render() {
@@ -555,6 +564,8 @@ void Pathtracer::render() {
 
 	// Accumulate FrameBuffer temporally
 	kernel_accumulate.execute(float(frames_since_camera_moved));
+
+	kernel_cleanup.execute();
 
 	// Sync Main stream
 	CUDACALL(cuStreamSynchronize(nullptr));
