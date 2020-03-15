@@ -21,6 +21,14 @@ texture<float4, cudaTextureType2D> gbuffer_normal;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
 texture<float2, cudaTextureType2D> gbuffer_motion;
+texture<float,  cudaTextureType2D> gbuffer_depth;
+
+surface<void, 2> history_colour;
+surface<void, 2> history_normal;
+surface<void, 2> history_triangle_id;
+surface<void, 2> history_depth;
+
+#define ALPHA 0.2f // Constant alpha for exponential moving average, see SVGF paper
 
 __device__ void frame_buffer_add(surface<void, 2> frame_buffer, int x, int y, const float3 & colour) {
 	assert(x >= 0 && x < SCREEN_WIDTH);
@@ -762,12 +770,35 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 	}
 }
 
+__device__ bool is_tap_consistent(int x, int y, const float4 & normal, int triangle_id, float depth) {
+	if (x < 0 || x >= SCREEN_WIDTH)  return false;
+	if (y < 0 || y >= SCREEN_HEIGHT) return false;
+
+	float4 normal_prev;
+	int    triangle_id_prev;
+	float  depth_prev;
+
+	surf2Dread<float4>(&normal_prev,      history_normal,      x * sizeof(float4), y);
+	surf2Dread<int>   (&triangle_id_prev, history_triangle_id, x * sizeof(int),    y);
+	surf2Dread<float> (&depth_prev,       history_depth,       x * sizeof(float),  y);
+
+	const float threshold_normal = 0.5f;
+	const float threshold_depth  = 0.05f;
+
+	bool consistent_normals      = (normal.x * normal_prev.x + normal.y * normal_prev.y + normal.z * normal_prev.z) > threshold_normal;
+	bool consistent_triangle_ids = triangle_id == triangle_id_prev;
+	bool consistent_depth        = abs(depth - depth_prev) < threshold_depth;
+
+	return consistent_triangle_ids || (consistent_normals && consistent_depth);
+}
+
 extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
+	// Combine Albedo, Direct Illumination, and Indirect Illumination buffers
 	float4 albedo, direct, indirect;
 	surf2Dread<float4>(&albedo,   frame_buffer_albedo,   x * sizeof(float4), y);
 	surf2Dread<float4>(&direct,   frame_buffer_direct,   x * sizeof(float4), y);
@@ -775,21 +806,112 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	
 	float4 colour = albedo * (direct + indirect);
 
-	float4 colour_out;
-	if (frames_since_camera_moved > 0.0f) {
-		float4 prev;
-		surf2Dread<float4>(&prev, accumulator, x * sizeof(float4), y);
+	// Sample Colour History buffer, only if the reprojection is consistent
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour_out = (prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
-	} else {
-		colour_out = colour;
+	float4 normal      = tex2D(gbuffer_normal,      u, v);
+	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
+	float2 motion      = tex2D(gbuffer_motion,      u, v);
+	float  depth       = tex2D(gbuffer_depth,       u, v);
+
+	float u_prev = u - 0.5f * motion.x;
+	float v_prev = v - 0.5f * motion.y;
+
+	float s_prev = u_prev * float(SCREEN_WIDTH);
+	float t_prev = v_prev * float(SCREEN_HEIGHT);
+	
+	int x_prev = int(s_prev);
+	int y_prev = int(t_prev);
+
+	// Calculate bilinear weights
+	float fractional_s = s_prev - floor(s_prev);
+	float fractional_t = t_prev - floor(t_prev);
+
+	float one_minus_fractional_s = 1.0f - fractional_s;
+	float one_minus_fractional_t = 1.0f - fractional_t;
+
+	float w0 = one_minus_fractional_s * one_minus_fractional_t;
+	float w1 =           fractional_s * one_minus_fractional_t;
+	float w2 = one_minus_fractional_s *           fractional_t;
+	float w3 = 1.0f - w0 - w1 - w2;
+
+	float weights[4] = { w0, w1, w2, w3 };
+
+	float consistent_weights[4]  = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float consistent_weights_sum = 0.0f;
+
+	int2 offsets[4] = {
+		{ 0, 0 }, { 1, 0 },
+		{ 0, 1 }, { 1, 1 }
+	};
+
+	bool any_consistent = false;
+	
+	// For each tap in a 2x2 bilinear filter, check if the reprojection is consistent
+	// We sum the consistent bilinear weights for normalization purposes later on (weights should always add up to 1)
+	for (int tap = 0; tap < 4; tap++) {
+		int2 offset = offsets[tap];
+
+		if (is_tap_consistent(x_prev + offset.x, y_prev + offset.y, normal, triangle_id, depth)) {
+			float weight = weights[tap];
+
+			consistent_weights[tap] = weight;
+			consistent_weights_sum += weight;
+
+			any_consistent = true;
+		}
 	}
 
+	// If at least one tap was consistent
+	if (any_consistent) {
+		float4 colour_prev = make_float4(0.0f);
+
+		// Add consistent taps using their bilinear weight
+		for (int tap = 0; tap < 4; tap++) {
+			if (consistent_weights[tap] != 0.0f) {
+				int2 offset = offsets[tap];
+
+				float4 colour_tap;
+				surf2Dread<float4>(&colour_tap, history_colour, (x_prev + offset.x) * sizeof(float4), y_prev + offset.y);
+
+				colour_prev += consistent_weights[tap] * colour_tap;
+			}
+		}
+
+		// Divide by the sum of the consistent weights to normalize the summed weights
+		colour_prev /= consistent_weights_sum;
+
+		// Integrate colour using exponential moving average
+	 	colour = ALPHA * colour + (1.0f - ALPHA) * colour_prev;
+	}
+
+	float4 colour_out = make_float4(colour.x, colour.y, colour.z, 1.0f);
+
 	surf2Dwrite<float4>(colour_out, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
+
+	// Write to History buffers for next frame
+	surf2Dwrite<float4>(normal,      history_normal,      x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<int>   (triangle_id, history_triangle_id, x * sizeof(int),    y, cudaBoundaryModeClamp);
+	surf2Dwrite<float> (depth,       history_depth,       x * sizeof(float),  y, cudaBoundaryModeClamp);
 
 	// Clear frame buffers for next frame
 	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_albedo,   x * sizeof(float4), y, cudaBoundaryModeClamp);
 	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_direct,   x * sizeof(float4), y, cudaBoundaryModeClamp);
 	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_indirect, x * sizeof(float4), y, cudaBoundaryModeClamp);
+}
+
+// Updating the Colour History buffer needs a separate kernel because
+// multiple pixels may read from the same texel,
+// thus we can only update it after all reads are done
+extern "C" __global__ void kernel_cleanup() {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	float4 colour;
+	surf2Dread<float4>(&colour, accumulator, x * sizeof(float4), y);
+
+	surf2Dwrite<float4>(colour, history_colour, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
