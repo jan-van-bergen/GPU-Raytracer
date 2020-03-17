@@ -365,18 +365,23 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_surface("frame_buffer_albedo",   CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
 	module.set_surface("frame_buffer_direct",   CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
 	module.set_surface("frame_buffer_indirect", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
+	module.set_surface("frame_buffer_moment",   CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
 	
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	// Create History Buffers
-	CUarray array_history_colour      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
+	CUarray array_history_direct      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
+	CUarray array_history_indirect    = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
+	CUarray array_history_moment      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_position    = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_normal      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_triangle_id = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, CUarray_format::CU_AD_FORMAT_SIGNED_INT32, CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_depth       = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 
-	module.set_surface("history_colour",      array_history_colour);
+	module.set_surface("history_direct",      array_history_direct);
+	module.set_surface("history_indirect",    array_history_indirect);
+	module.set_surface("history_moment",      array_history_moment);
 	module.set_surface("history_position",    array_history_position);
 	module.set_surface("history_normal",      array_history_normal);
 	module.set_surface("history_triangle_id", array_history_triangle_id);
