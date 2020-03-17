@@ -69,6 +69,13 @@ void Camera::update(float delta, const unsigned char * keys) {
 
 	view_projection_prev = view_projection;
 
+	jitter = Vector2(
+		(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
+		(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
+	);
+		
+	jitter = Vector2(0.0f);
+
 	// The view matrix V is the inverse of the World M
 	// M^-1 = (RT)^-1 = T^-1 * R^-1
 	view_projection = 
@@ -76,9 +83,5 @@ void Camera::update(float delta, const unsigned char * keys) {
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
 		projection *
 		// Apply screen space jitter in NDC
-		Matrix4::create_translation(Vector3(
-			(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
-			(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT)),
-			0.0f
-		));
+		Matrix4::create_translation(Vector3(jitter.x, jitter.y, 0.0f));
 }

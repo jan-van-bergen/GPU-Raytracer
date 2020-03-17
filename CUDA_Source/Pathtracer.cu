@@ -24,6 +24,7 @@ texture<float2, cudaTextureType2D> gbuffer_motion;
 texture<float,  cudaTextureType2D> gbuffer_depth;
 
 surface<void, 2> history_colour;
+surface<void, 2> history_position;
 surface<void, 2> history_normal;
 surface<void, 2> history_triangle_id;
 surface<void, 2> history_depth;
@@ -770,29 +771,35 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 	}
 }
 
-__device__ bool is_tap_consistent(int x, int y, const float4 & normal, int triangle_id, float depth) {
+__device__ bool is_tap_consistent(int x, int y, const float4 & position, const float4 & normal, int triangle_id, float depth) {
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
 
+	float4 position_prev;
 	float4 normal_prev;
 	int    triangle_id_prev;
 	float  depth_prev;
 
+	surf2Dread<float4>(&position_prev,    history_position,    x * sizeof(float4), y);
 	surf2Dread<float4>(&normal_prev,      history_normal,      x * sizeof(float4), y);
 	surf2Dread<int>   (&triangle_id_prev, history_triangle_id, x * sizeof(int),    y);
 	surf2Dread<float> (&depth_prev,       history_depth,       x * sizeof(float),  y);
 
-	const float threshold_normal = 0.5f;
-	const float threshold_depth  = 0.05f;
+	float4 diff = position - position_prev;
 
+	const float threshold_position = 0.5f;
+	const float threshold_normal   = 0.95f;
+	const float threshold_depth    = 0.025f;
+
+	bool consistent_position     = (diff.x*diff.x + diff.y*diff.y + diff.z*diff.z) < threshold_position * threshold_position;
 	bool consistent_normals      = (normal.x * normal_prev.x + normal.y * normal_prev.y + normal.z * normal_prev.z) > threshold_normal;
 	bool consistent_triangle_ids = triangle_id == triangle_id_prev;
 	bool consistent_depth        = abs(depth - depth_prev) < threshold_depth;
 
-	return consistent_triangle_ids || (consistent_normals && consistent_depth);
+	return consistent_normals && consistent_depth;
 }
 
-extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
+extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved, float2 camera_jitter) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -806,17 +813,17 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	
 	float4 colour = albedo * (direct + indirect);
 
-	// Sample Colour History buffer, only if the reprojection is consistent
-	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
-	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH)  - camera_jitter.x;
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT) - camera_jitter.y;
 
+	float4 position    = tex2D(gbuffer_position,    u, v);
 	float4 normal      = tex2D(gbuffer_normal,      u, v);
 	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
 	float2 motion      = tex2D(gbuffer_motion,      u, v);
 	float  depth       = tex2D(gbuffer_depth,       u, v);
 
-	float u_prev = u - 0.5f * motion.x;
-	float v_prev = v - 0.5f * motion.y;
+	float u_prev = 0.5f + 0.5f * motion.x;
+	float v_prev = 0.5f + 0.5f * motion.y;
 
 	float s_prev = u_prev * float(SCREEN_WIDTH);
 	float t_prev = v_prev * float(SCREEN_HEIGHT);
@@ -838,10 +845,10 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 
 	float weights[4] = { w0, w1, w2, w3 };
 
-	float consistent_weights[4]  = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float consistent_weights[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	float consistent_weights_sum = 0.0f;
 
-	int2 offsets[4] = {
+	const int2 offsets[4] = {
 		{ 0, 0 }, { 1, 0 },
 		{ 0, 1 }, { 1, 1 }
 	};
@@ -853,7 +860,7 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	for (int tap = 0; tap < 4; tap++) {
 		int2 offset = offsets[tap];
 
-		if (is_tap_consistent(x_prev + offset.x, y_prev + offset.y, normal, triangle_id, depth)) {
+		if (is_tap_consistent(x_prev + offset.x, y_prev + offset.y, position, normal, triangle_id, depth)) {
 			float weight = weights[tap];
 
 			consistent_weights[tap] = weight;
@@ -879,21 +886,16 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 			}
 		}
 
-		// Divide by the sum of the consistent weights to normalize the summed weights
+		// Divide by the sum of the consistent weights to renormalize the sum of the consistent weights to 1
 		colour_prev /= consistent_weights_sum;
 
 		// Integrate colour using exponential moving average
 	 	colour = ALPHA * colour + (1.0f - ALPHA) * colour_prev;
 	}
-
+	
 	float4 colour_out = make_float4(colour.x, colour.y, colour.z, 1.0f);
 
 	surf2Dwrite<float4>(colour_out, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
-
-	// Write to History buffers for next frame
-	surf2Dwrite<float4>(normal,      history_normal,      x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<int>   (triangle_id, history_triangle_id, x * sizeof(int),    y, cudaBoundaryModeClamp);
-	surf2Dwrite<float> (depth,       history_depth,       x * sizeof(float),  y, cudaBoundaryModeClamp);
 
 	// Clear frame buffers for next frame
 	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_albedo,   x * sizeof(float4), y, cudaBoundaryModeClamp);
@@ -904,7 +906,7 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 // Updating the Colour History buffer needs a separate kernel because
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
-extern "C" __global__ void kernel_cleanup() {
+extern "C" __global__ void kernel_cleanup(float2 camera_jitter) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -913,5 +915,17 @@ extern "C" __global__ void kernel_cleanup() {
 	float4 colour;
 	surf2Dread<float4>(&colour, accumulator, x * sizeof(float4), y);
 
-	surf2Dwrite<float4>(colour, history_colour, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH)  - camera_jitter.x;
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT) - camera_jitter.y;
+
+	float4 position    = tex2D(gbuffer_position,    u, v);
+	float4 normal      = tex2D(gbuffer_normal,      u, v);
+	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
+	float  depth       = tex2D(gbuffer_depth,       u, v);
+
+	surf2Dwrite<float4>(colour,      history_colour,      x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(position,    history_position,    x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(normal,      history_normal,      x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<int>   (triangle_id, history_triangle_id, x * sizeof(int),    y, cudaBoundaryModeClamp);
+	surf2Dwrite<float> (depth,       history_depth,       x * sizeof(float),  y, cudaBoundaryModeClamp);
 }

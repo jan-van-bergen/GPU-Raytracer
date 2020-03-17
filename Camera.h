@@ -1,6 +1,7 @@
 #pragma once
 #include <random>
 
+#include "Vector2.h"
 #include "Vector3.h"
 #include "Quaternion.h"
 #include "Matrix4.h"
@@ -24,6 +25,8 @@ struct Camera {
 	bool moved;
 
 	bool rasterize = true;
+	
+	Vector2 jitter;
 
 	std::mt19937                          gen = std::mt19937(std::random_device()());
 	std::uniform_real_distribution<float> rng = std::uniform_real_distribution<float>(0.0f, 1.0f);

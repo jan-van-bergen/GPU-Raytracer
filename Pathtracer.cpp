@@ -371,11 +371,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	// Create History Buffers
 	CUarray array_history_colour      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
+	CUarray array_history_position    = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_normal      = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_triangle_id = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, CUarray_format::CU_AD_FORMAT_SIGNED_INT32, CUDA_ARRAY3D_SURFACE_LDST);
 	CUarray array_history_depth       = CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, CUarray_format::CU_AD_FORMAT_FLOAT,        CUDA_ARRAY3D_SURFACE_LDST);
 
 	module.set_surface("history_colour",      array_history_colour);
+	module.set_surface("history_position",    array_history_position);
 	module.set_surface("history_normal",      array_history_normal);
 	module.set_surface("history_triangle_id", array_history_triangle_id);
 	module.set_surface("history_depth",       array_history_depth);
@@ -563,9 +565,9 @@ void Pathtracer::render() {
 	global_buffer_sizes.set_value_async(buffer_sizes, memcpy_stream);
 
 	// Accumulate FrameBuffer temporally
-	kernel_accumulate.execute(float(frames_since_camera_moved));
+	kernel_accumulate.execute(float(frames_since_camera_moved), 0.5f * camera.jitter);
 
-	kernel_cleanup.execute();
+	kernel_cleanup.execute(camera.jitter);
 
 	// Sync Main stream
 	CUDACALL(cuStreamSynchronize(nullptr));
