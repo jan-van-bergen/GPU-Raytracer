@@ -565,9 +565,9 @@ void Pathtracer::render() {
 	global_buffer_sizes.set_value_async(buffer_sizes, memcpy_stream);
 
 	// Accumulate FrameBuffer temporally
-	kernel_accumulate.execute(float(frames_since_camera_moved), 0.5f * camera.jitter);
+	kernel_accumulate.execute();
 
-	kernel_cleanup.execute(camera.jitter);
+	kernel_cleanup.execute();
 
 	// Sync Main stream
 	CUDACALL(cuStreamSynchronize(nullptr));

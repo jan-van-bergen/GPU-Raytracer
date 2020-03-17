@@ -799,7 +799,7 @@ __device__ bool is_tap_consistent(int x, int y, const float4 & position, const f
 	return consistent_normals && consistent_depth;
 }
 
-extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved, float2 camera_jitter) {
+extern "C" __global__ void kernel_accumulate() {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -813,8 +813,8 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved, fl
 	
 	float4 colour = albedo * (direct + indirect);
 
-	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH)  - camera_jitter.x;
-	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT) - camera_jitter.y;
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
 	float4 position    = tex2D(gbuffer_position,    u, v);
 	float4 normal      = tex2D(gbuffer_normal,      u, v);
@@ -906,7 +906,7 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved, fl
 // Updating the Colour History buffer needs a separate kernel because
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
-extern "C" __global__ void kernel_cleanup(float2 camera_jitter) {
+extern "C" __global__ void kernel_cleanup() {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -915,8 +915,8 @@ extern "C" __global__ void kernel_cleanup(float2 camera_jitter) {
 	float4 colour;
 	surf2Dread<float4>(&colour, accumulator, x * sizeof(float4), y);
 
-	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH)  - camera_jitter.x;
-	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT) - camera_jitter.y;
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
 	float4 position    = tex2D(gbuffer_position,    u, v);
 	float4 normal      = tex2D(gbuffer_normal,      u, v);
