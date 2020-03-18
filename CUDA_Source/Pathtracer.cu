@@ -873,7 +873,12 @@ extern "C" __global__ void kernel_accumulate() {
 		}
 	}
 
-	float4 moment = make_float4(0.0f);
+	// First two raw moments of luminance
+	float4 moment;
+	moment.x = luminance(direct.x,   direct.y,   direct.z);
+	moment.y = luminance(indirect.x, indirect.y, indirect.z);
+	moment.z = moment.x * moment.x;
+	moment.w = moment.y * moment.y;
 
 	// If at least one tap was consistent
 	if (any_consistent) {
