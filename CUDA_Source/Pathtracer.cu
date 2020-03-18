@@ -919,6 +919,13 @@ extern "C" __global__ void kernel_accumulate() {
 	 	moment   = ALPHA * moment   + (1.0f - ALPHA) * prev_moment;
 	}
 
+	float variance_direct   = fmaxf(0.0f, moment.y - moment.x * moment.x);
+	float variance_indirect = fmaxf(0.0f, moment.w - moment.z * moment.z);
+
+	// Store the Variance in the alpha channel
+	direct.w   = variance_direct;
+	indirect.w = variance_indirect;
+
 	surf2Dwrite<float4>(direct,   frame_buffer_direct,   x * sizeof(float4), y, cudaBoundaryModeClamp);
 	surf2Dwrite<float4>(indirect, frame_buffer_indirect, x * sizeof(float4), y, cudaBoundaryModeClamp);
 	surf2Dwrite<float4>(moment,   frame_buffer_moment,   x * sizeof(float4), y, cudaBoundaryModeClamp);
