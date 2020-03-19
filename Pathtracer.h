@@ -3,6 +3,7 @@
 
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
+#include "CUDAMemory.h"
 
 #include "GBuffer.h"
 #include "Shader.h"
@@ -24,8 +25,9 @@ private:
 	CUDAKernel kernel_shade_dielectric;
 	CUDAKernel kernel_shade_glossy;
 	CUDAKernel kernel_connect;
-	CUDAKernel kernel_accumulate;
-	CUDAKernel kernel_cleanup;
+	CUDAKernel kernel_temporal;
+	CUDAKernel kernel_atrous;
+	CUDAKernel kernel_finalize;
 
 	CUDAModule::Global global_buffer_sizes;
 
@@ -34,6 +36,11 @@ private:
 
 	GLuint uniform_view_projection;
 	GLuint uniform_view_projection_prev;
+
+	CUDAMemory::Ptr<float> ptr_direct;
+	CUDAMemory::Ptr<float> ptr_indirect;
+	CUDAMemory::Ptr<float> ptr_direct_alt;
+	CUDAMemory::Ptr<float> ptr_indirect_alt;
 
 public:
 	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);

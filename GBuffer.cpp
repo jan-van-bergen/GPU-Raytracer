@@ -18,6 +18,7 @@ void GBuffer::init(int width, int height) {
 	glGenTextures(1, &buffer_triangle_id);
 	glGenTextures(1, &buffer_motion);
 	glGenTextures(1, &buffer_z);
+	glGenTextures(1, &buffer_z_gradient);
 	glGenTextures(1, &buffer_depth);
 
 	// Initialize Position Buffer
@@ -61,6 +62,13 @@ void GBuffer::init(int width, int height) {
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, buffer_z, NULL);
+	
+	// Initialize Z Gradient Buffer
+	glBindTexture(GL_TEXTURE_2D, buffer_z_gradient);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, NULL);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, buffer_z_gradient, NULL);
 
 	// Depth Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_depth);
@@ -74,7 +82,8 @@ void GBuffer::init(int width, int height) {
 		GL_COLOR_ATTACHMENT2, // UV
 		GL_COLOR_ATTACHMENT3, // Triangle ID
 		GL_COLOR_ATTACHMENT4, // Motion
-		GL_COLOR_ATTACHMENT5  // Depth
+		GL_COLOR_ATTACHMENT5, // Depth
+		GL_COLOR_ATTACHMENT6  // Depth Gradient
 	};
 	glDrawBuffers(sizeof(draw_buffers) / sizeof(GLenum), draw_buffers);
 

@@ -12,10 +12,13 @@
 #include "Util.h"
 
 // Frame Buffers
-surface<void, 2> frame_buffer_albedo;
-surface<void, 2> frame_buffer_direct;
-surface<void, 2> frame_buffer_indirect;
-surface<void, 2> frame_buffer_moment;
+__device__ float4 * frame_buffer_albedo;
+__device__ float4 * frame_buffer_moment;
+
+__device__ float4 * frame_buffer_direct;
+__device__ float4 * frame_buffer_indirect;
+__device__ float4 * frame_buffer_direct_alt;
+__device__ float4 * frame_buffer_indirect_alt;
 
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
@@ -26,26 +29,24 @@ texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
 texture<float2, cudaTextureType2D> gbuffer_motion;
 texture<float,  cudaTextureType2D> gbuffer_depth;
+texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
 
 // History Buffers (Temporally Integrated)
-surface<void, 2> history_direct;
-surface<void, 2> history_indirect;
-surface<void, 2> history_moment;
-surface<void, 2> history_position;
-surface<void, 2> history_normal;
-surface<void, 2> history_triangle_id;
-surface<void, 2> history_depth;
+__device__ float4 * history_direct;
+__device__ float4 * history_indirect;
+__device__ float4 * history_moment;
+__device__ float4 * history_position;
+__device__ float4 * history_normal;
+__device__ int    * history_triangle_id;
+__device__ float  * history_depth;
 
 #define ALPHA 0.2f // Constant alpha for exponential moving average, see SVGF paper
 
-__device__ void frame_buffer_add(surface<void, 2> frame_buffer, int x, int y, const float3 & colour) {
-	assert(x >= 0 && x < SCREEN_WIDTH);
-	assert(y >= 0 && y < SCREEN_HEIGHT);
+__device__ void frame_buffer_add(float4 * frame_buffer, int x, int y, const float3 & colour) {
+	ASSERT(x >= 0 && x < SCREEN_WIDTH);
+	ASSERT(y >= 0 && y < SCREEN_HEIGHT);
 
-	float4 prev;
-	surf2Dread<float4>(&prev, frame_buffer, x * sizeof(float4), y);
-	
-	surf2Dwrite<float4>(prev + make_float4(colour, 0.0f), frame_buffer, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	frame_buffer[x + y * SCREEN_WIDTH] += make_float4(colour, 0.0f);
 }
 
 // Vector3 in AoS layout
@@ -782,15 +783,10 @@ __device__ bool is_tap_consistent(int x, int y, const float4 & position, const f
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
 
-	float4 position_prev;
-	float4 normal_prev;
-	int    triangle_id_prev;
-	float  depth_prev;
-
-	surf2Dread<float4>(&position_prev,    history_position,    x * sizeof(float4), y);
-	surf2Dread<float4>(&normal_prev,      history_normal,      x * sizeof(float4), y);
-	surf2Dread<int>   (&triangle_id_prev, history_triangle_id, x * sizeof(int),    y);
-	surf2Dread<float> (&depth_prev,       history_depth,       x * sizeof(float),  y);
+	float4 position_prev    = history_position   [x + y * SCREEN_WIDTH];
+	float4 normal_prev      = history_normal     [x + y * SCREEN_WIDTH];
+	int    triangle_id_prev = history_triangle_id[x + y * SCREEN_WIDTH];
+	float  depth_prev       = history_depth      [x + y * SCREEN_WIDTH];
 
 	float4 diff = position - position_prev;
 
@@ -806,16 +802,15 @@ __device__ bool is_tap_consistent(int x, int y, const float4 & position, const f
 	return consistent_normals && consistent_depth;
 }
 
-extern "C" __global__ void kernel_accumulate() {
+extern "C" __global__ void kernel_temporal() {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	float4 direct, indirect;
-	surf2Dread<float4>(&direct,   frame_buffer_direct,   x * sizeof(float4), y);
-	surf2Dread<float4>(&indirect, frame_buffer_indirect, x * sizeof(float4), y);
-	
+	float4 direct   = frame_buffer_direct  [x + y * SCREEN_WIDTH];
+	float4 indirect = frame_buffer_indirect[x + y * SCREEN_WIDTH];
+
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
@@ -856,8 +851,6 @@ extern "C" __global__ void kernel_accumulate() {
 		{ 0, 1 }, { 1, 1 }
 	};
 
-	bool any_consistent = false;
-	
 	// For each tap in a 2x2 bilinear filter, check if the reprojection is consistent
 	// We sum the consistent bilinear weights for normalization purposes later on (weights should always add up to 1)
 	for (int tap = 0; tap < 4; tap++) {
@@ -868,8 +861,6 @@ extern "C" __global__ void kernel_accumulate() {
 
 			consistent_weights[tap] = weight;
 			consistent_weights_sum += weight;
-
-			any_consistent = true;
 		}
 	}
 
@@ -881,7 +872,7 @@ extern "C" __global__ void kernel_accumulate() {
 	moment.w = moment.y * moment.y;
 
 	// If at least one tap was consistent
-	if (any_consistent) {
+	if (consistent_weights_sum > 0.0f) {
 		float4 prev_direct   = make_float4(0.0f);
 		float4 prev_indirect = make_float4(0.0f);
 		float4 prev_moment   = make_float4(0.0f);
@@ -894,14 +885,10 @@ extern "C" __global__ void kernel_accumulate() {
 				int tap_x = x_prev + offset.x;
 				int tap_y = y_prev + offset.y;
 
-				float4 tap_direct;
-				float4 tap_indirect;
-				float4 tap_moment;
+				float4 tap_direct   = history_direct  [tap_x + tap_y * SCREEN_WIDTH];
+				float4 tap_indirect = history_indirect[tap_x + tap_y * SCREEN_WIDTH];
+				float4 tap_moment   = history_moment  [tap_x + tap_y * SCREEN_WIDTH];
 
-				surf2Dread<float4>(&tap_direct,   history_direct,   tap_x * sizeof(float4), tap_y);
-				surf2Dread<float4>(&tap_indirect, history_indirect, tap_x * sizeof(float4), tap_y);
-				surf2Dread<float4>(&tap_moment,   history_moment,   tap_x * sizeof(float4), tap_y);
-				
 				prev_direct   += consistent_weights[tap] * tap_direct;
 				prev_indirect += consistent_weights[tap] * tap_indirect;
 				prev_moment   += consistent_weights[tap] * tap_moment;
@@ -926,31 +913,167 @@ extern "C" __global__ void kernel_accumulate() {
 	direct.w   = variance_direct;
 	indirect.w = variance_indirect;
 
-	surf2Dwrite<float4>(direct,   frame_buffer_direct,   x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(indirect, frame_buffer_indirect, x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(moment,   frame_buffer_moment,   x * sizeof(float4), y, cudaBoundaryModeClamp);
+	frame_buffer_direct  [x + y * SCREEN_WIDTH] = direct;
+	frame_buffer_indirect[x + y * SCREEN_WIDTH] = direct;
+	frame_buffer_moment  [x + y * SCREEN_WIDTH] = moment;
 }
 
-// Updating the Colour History buffer needs a separate kernel because
-// multiple pixels may read from the same texel,
-// thus we can only update it after all reads are done
-extern "C" __global__ void kernel_cleanup() {
+extern "C" __global__ void kernel_atrous(
+	float4 const * colour_direct_in,
+	float4 const * colour_indirect_in,
+	float4       * colour_direct_out,
+	float4       * colour_indirect_out,
+	int step_size
+) {
+	const float sigma_z = 10.0f;
+	const float sigma_n = 128.0f;
+	const float sigma_l = 200.0f;
+
+	const float epsilon = 1e-8f;
+
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	float4 albedo, direct, indirect;
-	surf2Dread<float4>(&albedo,   frame_buffer_albedo,   x * sizeof(float4), y);
-	surf2Dread<float4>(&direct,   frame_buffer_direct,   x * sizeof(float4), y);
-	surf2Dread<float4>(&indirect, frame_buffer_indirect, x * sizeof(float4), y);
-	
+	assert(x >= 0);
+	assert(y >= 0);
+
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
+
+	float variance_blurred_direct   = 0.0f;
+	float variance_blurred_indirect = 0.0f;
+
+    const float kernel_gaussian[2][2] = {
+        { 1.0f / 4.0f, 1.0f / 8.0f  },
+        { 1.0f / 8.0f, 1.0f / 16.0f }
+    };
+
+	// Filter Variance using a 3x3 Gaussian Blur
+    for (int j = -1; j <= 1; j++) {
+		int tap_y = clamp(y + j, 0, SCREEN_HEIGHT - 1);
+		
+        for (int i = -1; i <= 1; i++) {
+            int tap_x = clamp(x + i, 0, SCREEN_WIDTH - 1);
+
+			// Read the Variance of Direct/Indirect Illumination
+			// The Variance is stored in the alpha channel
+			float4 colour_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_WIDTH];
+			float4 colour_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_WIDTH];
+
+            float kernel_weight = kernel_gaussian[abs(i)][abs(j)];
+
+            variance_blurred_direct   += colour_direct.w   * kernel_weight;
+            variance_blurred_indirect += colour_indirect.w * kernel_weight;
+        }
+	}
+
+	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(variance_blurred_direct)   + epsilon);
+	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(variance_blurred_indirect) + epsilon);
+
+	float4 center_colour_direct   = colour_direct_in  [x + y * SCREEN_WIDTH];
+	float4 center_colour_indirect = colour_indirect_in[x + y * SCREEN_WIDTH];
+
+	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
+	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
+
+	float4 center_normal         = tex2D(gbuffer_normal,         u, v);
+	float  center_depth          = tex2D(gbuffer_depth,          u, v);
+	float2 center_depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
+
+	const float kernel_atrous[3] = { 1.0f, 2.0f / 3.0f, 1.0f / 6.0f };
+
+	float  sum_weight_direct   = 1.0f;
+	float  sum_weight_indirect = 1.0f;
+	float4 sum_colour_direct   = center_colour_direct;
+	float4 sum_colour_indirect = center_colour_indirect;
+
+	// 5x5 À-Trous Filter
+	for (int j = -2; j <= 2; j++) {
+		int tap_y = y + j * step_size;
+
+		if (tap_y < 0 || tap_y >= SCREEN_HEIGHT) continue;
+
+        for (int i = -2; i <= 2; i++) {
+			int tap_x = x + i * step_size;
+			
+			if (tap_x < 0 || tap_x >= SCREEN_WIDTH) continue;
+			
+			if (i == 0 && j == 0) continue; // Center pixel is treated separately
+
+			float tap_u = (float(tap_x) + 0.5f) / float(SCREEN_WIDTH);
+			float tap_v = (float(tap_y) + 0.5f) / float(SCREEN_HEIGHT);
+
+			float4 colour_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_WIDTH];
+			float4 colour_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_WIDTH];
+
+			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
+			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
+
+			float4 normal         = tex2D(gbuffer_normal,         tap_u, tap_v);
+			float  depth          = tex2D(gbuffer_depth,          tap_u, tap_v);
+			float2 depth_gradient = tex2D(gbuffer_depth_gradient, tap_u, tap_v);
+
+			float d = depth_gradient.x * float(x - tap_x) + depth_gradient.y * float(y - tap_y); // ∇z(p)·(p−q)
+			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
+
+			float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), sigma_n);
+
+			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
+			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
+
+			float kernel_weight = kernel_atrous[abs(i)] * kernel_atrous[abs(j)];
+
+			float w_direct   = kernel_weight * w_z * w_n * w_l_direct;
+			float w_indirect = kernel_weight * w_z * w_n * w_l_indirect;
+
+			sum_weight_direct   += w_direct;
+			sum_weight_indirect += w_indirect;
+
+			// Filter Colour using the weights and Variance using the square of the weights
+			sum_colour_direct   += make_float4(w_direct,   w_direct,   w_direct,   w_direct   * w_direct)   * colour_direct;
+			sum_colour_indirect += make_float4(w_indirect, w_indirect, w_indirect, w_indirect * w_indirect) * colour_indirect;
+		}
+	}
+
+	sum_colour_direct.x /= sum_weight_direct;
+	sum_colour_direct.y /= sum_weight_direct;
+	sum_colour_direct.z /= sum_weight_direct;
+	sum_colour_direct.w /= sum_weight_direct * sum_weight_direct; // Alpha channel contains Variance
+
+	sum_colour_indirect.x /= sum_weight_indirect;
+	sum_colour_indirect.y /= sum_weight_indirect;
+	sum_colour_indirect.z /= sum_weight_indirect;
+	sum_colour_indirect.w /= sum_weight_indirect * sum_weight_indirect; // Alpha channel contains Variance
+
+	colour_direct_out  [x + y * SCREEN_WIDTH] = sum_colour_direct;
+	colour_indirect_out[x + y * SCREEN_WIDTH] = sum_colour_indirect;
+
+	if (step_size == 1) {
+		history_direct  [x + y * SCREEN_WIDTH] = sum_colour_direct;
+		history_indirect[x + y * SCREEN_WIDTH] = sum_colour_indirect;
+	}
+}
+
+// Updating the Colour History buffer needs a separate kernel because
+// multiple pixels may read from the same texel,
+// thus we can only update it after all reads are done
+extern "C" __global__ void kernel_finalize() {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	float4 albedo   = frame_buffer_albedo  [x + y * SCREEN_WIDTH];
+	float4 direct   = frame_buffer_direct  [x + y * SCREEN_WIDTH];
+	float4 indirect = frame_buffer_indirect[x + y * SCREEN_WIDTH];
+
 	float4 colour = albedo * (direct + indirect);
 	colour.w = 1.0f;
-	surf2Dwrite<float4>(colour, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
 
-	float4 moment;
-	surf2Dread<float4>(&moment, frame_buffer_moment, x * sizeof(float4), y);
+	float4 moment = frame_buffer_moment[x + y * SCREEN_WIDTH];
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -960,17 +1083,15 @@ extern "C" __global__ void kernel_cleanup() {
 	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
 	float  depth       = tex2D(gbuffer_depth,       u, v);
 
-	surf2Dwrite<float4>(direct,      history_direct,      x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(indirect,    history_indirect,    x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(moment,      history_moment,      x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(position,    history_position,    x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(normal,      history_normal,      x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<int>   (triangle_id, history_triangle_id, x * sizeof(int),    y, cudaBoundaryModeClamp);
-	surf2Dwrite<float> (depth,       history_depth,       x * sizeof(float),  y, cudaBoundaryModeClamp);
+	history_moment     [x + y * SCREEN_WIDTH] = moment;
+	history_position   [x + y * SCREEN_WIDTH] = position;
+	history_normal     [x + y * SCREEN_WIDTH] = normal;
+	history_triangle_id[x + y * SCREEN_WIDTH] = triangle_id;
+	history_depth      [x + y * SCREEN_WIDTH] = depth;
 
+	// @SPEED
 	// Clear frame buffers for next frame
-	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_albedo,   x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_direct,   x * sizeof(float4), y, cudaBoundaryModeClamp);
-	surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_indirect, x * sizeof(float4), y, cudaBoundaryModeClamp);
-	//surf2Dwrite<float4>(make_float4(0.0f, 0.0f, 0.0f, 1.0f), frame_buffer_moment,   x * sizeof(float4), y, cudaBoundaryModeClamp);
+	frame_buffer_albedo  [x + y * SCREEN_WIDTH] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_direct  [x + y * SCREEN_WIDTH] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_indirect[x + y * SCREEN_WIDTH] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 }

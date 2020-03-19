@@ -13,6 +13,7 @@ layout (location = 2) out vec2  out_uv;
 layout (location = 3) out int   out_triangle_id;
 layout (location = 4) out vec2  out_motion;
 layout (location = 5) out float out_depth;
+layout (location = 6) out vec2  out_depth_gradient;
 
 uniform mat4 view_projection;
 uniform mat4 view_projection_prev;
@@ -36,4 +37,5 @@ void main() {
 	const float far  = 250.0f;
 
 	out_depth = (gl_FragCoord.z / gl_FragCoord.w - near) / (far - near);
+	out_depth_gradient = vec2(dFdx(out_depth), dFdy(out_depth));
 }

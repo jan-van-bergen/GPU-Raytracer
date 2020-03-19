@@ -8,6 +8,7 @@ struct GBuffer {
 	unsigned buffer_triangle_id;
 	unsigned buffer_motion;
 	unsigned buffer_z;
+	unsigned buffer_z_gradient;
 	unsigned buffer_depth;
 
 	void init(int width, int height);
