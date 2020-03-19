@@ -370,10 +370,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	ptr_direct_alt   = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 	ptr_indirect_alt = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 
-	module.get_global("frame_buffer_direct").set_value      (ptr_direct.ptr);
-	module.get_global("frame_buffer_indirect").set_value    (ptr_indirect.ptr);
-	module.get_global("frame_buffer_direct_alt").set_value  (ptr_direct_alt.ptr);
-	module.get_global("frame_buffer_indirect_alt").set_value(ptr_indirect_alt.ptr);
+	module.get_global("frame_buffer_direct").set_value  (ptr_direct.ptr);
+	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
@@ -580,30 +578,24 @@ void Pathtracer::render() {
 	kernel_temporal.execute();
 
 	// À-Trous Filter
-	const int atrous_iterations = 4;
+	const int atrous_iterations = 5;
+
+	CUdeviceptr direct_in    = ptr_direct.ptr;
+	CUdeviceptr indirect_in  = ptr_indirect.ptr;
+	CUdeviceptr direct_out   = ptr_direct_alt.ptr;
+	CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
 	for (int i = 0; i < atrous_iterations; i++) {
 		int step_size = 1 << i;
 
-		CUdeviceptr direct_in, indirect_in, direct_out, indirect_out;
-
-		// Ping-Pong the Frame Buffers
-		if (i & 1) {
-			direct_in    = ptr_direct_alt.ptr;
-			indirect_in  = ptr_indirect_alt.ptr;
-			direct_out   = ptr_direct.ptr;
-			indirect_out = ptr_indirect.ptr;
-		} else {
-			direct_in    = ptr_direct.ptr;
-			indirect_in  = ptr_indirect.ptr;
-			direct_out   = ptr_direct_alt.ptr;
-			indirect_out = ptr_indirect_alt.ptr;
-		}
-
 		kernel_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
+		
+		// Ping-Pong the Frame Buffers
+		std::swap(direct_in,   direct_out);
+		std::swap(indirect_in, indirect_out);
 	}
 
-	kernel_finalize.execute();
+	kernel_finalize.execute(direct_out, indirect_out);
 
 	// Sync Main stream
 	CUDACALL(cuStreamSynchronize(nullptr));

@@ -17,8 +17,6 @@ __device__ float4 * frame_buffer_moment;
 
 __device__ float4 * frame_buffer_direct;
 __device__ float4 * frame_buffer_indirect;
-__device__ float4 * frame_buffer_direct_alt;
-__device__ float4 * frame_buffer_indirect_alt;
 
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
@@ -792,7 +790,7 @@ __device__ bool is_tap_consistent(int x, int y, const float4 & position, const f
 
 	const float threshold_position = 0.5f;
 	const float threshold_normal   = 0.95f;
-	const float threshold_depth    = 0.025f;
+	const float threshold_depth    = 0.025f * 250.0f;
 
 	bool consistent_position     = (diff.x*diff.x + diff.y*diff.y + diff.z*diff.z) < threshold_position * threshold_position;
 	bool consistent_normals      = (normal.x * normal_prev.x + normal.y * normal_prev.y + normal.z * normal_prev.z) > threshold_normal;
@@ -925,9 +923,9 @@ extern "C" __global__ void kernel_atrous(
 	float4       * colour_indirect_out,
 	int step_size
 ) {
-	const float sigma_z = 10.0f;
+	const float sigma_z = 1.0f;
 	const float sigma_n = 128.0f;
-	const float sigma_l = 200.0f;
+	const float sigma_l = 4.0f;
 
 	const float epsilon = 1e-8f;
 
@@ -935,9 +933,6 @@ extern "C" __global__ void kernel_atrous(
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
-
-	assert(x >= 0);
-	assert(y >= 0);
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -983,7 +978,11 @@ extern "C" __global__ void kernel_atrous(
 	float  center_depth          = tex2D(gbuffer_depth,          u, v);
 	float2 center_depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
 
-	const float kernel_atrous[3] = { 1.0f, 2.0f / 3.0f, 1.0f / 6.0f };
+	const float kernel_atrous[3] = {
+		3.0f / 8.0f,
+		1.0f / 4.0f,
+		1.0f / 16.0f
+	};
 
 	float  sum_weight_direct   = 1.0f;
 	float  sum_weight_indirect = 1.0f;
@@ -1061,15 +1060,15 @@ extern "C" __global__ void kernel_atrous(
 // Updating the Colour History buffer needs a separate kernel because
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
-extern "C" __global__ void kernel_finalize() {
+extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const float4 * colour_indirect) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	float4 albedo   = frame_buffer_albedo  [x + y * SCREEN_WIDTH];
-	float4 direct   = frame_buffer_direct  [x + y * SCREEN_WIDTH];
-	float4 indirect = frame_buffer_indirect[x + y * SCREEN_WIDTH];
+	float4 albedo   = frame_buffer_albedo[x + y * SCREEN_WIDTH];
+	float4 direct   = colour_direct      [x + y * SCREEN_WIDTH];
+	float4 indirect = colour_indirect    [x + y * SCREEN_WIDTH];
 
 	float4 colour = albedo * (direct + indirect);
 	colour.w = 1.0f;

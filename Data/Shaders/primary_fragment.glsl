@@ -36,6 +36,6 @@ void main() {
 	const float near =   0.1f;
 	const float far  = 250.0f;
 
-	out_depth = (gl_FragCoord.z / gl_FragCoord.w - near) / (far - near);
+	out_depth = gl_FragCoord.z / gl_FragCoord.w;
 	out_depth_gradient = vec2(dFdx(out_depth), dFdy(out_depth));
 }
