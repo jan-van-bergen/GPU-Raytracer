@@ -24,12 +24,7 @@ void main() {
 	out_uv          = in_uv;
 	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
 
-	//vec4 screen_position      = view_projection      * vec4(in_position, 1.0f);
 	vec4 screen_position_prev = view_projection_prev * vec4(in_position, 1.0f);
-
-	// out_motion = 
-		// screen_position.xy      / screen_position.w - 
-		// screen_position_prev.xy / screen_position_prev.w;
 
 	out_motion = screen_position_prev.xy / screen_position_prev.w;
 

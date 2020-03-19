@@ -928,7 +928,7 @@ extern "C" __global__ void kernel_temporal() {
 	indirect.w = variance_indirect;
 
 	frame_buffer_direct  [x + y * SCREEN_WIDTH] = direct;
-	frame_buffer_indirect[x + y * SCREEN_WIDTH] = direct;
+	frame_buffer_indirect[x + y * SCREEN_WIDTH] = indirect;
 	frame_buffer_moment  [x + y * SCREEN_WIDTH] = moment;
 }
 
@@ -943,7 +943,7 @@ extern "C" __global__ void kernel_atrous(
 	const float sigma_n = 128.0f;
 	const float sigma_l = 4.0f;
 
-	const float epsilon = 1e-8f;
+	const float epsilon = 1e-8f; // To avoid division by 0
 
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1031,7 +1031,7 @@ extern "C" __global__ void kernel_atrous(
 			float  depth          = tex2D(gbuffer_depth,          tap_u, tap_v);
 			float2 depth_gradient = tex2D(gbuffer_depth_gradient, tap_u, tap_v);
 
-			float d = depth_gradient.x * float(x - tap_x) + depth_gradient.y * float(y - tap_y); // ∇z(p)·(p−q)
+			float d = depth_gradient.x * float(-i) + depth_gradient.y * float(-j); // ∇z(p)·(p−q)
 			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
 
 			float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), sigma_n);
@@ -1041,7 +1041,7 @@ extern "C" __global__ void kernel_atrous(
 
 			float kernel_weight = kernel_atrous[abs(i)] * kernel_atrous[abs(j)];
 
-			float w_common    = kernel_weight * w_z * w_n;
+			float w_common   = kernel_weight * w_z * w_n;
 			float w_direct   = w_common * w_l_direct;
 			float w_indirect = w_common * w_l_indirect;
 
