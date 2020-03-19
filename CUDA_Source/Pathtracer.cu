@@ -958,17 +958,18 @@ extern "C" __global__ void kernel_atrous(
             int tap_x = clamp(x + i, 0, SCREEN_WIDTH - 1);
 
 			// Read the Variance of Direct/Indirect Illumination
-			// The Variance is stored in the alpha channel
-			float4 colour_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_WIDTH];
-			float4 colour_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_WIDTH];
+			// The Variance is stored in the alpha channel (w coordinate)
+			float variance_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_WIDTH].w;
+			float variance_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_WIDTH].w;
 
             float kernel_weight = kernel_gaussian[abs(i)][abs(j)];
 
-            variance_blurred_direct   += colour_direct.w   * kernel_weight;
-            variance_blurred_indirect += colour_indirect.w * kernel_weight;
+            variance_blurred_direct   += variance_direct   * kernel_weight;
+            variance_blurred_indirect += variance_indirect * kernel_weight;
         }
 	}
 
+	// Precompute denominators that are loop invariant
 	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(variance_blurred_direct)   + epsilon);
 	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(variance_blurred_indirect) + epsilon);
 
@@ -1025,8 +1026,9 @@ extern "C" __global__ void kernel_atrous(
 
 			float kernel_weight = kernel_atrous[abs(i)] * kernel_atrous[abs(j)];
 
-			float w_direct   = kernel_weight * w_z * w_n * w_l_direct;
-			float w_indirect = kernel_weight * w_z * w_n * w_l_indirect;
+			float w_common    = kernel_weight * w_z * w_n;
+			float w_direct   = w_common * w_l_direct;
+			float w_indirect = w_common * w_l_indirect;
 
 			sum_weight_direct   += w_direct;
 			sum_weight_indirect += w_indirect;
