@@ -912,12 +912,15 @@ extern "C" __global__ void kernel_temporal() {
 		history = history_length[x + y * SCREEN_WIDTH] = 1; // Reset History Length
 	}
 
-	float variance_direct   = fmaxf(0.0f, moment.y - moment.x * moment.x);
-	float variance_indirect = fmaxf(0.0f, moment.w - moment.z * moment.z);
+	float variance_direct;
+	float variance_indirect;
 
 	if (history < 4) {
 		variance_direct   = 1.0f;
 		variance_indirect = 1.0f;
+	} else {
+		variance_direct   = fmaxf(0.0f, moment.z - moment.x * moment.x);
+		variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
 	}
 
 	// Store the Variance in the alpha channel
