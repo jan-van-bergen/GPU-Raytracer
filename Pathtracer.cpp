@@ -364,29 +364,27 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	// Create Frame Buffers
 	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-
+	
 	ptr_direct       = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 	ptr_indirect     = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 	ptr_direct_alt   = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 	ptr_indirect_alt = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 
-	module.get_global("frame_buffer_direct").set_value  (ptr_direct.ptr);
+	module.get_global("frame_buffer_direct").set_value(ptr_direct.ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
-	// Create History Buffers
+	// Create History Buffers 
+	module.get_global("history_length").set_value     (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
 	module.get_global("history_direct").set_value     (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_indirect").set_value   (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_moment").set_value     (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_position").set_value   (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_normal").set_value     (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_triangle_id").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 1).ptr);
-	module.get_global("history_depth").set_value      (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 1).ptr);
-
-	//module.set_texture("tex_history_normal",      array_history_normal,      CUfilter_mode::CU_TR_FILTER_MODE_LINEAR, CUarray_format::CU_AD_FORMAT_FLOAT,        4);
-	//module.set_texture("tex_history_triangle_id", array_history_triangle_id, CUfilter_mode::CU_TR_FILTER_MODE_LINEAR, CUarray_format::CU_AD_FORMAT_SIGNED_INT32, 1);
+	module.get_global("history_triangle_id").set_value(CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
+	module.get_global("history_depth").set_value      (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
 
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;

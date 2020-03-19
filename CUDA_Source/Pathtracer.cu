@@ -14,6 +14,7 @@
 // Frame Buffers
 __device__ float4 * frame_buffer_albedo;
 __device__ float4 * frame_buffer_moment;
+//__device__ int    * frame_buffer_history_length;
 
 __device__ float4 * frame_buffer_direct;
 __device__ float4 * frame_buffer_indirect;
@@ -30,6 +31,7 @@ texture<float,  cudaTextureType2D> gbuffer_depth;
 texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
 
 // History Buffers (Temporally Integrated)
+__device__ int    * history_length;
 __device__ float4 * history_direct;
 __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
@@ -869,6 +871,8 @@ extern "C" __global__ void kernel_temporal() {
 	moment.z = moment.x * moment.x;
 	moment.w = moment.y * moment.y;
 
+	int history;
+
 	// If at least one tap was consistent
 	if (consistent_weights_sum > 0.0f) {
 		float4 prev_direct   = make_float4(0.0f);
@@ -901,11 +905,20 @@ extern "C" __global__ void kernel_temporal() {
 		// Integrate using exponential moving average
 	 	direct   = ALPHA * direct   + (1.0f - ALPHA) * prev_direct;
 	 	indirect = ALPHA * indirect + (1.0f - ALPHA) * prev_indirect;
-	 	moment   = ALPHA * moment   + (1.0f - ALPHA) * prev_moment;
+		moment   = ALPHA * moment   + (1.0f - ALPHA) * prev_moment;
+
+		history = ++history_length[x + y * SCREEN_WIDTH]; // Increase History Length by 1 step
+	} else {
+		history = history_length[x + y * SCREEN_WIDTH] = 1; // Reset History Length
 	}
 
 	float variance_direct   = fmaxf(0.0f, moment.y - moment.x * moment.x);
 	float variance_indirect = fmaxf(0.0f, moment.w - moment.z * moment.z);
+
+	if (history < 4) {
+		variance_direct   = 1.0f;
+		variance_indirect = 1.0f;
+	}
 
 	// Store the Variance in the alpha channel
 	direct.w   = variance_direct;
