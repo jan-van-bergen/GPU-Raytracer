@@ -14,7 +14,6 @@
 // Frame Buffers
 __device__ float4 * frame_buffer_albedo;
 __device__ float4 * frame_buffer_moment;
-//__device__ int    * frame_buffer_history_length;
 
 __device__ float4 * frame_buffer_direct;
 __device__ float4 * frame_buffer_indirect;
@@ -902,12 +901,16 @@ extern "C" __global__ void kernel_temporal() {
 		prev_indirect /= consistent_weights_sum;
 		prev_moment   /= consistent_weights_sum;
 
-		// Integrate using exponential moving average
-	 	direct   = ALPHA * direct   + (1.0f - ALPHA) * prev_direct;
-	 	indirect = ALPHA * indirect + (1.0f - ALPHA) * prev_indirect;
-		moment   = ALPHA * moment   + (1.0f - ALPHA) * prev_moment;
-
 		history = ++history_length[x + y * SCREEN_WIDTH]; // Increase History Length by 1 step
+
+		float inv_history = 1.0f / float(history);
+		float alpha_colour = fmaxf(ALPHA, inv_history);
+		float alpha_moment = fmaxf(ALPHA, inv_history);
+
+		// Integrate using exponential moving average
+	 	direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
+	 	indirect = alpha_colour * indirect + (1.0f - alpha_colour) * prev_indirect;
+		moment   = alpha_moment * moment   + (1.0f - alpha_moment) * prev_moment;
 	} else {
 		history = history_length[x + y * SCREEN_WIDTH] = 1; // Reset History Length
 	}
@@ -916,8 +919,9 @@ extern "C" __global__ void kernel_temporal() {
 	float variance_indirect;
 
 	if (history < 4) {
-		variance_direct   = 1.0f;
-		variance_indirect = 1.0f;
+		float inv_history = 1.0f / float(history);
+		variance_direct   = 4.0f * inv_history;
+		variance_indirect = 4.0f * inv_history;
 	} else {
 		variance_direct   = fmaxf(0.0f, moment.z - moment.x * moment.x);
 		variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
@@ -981,8 +985,8 @@ extern "C" __global__ void kernel_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(variance_blurred_direct)   + epsilon);
-	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(variance_blurred_indirect) + epsilon);
+	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(fmaxf(0.0f, variance_blurred_direct))   + epsilon);
+	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(fmaxf(0.0f, variance_blurred_indirect)) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [x + y * SCREEN_WIDTH];
 	float4 center_colour_indirect = colour_indirect_in[x + y * SCREEN_WIDTH];
@@ -1027,11 +1031,12 @@ extern "C" __global__ void kernel_atrous(
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
 
-			float4 normal         = tex2D(gbuffer_normal,         tap_u, tap_v);
-			float  depth          = tex2D(gbuffer_depth,          tap_u, tap_v);
-			float2 depth_gradient = tex2D(gbuffer_depth_gradient, tap_u, tap_v);
-
-			float d = depth_gradient.x * float(-i) + depth_gradient.y * float(-j); // ∇z(p)·(p−q)
+			float4 normal = tex2D(gbuffer_normal, tap_u, tap_v);
+			float  depth  = tex2D(gbuffer_depth,  tap_u, tap_v);
+			
+			float d = 
+				center_depth_gradient.x * float(i * step_size) + 
+				center_depth_gradient.y * float(j * step_size); // ∇z(p)·(p−q)
 			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
 
 			float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), sigma_n);
@@ -1048,26 +1053,33 @@ extern "C" __global__ void kernel_atrous(
 			sum_weight_direct   += w_direct;
 			sum_weight_indirect += w_indirect;
 
-			// Filter Colour using the weights and Variance using the square of the weights
+			// Filter Colour using the weights
+			// Filter Variance using the square of the weights
 			sum_colour_direct   += make_float4(w_direct,   w_direct,   w_direct,   w_direct   * w_direct)   * colour_direct;
 			sum_colour_indirect += make_float4(w_indirect, w_indirect, w_indirect, w_indirect * w_indirect) * colour_indirect;
 		}
 	}
 
-	sum_colour_direct.x /= sum_weight_direct;
-	sum_colour_direct.y /= sum_weight_direct;
-	sum_colour_direct.z /= sum_weight_direct;
-	sum_colour_direct.w /= sum_weight_direct * sum_weight_direct; // Alpha channel contains Variance
-
-	sum_colour_indirect.x /= sum_weight_indirect;
-	sum_colour_indirect.y /= sum_weight_indirect;
-	sum_colour_indirect.z /= sum_weight_indirect;
-	sum_colour_indirect.w /= sum_weight_indirect * sum_weight_indirect; // Alpha channel contains Variance
-
+	if (sum_weight_direct > 10e-6f) {
+		sum_colour_direct.x /= sum_weight_direct;
+		sum_colour_direct.y /= sum_weight_direct;
+		sum_colour_direct.z /= sum_weight_direct;
+		sum_colour_direct.w /= sum_weight_direct * sum_weight_direct; // Alpha channel contains Variance
+	}
+	
+	if (sum_weight_indirect > 10e-6f) {
+		sum_colour_indirect.x /= sum_weight_indirect;
+		sum_colour_indirect.y /= sum_weight_indirect;
+		sum_colour_indirect.z /= sum_weight_indirect;
+		sum_colour_indirect.w /= sum_weight_indirect * sum_weight_indirect; // Alpha channel contains Variance
+	}
+	
 	colour_direct_out  [x + y * SCREEN_WIDTH] = sum_colour_direct;
 	colour_indirect_out[x + y * SCREEN_WIDTH] = sum_colour_indirect;
 
-	if (step_size == 1) {
+	const int feedback_iteration = 0;
+	
+	if (step_size == (1 << feedback_iteration)) {
 		history_direct  [x + y * SCREEN_WIDTH] = sum_colour_direct;
 		history_indirect[x + y * SCREEN_WIDTH] = sum_colour_indirect;
 	}
