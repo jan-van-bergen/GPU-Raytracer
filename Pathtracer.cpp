@@ -485,8 +485,10 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 	//if (camera.moved) {
 	//	frames_since_camera_moved = 0;
 	//} else {
-		frames_since_camera_moved++;
+	//	frames_since_camera_moved++;
 	//}
+
+	frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
 }
 
 void Pathtracer::render() {
@@ -592,6 +594,17 @@ void Pathtracer::render() {
 		std::swap(direct_in,   direct_out);
 		std::swap(indirect_in, indirect_out);
 	}
+
+	//if constexpr (atrous_iterations == 0) {
+	//	static CUdeviceptr history_direct   = module.get_global("history_direct").ptr;
+	//	static CUdeviceptr history_indirect = module.get_global("history_indirect").ptr;
+
+	//	CUDACALL(cuMemcpyDtoD(history_direct,   ptr_direct.ptr,   SCREEN_WIDTH * SCREEN_HEIGHT * 4 * sizeof(float)));
+	//	CUDACALL(cuMemcpyDtoD(history_indirect, ptr_indirect.ptr, SCREEN_WIDTH * SCREEN_HEIGHT * 4 * sizeof(float)));
+	//}
+	
+	std::swap(direct_in,   direct_out);
+	std::swap(indirect_in, indirect_out);
 
 	kernel_finalize.execute(direct_out, indirect_out);
 

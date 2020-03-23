@@ -807,8 +807,10 @@ extern "C" __global__ void kernel_temporal() {
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	float4 direct   = frame_buffer_direct  [x + y * SCREEN_WIDTH];
-	float4 indirect = frame_buffer_indirect[x + y * SCREEN_WIDTH];
+	int pixel_index = x + y * SCREEN_WIDTH;
+
+	float4 direct   = frame_buffer_direct  [pixel_index];
+	float4 indirect = frame_buffer_indirect[pixel_index];
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -822,8 +824,8 @@ extern "C" __global__ void kernel_temporal() {
 	float u_prev = 0.5f + 0.5f * motion.x;
 	float v_prev = 0.5f + 0.5f * motion.y;
 
-	float s_prev = u_prev * float(SCREEN_WIDTH);
-	float t_prev = v_prev * float(SCREEN_HEIGHT);
+	float s_prev = u_prev * float(SCREEN_WIDTH)  - 0.5f;
+	float t_prev = v_prev * float(SCREEN_HEIGHT) - 0.5f;
 	
 	int x_prev = int(s_prev);
 	int y_prev = int(t_prev);
@@ -904,13 +906,12 @@ extern "C" __global__ void kernel_temporal() {
 		history = ++history_length[x + y * SCREEN_WIDTH]; // Increase History Length by 1 step
 
 		float inv_history = 1.0f / float(history);
-		float alpha_colour = fmaxf(ALPHA, inv_history);
-		float alpha_moment = fmaxf(ALPHA, inv_history);
+		float alpha = fmaxf(ALPHA, inv_history);
 
 		// Integrate using exponential moving average
-	 	direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
-	 	indirect = alpha_colour * indirect + (1.0f - alpha_colour) * prev_indirect;
-		moment   = alpha_moment * moment   + (1.0f - alpha_moment) * prev_moment;
+	 	direct   = alpha * direct   + (1.0f - alpha) * prev_direct;
+	 	indirect = alpha * indirect + (1.0f - alpha) * prev_indirect;
+		moment   = alpha * moment   + (1.0f - alpha) * prev_moment;
 	} else {
 		history = history_length[x + y * SCREEN_WIDTH] = 1; // Reset History Length
 	}
@@ -931,9 +932,9 @@ extern "C" __global__ void kernel_temporal() {
 	direct.w   = variance_direct;
 	indirect.w = variance_indirect;
 
-	frame_buffer_direct  [x + y * SCREEN_WIDTH] = direct;
-	frame_buffer_indirect[x + y * SCREEN_WIDTH] = indirect;
-	frame_buffer_moment  [x + y * SCREEN_WIDTH] = moment;
+	frame_buffer_direct  [pixel_index] = direct;
+	frame_buffer_indirect[pixel_index] = indirect;
+	frame_buffer_moment  [pixel_index] = moment;
 }
 
 extern "C" __global__ void kernel_atrous(
@@ -953,6 +954,8 @@ extern "C" __global__ void kernel_atrous(
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	int pixel_index = x + y * SCREEN_WIDTH;
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -988,8 +991,8 @@ extern "C" __global__ void kernel_atrous(
 	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(fmaxf(0.0f, variance_blurred_direct))   + epsilon);
 	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(fmaxf(0.0f, variance_blurred_indirect)) + epsilon);
 
-	float4 center_colour_direct   = colour_direct_in  [x + y * SCREEN_WIDTH];
-	float4 center_colour_indirect = colour_indirect_in[x + y * SCREEN_WIDTH];
+	float4 center_colour_direct   = colour_direct_in  [pixel_index];
+	float4 center_colour_indirect = colour_indirect_in[pixel_index];
 
 	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
 	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
@@ -1074,14 +1077,14 @@ extern "C" __global__ void kernel_atrous(
 		sum_colour_indirect.w /= sum_weight_indirect * sum_weight_indirect; // Alpha channel contains Variance
 	}
 	
-	colour_direct_out  [x + y * SCREEN_WIDTH] = sum_colour_direct;
-	colour_indirect_out[x + y * SCREEN_WIDTH] = sum_colour_indirect;
-
+	colour_direct_out  [pixel_index] = sum_colour_direct;
+	colour_indirect_out[pixel_index] = sum_colour_indirect;
+	
 	const int feedback_iteration = 0;
 	
 	if (step_size == (1 << feedback_iteration)) {
-		history_direct  [x + y * SCREEN_WIDTH] = sum_colour_direct;
-		history_indirect[x + y * SCREEN_WIDTH] = sum_colour_indirect;
+		history_direct  [pixel_index] = sum_colour_direct;
+		history_indirect[pixel_index] = sum_colour_indirect;
 	}
 }
 
@@ -1094,15 +1097,16 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	float4 albedo   = frame_buffer_albedo[x + y * SCREEN_WIDTH];
-	float4 direct   = colour_direct      [x + y * SCREEN_WIDTH];
-	float4 indirect = colour_indirect    [x + y * SCREEN_WIDTH];
+	int pixel_index = x + y * SCREEN_WIDTH;
+
+	float4 albedo   = frame_buffer_albedo[pixel_index];
+	float4 direct   = colour_direct      [pixel_index];
+	float4 indirect = colour_indirect    [pixel_index];
 
 	float4 colour = albedo * (direct + indirect);
-	colour.w = 1.0f;
 	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
 
-	float4 moment = frame_buffer_moment[x + y * SCREEN_WIDTH];
+	float4 moment = frame_buffer_moment[pixel_index];
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -1112,15 +1116,17 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
 	float  depth       = tex2D(gbuffer_depth,       u, v);
 
-	history_moment     [x + y * SCREEN_WIDTH] = moment;
-	history_position   [x + y * SCREEN_WIDTH] = position;
-	history_normal     [x + y * SCREEN_WIDTH] = normal;
-	history_triangle_id[x + y * SCREEN_WIDTH] = triangle_id;
-	history_depth      [x + y * SCREEN_WIDTH] = depth;
+	//history_direct     [pixel_index] = direct;
+	//history_indirect   [pixel_index] = indirect;
+	history_moment     [pixel_index] = moment;
+	history_position   [pixel_index] = position;
+	history_normal     [pixel_index] = normal;
+	history_triangle_id[pixel_index] = triangle_id;
+	history_depth      [pixel_index] = depth;
 
 	// @SPEED
 	// Clear frame buffers for next frame
-	frame_buffer_albedo  [x + y * SCREEN_WIDTH] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-	frame_buffer_direct  [x + y * SCREEN_WIDTH] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-	frame_buffer_indirect[x + y * SCREEN_WIDTH] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_albedo  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_direct  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_indirect[pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 }
