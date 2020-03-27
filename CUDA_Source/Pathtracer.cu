@@ -11,12 +11,22 @@
 #include "Sampler.h"
 #include "Util.h"
 
+#define sigma_z 1.0f
+#define sigma_n 128.0f
+#define sigma_l 10.0f
+
+#define epsilon 1e-8f // To avoid division by 0
+
 // Frame Buffers
 __device__ float4 * frame_buffer_albedo;
 __device__ float4 * frame_buffer_moment;
 
 __device__ float4 * frame_buffer_direct;
 __device__ float4 * frame_buffer_indirect;
+
+///////////////////////////////////////
+__device__ float4 * frame_buffer_debug;
+///////////////////////////////////////
 
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
@@ -38,8 +48,6 @@ __device__ float4 * history_position;
 __device__ float4 * history_normal;
 __device__ int    * history_triangle_id;
 __device__ float  * history_depth;
-
-#define ALPHA 0.2f // Constant alpha for exponential moving average, see SVGF paper
 
 __device__ void frame_buffer_add(float4 * frame_buffer, int x, int y, const float3 & colour) {
 	ASSERT(x >= 0 && x < SCREEN_WIDTH);
@@ -302,7 +310,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	unsigned seed = (index + rand_seed * 906313609) * 341828143;
 
 	// Russian Roulette termination
-	float p_survive = clamp(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)), 0.0f, 1.0f);
+	float p_survive = clamp(max(ray_throughput.x, max(ray_throughput.y, ray_throughput.z)), 0.0f, 1.0f);
 	if (random_float_xorshift(seed) > p_survive) {
 		return;
 	}
@@ -782,10 +790,12 @@ __device__ bool is_tap_consistent(int x, int y, const float4 & position, const f
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
 
-	float4 position_prev    = history_position   [x + y * SCREEN_WIDTH];
-	float4 normal_prev      = history_normal     [x + y * SCREEN_WIDTH];
-	int    triangle_id_prev = history_triangle_id[x + y * SCREEN_WIDTH];
-	float  depth_prev       = history_depth      [x + y * SCREEN_WIDTH];
+	int tap_index = x + y * SCREEN_WIDTH;
+
+	float4 position_prev    = history_position   [tap_index];
+	float4 normal_prev      = history_normal     [tap_index];
+	int    triangle_id_prev = history_triangle_id[tap_index];
+	float  depth_prev       = history_depth      [tap_index];
 
 	float4 diff = position - position_prev;
 
@@ -811,6 +821,13 @@ extern "C" __global__ void kernel_temporal() {
 
 	float4 direct   = frame_buffer_direct  [pixel_index];
 	float4 indirect = frame_buffer_indirect[pixel_index];
+
+	// First two raw moments of luminance
+	float4 moment;
+	moment.x = luminance(direct.x,   direct.y,   direct.z);
+	moment.y = luminance(indirect.x, indirect.y, indirect.z);
+	moment.z = moment.x * moment.x;
+	moment.w = moment.y * moment.y;
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -865,21 +882,12 @@ extern "C" __global__ void kernel_temporal() {
 		}
 	}
 
-	// First two raw moments of luminance
-	float4 moment;
-	moment.x = luminance(direct.x,   direct.y,   direct.z);
-	moment.y = luminance(indirect.x, indirect.y, indirect.z);
-	moment.z = moment.x * moment.x;
-	moment.w = moment.y * moment.y;
+	float4 prev_direct   = make_float4(0.0f);
+	float4 prev_indirect = make_float4(0.0f);
+	float4 prev_moment   = make_float4(0.0f);
 
-	int history;
-
-	// If at least one tap was consistent
+	// If we already found at least 1 consistent tap
 	if (consistent_weights_sum > 0.0f) {
-		float4 prev_direct   = make_float4(0.0f);
-		float4 prev_indirect = make_float4(0.0f);
-		float4 prev_moment   = make_float4(0.0f);
-
 		// Add consistent taps using their bilinear weight
 		for (int tap = 0; tap < 4; tap++) {
 			if (consistent_weights[tap] != 0.0f) {
@@ -888,9 +896,11 @@ extern "C" __global__ void kernel_temporal() {
 				int tap_x = x_prev + offset.x;
 				int tap_y = y_prev + offset.y;
 
-				float4 tap_direct   = history_direct  [tap_x + tap_y * SCREEN_WIDTH];
-				float4 tap_indirect = history_indirect[tap_x + tap_y * SCREEN_WIDTH];
-				float4 tap_moment   = history_moment  [tap_x + tap_y * SCREEN_WIDTH];
+				int tap_index = tap_x + tap_y * SCREEN_WIDTH;
+
+				float4 tap_direct   = history_direct  [tap_index];
+				float4 tap_indirect = history_indirect[tap_index];
+				float4 tap_moment   = history_moment  [tap_index];
 
 				prev_direct   += consistent_weights[tap] * tap_direct;
 				prev_indirect += consistent_weights[tap] * tap_indirect;
@@ -902,39 +912,186 @@ extern "C" __global__ void kernel_temporal() {
 		prev_direct   /= consistent_weights_sum;
 		prev_indirect /= consistent_weights_sum;
 		prev_moment   /= consistent_weights_sum;
+	} else {
+		// If we haven't yet found a consistent tap in a 2x2 region, try a 3x3 region
+        for (int j = -1; j <= 1; j++) {
+			for (int i = -1; i <= 1; i++) {
+				int tap_x = x_prev + i;
+				int tap_y = y_prev + j;
 
-		history = ++history_length[x + y * SCREEN_WIDTH]; // Increase History Length by 1 step
+				if (is_tap_consistent(tap_x, tap_y, position, normal, triangle_id, depth)) {
+					int tap_index = tap_x + tap_y * SCREEN_WIDTH;
+
+					prev_direct   += history_direct  [tap_index];
+					prev_indirect += history_indirect[tap_index];
+					prev_moment   += history_moment  [tap_index];
+
+					consistent_weights_sum += 1.0f;
+				}
+			}
+		}
+
+		if (consistent_weights_sum > 0.0f) {
+			prev_direct   /= consistent_weights_sum;
+			prev_indirect /= consistent_weights_sum;
+			prev_moment   /= consistent_weights_sum;
+		}
+	}
+
+	if (consistent_weights_sum > 0.0f) {
+		int history = ++history_length[pixel_index]; // Increase History Length by 1 step
 
 		float inv_history = 1.0f / float(history);
-		float alpha = fmaxf(ALPHA, inv_history);
+		float alpha_colour = max(ALPHA_COLOUR, inv_history);
+		float alpha_moment = max(ALPHA_COLOUR, inv_history);
 
 		// Integrate using exponential moving average
-	 	direct   = alpha * direct   + (1.0f - alpha) * prev_direct;
-	 	indirect = alpha * indirect + (1.0f - alpha) * prev_indirect;
-		moment   = alpha * moment   + (1.0f - alpha) * prev_moment;
+	 	direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
+	 	indirect = alpha_colour * indirect + (1.0f - alpha_colour) * prev_indirect;
+		moment   = alpha_moment * moment   + (1.0f - alpha_moment) * prev_moment;
+		
+		if (history >= 4) {
+			float variance_direct   = max(0.0f, moment.z - moment.x * moment.x);
+			float variance_indirect = max(0.0f, moment.w - moment.y * moment.y);
+			
+			// Store the Variance in the alpha channel
+			direct.w   = variance_direct;
+			indirect.w = variance_indirect;
+		}
 	} else {
-		history = history_length[x + y * SCREEN_WIDTH] = 1; // Reset History Length
+		history_length[pixel_index] = 0; // Reset History Length
 	}
-
-	float variance_direct;
-	float variance_indirect;
-
-	if (history < 4) {
-		float inv_history = 1.0f / float(history);
-		variance_direct   = 4.0f * inv_history;
-		variance_indirect = 4.0f * inv_history;
-	} else {
-		variance_direct   = fmaxf(0.0f, moment.z - moment.x * moment.x);
-		variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
-	}
-
-	// Store the Variance in the alpha channel
-	direct.w   = variance_direct;
-	indirect.w = variance_indirect;
 
 	frame_buffer_direct  [pixel_index] = direct;
 	frame_buffer_indirect[pixel_index] = indirect;
 	frame_buffer_moment  [pixel_index] = moment;
+}
+
+extern "C" __global__ void kernel_variance(
+	float4 const * colour_direct_in,
+	float4 const * colour_indirect_in,
+	float4       * colour_direct_out,
+	float4       * colour_indirect_out
+) {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	int pixel_index = x + y * SCREEN_WIDTH;
+
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
+
+	int history = history_length[pixel_index];
+
+	if (history >= 4) {
+		// @SPEED
+		colour_direct_out  [pixel_index] = colour_direct_in  [pixel_index];
+		colour_indirect_out[pixel_index] = colour_indirect_in[pixel_index];
+
+		return;
+	}
+
+	// @SPEED: some redundancies here
+	float luminance_denom_direct   = 1.0f / (sigma_l + epsilon);
+	float luminance_denom_indirect = 1.0f / (sigma_l + epsilon);
+
+	float4 center_colour_direct   = colour_direct_in  [pixel_index];
+	float4 center_colour_indirect = colour_indirect_in[pixel_index];
+
+	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
+	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
+
+	float4 center_normal         = tex2D(gbuffer_normal,         u, v);
+	float  center_depth          = tex2D(gbuffer_depth,          u, v);
+	float2 center_depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
+
+	float sum_weight_direct   = 1.0f;
+	float sum_weight_indirect = 1.0f;
+
+	float4 sum_colour_direct   = center_colour_direct;
+	float4 sum_colour_indirect = center_colour_indirect;
+
+	float4 sum_moment = make_float4(0.0f);
+
+	const int radius = 3; // 7x7 filter
+	
+	for (int j = -radius; j <= radius; j++) {
+		int tap_y = y + j;
+
+		if (tap_y < 0 || tap_y >= SCREEN_HEIGHT) continue;
+
+		for (int i = -radius; i <= radius; i++) {
+			int tap_x = x + i;
+
+			if (tap_x < 0 || tap_x >= SCREEN_WIDTH) continue;
+
+			if (i == 0 && j == 0) continue; // Center pixel is treated separately
+
+			int tap_index = tap_x + tap_y * SCREEN_WIDTH;
+
+			float tap_u = (float(tap_x) + 0.5f) / float(SCREEN_WIDTH);
+			float tap_v = (float(tap_y) + 0.5f) / float(SCREEN_HEIGHT);
+
+			float4 colour_direct   = colour_direct_in   [tap_index];
+			float4 colour_indirect = colour_indirect_in [tap_index];
+			float4 moment          = frame_buffer_moment[tap_index];
+
+			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
+			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
+
+			float4 normal = tex2D(gbuffer_normal, tap_u, tap_v);
+			float  depth  = tex2D(gbuffer_depth,  tap_u, tap_v);
+		
+			// @TODO: factor this
+
+			float d = 
+				center_depth_gradient.x * float(i) + 
+				center_depth_gradient.y * float(j); // ∇z(p)·(p−q)
+			//float w_z = (phi_depth == 0.0f) ? 0.0f : abs(center_depth - depth) / phi_depth;
+			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
+
+			float w_n = pow(max(0.0f, center_normal.x*normal.x + center_normal.y*normal.y + center_normal.z*normal.z), sigma_n);
+
+			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
+			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
+
+			float w_common   = w_z * w_n;
+			float w_direct   = w_common * w_l_direct;
+			float w_indirect = w_common * w_l_indirect;
+
+			sum_weight_direct   += w_direct;
+			sum_weight_indirect += w_indirect;
+
+			sum_colour_direct   += w_direct   * colour_direct;
+			sum_colour_indirect += w_indirect * colour_indirect;
+
+			sum_moment += moment * make_float4(w_direct, w_indirect, w_direct, w_indirect);
+		}
+	}
+
+	sum_weight_direct   = max(sum_weight_direct,   1e-6f);
+	sum_weight_indirect = max(sum_weight_indirect, 1e-6f);
+	
+	sum_colour_direct   /= sum_weight_direct;
+	sum_colour_indirect /= sum_weight_indirect;
+	
+	sum_moment /= make_float4(sum_weight_direct, sum_weight_indirect, sum_weight_direct, sum_weight_indirect);
+
+	float variance_direct   = max(0.0f, sum_moment.z - sum_moment.x * sum_moment.x);
+	float variance_indirect = max(0.0f, sum_moment.w - sum_moment.y * sum_moment.y);
+
+	// float inv_history  = 1.0f / float(history);
+	// variance_direct   *= 4.0f * inv_history;
+	// variance_indirect *= 4.0f * inv_history;
+
+	sum_colour_direct.w   = variance_direct;
+	sum_colour_indirect.w = variance_indirect;
+		
+	// Store the Variance in the alpha channel
+	colour_direct_out  [pixel_index] = sum_colour_direct;
+	colour_indirect_out[pixel_index] = sum_colour_indirect;
 }
 
 extern "C" __global__ void kernel_atrous(
@@ -944,12 +1101,6 @@ extern "C" __global__ void kernel_atrous(
 	float4       * colour_indirect_out,
 	int step_size
 ) {
-	const float sigma_z = 1.0f;
-	const float sigma_n = 128.0f;
-	const float sigma_l = 4.0f;
-
-	const float epsilon = 1e-8f; // To avoid division by 0
-
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -988,8 +1139,8 @@ extern "C" __global__ void kernel_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(fmaxf(0.0f, variance_blurred_direct))   + epsilon);
-	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(fmaxf(0.0f, variance_blurred_indirect)) + epsilon);
+	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
+	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -1001,10 +1152,18 @@ extern "C" __global__ void kernel_atrous(
 	float  center_depth          = tex2D(gbuffer_depth,          u, v);
 	float2 center_depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
 
+	// float phi_depth = max(max(abs(center_depth_gradient.x), abs(center_depth_gradient.y)), 1e-8) * float(step_size);
+
+	// const float kernel_atrous[3] = {
+	// 	3.0f / 8.0f, // 
+	// 	1.0f / 4.0f, // 
+	// 	1.0f / 16.0f // 
+	// };
+
 	const float kernel_atrous[3] = {
-		3.0f / 8.0f,
-		1.0f / 4.0f,
-		1.0f / 16.0f
+		1.0f, 
+		2.0f / 3.0f, 
+		1.0f / 6.0f 
 	};
 
 	float  sum_weight_direct   = 1.0f;
@@ -1013,12 +1172,14 @@ extern "C" __global__ void kernel_atrous(
 	float4 sum_colour_indirect = center_colour_indirect;
 
 	// 5x5 À-Trous Filter
-	for (int j = -2; j <= 2; j++) {
+	const int radius = 2;
+
+	for (int j = -radius; j <= radius; j++) {
 		int tap_y = y + j * step_size;
 
 		if (tap_y < 0 || tap_y >= SCREEN_HEIGHT) continue;
 
-        for (int i = -2; i <= 2; i++) {
+        for (int i = -radius; i <= radius; i++) {
 			int tap_x = x + i * step_size;
 			
 			if (tap_x < 0 || tap_x >= SCREEN_WIDTH) continue;
@@ -1040,9 +1201,10 @@ extern "C" __global__ void kernel_atrous(
 			float d = 
 				center_depth_gradient.x * float(i * step_size) + 
 				center_depth_gradient.y * float(j * step_size); // ∇z(p)·(p−q)
+			//float w_z = (phi_depth == 0.0f) ? 0.0f : abs(center_depth - depth);
 			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
 
-			float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), sigma_n);
+			float w_n = powf(max(0.0f, center_normal.x*normal.x + center_normal.y*normal.y + center_normal.z*normal.z), sigma_n);
 
 			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
 			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
@@ -1076,11 +1238,13 @@ extern "C" __global__ void kernel_atrous(
 		sum_colour_indirect.z /= sum_weight_indirect;
 		sum_colour_indirect.w /= sum_weight_indirect * sum_weight_indirect; // Alpha channel contains Variance
 	}
+
+	frame_buffer_debug[pixel_index] = make_float4(variance_blurred_direct);
 	
 	colour_direct_out  [pixel_index] = sum_colour_direct;
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
 	
-	const int feedback_iteration = 0;
+	const int feedback_iteration = 1;
 	
 	if (step_size == (1 << feedback_iteration)) {
 		history_direct  [pixel_index] = sum_colour_direct;
@@ -1104,6 +1268,7 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 	float4 indirect = colour_indirect    [pixel_index];
 
 	float4 colour = albedo * (direct + indirect);
+	//float4 colour = frame_buffer_debug[pixel_index] * 0.5f;
 	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
 
 	float4 moment = frame_buffer_moment[pixel_index];
@@ -1116,8 +1281,10 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
 	float  depth       = tex2D(gbuffer_depth,       u, v);
 
-	//history_direct     [pixel_index] = direct;
-	//history_indirect   [pixel_index] = indirect;
+#if ATROUS_ITERATIONS == 0	
+	history_direct     [pixel_index] = direct;
+	history_indirect   [pixel_index] = indirect;
+#endif
 	history_moment     [pixel_index] = moment;
 	history_position   [pixel_index] = position;
 	history_normal     [pixel_index] = normal;

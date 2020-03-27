@@ -26,6 +26,7 @@ private:
 	CUDAKernel kernel_shade_glossy;
 	CUDAKernel kernel_connect;
 	CUDAKernel kernel_temporal;
+	CUDAKernel kernel_variance;
 	CUDAKernel kernel_atrous;
 	CUDAKernel kernel_finalize;
 

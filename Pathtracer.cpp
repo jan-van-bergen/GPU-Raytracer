@@ -373,6 +373,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("frame_buffer_direct").set_value(ptr_direct.ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
 
+	module.get_global("frame_buffer_debug").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
@@ -417,19 +419,21 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_glossy.init    (&module, "kernel_shade_glossy");
 	kernel_connect.init         (&module, "kernel_connect");
 	kernel_temporal.init        (&module, "kernel_temporal");
+	kernel_variance.init        (&module, "kernel_variance");
 	kernel_atrous.init          (&module, "kernel_atrous");
 	kernel_finalize.init        (&module, "kernel_finalize");
 
-	kernel_primary.set_block_dim         ( 32, 4, 1);
+	kernel_primary.set_block_dim          (32, 4, 1);
 	kernel_generate.set_block_dim        (128, 1, 1);
 	kernel_extend.set_block_dim          (128, 1, 1);
 	kernel_shade_diffuse.set_block_dim   (128, 1, 1);
 	kernel_shade_dielectric.set_block_dim(128, 1, 1);
 	kernel_shade_glossy.set_block_dim    (128, 1, 1);
 	kernel_connect.set_block_dim         (128, 1, 1);
-	kernel_temporal.set_block_dim        ( 32, 4, 1);
-	kernel_atrous.set_block_dim          ( 32, 4, 1);
-	kernel_finalize.set_block_dim        ( 32, 4, 1);
+	kernel_temporal.set_block_dim         (32, 4, 1);
+	kernel_variance.set_block_dim         (32, 4, 1);
+	kernel_atrous.set_block_dim           (32, 4, 1);
+	kernel_finalize.set_block_dim         (32, 4, 1);
 
 	kernel_primary.set_grid_dim(
 		(SCREEN_WIDTH  + kernel_primary.block_dim_x - 1) / kernel_primary.block_dim_x, 
@@ -445,6 +449,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_temporal.set_grid_dim(
 		(SCREEN_WIDTH  + kernel_temporal.block_dim_x - 1) / kernel_temporal.block_dim_x, 
 		(SCREEN_HEIGHT + kernel_temporal.block_dim_y - 1) / kernel_temporal.block_dim_y,
+		1
+	);
+	kernel_variance.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_variance.block_dim_x - 1) / kernel_variance.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_variance.block_dim_y - 1) / kernel_variance.block_dim_y,
 		1
 	);
 	kernel_atrous.set_grid_dim(
@@ -481,12 +490,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 void Pathtracer::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
-
-	//if (camera.moved) {
-	//	frames_since_camera_moved = 0;
-	//} else {
-	//	frames_since_camera_moved++;
-	//}
 
 	frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
 }
@@ -576,35 +579,30 @@ void Pathtracer::render() {
 
 	// Integrate temporally
 	kernel_temporal.execute();
-
-	// À-Trous Filter
-	const int atrous_iterations = 5;
-
+	
 	CUdeviceptr direct_in    = ptr_direct.ptr;
 	CUdeviceptr indirect_in  = ptr_indirect.ptr;
 	CUdeviceptr direct_out   = ptr_direct_alt.ptr;
 	CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
-	for (int i = 0; i < atrous_iterations; i++) {
-		int step_size = 1 << i;
+#if true
+	// Estimate Variance spatially
+	kernel_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
+#else
+	std::swap(direct_in,   direct_out);
+	std::swap(indirect_in, indirect_out);
+#endif
 
-		kernel_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
-		
+	// À-Trous Filter
+	for (int i = 0; i < ATROUS_ITERATIONS; i++) {
+		int step_size = 1 << i;
+				
 		// Ping-Pong the Frame Buffers
 		std::swap(direct_in,   direct_out);
 		std::swap(indirect_in, indirect_out);
+
+		kernel_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 	}
-
-	//if constexpr (atrous_iterations == 0) {
-	//	static CUdeviceptr history_direct   = module.get_global("history_direct").ptr;
-	//	static CUdeviceptr history_indirect = module.get_global("history_indirect").ptr;
-
-	//	CUDACALL(cuMemcpyDtoD(history_direct,   ptr_direct.ptr,   SCREEN_WIDTH * SCREEN_HEIGHT * 4 * sizeof(float)));
-	//	CUDACALL(cuMemcpyDtoD(history_indirect, ptr_indirect.ptr, SCREEN_WIDTH * SCREEN_HEIGHT * 4 * sizeof(float)));
-	//}
-	
-	std::swap(direct_in,   direct_out);
-	std::swap(indirect_in, indirect_out);
 
 	kernel_finalize.execute(direct_out, indirect_out);
 
