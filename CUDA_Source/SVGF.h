@@ -1,8 +1,4 @@
 
-#define sigma_z 1.0f
-#define sigma_n 128.0f
-#define sigma_l 400.0f
-
 #define epsilon 1e-8f // To avoid division by 0
 
 // Frame Buffers
@@ -231,8 +227,8 @@ extern "C" __global__ void kernel_svgf_variance(
 	}
 
 	// @SPEED: some redundancies here
-	float luminance_denom_direct   = 1.0f / (sigma_l + epsilon);
-	float luminance_denom_indirect = 1.0f / (sigma_l + epsilon);
+	float luminance_denom_direct   = 1.0f / (SIGMA_L + epsilon);
+	float luminance_denom_indirect = 1.0f / (SIGMA_L + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -290,9 +286,9 @@ extern "C" __global__ void kernel_svgf_variance(
 			float d = 
 				center_depth_gradient.x * float(i) + 
 				center_depth_gradient.y * float(j); // ∇z(p)·(p−q)
-			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
+			float w_z = exp(-abs(center_depth - depth) / (SIGMA_Z * abs(d) + epsilon));
 
-			float w_n = pow(max(0.0f, dot(center_normal, normal)), sigma_n);
+			float w_n = pow(max(0.0f, dot(center_normal, normal)), SIGMA_N);
 
 			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
 			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
@@ -379,8 +375,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
-	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
+	float luminance_denom_direct   = 1.0f / (SIGMA_L * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
+	float luminance_denom_indirect = 1.0f / (SIGMA_L * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -437,9 +433,9 @@ extern "C" __global__ void kernel_svgf_atrous(
 			float d = 
 				center_depth_gradient.x * float(i * step_size) + 
 				center_depth_gradient.y * float(j * step_size); // ∇z(p)·(p−q)
-			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
+			float w_z = exp(-abs(center_depth - depth) / (SIGMA_Z * abs(d) + epsilon));
 
-			float w_n = powf(max(0.0f, dot(center_normal, normal)), sigma_n);
+			float w_n = powf(max(0.0f, dot(center_normal, normal)), SIGMA_N);
 
 			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
 			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
