@@ -30,7 +30,7 @@ surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 texture<float4, cudaTextureType2D> gbuffer_normal_and_depth;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
-texture<float2, cudaTextureType2D> gbuffer_motion;
+texture<float2, cudaTextureType2D> gbuffer_screen_position_prev;
 texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
 
 // History Buffers (Temporally Integrated)
@@ -817,14 +817,15 @@ extern "C" __global__ void kernel_temporal() {
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
-	float2 motion           = tex2D(gbuffer_motion,           u, v);
+	float4 normal_and_depth     = tex2D(gbuffer_normal_and_depth,     u, v);
+	float2 screen_position_prev = tex2D(gbuffer_screen_position_prev, u, v);
 
 	float3 normal = make_float3(normal_and_depth);
 	float  depth  = normal_and_depth.w;
 
-	float u_prev = 0.5f + 0.5f * motion.x;
-	float v_prev = 0.5f + 0.5f * motion.y;
+	// Convert from [-1, 1] to [0, 1]
+	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
+	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
 
 	float s_prev = u_prev * float(SCREEN_WIDTH)  - 0.5f;
 	float t_prev = v_prev * float(SCREEN_HEIGHT) - 0.5f;
