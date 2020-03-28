@@ -140,5 +140,8 @@
     <ClInclude Include="GBuffer.h">
       <Filter>Rasterization</Filter>
     </ClInclude>
+    <ClInclude Include="CUDAEvent.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

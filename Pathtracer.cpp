@@ -468,6 +468,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		1
 	);
 
+	event_primary.init();
+	event_extend.init();
+	event_svgf.init();
+	event_end.init();
+
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, -22.486183f);
 		camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
@@ -512,6 +517,8 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 }
 
 void Pathtracer::render() {
+	event_primary.record();
+
 	if (camera.rasterize) {
 		gbuffer.bind();
 
@@ -573,6 +580,8 @@ void Pathtracer::render() {
 	// Trace shadow Rays
 	kernel_connect.execute(rand(), 0, frames_since_camera_moved);
 
+	event_extend.record();
+
 	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute(rand(), bounce);
@@ -585,6 +594,8 @@ void Pathtracer::render() {
 		// Trace shadow Rays
 		kernel_connect.execute(rand(), bounce, frames_since_camera_moved);
 	}
+
+	event_svgf.record();
 
 	if (use_svgf) {
 		// Integrate temporally
@@ -618,7 +629,13 @@ void Pathtracer::render() {
 	} else {
 		kernel_accumulate.execute(float(frames_since_camera_moved));
 	}
+
+	event_end.record();
 	
 	// Reset buffer sizes to default for next frame
 	global_buffer_sizes.set_value(buffer_sizes);
+
+	time_primary = CUDAEvent::time_elapsed_between(event_primary, event_extend);
+	time_extend  = CUDAEvent::time_elapsed_between(event_extend,  event_svgf);
+	time_svgf    = CUDAEvent::time_elapsed_between(event_svgf,    event_end);
 }

@@ -72,7 +72,16 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		// Report timings
-		printf("%i - %i - Delta: %.2f ms, Average: %.2f ms, FPS: %d        \r", current_frame, pathtracer.frames_since_camera_moved, delta_time * 1000.0f, avg * 1000.0f, fps);
+		printf("%i - %i - Delta: %.2f ms, Average: %.2f ms, FPS: %d - Primary: %.2f ms, Extend: %.2f ms, SVGF: %.2f ms       \r", 
+			current_frame,
+			pathtracer.frames_since_camera_moved,
+			delta_time * 1000.0f,
+			avg        * 1000.0f,
+			fps,
+			pathtracer.time_primary,
+			pathtracer.time_extend,
+			pathtracer.time_svgf
+		);
 	}
 
 	return EXIT_SUCCESS;

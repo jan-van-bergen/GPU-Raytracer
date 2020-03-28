@@ -4,6 +4,7 @@
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 #include "CUDAMemory.h"
+#include "CUDAEvent.h"
 
 #include "GBuffer.h"
 #include "Shader.h"
@@ -11,6 +12,11 @@
 struct Pathtracer {
 	Camera camera;
 	int frames_since_camera_moved = -1;
+	
+	// Course profile timings
+	float time_primary;
+	float time_extend;
+	float time_svgf;
 
 private:
 	GBuffer gbuffer;
@@ -48,6 +54,12 @@ private:
 
 	// Settings
 	bool use_svgf = false;
+
+	// Timing Events
+	CUDAEvent event_primary;
+	CUDAEvent event_extend;
+	CUDAEvent event_svgf;
+	CUDAEvent event_end;
 
 public:
 	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
