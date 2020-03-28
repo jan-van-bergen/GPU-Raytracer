@@ -13,7 +13,7 @@
 
 #define sigma_z 1.0f
 #define sigma_n 128.0f
-#define sigma_l 10.0f
+#define sigma_l 400.0f
 
 #define epsilon 1e-8f // To avoid division by 0
 
@@ -24,14 +24,9 @@ __device__ float4 * frame_buffer_moment;
 __device__ float4 * frame_buffer_direct;
 __device__ float4 * frame_buffer_indirect;
 
-///////////////////////////////////////
-__device__ float4 * frame_buffer_debug;
-///////////////////////////////////////
-
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
 // GBuffers
-texture<float4, cudaTextureType2D> gbuffer_position;
 texture<float4, cudaTextureType2D> gbuffer_normal;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
@@ -44,7 +39,6 @@ __device__ int    * history_length;
 __device__ float4 * history_direct;
 __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
-__device__ float4 * history_position;
 __device__ float4 * history_normal;
 __device__ int    * history_triangle_id;
 __device__ float  * history_depth;
@@ -786,27 +780,20 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 	}
 }
 
-__device__ bool is_tap_consistent(int x, int y, const float4 & position, const float4 & normal, int triangle_id, float depth) {
+__device__ bool is_tap_consistent(int x, int y, const float4 & normal, float depth) {
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
 
 	int tap_index = x + y * SCREEN_WIDTH;
 
-	float4 position_prev    = history_position   [tap_index];
-	float4 normal_prev      = history_normal     [tap_index];
-	int    triangle_id_prev = history_triangle_id[tap_index];
-	float  depth_prev       = history_depth      [tap_index];
+	float4 normal_prev = history_normal[tap_index];
+	float  depth_prev  = history_depth [tap_index];
 
-	float4 diff = position - position_prev;
+	const float threshold_normal = 0.95f;
+	const float threshold_depth  = 0.025f * 250.0f; // @HARDCODED @ROBUSTNESS: make this depend on camera near/far
 
-	const float threshold_position = 0.5f;
-	const float threshold_normal   = 0.95f;
-	const float threshold_depth    = 0.025f * 250.0f;
-
-	bool consistent_position     = (diff.x*diff.x + diff.y*diff.y + diff.z*diff.z) < threshold_position * threshold_position;
-	bool consistent_normals      = (normal.x * normal_prev.x + normal.y * normal_prev.y + normal.z * normal_prev.z) > threshold_normal;
-	bool consistent_triangle_ids = triangle_id == triangle_id_prev;
-	bool consistent_depth        = abs(depth - depth_prev) < threshold_depth;
+	bool consistent_normals = (normal.x * normal_prev.x + normal.y * normal_prev.y + normal.z * normal_prev.z) > threshold_normal;
+	bool consistent_depth   = abs(depth - depth_prev) < threshold_depth;
 
 	return consistent_normals && consistent_depth;
 }
@@ -832,11 +819,9 @@ extern "C" __global__ void kernel_temporal() {
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float4 position    = tex2D(gbuffer_position,    u, v);
-	float4 normal      = tex2D(gbuffer_normal,      u, v);
-	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
-	float2 motion      = tex2D(gbuffer_motion,      u, v);
-	float  depth       = tex2D(gbuffer_depth,       u, v);
+	float4 normal = tex2D(gbuffer_normal, u, v);
+	float2 motion = tex2D(gbuffer_motion, u, v);
+	float  depth  = tex2D(gbuffer_depth,  u, v);
 
 	float u_prev = 0.5f + 0.5f * motion.x;
 	float v_prev = 0.5f + 0.5f * motion.y;
@@ -874,7 +859,7 @@ extern "C" __global__ void kernel_temporal() {
 	for (int tap = 0; tap < 4; tap++) {
 		int2 offset = offsets[tap];
 
-		if (is_tap_consistent(x_prev + offset.x, y_prev + offset.y, position, normal, triangle_id, depth)) {
+		if (is_tap_consistent(x_prev + offset.x, y_prev + offset.y, normal, depth)) {
 			float weight = weights[tap];
 
 			consistent_weights[tap] = weight;
@@ -919,7 +904,7 @@ extern "C" __global__ void kernel_temporal() {
 				int tap_x = x_prev + i;
 				int tap_y = y_prev + j;
 
-				if (is_tap_consistent(tap_x, tap_y, position, normal, triangle_id, depth)) {
+				if (is_tap_consistent(tap_x, tap_y, normal, depth)) {
 					int tap_index = tap_x + tap_y * SCREEN_WIDTH;
 
 					prev_direct   += history_direct  [tap_index];
@@ -1239,8 +1224,6 @@ extern "C" __global__ void kernel_atrous(
 		sum_colour_indirect.w /= sum_weight_indirect * sum_weight_indirect; // Alpha channel contains Variance
 	}
 
-	frame_buffer_debug[pixel_index] = make_float4(variance_blurred_direct);
-	
 	colour_direct_out  [pixel_index] = sum_colour_direct;
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
 	
@@ -1268,7 +1251,6 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 	float4 indirect = colour_indirect    [pixel_index];
 
 	float4 colour = albedo * (direct + indirect);
-	//float4 colour = frame_buffer_debug[pixel_index] * 0.5f;
 	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
 
 	float4 moment = frame_buffer_moment[pixel_index];
@@ -1276,20 +1258,16 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float4 position    = tex2D(gbuffer_position,    u, v);
-	float4 normal      = tex2D(gbuffer_normal,      u, v);
-	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
-	float  depth       = tex2D(gbuffer_depth,       u, v);
+	float4 normal = tex2D(gbuffer_normal, u, v);
+	float  depth  = tex2D(gbuffer_depth,  u, v);
 
 #if ATROUS_ITERATIONS == 0	
-	history_direct     [pixel_index] = direct;
-	history_indirect   [pixel_index] = indirect;
+	history_direct  [pixel_index] = direct;
+	history_indirect[pixel_index] = indirect;
 #endif
-	history_moment     [pixel_index] = moment;
-	history_position   [pixel_index] = position;
-	history_normal     [pixel_index] = normal;
-	history_triangle_id[pixel_index] = triangle_id;
-	history_depth      [pixel_index] = depth;
+	history_moment[pixel_index] = moment;
+	history_normal[pixel_index] = normal;
+	history_depth [pixel_index] = depth;
 
 	// @SPEED
 	// Clear frame buffers for next frame

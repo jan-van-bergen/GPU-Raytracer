@@ -2,7 +2,6 @@
 
 struct GBuffer {
 	unsigned gbuffer;
-	unsigned buffer_position;
 	unsigned buffer_normal;
 	unsigned buffer_uv;
 	unsigned buffer_triangle_id;

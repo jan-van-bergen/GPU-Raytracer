@@ -7,23 +7,21 @@ layout (location = 3) in flat int  in_triangle_id;
 layout (location = 4) in      vec4 in_screen_position;
 layout (location = 5) in      vec4 in_screen_position_prev;
 
-layout (location = 0) out vec4  out_position;
-layout (location = 1) out vec4  out_normal;
-layout (location = 2) out vec2  out_uv;
-layout (location = 3) out int   out_triangle_id;
-layout (location = 4) out vec2  out_motion;
-layout (location = 5) out float out_depth;
-layout (location = 6) out vec2  out_depth_gradient;
+layout (location = 0) out vec4  out_normal;
+layout (location = 1) out vec2  out_uv;
+layout (location = 2) out int   out_triangle_id;
+layout (location = 3) out vec2  out_motion;
+layout (location = 4) out float out_depth;
+layout (location = 5) out vec2  out_depth_gradient;
 
-uniform mat4 view_projection;
 uniform mat4 view_projection_prev;
 
 void main() {
-	out_position    = vec4(in_position,          0.0f);
 	out_normal      = vec4(normalize(in_normal), 0.0f);
 	out_uv          = in_uv;
 	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
 
+	// @PERFORMANCE
 	vec4 screen_position_prev = view_projection_prev * vec4(in_position, 1.0f);
 
 	out_motion = screen_position_prev.xy / screen_position_prev.w;
