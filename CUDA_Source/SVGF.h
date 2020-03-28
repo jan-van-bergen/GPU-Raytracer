@@ -1,8 +1,4 @@
 
-#define sigma_z 1.0f
-#define sigma_n 128.0f
-#define sigma_l 400.0f
-
 #define epsilon 1e-8f // To avoid division by 0
 
 // Frame Buffers
@@ -29,7 +25,7 @@ __device__ float4 * history_moment;
 __device__ float4 * history_normal_and_depth;
 __device__ int    * history_triangle_id;
 
-__device__ bool is_tap_consistent(int x, int y, const float3 & normal, float depth) {
+__device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth) {
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
 
@@ -45,6 +41,47 @@ __device__ bool is_tap_consistent(int x, int y, const float3 & normal, float dep
 	bool consistent_depth   = abs(depth - prev_depth)  < threshold_depth;
 
 	return consistent_normals && consistent_depth;
+}
+
+__device__ inline float2 edge_stopping_weights(
+	int delta_x, 
+	int delta_y,
+	const float2 & center_depth_gradient,
+	float center_depth,
+	float depth,
+	const float3 & center_normal,
+	const float3 & normal,
+	float center_luminance_direct,
+	float center_luminance_indirect,
+	float luminance_direct,
+	float luminance_indirect,
+	float luminance_denom_direct,
+	float luminance_denom_indirect
+) {
+	// ∇z(p)·(p−q) (Actually the negative of this but we take its absolute value)
+	float d = 
+		center_depth_gradient.x * float(delta_x) + 
+		center_depth_gradient.y * float(delta_y); 
+
+	float w_z = exp(-abs(center_depth - depth) / (SIGMA_Z * abs(d) + epsilon));
+
+	// float w_n = pow(max(0.0f, dot(center_normal, normal)), SIGMA_N);
+	float w_n1 = max(0.0f, dot(center_normal, normal));
+	float w_n2  = w_n1  * w_n1;
+	float w_n4  = w_n2  * w_n2;
+	float w_n8  = w_n4  * w_n4;
+	float w_n16 = w_n8  * w_n8;
+	float w_n32 = w_n16 * w_n16;
+	float w_n64 = w_n32 * w_n32;
+	float w_n   = w_n64 * w_n64;
+
+	float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
+	float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
+
+	return w_z * w_n * make_float2(
+		w_l_direct, 
+		w_l_indirect
+	);
 }
 
 extern "C" __global__ void kernel_svgf_temporal() {
@@ -151,7 +188,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		prev_moment   /= consistent_weights_sum;
 	} else {
 		// If we haven't yet found a consistent tap in a 2x2 region, try a 3x3 region
-        for (int j = -1; j <= 1; j++) {
+		for (int j = -1; j <= 1; j++) {
 			for (int i = -1; i <= 1; i++) {
 				int tap_x = x_prev + i;
 				int tap_y = y_prev + j;
@@ -183,8 +220,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		float alpha_moment = max(ALPHA_COLOUR, inv_history);
 
 		// Integrate using exponential moving average
-	 	direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
-	 	indirect = alpha_colour * indirect + (1.0f - alpha_colour) * prev_indirect;
+		direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
+		indirect = alpha_colour * indirect + (1.0f - alpha_colour) * prev_indirect;
 		moment   = alpha_moment * moment   + (1.0f - alpha_moment) * prev_moment;
 		
 		if (history >= 4) {
@@ -231,8 +268,8 @@ extern "C" __global__ void kernel_svgf_variance(
 	}
 
 	// @SPEED: some redundancies here
-	float luminance_denom_direct   = 1.0f / (sigma_l + epsilon);
-	float luminance_denom_indirect = 1.0f / (sigma_l + epsilon);
+	float luminance_denom_direct   = 1.0f / (SIGMA_L + epsilon);
+	float luminance_denom_indirect = 1.0f / (SIGMA_L + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -284,22 +321,19 @@ extern "C" __global__ void kernel_svgf_variance(
 
 			float3 normal = make_float3(normal_and_depth);
 			float  depth  = normal_and_depth.w;
-		
-			// @TODO: factor this
 
-			float d = 
-				center_depth_gradient.x * float(i) + 
-				center_depth_gradient.y * float(j); // ∇z(p)·(p−q)
-			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
+			float2 w = edge_stopping_weights(
+				i, j,
+				center_depth_gradient,
+				center_depth, depth,
+				center_normal, normal,
+				center_luminance_direct, center_luminance_indirect,
+				luminance_direct, luminance_indirect,
+				luminance_denom_direct, luminance_denom_indirect
+			);
 
-			float w_n = pow(max(0.0f, dot(center_normal, normal)), sigma_n);
-
-			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
-			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
-
-			float w_common   = w_z * w_n;
-			float w_direct   = w_common * w_l_direct;
-			float w_indirect = w_common * w_l_indirect;
+			float w_direct   = w.x;
+			float w_indirect = w.y;
 
 			sum_weight_direct   += w_direct;
 			sum_weight_indirect += w_indirect;
@@ -354,33 +388,33 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float variance_blurred_direct   = 0.0f;
 	float variance_blurred_indirect = 0.0f;
 
-    const float kernel_gaussian[2][2] = {
-        { 1.0f / 4.0f, 1.0f / 8.0f  },
-        { 1.0f / 8.0f, 1.0f / 16.0f }
-    };
+	const float kernel_gaussian[2][2] = {
+		{ 1.0f / 4.0f, 1.0f / 8.0f  },
+		{ 1.0f / 8.0f, 1.0f / 16.0f }
+	};
 
 	// Filter Variance using a 3x3 Gaussian Blur
-    for (int j = -1; j <= 1; j++) {
+	for (int j = -1; j <= 1; j++) {
 		int tap_y = clamp(y + j, 0, SCREEN_HEIGHT - 1);
 		
-        for (int i = -1; i <= 1; i++) {
-            int tap_x = clamp(x + i, 0, SCREEN_WIDTH - 1);
+		for (int i = -1; i <= 1; i++) {
+			int tap_x = clamp(x + i, 0, SCREEN_WIDTH - 1);
 
 			// Read the Variance of Direct/Indirect Illumination
 			// The Variance is stored in the alpha channel (w coordinate)
 			float variance_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_WIDTH].w;
 			float variance_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_WIDTH].w;
 
-            float kernel_weight = kernel_gaussian[abs(i)][abs(j)];
+			float kernel_weight = kernel_gaussian[abs(i)][abs(j)];
 
-            variance_blurred_direct   += variance_direct   * kernel_weight;
-            variance_blurred_indirect += variance_indirect * kernel_weight;
-        }
+			variance_blurred_direct   += variance_direct   * kernel_weight;
+			variance_blurred_indirect += variance_indirect * kernel_weight;
+		}
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = 1.0f / (sigma_l * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
-	float luminance_denom_indirect = 1.0f / (sigma_l * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
+	float luminance_denom_direct   = 1.0f / (SIGMA_L * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
+	float luminance_denom_indirect = 1.0f / (SIGMA_L * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -394,6 +428,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float3 center_normal = make_float3(center_normal_and_depth);
 	float  center_depth  = center_normal_and_depth.w;
 
+	// Weights from the SVGF reference implementation,
+	// the SVGF paper uses different kernel weights
 	const float kernel_atrous[3] = {
 		1.0f, 
 		2.0f / 3.0f, 
@@ -413,7 +449,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 		if (tap_y < 0 || tap_y >= SCREEN_HEIGHT) continue;
 
-        for (int i = -radius; i <= radius; i++) {
+		for (int i = -radius; i <= radius; i++) {
 			int tap_x = x + i * step_size;
 			
 			if (tap_x < 0 || tap_x >= SCREEN_WIDTH) continue;
@@ -434,21 +470,21 @@ extern "C" __global__ void kernel_svgf_atrous(
 			float3 normal = make_float3(normal_and_depth);
 			float  depth  = normal_and_depth.w;
 			
-			float d = 
-				center_depth_gradient.x * float(i * step_size) + 
-				center_depth_gradient.y * float(j * step_size); // ∇z(p)·(p−q)
-			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
+			float2 w = edge_stopping_weights(
+				i * step_size, 
+				j * step_size,
+				center_depth_gradient,
+				center_depth, depth,
+				center_normal, normal,
+				center_luminance_direct, center_luminance_indirect,
+				luminance_direct, luminance_indirect,
+				luminance_denom_direct, luminance_denom_indirect
+			);
 
-			float w_n = powf(max(0.0f, dot(center_normal, normal)), sigma_n);
+			float w_kernel = kernel_atrous[abs(i)] * kernel_atrous[abs(j)];
 
-			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
-			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
-
-			float kernel_weight = kernel_atrous[abs(i)] * kernel_atrous[abs(j)];
-
-			float w_common   = kernel_weight * w_z * w_n;
-			float w_direct   = w_common * w_l_direct;
-			float w_indirect = w_common * w_l_indirect;
+			float w_direct   = w_kernel * w.x;
+			float w_indirect = w_kernel * w.y;
 
 			sum_weight_direct   += w_direct;
 			sum_weight_indirect += w_indirect;
@@ -477,6 +513,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	colour_direct_out  [pixel_index] = sum_colour_direct;
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
 	
+	// Determines which iterations' colour buffers are used as history colour buffers for the next frame
+	// Can be used to balance between temporal stability and bias from spatial filtering
 	const int feedback_iteration = 1;
 	
 	if (step_size == (1 << feedback_iteration)) {
