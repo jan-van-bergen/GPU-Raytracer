@@ -15,8 +15,6 @@ struct Pathtracer {
 private:
 	GBuffer gbuffer;
 
-	CUstream memcpy_stream;
-
 	CUDAModule module;
 
 	CUDAKernel kernel_primary;
