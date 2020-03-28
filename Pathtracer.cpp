@@ -2,7 +2,8 @@
 
 #include <filesystem>
 
-#include "CUDAMemory.h"
+#include <SDL2/SDL.h>
+
 #include "CUDAContext.h"
 
 #include "MeshData.h"
@@ -14,6 +15,13 @@
 #include "BlueNoise.h"
 
 #include "ScopedTimer.h"
+
+struct Vertex {
+	Vector3 position;
+	Vector3 normal;
+	Vector2 uv;
+	int     triangle_id;
+};
 
 static struct ExtendBuffer {
 	CUDAMemory::Ptr<float> origin_x;
@@ -126,7 +134,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	camera.resize(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	// Init CUDA Module and its Kernel
-	module.init("CUDA_Source/wavefront.cu", CUDAContext::compute_capability);
+	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
 
 	const MeshData * mesh = MeshData::load(scene_name);
 
@@ -179,9 +187,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 		for (int i = 0; i < bvh.primitive_count; i++) {
 			Vector3 vertices[3] = { 
-				bvh.primitives[i].position0, 
-				bvh.primitives[i].position1, 
-				bvh.primitives[i].position2
+				bvh.primitives[i].position_0, 
+				bvh.primitives[i].position_1, 
+				bvh.primitives[i].position_2
 			};
 			bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
 		}
@@ -200,9 +208,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
 	// (This does mean more memory consumption)
-	Triangle * flat_triangles = new Triangle[mbvh.leaf_count];
+	Triangle * flat_triangles  = new Triangle[mbvh.leaf_count];
+	int      * reverse_indices = new int     [mbvh.leaf_count];
+
 	for (int i = 0; i < mbvh.leaf_count; i++) {
 		flat_triangles[i] = mbvh.primitives[mbvh.indices[i]];
+
+		reverse_indices[mbvh.indices[i]] = i;
 	}
 
 	// Allocate Triangles in SoA format
@@ -221,17 +233,17 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	int * triangles_material_id = new int[mbvh.leaf_count];
 
 	for (int i = 0; i < mbvh.leaf_count; i++) {
-		triangles_position0[i]      = flat_triangles[i].position0;
-		triangles_position_edge1[i] = flat_triangles[i].position1 - flat_triangles[i].position0;
-		triangles_position_edge2[i] = flat_triangles[i].position2 - flat_triangles[i].position0;
+		triangles_position0[i]      = flat_triangles[i].position_0;
+		triangles_position_edge1[i] = flat_triangles[i].position_1 - flat_triangles[i].position_0;
+		triangles_position_edge2[i] = flat_triangles[i].position_2 - flat_triangles[i].position_0;
 
-		triangles_normal0[i]      = flat_triangles[i].normal0;
-		triangles_normal_edge1[i] = flat_triangles[i].normal1 - flat_triangles[i].normal0;
-		triangles_normal_edge2[i] = flat_triangles[i].normal2 - flat_triangles[i].normal0;
+		triangles_normal0[i]      = flat_triangles[i].normal_0;
+		triangles_normal_edge1[i] = flat_triangles[i].normal_1 - flat_triangles[i].normal_0;
+		triangles_normal_edge2[i] = flat_triangles[i].normal_2 - flat_triangles[i].normal_0;
 
-		triangles_tex_coord0[i]      = flat_triangles[i].tex_coord0;
-		triangles_tex_coord_edge1[i] = flat_triangles[i].tex_coord1 - flat_triangles[i].tex_coord0;
-		triangles_tex_coord_edge2[i] = flat_triangles[i].tex_coord2 - flat_triangles[i].tex_coord0;
+		triangles_tex_coord0[i]      = flat_triangles[i].tex_coord_0;
+		triangles_tex_coord_edge1[i] = flat_triangles[i].tex_coord_1 - flat_triangles[i].tex_coord_0;
+		triangles_tex_coord_edge2[i] = flat_triangles[i].tex_coord_2 - flat_triangles[i].tex_coord_0;
 
 		triangles_material_id[i] = flat_triangles[i].material_id;
 	}
@@ -265,6 +277,54 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] triangles_tex_coord_edge2;
 	delete [] triangles_material_id;
 
+	vertex_count = mbvh.primitive_count * 3;
+	Vertex * vertices = new Vertex[vertex_count];
+
+	for (int i = 0; i < mbvh.primitive_count; i++) {
+		int index_0 = 3 * i;
+		int index_1 = 3 * i + 1;
+		int index_2 = 3 * i + 2;
+
+		vertices[index_0].position = mbvh.primitives[i].position_0;
+		vertices[index_1].position = mbvh.primitives[i].position_1;
+		vertices[index_2].position = mbvh.primitives[i].position_2;
+
+		vertices[index_0].normal = mbvh.primitives[i].normal_0;
+		vertices[index_1].normal = mbvh.primitives[i].normal_1;
+		vertices[index_2].normal = mbvh.primitives[i].normal_2;
+
+		// Barycentric coordinates
+		vertices[index_0].uv = Vector2(0.0f, 0.0f);
+		vertices[index_1].uv = Vector2(1.0f, 0.0f);
+		vertices[index_2].uv = Vector2(0.0f, 1.0f);
+
+		vertices[index_0].triangle_id = reverse_indices[i];
+		vertices[index_1].triangle_id = reverse_indices[i];
+		vertices[index_2].triangle_id = reverse_indices[i];
+	}
+
+	GLuint vbo;
+	glGenBuffers(1, &vbo);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
+
+	delete [] vertices;
+	
+	shader = Shader::load(DATA_PATH("Shaders/primary_vertex.glsl"), DATA_PATH("Shaders/primary_fragment.glsl"));
+
+	shader.bind();
+	uniform_view_projection      = shader.get_uniform("view_projection");
+	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
+
+	gbuffer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+	module.set_texture("gbuffer_normal_and_depth",     CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_uv",                   CUDAContext::map_gl_texture(gbuffer.buffer_uv,               CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_triangle_id",          CUDAContext::map_gl_texture(gbuffer.buffer_triangle_id,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
+	module.set_texture("gbuffer_screen_position_prev", CUDAContext::map_gl_texture(gbuffer.buffer_motion,           CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_depth_gradient",       CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,       CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
 
@@ -273,20 +333,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		const Triangle & triangle = mesh->triangles[i];
 
 		if (mesh->materials[triangle.material_id].type == Material::Type::LIGHT) {
-			int index = INVALID;
-
-			// Apply the BVH index permutation
-			for (int j = 0; j < mbvh.leaf_count; j++) {
-				if (mbvh.indices[j] == i) {
-					index = j;
-
-					break;
-				}
-			}
-
-			assert(index != INVALID);
-
-			light_indices[light_count++] = index;
+			light_indices[light_count++] = reverse_indices[i];
 		}
 	}
 	
@@ -295,6 +342,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	}
 
 	delete [] light_indices;
+	delete [] reverse_indices;
 
 	module.get_global("light_count").set_value(light_count);
 
@@ -313,10 +361,29 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("scrambling_tile").set_buffer(scrambling_tile);
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 	
-	// Set frame buffer to a CUDA resource mapping of the GL frame buffer texture
-	module.set_surface("frame_buffer", CUDAMemory::create_array3d(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 4, CUarray_format::CU_AD_FORMAT_FLOAT, CUDA_ARRAY3D_SURFACE_LDST));
-	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle));
+	// Create Frame Buffers
+	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	
+	ptr_direct       = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
+	ptr_indirect     = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
+	ptr_direct_alt   = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
+	ptr_indirect_alt = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
 
+	module.get_global("frame_buffer_direct").set_value(ptr_direct.ptr);
+	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
+
+	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
+	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
+
+	// Create History Buffers 
+	module.get_global("history_length").set_value          (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
+	module.get_global("history_direct").set_value          (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_indirect").set_value        (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_moment").set_value          (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_triangle_id").set_value     (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
+	
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric;
@@ -329,7 +396,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	ray_buffer_shade_glossy.init    (PIXEL_COUNT);
 	ray_buffer_connect.init         (PIXEL_COUNT);
 
-	CUDACALL(cuStreamCreate(&stream, CU_STREAM_NON_BLOCKING));
+	CUDACALL(cuStreamCreate(&memcpy_stream, CU_STREAM_NON_BLOCKING));
 
 	module.get_global("ray_buffer_extend").set_value          (ray_buffer_extend);
 	module.get_global("ray_buffer_shade_diffuse").set_value   (ray_buffer_shade_diffuse);
@@ -340,51 +407,86 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
 
+	kernel_primary.init         (&module, "kernel_primary");
 	kernel_generate.init        (&module, "kernel_generate");
 	kernel_extend.init          (&module, "kernel_extend");
 	kernel_shade_diffuse.init   (&module, "kernel_shade_diffuse");
 	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
 	kernel_shade_glossy.init    (&module, "kernel_shade_glossy");
 	kernel_connect.init         (&module, "kernel_connect");
+	kernel_svgf_temporal.init   (&module, "kernel_svgf_temporal");
+	kernel_svgf_variance.init   (&module, "kernel_svgf_variance");
+	kernel_svgf_atrous.init     (&module, "kernel_svgf_atrous");
+	kernel_svgf_finalize.init   (&module, "kernel_svgf_finalize");
 	kernel_accumulate.init      (&module, "kernel_accumulate");
 
+	kernel_primary.set_block_dim          (32, 4, 1);
 	kernel_generate.set_block_dim        (128, 1, 1);
 	kernel_extend.set_block_dim          (128, 1, 1);
 	kernel_shade_diffuse.set_block_dim   (128, 1, 1);
 	kernel_shade_dielectric.set_block_dim(128, 1, 1);
 	kernel_shade_glossy.set_block_dim    (128, 1, 1);
 	kernel_connect.set_block_dim         (128, 1, 1);
-	kernel_accumulate.set_block_dim(32, 4, 1);
+	kernel_svgf_temporal.set_block_dim    (32, 4, 1);
+	kernel_svgf_variance.set_block_dim    (32, 4, 1);
+	kernel_svgf_atrous.set_block_dim      (32, 4, 1);
+	kernel_svgf_finalize.set_block_dim    (32, 4, 1);
+	kernel_accumulate.set_block_dim       (32, 4, 1);
 
+	kernel_primary.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_primary.block_dim_x - 1) / kernel_primary.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_primary.block_dim_y - 1) / kernel_primary.block_dim_y,
+		1
+	);
 	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
 	kernel_extend.set_grid_dim          (PIXEL_COUNT / kernel_extend.block_dim_x,           1, 1);
 	kernel_shade_diffuse.set_grid_dim   (PIXEL_COUNT / kernel_shade_diffuse.block_dim_x,    1, 1);
 	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
 	kernel_shade_glossy.set_grid_dim    (PIXEL_COUNT / kernel_shade_glossy.block_dim_x,     1, 1);
 	kernel_connect.set_grid_dim         (PIXEL_COUNT / kernel_connect.block_dim_x,          1, 1);
+	kernel_svgf_temporal.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_temporal.block_dim_x - 1) / kernel_svgf_temporal.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y,
+		1
+	);
+	kernel_svgf_variance.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_variance.block_dim_x - 1) / kernel_svgf_variance.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_variance.block_dim_y - 1) / kernel_svgf_variance.block_dim_y,
+		1
+	);
+	kernel_svgf_atrous.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_atrous.block_dim_x - 1) / kernel_svgf_atrous.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_atrous.block_dim_y - 1) / kernel_svgf_atrous.block_dim_y,
+		1
+	);
+	kernel_svgf_finalize.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_finalize.block_dim_x - 1) / kernel_svgf_finalize.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y,
+		1
+	);
 	kernel_accumulate.set_grid_dim(
-		SCREEN_WIDTH  / kernel_accumulate.block_dim_x, 
-		SCREEN_HEIGHT / kernel_accumulate.block_dim_y,
+		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
 		1
 	);
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
-		camera.position = Vector3(-14.875896f, 5.407789f, 22.486183f);
+		camera.position = Vector3(-14.875896f, 5.407789f, -22.486183f);
 		camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
 	} else if (strcmp(scene_name, DATA_PATH("sponza/sponza.obj")) == 0) {
-		camera.position = Vector3(2.698714f, 39.508224f, 15.633610f);
-		camera.rotation = Quaternion(0.000000f, -0.891950f, 0.000000f, 0.452135f);
+		camera.position = Vector3(2.698714f, 39.508224f, -15.633610f);
+		camera.rotation = Quaternion(0.000000f, 0.891950f, 0.000000f, 0.452135f);
 	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
-		camera.position = Vector3(-0.101589f, 0.613379f, 3.580916f);
-		camera.rotation = Quaternion(-0.006744f, 0.992265f, -0.107043f, -0.062512f);
+		camera.position = Vector3(-0.126737f, 0.613379f, 3.716630f);
+		camera.rotation = Quaternion(-0.107255f, -0.002421f, 0.000262f, -0.994227f);
 	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
-		camera.position = Vector3(0.528027f, 1.004323f, 0.774033f);
+		camera.position = Vector3(0.528027f, 1.004323f, -0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
 	} else if (strcmp(scene_name, DATA_PATH("glossy.obj")) == 0) {
-		camera.position = Vector3(9.467193f, 5.919240f, -0.646071f);
+		camera.position = Vector3(9.467193f, 5.919240f, 0.646071f);
 		camera.rotation = Quaternion(0.179088f, -0.677310f, 0.175366f, 0.691683f);
 	} else {
-		camera.position = Vector3(1.272743f, 3.097532f, 3.189943f);
+		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
 	}
 }
@@ -392,31 +494,93 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 void Pathtracer::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
 
-	if (camera.moved) {
+	static unsigned char last = 0;
+	if (keys[SDL_SCANCODE_F] && keys[SDL_SCANCODE_F] != last) {
+		use_svgf = !use_svgf;
+
 		frames_since_camera_moved = 0;
+	}
+	last = keys[SDL_SCANCODE_F];
+
+	if (use_svgf) {
+		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
 	} else {
-		frames_since_camera_moved++;
+		if (camera.moved) {
+			frames_since_camera_moved = 0;
+		} else {
+			frames_since_camera_moved++;
+		}
 	}
 }
 
 void Pathtracer::render() {
-	// Sync Main stream
-	CUDACALL(cuStreamSynchronize(nullptr));
+	if (camera.rasterize) {
+		gbuffer.bind();
 
-	// Generate primary Rays from the current Camera orientation
-	kernel_generate.execute(
-		rand(),
-		frames_since_camera_moved,
-		camera.position, 
-		camera.top_left_corner_rotated, 
-		camera.x_axis_rotated, 
-		camera.y_axis_rotated
-	);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		shader.bind();
+
+		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
+		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection_prev));
+
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
+		glEnableVertexAttribArray(3);
+
+		glVertexAttribPointer (0, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, position)));
+		glVertexAttribPointer (1, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, normal)));
+		glVertexAttribPointer (2, 2, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, uv)));
+		glVertexAttribIPointer(3, 1, GL_INT,          sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, triangle_id)));
+
+		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+
+		glDisableVertexAttribArray(3);
+		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(0);
+
+		shader.unbind();
+		gbuffer.unbind();
 	
-	// Sync Async Memcpy stream
-	CUDACALL(cuStreamSynchronize(stream));
+		// Sync Async Memcpy stream
+		CUDACALL(cuStreamSynchronize(memcpy_stream));
 	
-	for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
+		glFinish();
+
+		// Convert rasterized GBuffers into primary Rays
+		kernel_primary.execute(
+			camera.position,
+			camera.bottom_left_corner_rotated,
+			camera.x_axis_rotated,
+			camera.y_axis_rotated
+		);
+	} else {
+		// Generate primary Rays from the current Camera orientation
+		kernel_generate.execute(
+			rand(),
+			frames_since_camera_moved,
+			camera.position, 
+			camera.bottom_left_corner_rotated, 
+			camera.x_axis_rotated, 
+			camera.y_axis_rotated
+		);
+
+		CUDACALL(cuStreamSynchronize(memcpy_stream));
+
+		kernel_extend.execute(rand(), 0);
+	}
+
+	// Process the various Material types in different Kernels
+	kernel_shade_diffuse.execute   (rand(), 0, frames_since_camera_moved);
+	kernel_shade_dielectric.execute(rand(), 0);
+	kernel_shade_glossy.execute    (rand(), 0, frames_since_camera_moved);
+
+	// Trace shadow Rays
+	kernel_connect.execute(rand(), 0, frames_since_camera_moved);
+
+	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute(rand(), bounce);
 
@@ -428,10 +592,43 @@ void Pathtracer::render() {
 		// Trace shadow Rays
 		kernel_connect.execute(rand(), bounce, frames_since_camera_moved);
 	}
-	
+
 	// Reset buffer sizes to default for next frame
-	global_buffer_sizes.set_value_async(buffer_sizes, stream);
+	global_buffer_sizes.set_value_async(buffer_sizes, memcpy_stream);
+
+	if (use_svgf) {
+		// Integrate temporally
+		kernel_svgf_temporal.execute();
 	
-	// Accumulate FrameBuffer temporally
-	kernel_accumulate.execute(float(frames_since_camera_moved));
+		CUdeviceptr direct_in    = ptr_direct.ptr;
+		CUdeviceptr indirect_in  = ptr_indirect.ptr;
+		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
+		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
+
+#if true
+		// Estimate Variance spatially
+		kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
+#else
+		std::swap(direct_in,   direct_out);
+		std::swap(indirect_in, indirect_out);
+#endif
+
+		// À-Trous Filter
+		for (int i = 0; i < ATROUS_ITERATIONS; i++) {
+			int step_size = 1 << i;
+				
+			// Ping-Pong the Frame Buffers
+			std::swap(direct_in,   direct_out);
+			std::swap(indirect_in, indirect_out);
+
+			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
+		}
+
+		kernel_svgf_finalize.execute(direct_out, indirect_out);
+	} else {
+		kernel_accumulate.execute(float(frames_since_camera_moved));
+	}
+
+	// Sync Main stream
+	CUDACALL(cuStreamSynchronize(nullptr));
 }

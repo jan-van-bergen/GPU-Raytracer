@@ -28,7 +28,10 @@
       <Filter>Assets</Filter>
     </ClCompile>
     <ClCompile Include="Shader.cpp">
-      <Filter>Util</Filter>
+      <Filter>Rasterization</Filter>
+    </ClCompile>
+    <ClCompile Include="GBuffer.cpp">
+      <Filter>Rasterization</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -49,6 +52,9 @@
     </Filter>
     <Filter Include="Assets">
       <UniqueIdentifier>{6f3338e2-ac89-4452-8dcb-2d4fb9144c6e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rasterization">
+      <UniqueIdentifier>{94ec5997-5e22-435c-9755-99dc6ec96aa9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -129,7 +135,10 @@
       <Filter>Pathtracer</Filter>
     </ClInclude>
     <ClInclude Include="Shader.h">
-      <Filter>Util</Filter>
+      <Filter>Rasterization</Filter>
+    </ClInclude>
+    <ClInclude Include="GBuffer.h">
+      <Filter>Rasterization</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

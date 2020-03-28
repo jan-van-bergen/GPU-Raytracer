@@ -20,6 +20,12 @@ static_assert(BLOCK_SIZE == 32, "Block size should equal CUDA warp size!");
 
 #define NUM_BOUNCES 3
 
+// SVGF
+#define ATROUS_ITERATIONS 4
+
+#define ALPHA_COLOUR 0.05f
+#define ALPHA_MOMENT 0.2f
+
 // Pi related
 #define PI          3.14159265359f
 #define ONE_OVER_PI 0.31830988618f

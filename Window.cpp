@@ -1,7 +1,12 @@
 #include "Window.h"
 
+#include "GBuffer.h"
+
 #include "Util.h"
-#include "Shader.h"
+
+static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * user_param) {
+	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", type, severity, message);
+}
 
 Window::Window(const char * title) {
 	SDL_Init(SDL_INIT_EVERYTHING);
@@ -25,9 +30,21 @@ Window::Window(const char * title) {
 		printf("Glew failed to initialize!\n");
 		abort();
 	}
+	
+	printf("OpenGL Info:\n");
+	printf("Version:  %s\n",   glGetString(GL_VERSION));
+	printf("GLSL:     %s\n",   glGetString(GL_SHADING_LANGUAGE_VERSION));
+	printf("Vendor:   %s\n",   glGetString(GL_VENDOR));
+	printf("Renderer: %s\n\n", glGetString(GL_RENDERER));
+	
+#if false
+	glEnable(GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(gl_message_callback, NULL);
+#endif
 
 	glEnable(GL_TEXTURE_2D);
-	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_CULL_FACE);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
 	glGenTextures(1, &frame_buffer_handle);
@@ -37,7 +54,7 @@ Window::Window(const char * title) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	Shader shader = Shader::load(DATA_PATH("Shaders/vertex.glsl"), DATA_PATH("Shaders/fragment.glsl"));
+	shader = Shader::load(DATA_PATH("Shaders/screen_vertex.glsl"), DATA_PATH("Shaders/screen_fragment.glsl"));
 	shader.bind();
 	
 	glUniform1i(shader.get_uniform("screen"), 0);
@@ -50,11 +67,17 @@ Window::~Window() {
 }
 
 void Window::update() {
-	glClear(GL_COLOR_BUFFER_BIT);
-	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	shader.bind();
+
+	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
+
 	// Draws a single Triangle, without any buffers
 	// The Vertex Shader makes sure positions + uvs work out
 	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	shader.unbind();
 
 	SDL_GL_SwapWindow(window);
 
