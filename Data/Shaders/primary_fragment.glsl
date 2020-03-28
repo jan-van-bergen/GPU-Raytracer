@@ -1,39 +1,27 @@
 #version 420
 
-layout (location = 0) in      vec3 in_position;
-layout (location = 1) in      vec3 in_normal;
-layout (location = 2) in      vec2 in_uv;
-layout (location = 3) in flat int  in_triangle_id;
-layout (location = 4) in      vec4 in_screen_position;
-layout (location = 5) in      vec4 in_screen_position_prev;
+layout (location = 0) in      vec3 in_normal;
+layout (location = 1) in      vec2 in_uv;
+layout (location = 2) in flat int  in_triangle_id;
+layout (location = 3) in      vec4 in_screen_position_prev;
 
-layout (location = 0) out vec4  out_position;
-layout (location = 1) out vec4  out_normal;
-layout (location = 2) out vec2  out_uv;
-layout (location = 3) out int   out_triangle_id;
-layout (location = 4) out vec2  out_motion;
-layout (location = 5) out float out_depth;
-
-uniform mat4 view_projection;
-uniform mat4 view_projection_prev;
+layout (location = 0) out vec4 out_normal_and_depth;
+layout (location = 1) out vec2 out_uv;
+layout (location = 2) out int  out_triangle_id;
+layout (location = 3) out vec2 out_screen_position_prev;
+layout (location = 4) out vec2 out_depth_gradient;
 
 void main() {
-	out_position    = vec4(in_position,          0.0f);
-	out_normal      = vec4(normalize(in_normal), 0.0f);
+	float linear_depth = gl_FragCoord.z / gl_FragCoord.w;
+
+	out_normal_and_depth.rgb = normalize(in_normal);
+	out_normal_and_depth.a   = linear_depth;
+	
 	out_uv          = in_uv;
 	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
 
-	//vec4 screen_position      = view_projection      * vec4(in_position, 1.0f);
-	vec4 screen_position_prev = view_projection_prev * vec4(in_position, 1.0f);
+	// Perform perspective divide
+	out_screen_position_prev = in_screen_position_prev.xy / in_screen_position_prev.w;
 
-	// out_motion = 
-		// screen_position.xy      / screen_position.w - 
-		// screen_position_prev.xy / screen_position_prev.w;
-
-	out_motion = screen_position_prev.xy / screen_position_prev.w;
-
-	const float near =   0.1f;
-	const float far  = 250.0f;
-
-	out_depth = (gl_FragCoord.z / gl_FragCoord.w - near) / (far - near);
+	out_depth_gradient = vec2(dFdx(linear_depth), dFdy(linear_depth));
 }

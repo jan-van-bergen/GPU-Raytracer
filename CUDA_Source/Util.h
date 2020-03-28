@@ -6,6 +6,10 @@
 //#define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
 #define ASSERT(proposition, fmt, ...) { }
 
+__device__ float luminance(float r, float g, float b) {
+	return 0.299f * r + 0.587f * g + 0.114f * b;
+}
+
 template<typename T>
 __device__ T barycentric(float u, float v, const T & base, const T & edge_1, const T & edge_2) {
 	return base + u * edge_1 + v * edge_2;

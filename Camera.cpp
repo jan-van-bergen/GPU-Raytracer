@@ -74,6 +74,8 @@ void Camera::update(float delta, const unsigned char * keys) {
 		(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
 	);
 
+	jitter = Vector2(0.0f);
+
 	// The view matrix V is the inverse of the World M
 	// M^-1 = (RT)^-1 = T^-1 * R^-1
 	view_projection = 
