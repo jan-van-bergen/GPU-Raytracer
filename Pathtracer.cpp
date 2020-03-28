@@ -405,32 +405,33 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
 
-	kernel_primary.init         (&module, "kernel_primary");
-	kernel_generate.init        (&module, "kernel_generate");
-	kernel_extend.init          (&module, "kernel_extend");
-	kernel_shade_diffuse.init   (&module, "kernel_shade_diffuse");
+	kernel_primary         .init(&module, "kernel_primary");
+	kernel_generate        .init(&module, "kernel_generate");
+	kernel_extend          .init(&module, "kernel_extend");
+	kernel_shade_diffuse   .init(&module, "kernel_shade_diffuse");
 	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
-	kernel_shade_glossy.init    (&module, "kernel_shade_glossy");
-	kernel_connect.init         (&module, "kernel_connect");
-	kernel_svgf_temporal.init   (&module, "kernel_svgf_temporal");
-	kernel_svgf_variance.init   (&module, "kernel_svgf_variance");
-	kernel_svgf_atrous.init     (&module, "kernel_svgf_atrous");
-	kernel_svgf_finalize.init   (&module, "kernel_svgf_finalize");
-	kernel_accumulate.init      (&module, "kernel_accumulate");
+	kernel_shade_glossy    .init(&module, "kernel_shade_glossy");
+	kernel_connect         .init(&module, "kernel_connect");
+	kernel_svgf_temporal   .init(&module, "kernel_svgf_temporal");
+	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
+	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
+	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
+	kernel_accumulate      .init(&module, "kernel_accumulate");
 
-	kernel_primary.set_block_dim          (32, 4, 1);
-	kernel_generate.set_block_dim        (128, 1, 1);
-	kernel_extend.set_block_dim          (128, 1, 1);
-	kernel_shade_diffuse.set_block_dim   (128, 1, 1);
-	kernel_shade_dielectric.set_block_dim(128, 1, 1);
-	kernel_shade_glossy.set_block_dim    (128, 1, 1);
-	kernel_connect.set_block_dim         (128, 1, 1);
-	kernel_svgf_temporal.set_block_dim    (32, 4, 1);
-	kernel_svgf_variance.set_block_dim    (32, 4, 1);
-	kernel_svgf_atrous.set_block_dim      (32, 4, 1);
-	kernel_svgf_finalize.set_block_dim    (32, 4, 1);
-	kernel_accumulate.set_block_dim       (32, 4, 1);
+	kernel_primary      .occupancy_max_block_size_2d();
+	kernel_svgf_temporal.occupancy_max_block_size_2d();
+	kernel_svgf_variance.occupancy_max_block_size_2d();
+	kernel_svgf_atrous  .occupancy_max_block_size_2d();
+	kernel_svgf_finalize.occupancy_max_block_size_2d();
+	kernel_accumulate   .occupancy_max_block_size_2d();
 
+	kernel_generate        .set_block_dim(32, 1, 1);
+	kernel_extend          .set_block_dim(32, 1, 1);
+	kernel_shade_diffuse   .set_block_dim(32, 1, 1);
+	kernel_shade_dielectric.set_block_dim(32, 1, 1);
+	kernel_shade_glossy    .set_block_dim(32, 1, 1);
+	kernel_connect         .set_block_dim(32, 1, 1);
+	
 	kernel_primary.set_grid_dim(
 		(SCREEN_WIDTH  + kernel_primary.block_dim_x - 1) / kernel_primary.block_dim_x, 
 		(SCREEN_HEIGHT + kernel_primary.block_dim_y - 1) / kernel_primary.block_dim_y,

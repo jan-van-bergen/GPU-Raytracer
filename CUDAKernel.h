@@ -54,6 +54,31 @@ struct CUDAKernel {
 		block_dim_z = z;
 	}
 
+	inline void occupancy_max_block_size_1d() {
+		int grid, block;
+
+		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0)); 
+
+		set_block_dim(block, 1, 1);
+	}
+
+	inline void occupancy_max_block_size_2d() {
+		int grid, block;
+
+		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0)); 
+
+		// Take sqrt because we want block_x x block_y to be as square as possible
+		int block_x = int(sqrt(block));
+		// Make sure block_x is a multiple of 32
+		block_x += (32 - block_x) & 31;
+
+		if (block_x == 0) block_x = 32;
+
+		int block_y = block / block_x;
+
+		set_block_dim(block_x, block_y, 1);
+	}
+
 private:
 	template<typename T>
 	inline int fill_buffer(int buffer_offset, const T & parameter) {

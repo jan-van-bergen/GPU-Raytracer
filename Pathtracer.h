@@ -53,7 +53,7 @@ private:
 	CUDAMemory::Ptr<float> ptr_indirect_alt;
 
 	// Settings
-	bool use_svgf = false;
+	bool use_svgf = true;
 
 	// Timing Events
 	CUDAEvent event_primary;
