@@ -317,12 +317,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	gbuffer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-	module.set_texture("gbuffer_normal",         CUDAContext::map_gl_texture(gbuffer.buffer_normal,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_uv",             CUDAContext::map_gl_texture(gbuffer.buffer_uv,          CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_triangle_id",    CUDAContext::map_gl_texture(gbuffer.buffer_triangle_id, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
-	module.set_texture("gbuffer_motion",         CUDAContext::map_gl_texture(gbuffer.buffer_motion,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_depth",          CUDAContext::map_gl_texture(gbuffer.buffer_z,           CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        1);
-	module.set_texture("gbuffer_depth_gradient", CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,  CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_normal_and_depth", CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_uv",               CUDAContext::map_gl_texture(gbuffer.buffer_uv,               CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_triangle_id",      CUDAContext::map_gl_texture(gbuffer.buffer_triangle_id,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
+	module.set_texture("gbuffer_motion",           CUDAContext::map_gl_texture(gbuffer.buffer_motion,           CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_depth_gradient",   CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,       CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
 
 	int * light_indices = new int[mesh->triangle_count];
 	int   light_count = 0;
@@ -376,14 +375,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	// Create History Buffers 
-	module.get_global("history_length").set_value     (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
-	module.get_global("history_direct").set_value     (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_indirect").set_value   (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_moment").set_value     (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_normal").set_value     (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_triangle_id").set_value(CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
-	module.get_global("history_depth").set_value      (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
-
+	module.get_global("history_length").set_value          (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
+	module.get_global("history_direct").set_value          (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_indirect").set_value        (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_moment").set_value          (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_triangle_id").set_value     (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
+	
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric;

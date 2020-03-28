@@ -12,20 +12,19 @@ void GBuffer::init(int width, int height) {
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gbuffer);
 
 	// Colour Texture
-	glGenTextures(1, &buffer_normal);
+	glGenTextures(1, &buffer_normal_and_depth);
 	glGenTextures(1, &buffer_uv);
 	glGenTextures(1, &buffer_triangle_id);
 	glGenTextures(1, &buffer_motion);
-	glGenTextures(1, &buffer_z);
 	glGenTextures(1, &buffer_z_gradient);
 	glGenTextures(1, &buffer_depth);
 
 	// Initialize Normal Buffer
-	glBindTexture(GL_TEXTURE_2D, buffer_normal);
+	glBindTexture(GL_TEXTURE_2D, buffer_normal_and_depth);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, buffer_normal, NULL);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, buffer_normal_and_depth, NULL);
 	
 	// Initialize UV Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_uv);
@@ -47,20 +46,13 @@ void GBuffer::init(int width, int height) {
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, buffer_motion, NULL);
-	
-	// Initialize Z Buffer
-	glBindTexture(GL_TEXTURE_2D, buffer_z);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, NULL);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, buffer_z, NULL);
-	
+
 	// Initialize Z Gradient Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_z_gradient);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, NULL);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, buffer_z_gradient, NULL);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, buffer_z_gradient, NULL);
 
 	// Depth Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_depth);
@@ -69,12 +61,11 @@ void GBuffer::init(int width, int height) {
 
 	// Attach Draw Buffers
 	GLenum draw_buffers[] = {
-		GL_COLOR_ATTACHMENT0, // Normal
+		GL_COLOR_ATTACHMENT0, // Normal in rgb, Depth in a
 		GL_COLOR_ATTACHMENT1, // UV
 		GL_COLOR_ATTACHMENT2, // Triangle ID
 		GL_COLOR_ATTACHMENT3, // Motion
-		GL_COLOR_ATTACHMENT4, // Depth
-		GL_COLOR_ATTACHMENT5  // Depth Gradient  
+		GL_COLOR_ATTACHMENT4  // Depth Gradient  
 	};
 	glDrawBuffers(sizeof(draw_buffers) / sizeof(GLenum), draw_buffers);
 

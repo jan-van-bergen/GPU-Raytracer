@@ -27,11 +27,10 @@ __device__ float4 * frame_buffer_indirect;
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
 // GBuffers
-texture<float4, cudaTextureType2D> gbuffer_normal;
+texture<float4, cudaTextureType2D> gbuffer_normal_and_depth;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<int,    cudaTextureType2D> gbuffer_triangle_id;
 texture<float2, cudaTextureType2D> gbuffer_motion;
-texture<float,  cudaTextureType2D> gbuffer_depth;
 texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
 
 // History Buffers (Temporally Integrated)
@@ -39,9 +38,8 @@ __device__ int    * history_length;
 __device__ float4 * history_direct;
 __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
-__device__ float4 * history_normal;
+__device__ float4 * history_normal_and_depth;
 __device__ int    * history_triangle_id;
-__device__ float  * history_depth;
 
 __device__ void frame_buffer_add(float4 * frame_buffer, int x, int y, const float3 & colour) {
 	ASSERT(x >= 0 && x < SCREEN_WIDTH);
@@ -780,20 +778,20 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 	}
 }
 
-__device__ bool is_tap_consistent(int x, int y, const float4 & normal, float depth) {
+__device__ bool is_tap_consistent(int x, int y, const float3 & normal, float depth) {
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
 
-	int tap_index = x + y * SCREEN_WIDTH;
-
-	float4 normal_prev = history_normal[tap_index];
-	float  depth_prev  = history_depth [tap_index];
+	float4 prev_normal_and_depth = history_normal_and_depth[x + y * SCREEN_WIDTH];
+	
+	float3 prev_normal = make_float3(prev_normal_and_depth);
+	float  prev_depth  = prev_normal_and_depth.w;
 
 	const float threshold_normal = 0.95f;
 	const float threshold_depth  = 0.025f * 250.0f; // @HARDCODED @ROBUSTNESS: make this depend on camera near/far
 
-	bool consistent_normals = (normal.x * normal_prev.x + normal.y * normal_prev.y + normal.z * normal_prev.z) > threshold_normal;
-	bool consistent_depth   = abs(depth - depth_prev) < threshold_depth;
+	bool consistent_normals = dot(normal, prev_normal) > threshold_normal;
+	bool consistent_depth   = abs(depth - prev_depth)  < threshold_depth;
 
 	return consistent_normals && consistent_depth;
 }
@@ -819,9 +817,11 @@ extern "C" __global__ void kernel_temporal() {
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float4 normal = tex2D(gbuffer_normal, u, v);
-	float2 motion = tex2D(gbuffer_motion, u, v);
-	float  depth  = tex2D(gbuffer_depth,  u, v);
+	float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
+	float2 motion           = tex2D(gbuffer_motion,           u, v);
+
+	float3 normal = make_float3(normal_and_depth);
+	float  depth  = normal_and_depth.w;
 
 	float u_prev = 0.5f + 0.5f * motion.x;
 	float v_prev = 0.5f + 0.5f * motion.y;
@@ -988,9 +988,11 @@ extern "C" __global__ void kernel_variance(
 	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
 	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
 
-	float4 center_normal         = tex2D(gbuffer_normal,         u, v);
-	float  center_depth          = tex2D(gbuffer_depth,          u, v);
-	float2 center_depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
+	float4 center_normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
+	float2 center_depth_gradient   = tex2D(gbuffer_depth_gradient,   u, v);
+
+	float3 center_normal = make_float3(center_normal_and_depth);
+	float  center_depth  = center_normal_and_depth.w;
 
 	float sum_weight_direct   = 1.0f;
 	float sum_weight_indirect = 1.0f;
@@ -1026,8 +1028,10 @@ extern "C" __global__ void kernel_variance(
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
 
-			float4 normal = tex2D(gbuffer_normal, tap_u, tap_v);
-			float  depth  = tex2D(gbuffer_depth,  tap_u, tap_v);
+			float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, tap_u, tap_v);
+
+			float3 normal = make_float3(normal_and_depth);
+			float  depth  = normal_and_depth.w;
 		
 			// @TODO: factor this
 
@@ -1037,7 +1041,7 @@ extern "C" __global__ void kernel_variance(
 			//float w_z = (phi_depth == 0.0f) ? 0.0f : abs(center_depth - depth) / phi_depth;
 			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
 
-			float w_n = pow(max(0.0f, center_normal.x*normal.x + center_normal.y*normal.y + center_normal.z*normal.z), sigma_n);
+			float w_n = pow(max(0.0f, dot(center_normal, normal)), sigma_n);
 
 			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
 			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
@@ -1133,9 +1137,11 @@ extern "C" __global__ void kernel_atrous(
 	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
 	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
 
-	float4 center_normal         = tex2D(gbuffer_normal,         u, v);
-	float  center_depth          = tex2D(gbuffer_depth,          u, v);
-	float2 center_depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
+	float4 center_normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
+	float2 center_depth_gradient   = tex2D(gbuffer_depth_gradient,   u, v);
+
+	float3 center_normal = make_float3(center_normal_and_depth);
+	float  center_depth  = center_normal_and_depth.w;
 
 	// float phi_depth = max(max(abs(center_depth_gradient.x), abs(center_depth_gradient.y)), 1e-8) * float(step_size);
 
@@ -1180,8 +1186,10 @@ extern "C" __global__ void kernel_atrous(
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
 
-			float4 normal = tex2D(gbuffer_normal, tap_u, tap_v);
-			float  depth  = tex2D(gbuffer_depth,  tap_u, tap_v);
+			float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, tap_u, tap_v);
+
+			float3 normal = make_float3(normal_and_depth);
+			float  depth  = normal_and_depth.w;
 			
 			float d = 
 				center_depth_gradient.x * float(i * step_size) + 
@@ -1189,7 +1197,7 @@ extern "C" __global__ void kernel_atrous(
 			//float w_z = (phi_depth == 0.0f) ? 0.0f : abs(center_depth - depth);
 			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
 
-			float w_n = powf(max(0.0f, center_normal.x*normal.x + center_normal.y*normal.y + center_normal.z*normal.z), sigma_n);
+			float w_n = powf(max(0.0f, dot(center_normal, normal)), sigma_n);
 
 			float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
 			float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
@@ -1258,16 +1266,14 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float4 normal = tex2D(gbuffer_normal, u, v);
-	float  depth  = tex2D(gbuffer_depth,  u, v);
+	float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
 
-#if ATROUS_ITERATIONS == 0	
+#if ATROUS_ITERATIONS == 0
 	history_direct  [pixel_index] = direct;
 	history_indirect[pixel_index] = indirect;
 #endif
-	history_moment[pixel_index] = moment;
-	history_normal[pixel_index] = normal;
-	history_depth [pixel_index] = depth;
+	history_moment          [pixel_index] = moment;
+	history_normal_and_depth[pixel_index] = normal_and_depth;
 
 	// @SPEED
 	// Clear frame buffers for next frame
