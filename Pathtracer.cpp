@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+#include <SDL2/SDL.h>
+
 #include "CUDAContext.h"
 
 #include "MeshData.h"
@@ -412,10 +414,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
 	kernel_shade_glossy.init    (&module, "kernel_shade_glossy");
 	kernel_connect.init         (&module, "kernel_connect");
-	kernel_temporal.init        (&module, "kernel_temporal");
-	kernel_variance.init        (&module, "kernel_variance");
-	kernel_atrous.init          (&module, "kernel_atrous");
-	kernel_finalize.init        (&module, "kernel_finalize");
+	kernel_svgf_temporal.init   (&module, "kernel_svgf_temporal");
+	kernel_svgf_variance.init   (&module, "kernel_svgf_variance");
+	kernel_svgf_atrous.init     (&module, "kernel_svgf_atrous");
+	kernel_svgf_finalize.init   (&module, "kernel_svgf_finalize");
+	kernel_accumulate.init      (&module, "kernel_accumulate");
 
 	kernel_primary.set_block_dim          (32, 4, 1);
 	kernel_generate.set_block_dim        (128, 1, 1);
@@ -424,10 +427,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_dielectric.set_block_dim(128, 1, 1);
 	kernel_shade_glossy.set_block_dim    (128, 1, 1);
 	kernel_connect.set_block_dim         (128, 1, 1);
-	kernel_temporal.set_block_dim         (32, 4, 1);
-	kernel_variance.set_block_dim         (32, 4, 1);
-	kernel_atrous.set_block_dim           (32, 4, 1);
-	kernel_finalize.set_block_dim         (32, 4, 1);
+	kernel_svgf_temporal.set_block_dim    (32, 4, 1);
+	kernel_svgf_variance.set_block_dim    (32, 4, 1);
+	kernel_svgf_atrous.set_block_dim      (32, 4, 1);
+	kernel_svgf_finalize.set_block_dim    (32, 4, 1);
+	kernel_accumulate.set_block_dim       (32, 4, 1);
 
 	kernel_primary.set_grid_dim(
 		(SCREEN_WIDTH  + kernel_primary.block_dim_x - 1) / kernel_primary.block_dim_x, 
@@ -440,24 +444,29 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
 	kernel_shade_glossy.set_grid_dim    (PIXEL_COUNT / kernel_shade_glossy.block_dim_x,     1, 1);
 	kernel_connect.set_grid_dim         (PIXEL_COUNT / kernel_connect.block_dim_x,          1, 1);
-	kernel_temporal.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_temporal.block_dim_x - 1) / kernel_temporal.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_temporal.block_dim_y - 1) / kernel_temporal.block_dim_y,
+	kernel_svgf_temporal.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_temporal.block_dim_x - 1) / kernel_svgf_temporal.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y,
 		1
 	);
-	kernel_variance.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_variance.block_dim_x - 1) / kernel_variance.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_variance.block_dim_y - 1) / kernel_variance.block_dim_y,
+	kernel_svgf_variance.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_variance.block_dim_x - 1) / kernel_svgf_variance.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_variance.block_dim_y - 1) / kernel_svgf_variance.block_dim_y,
 		1
 	);
-	kernel_atrous.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_atrous.block_dim_x - 1) / kernel_atrous.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_atrous.block_dim_y - 1) / kernel_atrous.block_dim_y,
+	kernel_svgf_atrous.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_atrous.block_dim_x - 1) / kernel_svgf_atrous.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_atrous.block_dim_y - 1) / kernel_svgf_atrous.block_dim_y,
 		1
 	);
-	kernel_finalize.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_finalize.block_dim_x - 1) / kernel_finalize.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_finalize.block_dim_y - 1) / kernel_finalize.block_dim_y,
+	kernel_svgf_finalize.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_finalize.block_dim_x - 1) / kernel_svgf_finalize.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y,
+		1
+	);
+	kernel_accumulate.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
 		1
 	);
 
@@ -485,7 +494,23 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 void Pathtracer::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
 
-	frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
+	static unsigned char last = 0;
+	if (keys[SDL_SCANCODE_F] && keys[SDL_SCANCODE_F] != last) {
+		use_svgf = !use_svgf;
+
+		frames_since_camera_moved = 0;
+	}
+	last = keys[SDL_SCANCODE_F];
+
+	if (use_svgf) {
+		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
+	} else {
+		if (camera.moved) {
+			frames_since_camera_moved = 0;
+		} else {
+			frames_since_camera_moved++;
+		}
+	}
 }
 
 void Pathtracer::render() {
@@ -571,34 +596,38 @@ void Pathtracer::render() {
 	// Reset buffer sizes to default for next frame
 	global_buffer_sizes.set_value_async(buffer_sizes, memcpy_stream);
 
-	// Integrate temporally
-	kernel_temporal.execute();
+	if (use_svgf) {
+		// Integrate temporally
+		kernel_svgf_temporal.execute();
 	
-	CUdeviceptr direct_in    = ptr_direct.ptr;
-	CUdeviceptr indirect_in  = ptr_indirect.ptr;
-	CUdeviceptr direct_out   = ptr_direct_alt.ptr;
-	CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
+		CUdeviceptr direct_in    = ptr_direct.ptr;
+		CUdeviceptr indirect_in  = ptr_indirect.ptr;
+		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
+		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
 #if true
-	// Estimate Variance spatially
-	kernel_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
+		// Estimate Variance spatially
+		kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
 #else
-	std::swap(direct_in,   direct_out);
-	std::swap(indirect_in, indirect_out);
-#endif
-
-	// À-Trous Filter
-	for (int i = 0; i < ATROUS_ITERATIONS; i++) {
-		int step_size = 1 << i;
-				
-		// Ping-Pong the Frame Buffers
 		std::swap(direct_in,   direct_out);
 		std::swap(indirect_in, indirect_out);
+#endif
 
-		kernel_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
+		// À-Trous Filter
+		for (int i = 0; i < ATROUS_ITERATIONS; i++) {
+			int step_size = 1 << i;
+				
+			// Ping-Pong the Frame Buffers
+			std::swap(direct_in,   direct_out);
+			std::swap(indirect_in, indirect_out);
+
+			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
+		}
+
+		kernel_svgf_finalize.execute(direct_out, indirect_out);
+	} else {
+		kernel_accumulate.execute(float(frames_since_camera_moved));
 	}
-
-	kernel_finalize.execute(direct_out, indirect_out);
 
 	// Sync Main stream
 	CUDACALL(cuStreamSynchronize(nullptr));

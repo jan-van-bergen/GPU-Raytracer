@@ -796,7 +796,7 @@ __device__ bool is_tap_consistent(int x, int y, const float3 & normal, float dep
 	return consistent_normals && consistent_depth;
 }
 
-extern "C" __global__ void kernel_temporal() {
+extern "C" __global__ void kernel_svgf_temporal() {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -953,7 +953,7 @@ extern "C" __global__ void kernel_temporal() {
 	frame_buffer_moment  [pixel_index] = moment;
 }
 
-extern "C" __global__ void kernel_variance(
+extern "C" __global__ void kernel_svgf_variance(
 	float4 const * colour_direct_in,
 	float4 const * colour_indirect_in,
 	float4       * colour_direct_out,
@@ -1039,7 +1039,6 @@ extern "C" __global__ void kernel_variance(
 			float d = 
 				center_depth_gradient.x * float(i) + 
 				center_depth_gradient.y * float(j); // ∇z(p)·(p−q)
-			//float w_z = (phi_depth == 0.0f) ? 0.0f : abs(center_depth - depth) / phi_depth;
 			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
 
 			float w_n = pow(max(0.0f, dot(center_normal, normal)), sigma_n);
@@ -1084,7 +1083,7 @@ extern "C" __global__ void kernel_variance(
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
 }
 
-extern "C" __global__ void kernel_atrous(
+extern "C" __global__ void kernel_svgf_atrous(
 	float4 const * colour_direct_in,
 	float4 const * colour_indirect_in,
 	float4       * colour_direct_out,
@@ -1144,14 +1143,6 @@ extern "C" __global__ void kernel_atrous(
 	float3 center_normal = make_float3(center_normal_and_depth);
 	float  center_depth  = center_normal_and_depth.w;
 
-	// float phi_depth = max(max(abs(center_depth_gradient.x), abs(center_depth_gradient.y)), 1e-8) * float(step_size);
-
-	// const float kernel_atrous[3] = {
-	// 	3.0f / 8.0f, // 
-	// 	1.0f / 4.0f, // 
-	// 	1.0f / 16.0f // 
-	// };
-
 	const float kernel_atrous[3] = {
 		1.0f, 
 		2.0f / 3.0f, 
@@ -1195,7 +1186,6 @@ extern "C" __global__ void kernel_atrous(
 			float d = 
 				center_depth_gradient.x * float(i * step_size) + 
 				center_depth_gradient.y * float(j * step_size); // ∇z(p)·(p−q)
-			//float w_z = (phi_depth == 0.0f) ? 0.0f : abs(center_depth - depth);
 			float w_z = exp(-abs(center_depth - depth) / (sigma_z * abs(d) + epsilon));
 
 			float w_n = powf(max(0.0f, dot(center_normal, normal)), sigma_n);
@@ -1247,7 +1237,7 @@ extern "C" __global__ void kernel_atrous(
 // Updating the Colour History buffer needs a separate kernel because
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
-extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const float4 * colour_indirect) {
+extern "C" __global__ void kernel_svgf_finalize(const float4 * colour_direct, const float4 * colour_indirect) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -1275,6 +1265,40 @@ extern "C" __global__ void kernel_finalize(const float4 * colour_direct, const f
 #endif
 	history_moment          [pixel_index] = moment;
 	history_normal_and_depth[pixel_index] = normal_and_depth;
+
+	// @SPEED
+	// Clear frame buffers for next frame
+	frame_buffer_albedo  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_direct  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_indirect[pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+}
+
+extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	int pixel_index = x + y * SCREEN_WIDTH;
+
+	float4 albedo   = frame_buffer_albedo  [pixel_index];
+	float4 direct   = frame_buffer_direct  [pixel_index];
+	float4 indirect = frame_buffer_indirect[pixel_index];
+	
+	float4 colour = albedo * (direct + indirect);
+
+	float4 colour_out;
+	if (frames_since_camera_moved > 0.0f) {
+		float4 prev;
+		surf2Dread<float4>(&prev, accumulator, x * sizeof(float4), y);
+
+		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
+		colour_out = (prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
+	} else {
+		colour_out = colour;
+	}
+
+	surf2Dwrite<float4>(colour_out, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
 
 	// @SPEED
 	// Clear frame buffers for next frame
