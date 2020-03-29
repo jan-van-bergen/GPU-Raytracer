@@ -251,15 +251,15 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] flat_triangles;
 
 	// Set global Triangle buffers
-	module.get_global("triangles_position0"     ).set_buffer(triangles_position0,      mbvh.leaf_count);
+	module.get_global("triangles_position0")     .set_buffer(triangles_position0,      mbvh.leaf_count);
 	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, mbvh.leaf_count);
 	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_normal0"     ).set_buffer(triangles_normal0,      mbvh.leaf_count);
+	module.get_global("triangles_normal0")     .set_buffer(triangles_normal0,      mbvh.leaf_count);
 	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, mbvh.leaf_count);
 	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, mbvh.leaf_count);
 
-	module.get_global("triangles_tex_coord0"     ).set_buffer(triangles_tex_coord0,      mbvh.leaf_count);
+	module.get_global("triangles_tex_coord0")     .set_buffer(triangles_tex_coord0,      mbvh.leaf_count);
 	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, mbvh.leaf_count);
 	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, mbvh.leaf_count);
 
@@ -377,12 +377,12 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	// Create History Buffers 
-	module.get_global("history_length").set_value          (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
-	module.get_global("history_direct").set_value          (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_indirect").set_value        (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_moment").set_value          (CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
+	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_triangle_id").set_value     (CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
+	module.get_global("history_triangle_id")     .set_value(CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
 	
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;
@@ -390,17 +390,17 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	MaterialBuffer  ray_buffer_shade_glossy;
 	ShadowRayBuffer ray_buffer_connect;
 
-	ray_buffer_extend.init          (PIXEL_COUNT);
-	ray_buffer_shade_diffuse.init   (PIXEL_COUNT);
+	ray_buffer_extend          .init(PIXEL_COUNT);
+	ray_buffer_shade_diffuse   .init(PIXEL_COUNT);
 	ray_buffer_shade_dielectric.init(PIXEL_COUNT);
-	ray_buffer_shade_glossy.init    (PIXEL_COUNT);
-	ray_buffer_connect.init         (PIXEL_COUNT);
+	ray_buffer_shade_glossy    .init(PIXEL_COUNT);
+	ray_buffer_connect         .init(PIXEL_COUNT);
 
-	module.get_global("ray_buffer_extend").set_value          (ray_buffer_extend);
-	module.get_global("ray_buffer_shade_diffuse").set_value   (ray_buffer_shade_diffuse);
+	module.get_global("ray_buffer_extend")          .set_value(ray_buffer_extend);
+	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
 	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
-	module.get_global("ray_buffer_shade_glossy").set_value    (ray_buffer_shade_glossy);
-	module.get_global("ray_buffer_connect").set_value         (ray_buffer_connect);
+	module.get_global("ray_buffer_shade_glossy")    .set_value(ray_buffer_shade_glossy);
+	module.get_global("ray_buffer_connect")         .set_value(ray_buffer_connect);
 
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
@@ -437,13 +437,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		(SCREEN_HEIGHT + kernel_primary.block_dim_y - 1) / kernel_primary.block_dim_y,
 		1
 	);
-	kernel_generate.set_grid_dim        (PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
-	kernel_extend.set_grid_dim          (PIXEL_COUNT / kernel_extend.block_dim_x,           1, 1);
-	kernel_shade_diffuse.set_grid_dim   (PIXEL_COUNT / kernel_shade_diffuse.block_dim_x,    1, 1);
+	kernel_generate        .set_grid_dim(PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
+	kernel_extend          .set_grid_dim(PIXEL_COUNT / kernel_extend.block_dim_x,           1, 1);
+	kernel_shade_diffuse   .set_grid_dim(PIXEL_COUNT / kernel_shade_diffuse.block_dim_x,    1, 1);
 	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
-	kernel_shade_glossy.set_grid_dim    (PIXEL_COUNT / kernel_shade_glossy.block_dim_x,     1, 1);
-	kernel_connect.set_grid_dim         (PIXEL_COUNT / kernel_connect.block_dim_x,          1, 1);
-	kernel_svgf_temporal.set_grid_dim(
+	kernel_shade_glossy    .set_grid_dim(PIXEL_COUNT / kernel_shade_glossy.block_dim_x,     1, 1);
+	kernel_connect         .set_grid_dim(PIXEL_COUNT / kernel_connect.block_dim_x,          1, 1);
+	kernel_svgf_temporal   .set_grid_dim(
 		(SCREEN_WIDTH  + kernel_svgf_temporal.block_dim_x - 1) / kernel_svgf_temporal.block_dim_x, 
 		(SCREEN_HEIGHT + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y,
 		1
@@ -470,9 +470,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	);
 
 	event_primary.init();
-	event_extend.init();
-	event_svgf.init();
-	event_end.init();
+	event_extend .init();
+	event_svgf   .init();
+	event_end    .init();
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, -22.486183f);
