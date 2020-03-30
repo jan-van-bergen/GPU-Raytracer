@@ -1,4 +1,3 @@
-
 #define epsilon 1e-8f // To avoid division by 0
 
 // Frame Buffers

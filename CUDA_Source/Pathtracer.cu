@@ -12,13 +12,6 @@
 #include "Util.h"
 #include "SVGF.h"
 
-__device__ void frame_buffer_add(float4 * frame_buffer, int x, int y, const float3 & colour) {
-	ASSERT(x >= 0 && x < SCREEN_WIDTH);
-	ASSERT(y >= 0 && y < SCREEN_HEIGHT);
-
-	frame_buffer[x + y * SCREEN_WIDTH] += make_float4(colour, 0.0f);
-}
-
 // Vector3 in AoS layout
 struct Vector3 {
 	float * x;
@@ -133,8 +126,8 @@ extern "C" __global__ void kernel_primary(
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
-		frame_buffer_add(frame_buffer_albedo, x, y, sample_sky(ray_direction));
-		frame_buffer_add(frame_buffer_direct, x, y, make_float3(1.0f, 1.0f, 1.0f));
+		frame_buffer_albedo[pixel_index] += make_float4(sample_sky(ray_direction));
+		frame_buffer_direct[pixel_index] += make_float4(1.0f);
 
 		return;
 	}
@@ -142,8 +135,8 @@ extern "C" __global__ void kernel_primary(
 	const Material & material = materials[triangles_material_id[triangle_id]];
 
 	if (material.type == Material::Type::LIGHT) {
-		frame_buffer_add(frame_buffer_albedo, x, y, material.emission);
-		frame_buffer_add(frame_buffer_direct, x, y, make_float3(1.0f, 1.0f, 1.0f));
+		frame_buffer_albedo[pixel_index] += make_float4(material.emission);
+		frame_buffer_direct[pixel_index] += make_float4(1.0f);
 	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
 
@@ -252,17 +245,15 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	mbvh_trace(ray, hit);
 
 	int ray_pixel_index = ray_buffer_extend.pixel_index[index];
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
 
 	// If we didn't hit anything, sample the Sky
 	if (hit.t == INFINITY) {
 		float3 illumination = ray_buffer_extend.throughput.to_float3(index) * sample_sky(ray_direction);
 
 		if (bounce == 1) {
-			frame_buffer_add(frame_buffer_direct, x, y, illumination);
+			frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 		} else {
-			frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+			frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
 		}
 
 		return;
@@ -284,17 +275,14 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	const Material & material = materials[triangles_material_id[hit.triangle_id]];
 
 	if (material.type == Material::Type::LIGHT) {
-		int x = ray_pixel_index % SCREEN_WIDTH;
-		int y = ray_pixel_index / SCREEN_WIDTH; 
-
 		if ((ray_buffer_extend.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
 			(ray_buffer_extend.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
 			float3 illumination = ray_throughput * material.emission;
 
 			if (bounce == 1) {
-				frame_buffer_add(frame_buffer_direct, x, y, illumination);
+				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 			} else {
-				frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+				frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
 			}
 
 			return;
@@ -327,9 +315,9 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 		float3 illumination = ray_throughput * material.emission / mis_pdf;
 
 		if (bounce == 1) {
-			frame_buffer_add(frame_buffer_direct, x, y, illumination);
+			frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 		} else {
-			frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+			frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
 		}
 	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[bounce]);
@@ -377,7 +365,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
+	int y = ray_pixel_index / SCREEN_WIDTH;
 
 	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.to_float3(index);
 
@@ -397,7 +385,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 throughput = ray_throughput;
 
 	if (bounce == 0) {
-		frame_buffer_add(frame_buffer_albedo, x, y, albedo);
+		frame_buffer_albedo[ray_pixel_index] += make_float4(albedo);
 	} else {
 		throughput *= albedo;
 	}
@@ -443,8 +431,6 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float ray_v = ray_buffer_shade_dielectric.v[index];
 
 	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
 
 	float3 ray_throughput = ray_buffer_shade_dielectric.throughput.to_float3(index);
 
@@ -520,7 +506,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	}
 
 	if (bounce == 0) {
-		frame_buffer_add(frame_buffer_albedo, x, y, make_float3(1.0f, 1.0f, 1.0f));
+		frame_buffer_albedo[ray_pixel_index] += make_float4(1.0f);
 	}
 
 	ray_buffer_extend.origin.from_float3(index_out, hit_point);
@@ -564,7 +550,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float3 throughput = ray_throughput;
 
 	if (bounce == 0) {
-		frame_buffer_add(frame_buffer_albedo, x, y, albedo);
+		frame_buffer_albedo[ray_pixel_index] += make_float4(albedo);
 	} else {
 		throughput *= albedo;
 	}
@@ -739,9 +725,9 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 			float3 illumination = ray_throughput * brdf * light_count * light_material.emission / mis_pdf;
 
 			if (bounce == 0) {
-				frame_buffer_add(frame_buffer_direct, x, y, illumination);
+				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 			} else {
-				frame_buffer_add(frame_buffer_indirect, x, y, illumination);
+				frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
 			}
 		}
 	}
