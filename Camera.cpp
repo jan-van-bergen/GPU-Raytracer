@@ -82,6 +82,6 @@ void Camera::update(float delta, const unsigned char * keys) {
 		Matrix4::create_translation(-position) * 
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
 		projection *
-		// Apply screen space jitter in NDC
+		// Apply Clip Space jitter
 		Matrix4::create_translation(Vector3(jitter.x, jitter.y, 0.0f));
 }

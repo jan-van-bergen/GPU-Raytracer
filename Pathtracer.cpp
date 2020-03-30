@@ -607,7 +607,7 @@ void Pathtracer::render() {
 		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
 		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
-#if true
+#if false
 		// Estimate Variance spatially
 		kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
 #else

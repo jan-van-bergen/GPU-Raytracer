@@ -427,21 +427,13 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float3 center_normal = make_float3(center_normal_and_depth);
 	float  center_depth  = center_normal_and_depth.w;
 
-	// Weights from the SVGF reference implementation,
-	// the SVGF paper uses different kernel weights
-	const float kernel_atrous[3] = {
-		1.0f, 
-		2.0f / 3.0f, 
-		1.0f / 6.0f 
-	};
-
 	float  sum_weight_direct   = 1.0f;
 	float  sum_weight_indirect = 1.0f;
 	float4 sum_colour_direct   = center_colour_direct;
 	float4 sum_colour_indirect = center_colour_indirect;
 
-	// 5x5 À-Trous Filter
-	const int radius = 2;
+	// Use a 3x3 box filter, as recommended in the A-SVGF paper
+	const int radius = 1;
 
 	for (int j = -radius; j <= radius; j++) {
 		int tap_y = y + j * step_size;
@@ -480,10 +472,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 				luminance_denom_direct, luminance_denom_indirect
 			);
 
-			float w_kernel = kernel_atrous[abs(i)] * kernel_atrous[abs(j)];
-
-			float w_direct   = w_kernel * w.x;
-			float w_indirect = w_kernel * w.y;
+			float w_direct   = w.x;
+			float w_indirect = w.y;
 
 			sum_weight_direct   += w_direct;
 			sum_weight_indirect += w_indirect;
