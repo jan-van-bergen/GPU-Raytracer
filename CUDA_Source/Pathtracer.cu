@@ -126,7 +126,7 @@ extern "C" __global__ void kernel_primary(
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
-		frame_buffer_albedo[pixel_index] += make_float4(sample_sky(ray_direction));
+		frame_buffer_albedo[pixel_index]  = make_float4(sample_sky(ray_direction));
 		frame_buffer_direct[pixel_index] += make_float4(1.0f);
 
 		return;
@@ -135,7 +135,7 @@ extern "C" __global__ void kernel_primary(
 	const Material & material = materials[triangles_material_id[triangle_id]];
 
 	if (material.type == Material::Type::LIGHT) {
-		frame_buffer_albedo[pixel_index] += make_float4(material.emission);
+		frame_buffer_albedo[pixel_index]  = make_float4(material.emission);
 		frame_buffer_direct[pixel_index] += make_float4(1.0f);
 	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
@@ -385,7 +385,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 throughput = ray_throughput;
 
 	if (bounce == 0) {
-		frame_buffer_albedo[ray_pixel_index] += make_float4(albedo);
+		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	} else {
 		throughput *= albedo;
 	}
@@ -506,7 +506,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	}
 
 	if (bounce == 0) {
-		frame_buffer_albedo[ray_pixel_index] += make_float4(1.0f);
+		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
 	ray_buffer_extend.origin.from_float3(index_out, hit_point);
@@ -550,7 +550,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float3 throughput = ray_throughput;
 
 	if (bounce == 0) {
-		frame_buffer_albedo[ray_pixel_index] += make_float4(albedo);
+		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	} else {
 		throughput *= albedo;
 	}

@@ -2,8 +2,8 @@
 // This file contains things that are shared between the CUDA files and the C++ files
 
 // Screen related
-#define SCREEN_WIDTH  1600
-#define SCREEN_HEIGHT 900
+#define SCREEN_WIDTH  904
+#define SCREEN_HEIGHT 600
 
 #define PIXEL_COUNT (SCREEN_WIDTH * SCREEN_HEIGHT)
 
