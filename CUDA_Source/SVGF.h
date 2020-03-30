@@ -216,7 +216,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 
 		float inv_history = 1.0f / float(history);
 		float alpha_colour = max(ALPHA_COLOUR, inv_history);
-		float alpha_moment = max(ALPHA_COLOUR, inv_history);
+		float alpha_moment = max(ALPHA_MOMENT, inv_history);
 
 		// Integrate using exponential moving average
 		direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
