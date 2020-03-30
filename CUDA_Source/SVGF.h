@@ -472,32 +472,31 @@ extern "C" __global__ void kernel_svgf_atrous(
 				luminance_denom_direct, luminance_denom_indirect
 			);
 
-			float w_direct   = w.x;
-			float w_indirect = w.y;
+			float weight_direct   = w.x;
+			float weight_indirect = w.y;
 
-			sum_weight_direct   += w_direct;
-			sum_weight_indirect += w_indirect;
+			sum_weight_direct   += weight_direct;
+			sum_weight_indirect += weight_indirect;
 
 			// Filter Colour using the weights
 			// Filter Variance using the square of the weights
-			sum_colour_direct   += make_float4(w_direct,   w_direct,   w_direct,   w_direct   * w_direct)   * colour_direct;
-			sum_colour_indirect += make_float4(w_indirect, w_indirect, w_indirect, w_indirect * w_indirect) * colour_indirect;
+			sum_colour_direct   += make_float4(weight_direct,   weight_direct,   weight_direct,   weight_direct   * weight_direct)   * colour_direct;
+			sum_colour_indirect += make_float4(weight_indirect, weight_indirect, weight_indirect, weight_indirect * weight_indirect) * colour_indirect;
 		}
 	}
 
-	if (sum_weight_direct > 10e-6f) {
-		sum_colour_direct.x /= sum_weight_direct;
-		sum_colour_direct.y /= sum_weight_direct;
-		sum_colour_direct.z /= sum_weight_direct;
-		sum_colour_direct.w /= sum_weight_direct * sum_weight_direct; // Alpha channel contains Variance
-	}
-	
-	if (sum_weight_indirect > 10e-6f) {
-		sum_colour_indirect.x /= sum_weight_indirect;
-		sum_colour_indirect.y /= sum_weight_indirect;
-		sum_colour_indirect.z /= sum_weight_indirect;
-		sum_colour_indirect.w /= sum_weight_indirect * sum_weight_indirect; // Alpha channel contains Variance
-	}
+	ASSERT(sum_weight_direct   > 10e-6f, "Divide by 0!");
+	ASSERT(sum_weight_indirect > 10e-6f, "Divide by 0!");
+
+	float inv_sum_weight_direct   = 1.0f / sum_weight_direct;
+	float inv_sum_weight_indirect = 1.0f / sum_weight_indirect;
+
+	sum_colour_direct   *= inv_sum_weight_direct;
+	sum_colour_indirect *= inv_sum_weight_indirect;
+
+	// Alpha channel contains Variance, and needs to be divided by the square of the weights
+	sum_colour_direct.w *= inv_sum_weight_direct; 
+	sum_colour_indirect.w *= inv_sum_weight_indirect;
 
 	colour_direct_out  [pixel_index] = sum_colour_direct;
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
