@@ -290,8 +290,6 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 		if ((ray_buffer_extend.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
 			(ray_buffer_extend.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
 			float3 illumination = ray_throughput * material.emission;
-			
-			frame_buffer_add(frame_buffer_indirect, x, y, illumination);
 
 			if (bounce == 1) {
 				frame_buffer_add(frame_buffer_direct, x, y, illumination);
