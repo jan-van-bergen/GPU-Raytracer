@@ -12,6 +12,13 @@
 #include "Util.h"
 #include "SVGF.h"
 
+// Frame Buffers
+__device__ float4 * frame_buffer_albedo;
+__device__ float4 * frame_buffer_direct;
+__device__ float4 * frame_buffer_indirect;
+
+surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
+
 // Vector3 in AoS layout
 struct Vector3 {
 	float * x;

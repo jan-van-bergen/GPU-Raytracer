@@ -1,13 +1,6 @@
 #define epsilon 1e-8f // To avoid division by 0
 
-// Frame Buffers
-__device__ float4 * frame_buffer_albedo;
-__device__ float4 * frame_buffer_direct;
-__device__ float4 * frame_buffer_indirect;
-
 __device__ float4 * frame_buffer_moment;
-
-surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
 // GBuffers
 texture<float4, cudaTextureType2D> gbuffer_normal_and_depth;
@@ -64,15 +57,15 @@ __device__ inline float2 edge_stopping_weights(
 
 	float w_z = exp(-abs(center_depth - depth) / (SIGMA_Z * abs(d) + epsilon));
 
-	// float w_n = pow(max(0.0f, dot(center_normal, normal)), SIGMA_N);
-	float w_n1 = max(0.0f, dot(center_normal, normal));
-	float w_n2  = w_n1  * w_n1;
-	float w_n4  = w_n2  * w_n2;
-	float w_n8  = w_n4  * w_n4;
-	float w_n16 = w_n8  * w_n8;
-	float w_n32 = w_n16 * w_n16;
-	float w_n64 = w_n32 * w_n32;
-	float w_n   = w_n64 * w_n64;
+	float w_n = pow(max(0.0f, dot(center_normal, normal)), SIGMA_N);
+	// float w_n1 = max(0.0f, dot(center_normal, normal));
+	// float w_n2  = w_n1  * w_n1;
+	// float w_n4  = w_n2  * w_n2;
+	// float w_n8  = w_n4  * w_n4;
+	// float w_n16 = w_n8  * w_n8;
+	// float w_n32 = w_n16 * w_n16;
+	// float w_n64 = w_n32 * w_n32;
+	// float w_n   = w_n64 * w_n64;
 
 	float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
 	float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
