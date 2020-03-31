@@ -32,8 +32,8 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 	const float threshold_normal = 0.95f;
 	const float threshold_depth  = 0.025f * 250.0f; // @HARDCODED @ROBUSTNESS: make this depend on camera near/far
 
-	bool consistent_normals = dot(normal, prev_normal)               > threshold_normal;
-	bool consistent_depth   = abs(depth - prev_depth) / max_change_z < threshold_depth;
+	bool consistent_normals = dot(normal, prev_normal) > threshold_normal;
+	bool consistent_depth   = abs(depth - prev_depth)  < threshold_depth;
 
 	return consistent_normals && consistent_depth;
 }
@@ -236,6 +236,9 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		}
 	} else {
 		history_length[pixel_index] = 0; // Reset History Length
+
+		direct.w   = 100.0f;
+		indirect.w = 100.0f;
 	}
 
 	frame_buffer_direct  [pixel_index] = direct;

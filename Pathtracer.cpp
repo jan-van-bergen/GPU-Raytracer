@@ -35,6 +35,9 @@ static struct ExtendBuffer {
 	CUDAMemory::Ptr<float> throughput_x;
 	CUDAMemory::Ptr<float> throughput_y;
 	CUDAMemory::Ptr<float> throughput_z;
+	CUDAMemory::Ptr<float> throughput_effective_x;
+	CUDAMemory::Ptr<float> throughput_effective_y;
+	CUDAMemory::Ptr<float> throughput_effective_z;
 
 	CUDAMemory::Ptr<char>  last_material_type;
 	CUDAMemory::Ptr<float> last_pdf;
@@ -47,10 +50,13 @@ static struct ExtendBuffer {
 		direction_y = CUDAMemory::malloc<float>(buffer_size);
 		direction_z = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index   = CUDAMemory::malloc<int>(buffer_size);
-		throughput_x  = CUDAMemory::malloc<float>(buffer_size);
-		throughput_y  = CUDAMemory::malloc<float>(buffer_size);
-		throughput_z  = CUDAMemory::malloc<float>(buffer_size);
+		pixel_index            = CUDAMemory::malloc<int>(buffer_size);
+		throughput_x           = CUDAMemory::malloc<float>(buffer_size);
+		throughput_y           = CUDAMemory::malloc<float>(buffer_size);
+		throughput_z           = CUDAMemory::malloc<float>(buffer_size);
+		throughput_effective_x = CUDAMemory::malloc<float>(buffer_size);
+		throughput_effective_y = CUDAMemory::malloc<float>(buffer_size);
+		throughput_effective_z = CUDAMemory::malloc<float>(buffer_size);
 
 		last_material_type = CUDAMemory::malloc<char>(buffer_size);
 		last_pdf           = CUDAMemory::malloc<float>(buffer_size);
@@ -70,6 +76,9 @@ static struct MaterialBuffer {
 	CUDAMemory::Ptr<float> throughput_x;
 	CUDAMemory::Ptr<float> throughput_y;
 	CUDAMemory::Ptr<float> throughput_z;
+	CUDAMemory::Ptr<float> throughput_effective_x;
+	CUDAMemory::Ptr<float> throughput_effective_y;
+	CUDAMemory::Ptr<float> throughput_effective_z;
 
 	inline void init(int buffer_size) {
 		direction_x = CUDAMemory::malloc<float>(buffer_size);
@@ -80,13 +89,16 @@ static struct MaterialBuffer {
 		u = CUDAMemory::malloc<float>(buffer_size);
 		v = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index   = CUDAMemory::malloc<int>(buffer_size);
-		throughput_x  = CUDAMemory::malloc<float>(buffer_size);
-		throughput_y  = CUDAMemory::malloc<float>(buffer_size);
-		throughput_z  = CUDAMemory::malloc<float>(buffer_size);
+		pixel_index            = CUDAMemory::malloc<int>(buffer_size);
+		throughput_x           = CUDAMemory::malloc<float>(buffer_size);
+		throughput_y           = CUDAMemory::malloc<float>(buffer_size);
+		throughput_z           = CUDAMemory::malloc<float>(buffer_size);
+		throughput_effective_x = CUDAMemory::malloc<float>(buffer_size);
+		throughput_effective_y = CUDAMemory::malloc<float>(buffer_size);
+		throughput_effective_z = CUDAMemory::malloc<float>(buffer_size);
 	}
 };
-	
+
 static struct ShadowRayBuffer {
 	CUDAMemory::Ptr<float> direction_x;
 	CUDAMemory::Ptr<float> direction_y;
