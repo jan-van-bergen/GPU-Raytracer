@@ -1,5 +1,9 @@
 #include "Window.h"
 
+#include <Imgui/imgui.h>
+#include <Imgui/imgui_impl_sdl.h>
+#include <Imgui/imgui_impl_opengl3.h>
+
 #include "GBuffer.h"
 
 #include "Util.h"
@@ -58,12 +62,27 @@ Window::Window(const char * title) {
 	shader.bind();
 	
 	glUniform1i(shader.get_uniform("screen"), 0);
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+
+	// Setup Platform/Renderer bindings
+	ImGui_ImplSDL2_InitForOpenGL(window, context);
+	ImGui_ImplOpenGL3_Init("#version 450");
+
+	ImGui::StyleColorsDark();
 }
 
 Window::~Window() {
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+}
+
+void Window::begin_gui() const {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplSDL2_NewFrame(window);
+	ImGui::NewFrame();
 }
 
 void Window::update() {
@@ -79,11 +98,16 @@ void Window::update() {
 
 	shader.unbind();
 
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 	SDL_GL_SwapWindow(window);
 
-	SDL_Event e;
-	while (SDL_PollEvent(&e)) {
-		if (e.type == SDL_QUIT) {
+	SDL_Event event;
+	while (SDL_PollEvent(&event)) {
+		ImGui_ImplSDL2_ProcessEvent(&event);
+
+		if (event.type == SDL_QUIT) {
 			is_closed = true;
 		}
 	}

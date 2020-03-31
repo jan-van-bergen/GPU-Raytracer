@@ -12,7 +12,7 @@ public:
 		glUseProgram(program_id);
 	}
 
-	inline void unbind() {
+	inline void unbind() const {
 		glUseProgram(0);
 	}
 	

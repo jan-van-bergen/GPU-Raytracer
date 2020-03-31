@@ -25,5 +25,7 @@ public:
 	Window(const char * title);
 	~Window();
 
+	void begin_gui() const;
+
 	void update();
 };

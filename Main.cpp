@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <time.h> 
 
+#include <Imgui/imgui.h>
+
 #include "Window.h"
 
 #include "ScopedTimer.h"
@@ -42,6 +44,12 @@ int main(int argument_count, char ** arguments) {
 	while (!window.is_closed) {
 		pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
 		pathtracer.render();
+
+		window.begin_gui();
+
+		ImGui::Begin("Pathtracer");
+		ImGui::Text("Hello GUI");
+		ImGui::End();
 
 		window.update();
 
