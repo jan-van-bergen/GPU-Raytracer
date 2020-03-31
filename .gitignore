@@ -346,3 +346,6 @@ healthchecksdb
 
 # Cuda Binary
 *.cubin
+
+# Dear ImGui configuration
+imgui.ini

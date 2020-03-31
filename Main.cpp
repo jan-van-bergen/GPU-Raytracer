@@ -45,14 +45,6 @@ int main(int argument_count, char ** arguments) {
 		pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
 		pathtracer.render();
 
-		window.begin_gui();
-
-		ImGui::Begin("Pathtracer");
-		ImGui::Text("Hello GUI");
-		ImGui::End();
-
-		window.update();
-
 		// Perform frame timing
 		now = SDL_GetPerformanceCounter();
 		delta_time = float(now - last) * inv_perf_freq;
@@ -79,17 +71,19 @@ int main(int argument_count, char ** arguments) {
 			frames = 0;
 		}
 
-		// Report timings
-		printf("%i - %i - Delta: %.2f ms, Average: %.2f ms, FPS: %d - Primary: %.2f ms, Extend: %.2f ms, SVGF: %.2f ms       \r", 
-			current_frame,
-			pathtracer.frames_since_camera_moved,
-			delta_time * 1000.0f,
-			avg        * 1000.0f,
-			fps,
-			pathtracer.time_primary,
-			pathtracer.time_extend,
-			pathtracer.time_svgf
-		);
+		window.begin_gui();
+
+		ImGui::Begin("Pathtracer");
+		ImGui::Text("Frame: %i - Frames sample: %i", current_frame, pathtracer.frames_since_camera_moved);
+		ImGui::Text("Delta: %.2f ms, Average: %.2f ms", delta_time * 1000.0f, avg * 1000.0f);
+		ImGui::Text("FPS: %i", fps);
+		ImGui::Text("Primary: %f ms", pathtracer.time_primary);
+		ImGui::Text("Extend:  %f ms", pathtracer.time_extend);
+		ImGui::Text("SVGF:    %f ms", pathtracer.time_svgf);
+		ImGui::End();
+
+		window.update();
+
 	}
 
 	return EXIT_SUCCESS;
