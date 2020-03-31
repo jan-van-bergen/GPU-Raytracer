@@ -382,7 +382,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_triangle_id")     .set_value(CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
 	
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;

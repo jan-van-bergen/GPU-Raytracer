@@ -15,7 +15,6 @@ __device__ float4 * history_direct;
 __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
 __device__ float4 * history_normal_and_depth;
-__device__ int    * history_triangle_id;
 
 __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth) {
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
