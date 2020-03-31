@@ -8,7 +8,15 @@ uniform sampler2D screen;
 
 // Get screen, gamma corrected
 vec3 get_screen(vec2 uv) {
-	return pow(texture2D(screen, uv).rgb, vec3(1.0f / 2.2f));
+	vec3 colour = texture2D(screen, uv).rgb;
+
+	// Tone mapping
+	colour = colour / (1.0f + colour);
+
+	// Gamma correction
+	colour = pow(colour, vec3(1.0f / 2.2f));
+
+	return colour;
 }
 
 void main() {
