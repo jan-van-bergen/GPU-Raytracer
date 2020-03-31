@@ -74,12 +74,22 @@ int main(int argument_count, char ** arguments) {
 		window.begin_gui();
 
 		ImGui::Begin("Pathtracer");
-		ImGui::Text("Frame: %i - Frames sample: %i", current_frame, pathtracer.frames_since_camera_moved);
-		ImGui::Text("Delta: %.2f ms, Average: %.2f ms", delta_time * 1000.0f, avg * 1000.0f);
-		ImGui::Text("FPS: %i", fps);
-		ImGui::Text("Primary: %f ms", pathtracer.time_primary);
-		ImGui::Text("Extend:  %f ms", pathtracer.time_extend);
-		ImGui::Text("SVGF:    %f ms", pathtracer.time_svgf);
+
+		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Text("Frame: %i - Frames sample: %i", current_frame, pathtracer.frames_since_camera_moved);
+			ImGui::Text("Delta: %.2f ms", delta_time * 1000.0f);
+			ImGui::Text("Avg:   %.2f ms", avg        * 1000.0f);
+			ImGui::Text("FPS: %i", fps);
+			ImGui::Text("Primary: %f ms", pathtracer.time_primary);
+			ImGui::Text("Extend:  %f ms", pathtracer.time_extend);
+			ImGui::Text("SVGF:    %f ms", pathtracer.time_svgf);
+		}
+
+		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
+			ImGui::Checkbox("Enable SVGF",            &pathtracer.enable_svgf);
+		}
+
 		ImGui::End();
 
 		window.update();

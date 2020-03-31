@@ -13,6 +13,10 @@ struct Pathtracer {
 	Camera camera;
 	int frames_since_camera_moved = -1;
 	
+	// Settings
+	bool enable_rasterization = true;
+	bool enable_svgf          = true;
+
 	// Course profile timings
 	float time_primary;
 	float time_extend;
@@ -51,9 +55,6 @@ private:
 	CUDAMemory::Ptr<float> ptr_indirect;
 	CUDAMemory::Ptr<float> ptr_direct_alt;
 	CUDAMemory::Ptr<float> ptr_indirect_alt;
-
-	// Settings
-	bool use_svgf = true;
 
 	// Timing Events
 	CUDAEvent event_primary;

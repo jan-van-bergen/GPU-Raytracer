@@ -24,8 +24,6 @@ struct Camera {
 
 	bool moved;
 
-	bool rasterize = true;
-	
 	std::mt19937                          gen = std::mt19937(std::random_device()());
 	std::uniform_real_distribution<float> rng = std::uniform_real_distribution<float>(0.0f, 1.0f);
 

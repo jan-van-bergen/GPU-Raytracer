@@ -50,18 +50,6 @@ void Camera::update(float delta, const unsigned char * keys) {
 		printf("camera.rotation = Quaternion(%ff, %ff, %ff, %ff);\n", rotation.x, rotation.y, rotation.z, rotation.w);
 	}
 
-	///////////////////////////////////////////////////////////
-	static unsigned char last = 0;
-	if (keys[SDL_SCANCODE_Q] && keys[SDL_SCANCODE_Q] != last) {
-		rasterize = !rasterize;
-
-		printf("Rasterization: %s                                                       \n", rasterize ? "On" : "Off");
-
-		moved = true;
-	}
-	last = keys[SDL_SCANCODE_Q];
-	///////////////////////////////////////////////////////////
-
 	// Transform view pyramid according to rotation
 	bottom_left_corner_rotated = rotation * bottom_left_corner;
 	x_axis_rotated             = rotation * x_axis;

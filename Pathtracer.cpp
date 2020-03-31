@@ -509,15 +509,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 void Pathtracer::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
 
-	static unsigned char last = 0;
-	if (keys[SDL_SCANCODE_F] && keys[SDL_SCANCODE_F] != last) {
-		use_svgf = !use_svgf;
-
-		frames_since_camera_moved = 0;
-	}
-	last = keys[SDL_SCANCODE_F];
-
-	if (use_svgf) {
+	if (enable_svgf) {
 		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
 	} else {
 		if (camera.moved) {
@@ -531,7 +523,7 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 void Pathtracer::render() {
 	event_primary.record();
 
-	if (camera.rasterize) {
+	if (enable_rasterization) {
 		gbuffer.bind();
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -609,7 +601,7 @@ void Pathtracer::render() {
 
 	event_svgf.record();
 
-	if (use_svgf) {
+	if (enable_svgf) {
 		// Integrate temporally
 		kernel_svgf_temporal.execute();
 	

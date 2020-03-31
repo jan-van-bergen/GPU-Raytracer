@@ -18,7 +18,7 @@ static_assert(BLOCK_SIZE == 32, "Block size should equal CUDA warp size!");
 // Tracing related
 #define EPSILON 0.001f
 
-#define NUM_BOUNCES 3
+#define NUM_BOUNCES 5
 
 // SVGF
 #define ATROUS_ITERATIONS 4
