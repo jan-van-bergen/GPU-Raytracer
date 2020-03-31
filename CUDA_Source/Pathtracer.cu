@@ -145,8 +145,8 @@ extern "C" __global__ void kernel_primary(
 	const Material & material = materials[triangles_material_id[triangle_id]];
 
 	if (material.type == Material::Type::LIGHT) {
-		frame_buffer_albedo[pixel_index]  = make_float4(material.emission);
-		frame_buffer_direct[pixel_index] += make_float4(1.0f);
+		frame_buffer_albedo[pixel_index] = make_float4(material.emission);
+		frame_buffer_direct[pixel_index] = make_float4(1.0f);
 	} else if (material.type == Material::Type::DIFFUSE) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
 
@@ -293,7 +293,10 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 			(ray_buffer_extend.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
 			float3 illumination = ray_throughput * material.emission;
 
-			if (bounce == 1) {
+			if (bounce == 0) {
+				frame_buffer_albedo[ray_pixel_index] = make_float4(material.emission);
+				frame_buffer_direct[ray_pixel_index] = make_float4(1.0f);
+			} else if (bounce == 1) {
 				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 			} else {
 				frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);

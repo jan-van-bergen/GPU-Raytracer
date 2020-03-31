@@ -93,7 +93,6 @@ int main(int argument_count, char ** arguments) {
 		ImGui::End();
 
 		window.update();
-
 	}
 
 	return EXIT_SUCCESS;
