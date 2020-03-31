@@ -10,7 +10,6 @@
 #include "Sky.h"
 #include "Sampler.h"
 #include "Util.h"
-#include "SVGF.h"
 
 // Frame Buffers
 __device__ float4 * frame_buffer_albedo;
@@ -18,6 +17,8 @@ __device__ float4 * frame_buffer_direct;
 __device__ float4 * frame_buffer_indirect;
 
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
+
+#include "SVGF.h"
 
 // Vector3 in AoS layout
 struct Vector3 {
@@ -754,18 +755,15 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	
 	float4 colour = albedo * (direct + indirect);
 
-	float4 colour_out;
 	if (frames_since_camera_moved > 0.0f) {
 		float4 prev;
 		surf2Dread<float4>(&prev, accumulator, x * sizeof(float4), y);
 
 		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour_out = (prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
-	} else {
-		colour_out = colour;
+		colour = (prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
 	}
 
-	surf2Dwrite<float4>(colour_out, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<float4>(colour, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
 
 	// @SPEED
 	// Clear frame buffers for next frame
