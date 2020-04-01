@@ -23,7 +23,7 @@ static_assert(BLOCK_SIZE == 32, "Block size should equal CUDA warp size!");
 // SVGF
 #define ATROUS_ITERATIONS 4
 
-#define ALPHA_COLOUR 0.05f
+#define ALPHA_COLOUR 0.2f
 #define ALPHA_MOMENT 0.2f
 
 #define SIGMA_Z 1.0f
