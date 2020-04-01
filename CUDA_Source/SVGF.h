@@ -229,8 +229,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	} else {
 		history_length[pixel_index] = 0; // Reset History Length
 
-		direct.w   = 100.0f;
-		indirect.w = 100.0f;
+		direct.w   = 10000.0f;
+		indirect.w = 10000.0f;
 	}
 
 	frame_buffer_direct  [pixel_index] = direct;
@@ -512,7 +512,11 @@ extern "C" __global__ void kernel_svgf_atrous(
 // Updating the Colour History buffer needs a separate kernel because
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
-extern "C" __global__ void kernel_svgf_finalize(const float4 * colour_direct, const float4 * colour_indirect) {
+extern "C" __global__ void kernel_svgf_finalize(
+	bool enable_albedo,
+	const float4 * colour_direct,
+	const float4 * colour_indirect
+) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -520,11 +524,15 @@ extern "C" __global__ void kernel_svgf_finalize(const float4 * colour_direct, co
 
 	int pixel_index = x + y * SCREEN_WIDTH;
 
-	float4 albedo   = frame_buffer_albedo[pixel_index];
-	float4 direct   = colour_direct      [pixel_index];
-	float4 indirect = colour_indirect    [pixel_index];
+	float4 direct   = colour_direct  [pixel_index];
+	float4 indirect = colour_indirect[pixel_index];
 
-	float4 colour = albedo * (direct + indirect);
+	float4 colour = direct + indirect;
+
+	if (enable_albedo) {
+		colour *= frame_buffer_albedo[pixel_index];
+	}
+
 	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
 
 	float4 moment = frame_buffer_moment[pixel_index];

@@ -16,6 +16,7 @@ struct Pathtracer {
 	// Settings
 	bool enable_rasterization = true;
 	bool enable_svgf          = true;
+	bool enable_albedo        = true;
 
 	// Course profile timings
 	float time_primary;

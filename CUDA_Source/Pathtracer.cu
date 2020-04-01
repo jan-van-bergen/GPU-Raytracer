@@ -761,7 +761,7 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 	}
 }
 
-extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
+extern "C" __global__ void kernel_accumulate(bool enable_albedo, float frames_since_camera_moved) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -769,11 +769,14 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 
 	int pixel_index = x + y * SCREEN_WIDTH;
 
-	float4 albedo   = frame_buffer_albedo  [pixel_index];
 	float4 direct   = frame_buffer_direct  [pixel_index];
 	float4 indirect = frame_buffer_indirect[pixel_index];
 	
-	float4 colour = albedo * (direct + indirect);
+	float4 colour = direct + indirect;
+
+	if (enable_albedo) {
+		colour *= frame_buffer_albedo[pixel_index];
+	}
 
 	if (frames_since_camera_moved > 0.0f) {
 		float4 colour_prev;

@@ -88,6 +88,7 @@ int main(int argument_count, char ** arguments) {
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
 			ImGui::Checkbox("Enable SVGF",            &pathtracer.enable_svgf);
+			ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
 		}
 
 		ImGui::End();

@@ -629,9 +629,9 @@ void Pathtracer::render() {
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
 
-		kernel_svgf_finalize.execute(direct_out, indirect_out);
+		kernel_svgf_finalize.execute(enable_albedo, direct_out, indirect_out);
 	} else {
-		kernel_accumulate.execute(float(frames_since_camera_moved));
+		kernel_accumulate.execute(enable_albedo, float(frames_since_camera_moved));
 	}
 
 	event_end.record();

@@ -37,7 +37,7 @@ __device__ float2 * triangles_tex_coord_edge2;
 __device__ int * triangles_material_id;
 
 __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit & ray_hit) {
-	const float3 & position0      = triangles_position0[triangle_id];
+	const float3 & position0      = triangles_position0     [triangle_id];
 	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
 	const float3 & position_edge2 = triangles_position_edge2[triangle_id];
 
@@ -66,7 +66,7 @@ __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit &
 }
 
 __device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, float max_distance) {
-	const float3 & position0      = triangles_position0[triangle_id];
+	const float3 & position0      = triangles_position0     [triangle_id];
 	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
 	const float3 & position_edge2 = triangles_position_edge2[triangle_id];
 
@@ -91,7 +91,7 @@ __device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, floa
 	return true;
 }
 
-// static_assert(MBVH_WIDTH == 4);
+static_assert(MBVH_WIDTH == 4, "The implementation assumes a Quaternary BVH");
 
 struct MBVHNode {
 	float4 aabb_min_x;
