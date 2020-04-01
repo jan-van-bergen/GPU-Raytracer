@@ -12,10 +12,25 @@ layout (location = 2) out int  out_triangle_id;
 layout (location = 3) out vec2 out_screen_position_prev;
 layout (location = 4) out vec2 out_depth_gradient;
 
+// Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
+vec2 oct_wrap(vec2 v) {
+    return vec2(
+		(1.0f - abs( v.y )) * ( v.x >= 0.0f ? +1.0f : -1.0f),
+		(1.0f - abs( v.x )) * ( v.y >= 0.0f ? +1.0f : -1.0f)
+	);
+}
+
+// Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
+vec2 oct_encode_normal(vec3 n) {
+	n /= ( abs( n.x ) + abs( n.y ) + abs( n.z ) );
+    n.xy = n.z >= 0.0f ? n.xy : oct_wrap( n.xy );
+    return n.xy * 0.5f + 0.5f;
+}
+
 void main() {
 	float linear_depth = in_screen_position.z; // gl_FragCoord.z / gl_FragCoord.w;
 
-	out_normal_and_depth.rg = normalize(in_normal).xy;
+	out_normal_and_depth.rg = oct_encode_normal(normalize(in_normal));
 	out_normal_and_depth.b  = linear_depth;
 	out_normal_and_depth.a  = in_screen_position_prev.z;
 	

@@ -776,11 +776,11 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	float4 colour = albedo * (direct + indirect);
 
 	if (frames_since_camera_moved > 0.0f) {
-		float4 prev;
-		surf2Dread<float4>(&prev, accumulator, x * sizeof(float4), y);
+		float4 colour_prev;
+		surf2Dread<float4>(&colour_prev, accumulator, x * sizeof(float4), y);
 
 		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour = (prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
+		colour = (colour_prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
 	}
 
 	surf2Dwrite<float4>(colour, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);

@@ -22,11 +22,7 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 
 	float4 prev_normal_and_depth = history_normal_and_depth[x + y * SCREEN_WIDTH];
 	
-	float3 prev_normal = make_float3(
-		prev_normal_and_depth.x,
-		prev_normal_and_depth.y,
-		sqrt(1.0f - prev_normal_and_depth.x*prev_normal_and_depth.x - prev_normal_and_depth.y*prev_normal_and_depth.y)
-	);
+	float3 prev_normal = oct_decode_normal(make_float2(prev_normal_and_depth.x, prev_normal_and_depth.y));
 	float prev_depth = prev_normal_and_depth.z;
 
 	const float threshold_normal = 0.95f;
@@ -103,11 +99,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	float4 normal_and_depth     = tex2D(gbuffer_normal_and_depth,     u, v);
 	float2 screen_position_prev = tex2D(gbuffer_screen_position_prev, u, v);
 
-	float3 normal = make_float3(
-		normal_and_depth.x,
-		normal_and_depth.y,
-		sqrt(1.0f - normal_and_depth.x*normal_and_depth.x - normal_and_depth.y*normal_and_depth.y)
-	);
+	float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 	float depth_prev = normal_and_depth.w;
 
 	float2 depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
@@ -285,11 +277,7 @@ extern "C" __global__ void kernel_svgf_variance(
 	float4 center_normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
 	float2 center_depth_gradient   = tex2D(gbuffer_depth_gradient,   u, v);
 
-	float3 center_normal = make_float3(
-		center_normal_and_depth.x,
-		center_normal_and_depth.y,
-		sqrt(1.0f - center_normal_and_depth.x*center_normal_and_depth.x - center_normal_and_depth.y*center_normal_and_depth.y)
-	);
+	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
 	float center_depth = center_normal_and_depth.z;
 
 	float sum_weight_direct   = 1.0f;
@@ -328,11 +316,7 @@ extern "C" __global__ void kernel_svgf_variance(
 
 			float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, tap_u, tap_v);
 
-			float3 normal = make_float3(
-				normal_and_depth.x,
-				normal_and_depth.y,
-				sqrt(1.0f - normal_and_depth.x*normal_and_depth.x - normal_and_depth.y*normal_and_depth.y)
-			);
+			float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 			float depth = normal_and_depth.z;
 
 			float2 w = edge_stopping_weights(
@@ -438,11 +422,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float4 center_normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
 	float2 center_depth_gradient   = tex2D(gbuffer_depth_gradient,   u, v);
 
-	float3 center_normal = make_float3(
-		center_normal_and_depth.x,
-		center_normal_and_depth.y,
-		sqrt(1.0f - center_normal_and_depth.x*center_normal_and_depth.x - center_normal_and_depth.y*center_normal_and_depth.y)
-	);
+	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
 	float center_depth = center_normal_and_depth.z;
 
 	float  sum_weight_direct   = 1.0f;
@@ -476,11 +456,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 			float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, tap_u, tap_v);
 
-			float3 normal = make_float3(
-				normal_and_depth.x,
-				normal_and_depth.y,
-				sqrt(1.0f - normal_and_depth.x*normal_and_depth.x - normal_and_depth.y*normal_and_depth.y)
-			);
+			float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 			float depth = normal_and_depth.z;
 
 			float2 w = edge_stopping_weights(
