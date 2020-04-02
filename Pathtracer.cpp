@@ -416,6 +416,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
 
+	global_camera_depth_range = module.get_global("camera_depth_range");
+	global_camera_depth_range.set_value(camera.far - camera.near);
+
 	kernel_primary         .init(&module, "kernel_primary");
 	kernel_generate        .init(&module, "kernel_generate");
 	kernel_extend          .init(&module, "kernel_extend");

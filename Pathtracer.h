@@ -46,6 +46,8 @@ private:
 
 	CUDAModule::Global global_buffer_sizes;
 
+	CUDAModule::Global global_camera_depth_range;
+
 	int vertex_count;
 	Shader shader;
 

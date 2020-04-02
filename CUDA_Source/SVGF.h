@@ -16,6 +16,8 @@ __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
 __device__ float4 * history_normal_and_depth;
 
+__device__ float camera_depth_range;
+
 __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth, float max_change_z) {
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
@@ -26,7 +28,7 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 	float prev_depth = prev_normal_and_depth.z;
 
 	const float threshold_normal = 0.95f;
-	const float threshold_depth  = 0.025f * 250.0f; // @HARDCODED @ROBUSTNESS: make this depend on camera near/far
+	const float threshold_depth  = 0.025f * camera_depth_range;
 
 	bool consistent_normals = dot(normal, prev_normal) > threshold_normal;
 	bool consistent_depth   = abs(depth - prev_depth)  < threshold_depth;

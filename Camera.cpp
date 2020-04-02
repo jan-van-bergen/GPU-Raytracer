@@ -18,7 +18,7 @@ void Camera::resize(int width, int height) {
 	x_axis             = Vector3(1.0f, 0.0f, 0.0f);
 	y_axis             = Vector3(0.0f, 1.0f, 0.0f);
 
-	projection = Matrix4::perspective(fov, half_width / half_height, 0.1f, 250.0f);
+	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
 }
 
 void Camera::update(float delta, const unsigned char * keys) {
