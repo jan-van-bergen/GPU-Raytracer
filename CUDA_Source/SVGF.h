@@ -16,7 +16,13 @@ __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
 __device__ float4 * history_normal_and_depth;
 
-__device__ float camera_depth_range;
+struct SVGFSettings {
+	float sigma_z;
+	float sigma_n;
+	float sigma_l;
+};
+
+__device__ SVGFSettings svgf_settings;
 
 __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth, float max_change_z) {
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
@@ -28,7 +34,7 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 	float prev_depth = prev_normal_and_depth.z;
 
 	const float threshold_normal = 0.95f;
-	const float threshold_depth  = 0.025f * camera_depth_range;
+	const float threshold_depth  = 2.0f;
 
 	bool consistent_normals = dot(normal, prev_normal) > threshold_normal;
 	bool consistent_depth   = abs(depth - prev_depth)  < threshold_depth;
@@ -56,9 +62,9 @@ __device__ inline float2 edge_stopping_weights(
 		center_depth_gradient.x * float(delta_x) + 
 		center_depth_gradient.y * float(delta_y); 
 
-	float w_z = exp(-abs(center_depth - depth) / (SIGMA_Z * abs(d) + epsilon));
+	float w_z = exp(-abs(center_depth - depth) / (svgf_settings.sigma_z * abs(d) + epsilon));
 
-	float w_n = pow(max(0.0f, dot(center_normal, normal)), SIGMA_N);
+	float w_n = pow(max(0.0f, dot(center_normal, normal)), svgf_settings.sigma_n);
 	// float w_n1 = max(0.0f, dot(center_normal, normal));
 	// float w_n2  = w_n1  * w_n1;
 	// float w_n4  = w_n2  * w_n2;
@@ -267,8 +273,8 @@ extern "C" __global__ void kernel_svgf_variance(
 	}
 
 	// @SPEED: some redundancies here
-	float luminance_denom_direct   = 1.0f / (SIGMA_L + epsilon);
-	float luminance_denom_indirect = 1.0f / (SIGMA_L + epsilon);
+	float luminance_denom_direct   = 1.0f / (svgf_settings.sigma_l + epsilon);
+	float luminance_denom_indirect = 1.0f / (svgf_settings.sigma_l + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -412,8 +418,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = 1.0f / (SIGMA_L * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
-	float luminance_denom_indirect = 1.0f / (SIGMA_L * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
+	float luminance_denom_direct   = 1.0f / (svgf_settings.sigma_l * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
+	float luminance_denom_indirect = 1.0f / (svgf_settings.sigma_l * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];

@@ -18,6 +18,12 @@ struct Pathtracer {
 	bool enable_svgf          = true;
 	bool enable_albedo        = true;
 
+	struct SVGFSettings {
+		float sigma_z =   1.0f;
+		float sigma_n = 128.0f;
+		float sigma_l =  40.0f;
+	} svgf_settings;
+
 	// Course profile timings
 	float time_primary;
 	float time_extend;
@@ -46,7 +52,7 @@ private:
 
 	CUDAModule::Global global_buffer_sizes;
 
-	CUDAModule::Global global_camera_depth_range;
+	CUDAModule::Global global_svgf_settings;
 
 	int vertex_count;
 	Shader shader;

@@ -416,8 +416,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
 
-	global_camera_depth_range = module.get_global("camera_depth_range");
-	global_camera_depth_range.set_value(camera.far - camera.near);
+	global_svgf_settings = module.get_global("svgf_settings");
 
 	kernel_primary         .init(&module, "kernel_primary");
 	kernel_generate        .init(&module, "kernel_generate");
@@ -492,8 +491,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		camera.position = Vector3(-14.875896f, 5.407789f, -22.486183f);
 		camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
 	} else if (strcmp(scene_name, DATA_PATH("sponza/sponza.obj")) == 0) {
-		camera.position = Vector3(2.698714f, 39.508224f, -15.633610f);
-		camera.rotation = Quaternion(0.000000f, 0.891950f, 0.000000f, 0.452135f);
+		camera.position = Vector3(116.927467f, 15.586369f, -2.997146f);
+		camera.rotation = Quaternion(0.000000f, 0.692966f, 0.000000f, 0.720969f);
 	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
 		camera.position = Vector3(-0.126737f, 0.613379f, 3.716630f);
 		camera.rotation = Quaternion(-0.107255f, -0.002421f, 0.000262f, -0.994227f);
@@ -521,6 +520,8 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 			frames_since_camera_moved++;
 		}
 	}
+
+	global_svgf_settings.set_value(svgf_settings);
 }
 
 void Pathtracer::render() {

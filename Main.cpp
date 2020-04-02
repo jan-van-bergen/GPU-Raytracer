@@ -80,15 +80,19 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Text("Delta: %.2f ms", delta_time * 1000.0f);
 			ImGui::Text("Avg:   %.2f ms", avg        * 1000.0f);
 			ImGui::Text("FPS: %i", fps);
-			ImGui::Text("Primary: %f ms", pathtracer.time_primary);
-			ImGui::Text("Extend:  %f ms", pathtracer.time_extend);
-			ImGui::Text("SVGF:    %f ms", pathtracer.time_svgf);
+			ImGui::Text("Primary: %.2f ms", pathtracer.time_primary);
+			ImGui::Text("Extend:  %.2f ms", pathtracer.time_extend);
+			ImGui::Text("SVGF:    %.2f ms", pathtracer.time_svgf);
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
 			ImGui::Checkbox("Enable SVGF",            &pathtracer.enable_svgf);
 			ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
+
+			ImGui::SliderFloat("simga z", &pathtracer.svgf_settings.sigma_z, 0.0f,  10.0f);
+			ImGui::SliderFloat("simga n", &pathtracer.svgf_settings.sigma_n, 1.0f, 256.0f);
+			ImGui::SliderFloat("sigma l", &pathtracer.svgf_settings.sigma_l, 4.0f, 400.0f);
 		}
 
 		ImGui::End();
