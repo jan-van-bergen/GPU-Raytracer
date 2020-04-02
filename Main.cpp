@@ -90,6 +90,9 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Checkbox("Enable SVGF",            &pathtracer.enable_svgf);
 			ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
 
+			ImGui::SliderFloat("alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
+			ImGui::SliderFloat("alpha moment", &pathtracer.svgf_settings.alpha_moment, 0.0f, 1.0f);
+
 			ImGui::SliderFloat("simga z", &pathtracer.svgf_settings.sigma_z, 0.0f,  10.0f);
 			ImGui::SliderFloat("simga n", &pathtracer.svgf_settings.sigma_n, 1.0f, 256.0f);
 			ImGui::SliderFloat("sigma l", &pathtracer.svgf_settings.sigma_l, 4.0f, 400.0f);

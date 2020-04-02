@@ -554,7 +554,7 @@ void Pathtracer::render() {
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(0);
 
-		shader.unbind();
+		shader .unbind();
 		gbuffer.unbind();
 
 		glFinish();
@@ -581,9 +581,9 @@ void Pathtracer::render() {
 	}
 
 	// Process the various Material types in different Kernels
-	kernel_shade_diffuse.execute   (rand(), 0, frames_since_camera_moved);
+	kernel_shade_diffuse   .execute(rand(), 0, frames_since_camera_moved);
 	kernel_shade_dielectric.execute(rand(), 0);
-	kernel_shade_glossy.execute    (rand(), 0, frames_since_camera_moved);
+	kernel_shade_glossy    .execute(rand(), 0, frames_since_camera_moved);
 
 	// Trace shadow Rays
 	kernel_connect.execute(rand(), 0, frames_since_camera_moved);
@@ -595,9 +595,9 @@ void Pathtracer::render() {
 		kernel_extend.execute(rand(), bounce);
 
 		// Process the various Material types in different Kernels
-		kernel_shade_diffuse.execute   (rand(), bounce, frames_since_camera_moved);
+		kernel_shade_diffuse   .execute(rand(), bounce, frames_since_camera_moved);
 		kernel_shade_dielectric.execute(rand(), bounce);
-		kernel_shade_glossy.execute    (rand(), bounce, frames_since_camera_moved);
+		kernel_shade_glossy    .execute(rand(), bounce, frames_since_camera_moved);
 
 		// Trace shadow Rays
 		kernel_connect.execute(rand(), bounce, frames_since_camera_moved);

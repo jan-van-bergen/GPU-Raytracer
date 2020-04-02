@@ -17,6 +17,9 @@ __device__ float4 * history_moment;
 __device__ float4 * history_normal_and_depth;
 
 struct SVGFSettings {
+	float alpha_colour;
+	float alpha_moment;
+
 	float sigma_z;
 	float sigma_n;
 	float sigma_l;
@@ -218,8 +221,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		int history = ++history_length[pixel_index]; // Increase History Length by 1 step
 
 		float inv_history = 1.0f / float(history);
-		float alpha_colour = max(ALPHA_COLOUR, inv_history);
-		float alpha_moment = max(ALPHA_MOMENT, inv_history);
+		float alpha_colour = max(svgf_settings.alpha_colour, inv_history);
+		float alpha_moment = max(svgf_settings.alpha_moment, inv_history);
 
 		// Integrate using exponential moving average
 		direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;

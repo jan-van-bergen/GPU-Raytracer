@@ -19,6 +19,9 @@ struct Pathtracer {
 	bool enable_albedo        = true;
 
 	struct SVGFSettings {
+		float alpha_colour = 0.05f;
+		float alpha_moment = 0.2f;
+
 		float sigma_z =   1.0f;
 		float sigma_n = 128.0f;
 		float sigma_l =  40.0f;
