@@ -19,6 +19,7 @@ __device__ float4 * frame_buffer_indirect;
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
 #include "SVGF.h"
+#include "TAA.h"
 
 // Vector3 in AoS layout
 struct Vector3 {

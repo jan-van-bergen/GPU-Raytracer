@@ -432,8 +432,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
 	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
 	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
-	kernel_svgf_taa        .init(&module, "kernel_svgf_taa");
-	kernel_svgf_sharpen    .init(&module, "kernel_svgf_sharpen");
+	kernel_taa             .init(&module, "kernel_svgf_taa");
+	kernel_taa_finalize    .init(&module, "kernel_svgf_sharpen");
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
 	kernel_primary      .occupancy_max_block_size_2d();
@@ -441,8 +441,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_svgf_variance.occupancy_max_block_size_2d();
 	kernel_svgf_atrous  .occupancy_max_block_size_2d();
 	kernel_svgf_finalize.occupancy_max_block_size_2d();
-	kernel_svgf_taa     .occupancy_max_block_size_2d();
-	kernel_svgf_sharpen .occupancy_max_block_size_2d();
+	kernel_taa          .occupancy_max_block_size_2d();
+	kernel_taa_finalize .occupancy_max_block_size_2d();
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
 	kernel_generate        .set_block_dim(32, 1, 1);
@@ -483,14 +483,14 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		(SCREEN_HEIGHT + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y,
 		1
 	);
-	kernel_svgf_taa.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_svgf_taa.block_dim_x - 1) / kernel_svgf_taa.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_svgf_taa.block_dim_y - 1) / kernel_svgf_taa.block_dim_y,
+	kernel_taa.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_taa.block_dim_x - 1) / kernel_taa.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_taa.block_dim_y - 1) / kernel_taa.block_dim_y,
 		1
 	);
-	kernel_svgf_sharpen.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_svgf_sharpen.block_dim_x - 1) / kernel_svgf_sharpen.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_svgf_sharpen.block_dim_y - 1) / kernel_svgf_sharpen.block_dim_y,
+	kernel_taa_finalize.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_taa_finalize.block_dim_x - 1) / kernel_taa_finalize.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_taa_finalize.block_dim_y - 1) / kernel_taa_finalize.block_dim_y,
 		1
 	);
 	kernel_accumulate.set_grid_dim(

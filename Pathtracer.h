@@ -52,8 +52,8 @@ private:
 	CUDAKernel kernel_svgf_atrous;
 	CUDAKernel kernel_svgf_finalize;
 
-	CUDAKernel kernel_svgf_taa;
-	CUDAKernel kernel_svgf_sharpen;
+	CUDAKernel kernel_taa;
+	CUDAKernel kernel_taa_finalize;
 
 	CUDAKernel kernel_accumulate;
 
