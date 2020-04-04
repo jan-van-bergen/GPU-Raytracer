@@ -657,10 +657,14 @@ void Pathtracer::render() {
 
 		event_taa.record();
 
-		kernel_taa         .execute();
-		kernel_taa_finalize.execute();
+		if (enable_taa) {
+			kernel_taa         .execute();
+			kernel_taa_finalize.execute();
+		}
 	} else {
 		kernel_accumulate.execute(enable_albedo, float(frames_since_camera_moved));
+
+		event_taa.record();
 	}
 
 	event_end.record();

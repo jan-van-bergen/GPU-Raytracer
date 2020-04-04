@@ -564,6 +564,8 @@ extern "C" __global__ void kernel_svgf_finalize(
 		colour *= frame_buffer_albedo[pixel_index];
 	}
 
+	surf2Dwrite(colour, accumulator, x * sizeof(float4), y); // @HACK
+
 	// Reinhard
 	colour = colour / (make_float4(1.0f) + colour);
 

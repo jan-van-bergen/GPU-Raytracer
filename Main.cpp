@@ -89,6 +89,7 @@ int main(int argument_count, char ** arguments) {
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
 			ImGui::Checkbox("Enable SVGF",            &pathtracer.enable_svgf);
+			ImGui::Checkbox("Enable TAA",             &pathtracer.enable_taa);
 			ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
 
 			ImGui::SliderFloat("alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
