@@ -432,8 +432,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
 	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
 	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
-	kernel_taa             .init(&module, "kernel_svgf_taa");
-	kernel_taa_finalize    .init(&module, "kernel_svgf_sharpen");
+	kernel_taa             .init(&module, "kernel_taa");
+	kernel_taa_finalize    .init(&module, "kernel_taa_finalize");
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
 	kernel_primary      .occupancy_max_block_size_2d();
@@ -657,8 +657,8 @@ void Pathtracer::render() {
 
 		event_taa.record();
 
-		kernel_svgf_taa    .execute();
-		kernel_svgf_sharpen.execute();
+		kernel_taa         .execute();
+		kernel_taa_finalize.execute();
 	} else {
 		kernel_accumulate.execute(enable_albedo, float(frames_since_camera_moved));
 	}
