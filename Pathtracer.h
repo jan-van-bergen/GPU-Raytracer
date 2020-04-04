@@ -31,6 +31,7 @@ struct Pathtracer {
 	float time_primary;
 	float time_extend;
 	float time_svgf;
+	float time_taa;
 
 private:
 	GBuffer gbuffer;
@@ -50,6 +51,9 @@ private:
 	CUDAKernel kernel_svgf_variance;
 	CUDAKernel kernel_svgf_atrous;
 	CUDAKernel kernel_svgf_finalize;
+
+	CUDAKernel kernel_svgf_taa;
+	CUDAKernel kernel_svgf_sharpen;
 
 	CUDAKernel kernel_accumulate;
 
@@ -72,6 +76,7 @@ private:
 	CUDAEvent event_primary;
 	CUDAEvent event_extend;
 	CUDAEvent event_svgf;
+	CUDAEvent event_taa;
 	CUDAEvent event_end;
 
 public:

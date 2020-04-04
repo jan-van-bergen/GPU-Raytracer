@@ -16,6 +16,9 @@ __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
 __device__ float4 * history_normal_and_depth;
 
+__device__ float4 * taa_frame_curr;
+__device__ float4 * taa_frame_prev;
+
 struct SVGFSettings {
 	float alpha_colour;
 	float alpha_moment;
@@ -84,6 +87,23 @@ __device__ inline float2 edge_stopping_weights(
 		w_l_direct, 
 		w_l_indirect
 	);
+}
+
+__device__ float mitchell_netravali(float x) {
+	float B = 1.0f / 3.0f;
+	float C = 1.0f / 3.0f;
+
+	x = abs(x);
+	float x2 = x  * x;
+	float x3 = x2 * x;
+
+	if (x < 1.0f) {
+		return (1.0f / 6.0f) * ((12 - 9 * B - 6 * C) * x3 + (-18 + 12 * B + 6 * C) * x2 + (6 - 2 * B));
+	} else if (x < 2.0f) {
+		return 1.0f / 6.0f * ((-B - 6 * C) * x3 + (6 * B + 30 * C) * x2 + (-12 * B - 48 * C) * x + (8 * B + 24 * C)); 
+	} else {
+		return 0.0f;
+	}
 }
 
 extern "C" __global__ void kernel_svgf_temporal() {
@@ -544,7 +564,21 @@ extern "C" __global__ void kernel_svgf_finalize(
 		colour *= frame_buffer_albedo[pixel_index];
 	}
 
-	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
+	// ACES Filmic tonemapping
+	float a = 2.51f;
+	float b = 0.03f;
+	float c = 2.43f;
+	float d = 0.59f;
+	float e = 0.14f;
+
+	colour = (colour * (a * colour + b)) / (colour * (c * colour + d) + e);
+
+	// Convert to gamma space
+	colour.x = pow(clamp(colour.x, 0.0f, 1.0f), 1.0f / 2.2f);
+	colour.y = pow(clamp(colour.y, 0.0f, 1.0f), 1.0f / 2.2f);
+	colour.z = pow(clamp(colour.z, 0.0f, 1.0f), 1.0f / 2.2f);
+
+	taa_frame_curr[pixel_index] = colour;
 
 	float4 moment = frame_buffer_moment[pixel_index];
 
@@ -565,4 +599,181 @@ extern "C" __global__ void kernel_svgf_finalize(
 	frame_buffer_albedo  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 	frame_buffer_direct  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
 	frame_buffer_indirect[pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+}
+
+extern "C" __global__ void kernel_svgf_taa() {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	int pixel_index = x + y * SCREEN_WIDTH;
+
+	float4 colour = taa_frame_curr[pixel_index];
+
+	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
+	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
+
+	float2 screen_position_prev = tex2D(gbuffer_screen_position_prev, u, v);
+
+	// Convert from [-1, 1] to [0, 1]
+	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
+	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
+
+	float s_prev = u_prev * float(SCREEN_WIDTH)  - 0.5f;
+	float t_prev = v_prev * float(SCREEN_HEIGHT) - 0.5f;
+
+	int x1 = int(s_prev - 2.0f);
+	int y1 = int(t_prev - 2.0f);
+
+	float  sum_weight = 0.0f;
+	float4 sum        = make_float4(0.0f);
+
+	for (int j = y1; j < y1 + 4; j++) {
+		if (j < 0 || j >= SCREEN_HEIGHT) continue;
+
+		for (int i = x1; i < x1 + 4; i++) {
+			if (i < 0 || i >= SCREEN_WIDTH) continue;
+
+			float weight = 
+				mitchell_netravali(float(i) - s_prev) * 
+				mitchell_netravali(float(j) - t_prev);
+
+			sum_weight += weight;
+			sum        += weight * taa_frame_prev[i + j * SCREEN_WIDTH];
+		}
+	}
+
+	if (sum_weight > 0.0f) {
+		sum /= sum_weight;
+
+		float3 colour_curr = rgb_to_ycocg(make_float3(colour));
+		float3 colour_prev = rgb_to_ycocg(make_float3(sum));
+
+		float3 colour_avg = colour_curr;
+		float3 colour_var = colour_curr * colour_curr;
+
+		if (x >= 1) {
+			if (y >= 1) {
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_WIDTH - 1]));
+
+				colour_avg += f;
+				colour_var += f * f;
+			}
+
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - 1]));
+
+			colour_avg += f;
+			colour_var += f * f;
+
+			if (y < SCREEN_HEIGHT - 1) {
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_WIDTH - 1]));
+
+				colour_avg += f;
+				colour_var += f * f;
+			}
+		}
+		
+		if (y >= 1) {
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_WIDTH]));
+
+			colour_avg += f;
+			colour_var += f * f;
+		}
+
+		if (y < SCREEN_HEIGHT - 1) {
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_WIDTH]));
+
+			colour_avg += f;
+			colour_var += f * f;
+		}
+
+		if (x < SCREEN_WIDTH - 1) {
+			if (y >= 1) {
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 - SCREEN_WIDTH]));
+
+				colour_avg += f;
+				colour_var += f * f;
+			}
+
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1]));
+
+			colour_avg += f;
+			colour_var += f * f;
+
+			if (y < SCREEN_HEIGHT - 1) {
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 + SCREEN_WIDTH]));
+
+				colour_avg += f;
+				colour_var += f * f;
+			}
+		}
+
+		// Normalize the 9 taps
+		colour_avg *= 1.0f / 9.0f;
+		colour_var *= 1.0f / 9.0f;
+
+		float3 sigma2 = colour_var - colour_avg * colour_avg;
+		float3 sigma = make_float3(
+			sqrt(max(0.0f, sigma2.x)),
+			sqrt(max(0.0f, sigma2.y)),
+			sqrt(max(0.0f, sigma2.z))
+		);
+
+		float3 colour_min = colour_avg - 1.25f * sigma;
+		float3 colour_max = colour_avg + 1.25f * sigma;
+
+		colour_prev = clamp(colour_prev, colour_min, colour_max);
+
+		if (!isnan(colour_prev.x + colour_prev.y + colour_prev.z)) {
+			const float alpha = 0.1f;
+			float3 integrated = ycocg_to_rgb(alpha * colour_curr + (1.0f - alpha) * colour_prev);
+
+			colour.x = integrated.x;
+			colour.y = integrated.y;
+			colour.z = integrated.z;
+		}
+	}
+
+	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
+}
+
+extern "C" __global__ void kernel_svgf_sharpen() {
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+
+	int pixel_index = x + y * SCREEN_WIDTH;
+
+	float4 colour;
+	surf2Dread(&colour, accumulator, x * sizeof(float4), y);
+
+#if false
+	if (x >= 1 && x < SCREEN_WIDTH - 1 && y >= 1 && y < SCREEN_HEIGHT - 1) {
+		float4 colour_00 = taa_frame_curr[pixel_index - 1 - SCREEN_WIDTH];
+		float4 colour_01 = taa_frame_curr[pixel_index     - SCREEN_WIDTH];
+		float4 colour_02 = taa_frame_curr[pixel_index + 1 - SCREEN_WIDTH];
+
+		float4 colour_10 = taa_frame_curr[pixel_index - 1];
+		float4 colour_12 = taa_frame_curr[pixel_index + 1];
+		
+		float4 colour_20 = taa_frame_curr[pixel_index - 1 + SCREEN_WIDTH];
+		float4 colour_21 = taa_frame_curr[pixel_index     + SCREEN_WIDTH];
+		float4 colour_22 = taa_frame_curr[pixel_index + 1 + SCREEN_WIDTH];
+
+		colour = fmaxf(
+			colour,
+			colour * 2.7f - 0.5f * (
+				0.35f * colour_00 + 0.5f * colour_01 + 0.35f * colour_02 +
+				0.5f  * colour_10                    + 0.5f  * colour_12 +
+				0.35f * colour_20 + 0.5f * colour_21 + 0.35f * colour_22
+			)
+		);
+	}
+	
+	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
+#endif
+
+	taa_frame_prev[pixel_index] = colour;
 }

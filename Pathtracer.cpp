@@ -173,7 +173,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 			CUDA_TEXTURE_DESC tex_desc = { };
 			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_POINT;
+			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
 			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
 			
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
@@ -395,6 +395,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
 	
+	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4));
+	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4));
+
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric;
@@ -429,6 +432,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
 	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
 	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
+	kernel_svgf_taa        .init(&module, "kernel_svgf_taa");
+	kernel_svgf_sharpen    .init(&module, "kernel_svgf_sharpen");
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
 	kernel_primary      .occupancy_max_block_size_2d();
@@ -436,6 +441,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_svgf_variance.occupancy_max_block_size_2d();
 	kernel_svgf_atrous  .occupancy_max_block_size_2d();
 	kernel_svgf_finalize.occupancy_max_block_size_2d();
+	kernel_svgf_taa     .occupancy_max_block_size_2d();
+	kernel_svgf_sharpen .occupancy_max_block_size_2d();
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
 	kernel_generate        .set_block_dim(32, 1, 1);
@@ -476,6 +483,16 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		(SCREEN_HEIGHT + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y,
 		1
 	);
+	kernel_svgf_taa.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_taa.block_dim_x - 1) / kernel_svgf_taa.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_taa.block_dim_y - 1) / kernel_svgf_taa.block_dim_y,
+		1
+	);
+	kernel_svgf_sharpen.set_grid_dim(
+		(SCREEN_WIDTH  + kernel_svgf_sharpen.block_dim_x - 1) / kernel_svgf_sharpen.block_dim_x, 
+		(SCREEN_HEIGHT + kernel_svgf_sharpen.block_dim_y - 1) / kernel_svgf_sharpen.block_dim_y,
+		1
+	);
 	kernel_accumulate.set_grid_dim(
 		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
 		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
@@ -485,6 +502,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	event_primary.init();
 	event_extend .init();
 	event_svgf   .init();
+	event_taa    .init();
 	event_end    .init();
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
@@ -534,7 +552,9 @@ void Pathtracer::render() {
 
 		shader.bind();
 
-		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
+		Matrix4 jitter_view_projection = camera.view_projection * Matrix4::create_translation(Vector3(camera.jitter.x, camera.jitter.y, 0.0f));
+
+		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&jitter_view_projection));
 		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection_prev));
 
 		glEnableVertexAttribArray(0);
@@ -634,6 +654,11 @@ void Pathtracer::render() {
 		}
 
 		kernel_svgf_finalize.execute(enable_albedo, direct_out, indirect_out);
+
+		event_taa.record();
+
+		kernel_svgf_taa    .execute();
+		kernel_svgf_sharpen.execute();
 	} else {
 		kernel_accumulate.execute(enable_albedo, float(frames_since_camera_moved));
 	}
@@ -645,5 +670,6 @@ void Pathtracer::render() {
 
 	time_primary = CUDAEvent::time_elapsed_between(event_primary, event_extend);
 	time_extend  = CUDAEvent::time_elapsed_between(event_extend,  event_svgf);
-	time_svgf    = CUDAEvent::time_elapsed_between(event_svgf,    event_end);
+	time_svgf    = CUDAEvent::time_elapsed_between(event_svgf,    event_taa);
+	time_taa     = CUDAEvent::time_elapsed_between(event_taa,     event_end);
 }

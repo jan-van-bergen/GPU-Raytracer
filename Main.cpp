@@ -83,6 +83,7 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Text("Primary: %.2f ms", pathtracer.time_primary);
 			ImGui::Text("Extend:  %.2f ms", pathtracer.time_extend);
 			ImGui::Text("SVGF:    %.2f ms", pathtracer.time_svgf);
+			ImGui::Text("TAA:     %.2f ms", pathtracer.time_taa);
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {

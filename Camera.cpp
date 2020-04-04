@@ -57,19 +57,20 @@ void Camera::update(float delta, const unsigned char * keys) {
 
 	view_projection_prev = view_projection;
 
-	Vector2 jitter = Vector2(
-		(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
-		(rng(gen) * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
-	);
+	static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
+	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
 
-	jitter = Vector2(0.0f);
+	jitter = Vector2(
+		(halton_x[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
+		(halton_y[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
+	);
+	
+	jitter_index = (jitter_index + 1) & 3;
 
 	// The view matrix V is the inverse of the World M
 	// M^-1 = (RT)^-1 = T^-1 * R^-1
 	view_projection = 
 		Matrix4::create_translation(-position) * 
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
-		projection *
-		// Apply Clip Space jitter
-		Matrix4::create_translation(Vector3(jitter.x, jitter.y, 0.0f));
+		projection;
 }

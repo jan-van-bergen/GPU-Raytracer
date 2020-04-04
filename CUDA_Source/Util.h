@@ -10,6 +10,22 @@ __device__ inline float luminance(float r, float g, float b) {
 	return 0.299f * r + 0.587f * g + 0.114f * b;
 }
 
+__device__ inline float3 rgb_to_ycocg(const float3 & colour) {
+	return make_float3(
+		 0.25f * colour.x + 0.5f * colour.y + 0.25f * colour.z,
+		 0.5f  * colour.x +                 - 0.5f  * colour.z,
+		-0.25f * colour.x + 0.5f * colour.y - 0.25f * colour.z
+	);
+}
+
+__device__ inline float3 ycocg_to_rgb(const float3 & colour) {
+	return make_float3(
+		saturate(colour.x + colour.y - colour.z),
+		saturate(colour.x            + colour.z),
+		saturate(colour.x - colour.y - colour.z)
+	);
+}
+
 template<typename T>
 __device__ inline T barycentric(float u, float v, const T & base, const T & edge_1, const T & edge_2) {
 	return base + u * edge_1 + v * edge_2;

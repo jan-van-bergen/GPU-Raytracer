@@ -25,10 +25,10 @@ void main() {
 	vec3 colour = texture2D(screen, in_uv).rgb;
 
 	// Tone mapping
-	colour = tonemap_aces(colour);
+	// colour = tonemap_aces(colour);
 
 	// Gamma correction
-	colour = pow(colour, vec3(1.0f / 2.2f));
+	// colour = pow(colour, vec3(1.0f / 2.2f));
 
 	out_colour = colour;
 }
