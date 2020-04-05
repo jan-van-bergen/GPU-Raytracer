@@ -500,10 +500,12 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	);
 
 	event_primary.init();
-	event_extend .init();
-	event_svgf   .init();
-	event_taa    .init();
-	event_end    .init();
+	for (int i = 0; i < NUM_BOUNCES; i++) event_bounce[i].init();
+	event_svgf_temporal.init();
+	for (int i = 0; i < ATROUS_ITERATIONS; i++) event_svgf_atrous[i].init();
+	event_svgf_finalize.init();
+	event_taa.init();
+	event_end.init();
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-14.875896f, 5.407789f, -22.486183f);
@@ -586,6 +588,8 @@ void Pathtracer::render() {
 			camera.x_axis_rotated,
 			camera.y_axis_rotated
 		);
+
+		event_bounce[0].record();
 	} else {
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(
@@ -596,6 +600,8 @@ void Pathtracer::render() {
 			camera.x_axis_rotated, 
 			camera.y_axis_rotated
 		);
+
+		event_bounce[0].record();
 
 		kernel_extend.execute(rand(), 0);
 	}
@@ -608,9 +614,9 @@ void Pathtracer::render() {
 	// Trace shadow Rays
 	kernel_connect.execute(rand(), 0, frames_since_camera_moved);
 
-	event_extend.record();
-
 	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
+		event_bounce[bounce].record();
+
 		// Extend all Rays that are still alive to their next Triangle intersection
 		kernel_extend.execute(rand(), bounce);
 
@@ -623,7 +629,7 @@ void Pathtracer::render() {
 		kernel_connect.execute(rand(), bounce, frames_since_camera_moved);
 	}
 
-	event_svgf.record();
+	event_svgf_temporal.record();
 
 	if (enable_svgf) {
 		// Integrate temporally
@@ -650,8 +656,12 @@ void Pathtracer::render() {
 			std::swap(direct_in,   direct_out);
 			std::swap(indirect_in, indirect_out);
 
+			event_svgf_atrous[i].record();
+
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
+
+		event_svgf_finalize.record();
 
 		kernel_svgf_finalize.execute(enable_albedo, direct_out, indirect_out);
 
@@ -672,8 +682,21 @@ void Pathtracer::render() {
 	// Reset buffer sizes to default for next frame
 	global_buffer_sizes.set_value(buffer_sizes);
 
-	time_primary = CUDAEvent::time_elapsed_between(event_primary, event_extend);
-	time_extend  = CUDAEvent::time_elapsed_between(event_extend,  event_svgf);
-	time_svgf    = CUDAEvent::time_elapsed_between(event_svgf,    event_taa);
-	time_taa     = CUDAEvent::time_elapsed_between(event_taa,     event_end);
+	time_primary = CUDAEvent::time_elapsed_between(event_primary, event_bounce[0]);
+	
+	for (int i = 0; i < NUM_BOUNCES - 1; i++) {
+		time_bounce[i] = CUDAEvent::time_elapsed_between(event_bounce[i],  event_bounce[i + 1]);
+	}
+	time_bounce[NUM_BOUNCES - 1] = CUDAEvent::time_elapsed_between(event_bounce[NUM_BOUNCES - 1],  event_svgf_temporal);
+	
+	time_svgf_temporal = CUDAEvent::time_elapsed_between(event_svgf_temporal, event_svgf_atrous[0]);
+
+	for (int i = 0; i < ATROUS_ITERATIONS - 1; i++) {
+		time_svgf_atrous[i] = CUDAEvent::time_elapsed_between(event_svgf_atrous[i], event_svgf_atrous[i + 1]);
+	}
+	time_svgf_atrous[ATROUS_ITERATIONS - 1] = CUDAEvent::time_elapsed_between(event_svgf_atrous[ATROUS_ITERATIONS -1], event_svgf_finalize);
+
+	time_svgf_finalize = CUDAEvent::time_elapsed_between(event_svgf_finalize, event_taa);
+
+	time_taa = CUDAEvent::time_elapsed_between(event_taa, event_end);
 }

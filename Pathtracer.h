@@ -20,7 +20,7 @@ struct Pathtracer {
 	bool enable_albedo        = true;
 
 	struct SVGFSettings {
-		float alpha_colour = 0.05f;
+		float alpha_colour = 0.2f;
 		float alpha_moment = 0.2f;
 
 		float sigma_z =   1.0f;
@@ -30,8 +30,10 @@ struct Pathtracer {
 
 	// Course profile timings
 	float time_primary;
-	float time_extend;
-	float time_svgf;
+	float time_bounce[NUM_BOUNCES];
+	float time_svgf_temporal;
+	float time_svgf_atrous[ATROUS_ITERATIONS];
+	float time_svgf_finalize;
 	float time_taa;
 
 private:
@@ -75,8 +77,10 @@ private:
 
 	// Timing Events
 	CUDAEvent event_primary;
-	CUDAEvent event_extend;
-	CUDAEvent event_svgf;
+	CUDAEvent event_bounce[NUM_BOUNCES];
+	CUDAEvent event_svgf_temporal;
+	CUDAEvent event_svgf_atrous[ATROUS_ITERATIONS];
+	CUDAEvent event_svgf_finalize;
 	CUDAEvent event_taa;
 	CUDAEvent event_end;
 
