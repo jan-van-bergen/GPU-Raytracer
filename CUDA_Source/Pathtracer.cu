@@ -5,11 +5,11 @@
 
 #include "../Common.h"
 
+#include "Util.h"
 #include "Tracing.h"
 #include "Lighting.h"
 #include "Sky.h"
 #include "Sampler.h"
-#include "Util.h"
 
 // Frame Buffers
 __device__ float4 * frame_buffer_albedo;

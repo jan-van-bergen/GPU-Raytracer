@@ -193,7 +193,7 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 		int index = mbvh_nodes[node_index].child[node_id];
 		int count = mbvh_nodes[node_index].count[node_id];
 
-		assert(count != -1);
+		ASSERT(count != -1, "Unpacked invalid Node!");
 
 		// Check if the Node is a leaf
 		if (count > 0) {
@@ -230,22 +230,20 @@ __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
 		int node_index, node_id;
 		unpack_mbvh_node(packed, node_index, node_id);
 
-		int index = mbvh_nodes[node_index].child[node_id];
+		int index = mbvh_nodes[node_index].index[node_id];
 		int count = mbvh_nodes[node_index].count[node_id];
 
-		assert(count != -1);
+		ASSERT(count != -1, "Unpacked invalid Node!");
 
 		// Check if the Node is a leaf
 		if (count > 0) {
-			int index = mbvh_nodes[node_index].index[node_id];
-
 			for (int j = index; j < index + count; j++) {
 				if (triangle_intersect(j, ray, max_distance)) {
 					return true;
 				}
 			}
 		} else {
-			int child = mbvh_nodes[node_index].child[node_id];
+			int child = index;
 
 			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[child], ray, max_distance);
 			
