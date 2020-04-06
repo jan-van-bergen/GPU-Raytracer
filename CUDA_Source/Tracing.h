@@ -201,14 +201,15 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 				triangle_trace(j, ray, ray_hit);
 			}
 		} else {
-			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[index], ray, ray_hit.t);
+			int child = index;
+
+			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[child], ray, ray_hit.t);
 			
 			for (int i = 0; i < MBVH_WIDTH; i++) {
 				// Extract index from the 2 least significant bits
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
-				// If the node is valid and was hit by the Ray
-				if (mbvh_nodes[index].count[id] != -1 && aabb_hits.hit[id]) {
+				if (aabb_hits.hit[id]) {
 					stack[stack_size++] = pack_mbvh_node(index, id);
 				}
 			}
@@ -251,8 +252,7 @@ __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
 				// Extract index from the 2 least significant bits
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
-				// If the node is valid and was hit by the Ray
-				if (mbvh_nodes[child].count[id] != -1 && aabb_hits.hit[id]) {
+				if (aabb_hits.hit[id]) {
 					stack[stack_size++] = pack_mbvh_node(child, id);
 				}
 			}

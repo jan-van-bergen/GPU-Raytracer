@@ -16,6 +16,7 @@ __device__ float4 * history_indirect;
 __device__ float4 * history_moment;
 __device__ float4 * history_normal_and_depth;
 
+// Used for Temporal Anti-Aliasing
 __device__ float4 * taa_frame_curr;
 __device__ float4 * taa_frame_prev;
 

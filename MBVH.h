@@ -2,12 +2,12 @@
 #include "BVH.h"
 
 struct MBVHNode {
-	float aabb_min_x[MBVH_WIDTH];
-	float aabb_min_y[MBVH_WIDTH];
-	float aabb_min_z[MBVH_WIDTH];
-	float aabb_max_x[MBVH_WIDTH];
-	float aabb_max_y[MBVH_WIDTH];
-	float aabb_max_z[MBVH_WIDTH];
+	float aabb_min_x[MBVH_WIDTH] = { 0.0f };
+	float aabb_min_y[MBVH_WIDTH] = { 0.0f };
+	float aabb_min_z[MBVH_WIDTH] = { 0.0f };
+	float aabb_max_x[MBVH_WIDTH] = { 0.0f };
+	float aabb_max_y[MBVH_WIDTH] = { 0.0f };
+	float aabb_max_z[MBVH_WIDTH] = { 0.0f };
 	union {
 		int index[MBVH_WIDTH];
 		int child[MBVH_WIDTH];
