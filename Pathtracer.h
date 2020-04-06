@@ -92,6 +92,11 @@ private:
 	CUDAEvent event_taa;
 	CUDAEvent event_end;
 
+	bool scene_has_diffuse    = false;
+	bool scene_has_dielectric = false;
+	bool scene_has_glossy     = false;
+	bool scene_has_lights     = false;
+
 public:
 	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
 

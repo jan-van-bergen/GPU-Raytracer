@@ -43,7 +43,7 @@ Window::Window(const char * title) {
 	
 #if false
 	glEnable(GL_DEBUG_OUTPUT);
-	glDebugMessageCallback(gl_message_callback, NULL);
+	glDebugMessageCallback(gl_message_callback, nullptr);
 #endif
 
 	glEnable(GL_TEXTURE_2D);

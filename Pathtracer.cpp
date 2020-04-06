@@ -512,6 +512,15 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	event_svgf_finalize.init();
 	event_taa.init();
 	event_end.init();
+	
+	for (int i = 0; i < mesh->material_count; i++) {
+		switch (mesh->materials[i].type) {
+			case Material::Type::DIFFUSE:    scene_has_diffuse    = true; break;
+			case Material::Type::DIELECTRIC: scene_has_dielectric = true; break;
+			case Material::Type::GLOSSY:     scene_has_glossy     = true; break;
+			case Material::Type::LIGHT:      scene_has_lights     = true; break;
+		}
+	}
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-7.640668f, 16.404673f, 17.845022f);
@@ -614,17 +623,25 @@ void Pathtracer::render() {
 
 	// Process the various Material types in different Kernels
 	event_shade_diffuse[0].record();
-	kernel_shade_diffuse.execute(rand(), 0, frames_since_camera_moved);
+	if (scene_has_diffuse) {
+		kernel_shade_diffuse.execute(rand(), 0, frames_since_camera_moved);
+	}
 
 	event_shade_dielectric[0].record();
-	kernel_shade_dielectric.execute(rand(), 0);
+	if (scene_has_dielectric) {
+		kernel_shade_dielectric.execute(rand(), 0);
+	}
 
 	event_shade_glossy[0].record();
-	kernel_shade_glossy.execute(rand(), 0, frames_since_camera_moved);
+	if (scene_has_glossy) {
+		kernel_shade_glossy.execute(rand(), 0, frames_since_camera_moved);
+	}
 
 	// Trace shadow Rays
 	event_connect[0].record();
-	kernel_connect.execute(rand(), 0, frames_since_camera_moved);
+	if (scene_has_lights) {
+		kernel_connect.execute(rand(), 0, frames_since_camera_moved);
+	}
 
 	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
@@ -633,17 +650,25 @@ void Pathtracer::render() {
 
 		// Process the various Material types in different Kernels
 		event_shade_diffuse[bounce].record();
-		kernel_shade_diffuse.execute(rand(), bounce, frames_since_camera_moved);
+		if (scene_has_diffuse) {
+			kernel_shade_diffuse.execute(rand(), bounce, frames_since_camera_moved);
+		}
 
 		event_shade_dielectric[bounce].record();
-		kernel_shade_dielectric.execute(rand(), bounce);
+		if (scene_has_dielectric) {
+			kernel_shade_dielectric.execute(rand(), bounce);
+		}
 
 		event_shade_glossy[bounce].record();
-		kernel_shade_glossy.execute(rand(), bounce, frames_since_camera_moved);
+		if (scene_has_glossy) {
+			kernel_shade_glossy.execute(rand(), bounce, frames_since_camera_moved);
+		}
 
 		// Trace shadow Rays
 		event_connect[bounce].record();
-		kernel_connect.execute(rand(), bounce, frames_since_camera_moved);
+		if (scene_has_lights) {
+			kernel_connect.execute(rand(), bounce, frames_since_camera_moved);
+		}
 	}
 
 	event_svgf_temporal.record();
