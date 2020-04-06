@@ -508,8 +508,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	event_end.init();
 
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
-		camera.position = Vector3(-14.875896f, 5.407789f, -22.486183f);
-		camera.rotation = Quaternion(0.000000f, 0.980876f, 0.000000f, 0.194635f);
+		camera.position = Vector3(-7.640668f, 16.404673f, 17.845022f);
+		camera.rotation = Quaternion(-0.256006f, -0.069205f, -0.018378f, 0.964019f);	
 	} else if (strcmp(scene_name, DATA_PATH("sponza/sponza.obj")) == 0) {
 		camera.position = Vector3(116.927467f, 15.586369f, -2.997146f);
 		camera.rotation = Quaternion(0.000000f, 0.692966f, 0.000000f, 0.720969f);

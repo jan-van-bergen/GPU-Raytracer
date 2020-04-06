@@ -3,7 +3,7 @@
 
 #include "cuda_math.h"
 
-//#define ASSERT(proposition, fmt, ...) { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); }
+//#define ASSERT(proposition, fmt, ...) do { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); } while(false)
 #define ASSERT(proposition, fmt, ...) { }
 
 __device__ inline float luminance(float r, float g, float b) {
@@ -63,7 +63,7 @@ __device__ inline int atomic_agg_inc(int * ctr) {
 		res = atomicAdd(ctr, __popc(mask));
 	}
 
-	res = __shfl_sync(0xffffffff, res, leader);
+	res = __shfl_sync(mask, res, leader);
 	return res + __popc(mask & ((1 << laneid) - 1));
 }
 
