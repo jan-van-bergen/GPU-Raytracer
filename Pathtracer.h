@@ -30,7 +30,11 @@ struct Pathtracer {
 
 	// Course profile timings
 	float time_primary;
-	float time_bounce[NUM_BOUNCES];
+	float time_extend[NUM_BOUNCES];
+	float time_shade_diffuse   [NUM_BOUNCES];
+	float time_shade_dielectric[NUM_BOUNCES];
+	float time_shade_glossy    [NUM_BOUNCES];
+	float time_connect[NUM_BOUNCES];
 	float time_svgf_temporal;
 	float time_svgf_atrous[ATROUS_ITERATIONS];
 	float time_svgf_finalize;
@@ -77,7 +81,11 @@ private:
 
 	// Timing Events
 	CUDAEvent event_primary;
-	CUDAEvent event_bounce[NUM_BOUNCES];
+	CUDAEvent event_extend[NUM_BOUNCES];
+	CUDAEvent event_shade_diffuse   [NUM_BOUNCES];
+	CUDAEvent event_shade_dielectric[NUM_BOUNCES];
+	CUDAEvent event_shade_glossy    [NUM_BOUNCES];
+	CUDAEvent event_connect[NUM_BOUNCES];
 	CUDAEvent event_svgf_temporal;
 	CUDAEvent event_svgf_atrous[ATROUS_ITERATIONS];
 	CUDAEvent event_svgf_finalize;

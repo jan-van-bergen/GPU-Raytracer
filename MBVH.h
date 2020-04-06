@@ -125,7 +125,7 @@ struct MBVH {
 				nodes[i].count[0] = 0;
 			}
 
-			if (bvh.nodes[i].is_leaf() == false) {
+			if (!bvh.nodes[i].is_leaf()) {
 				const BVHNode & child_left  = bvh.nodes[bvh.nodes[i].left];
 				const BVHNode & child_right = bvh.nodes[bvh.nodes[i].left + 1];
 

@@ -83,15 +83,39 @@ int main(int argument_count, char ** arguments) {
 			
 			ImGui::Text(" - Primary: %.2f ms", pathtracer.time_primary);
 
-			float sum_extend = 0.0f;
+			float time_bounce[NUM_BOUNCES];
+
+			float sum_bounce = 0.0f;
 			float sum_atrous = 0.0f;
 
-			for (int i = 0; i < NUM_BOUNCES;       i++) sum_extend += pathtracer.time_bounce[i];
-			for (int i = 0; i < ATROUS_ITERATIONS; i++) sum_atrous += pathtracer.time_svgf_atrous[i];
+			for (int i = 0; i < NUM_BOUNCES; i++) {
+				time_bounce[i] = 
+					pathtracer.time_extend[i] + 
+					pathtracer.time_shade_diffuse[i] + 
+					pathtracer.time_shade_dielectric[i] + 
+					pathtracer.time_shade_glossy[i] + 
+					pathtracer.time_connect[i];
+				sum_bounce += time_bounce[i];
+			}
 
-			if (ImGui::TreeNode("Bounces", "Bounces: %.2f ms", sum_extend)) {
+			for (int i = 0; i < ATROUS_ITERATIONS; i++) {
+				sum_atrous += pathtracer.time_svgf_atrous[i];
+			}
+
+			if (ImGui::TreeNode("Bounces", "Bounces: %.2f ms", sum_bounce)) {
 				for (int i = 0; i < NUM_BOUNCES; i++) {
-					ImGui::Text("%i: %.2f ms", i, pathtracer.time_bounce[i]);
+					char str_id[16];
+					sprintf_s(str_id, "Bounce %i", i);
+
+					if (ImGui::TreeNode(str_id, "%i: %.2f ms", i, time_bounce[i])) {
+						ImGui::Text("Extend:     %.2f ms", pathtracer.time_extend[i]);
+						ImGui::Text("Diffuse:    %.2f ms", pathtracer.time_shade_diffuse[i]);
+						ImGui::Text("Dielectric: %.2f ms", pathtracer.time_shade_dielectric[i]);
+						ImGui::Text("Glossy:     %.2f ms", pathtracer.time_shade_glossy[i]);
+						ImGui::Text("Connect:    %.2f ms", pathtracer.time_connect[i]);
+
+						ImGui::TreePop();
+					}
 				}
 				
 				ImGui::TreePop();
@@ -120,10 +144,6 @@ int main(int argument_count, char ** arguments) {
 
 			ImGui::SliderFloat("alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
 			ImGui::SliderFloat("alpha moment", &pathtracer.svgf_settings.alpha_moment, 0.0f, 1.0f);
-
-			// ImGui::SliderFloat("simga z", &pathtracer.svgf_settings.sigma_z, 0.0f,  10.0f);
-			// ImGui::SliderFloat("simga n", &pathtracer.svgf_settings.sigma_n, 1.0f, 256.0f);
-			// ImGui::SliderFloat("sigma l", &pathtracer.svgf_settings.sigma_l, 4.0f, 400.0f);
 		}
 
 		ImGui::End();

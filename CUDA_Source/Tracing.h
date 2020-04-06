@@ -36,6 +36,33 @@ __device__ float2 * triangles_tex_coord_edge2;
 
 __device__ int * triangles_material_id;
 
+static_assert(MBVH_WIDTH == 4, "The implementation assumes a Quaternary BVH");
+
+struct MBVHNode {
+	float4 aabb_min_x;
+	float4 aabb_min_y;
+	float4 aabb_min_z;
+	float4 aabb_max_x;
+	float4 aabb_max_y;
+	float4 aabb_max_z;
+	union {
+		int index[MBVH_WIDTH];
+		int child[MBVH_WIDTH];
+	};
+	int count[MBVH_WIDTH];
+};
+
+__device__ MBVHNode * mbvh_nodes;
+
+struct AABBHits {
+	union {
+		float4 t_near;
+		float  t_near_f[4];
+		int    t_near_i[4];
+	};
+	bool hit[4];
+};
+
 __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit & ray_hit) {
 	const float3 & position0      = triangles_position0     [triangle_id];
 	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
@@ -91,33 +118,6 @@ __device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, floa
 	return true;
 }
 
-static_assert(MBVH_WIDTH == 4, "The implementation assumes a Quaternary BVH");
-
-struct MBVHNode {
-	float4 aabb_min_x;
-	float4 aabb_min_y;
-	float4 aabb_min_z;
-	float4 aabb_max_x;
-	float4 aabb_max_y;
-	float4 aabb_max_z;
-	union {
-		int index[MBVH_WIDTH];
-		int child[MBVH_WIDTH];
-	};
-	int count[MBVH_WIDTH];
-};
-
-__device__ MBVHNode * mbvh_nodes;
-
-struct AABBHits {
-	union {
-		float4 t_near;
-		float  t_near_f[4];
-		int    t_near_i[4];
-	};
-	bool hit[4];
-};
-
 // Check the Ray agains the four AABB's of the children of the given MBVH Node
 __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray & ray, float max_distance) {
 	AABBHits result;
@@ -168,6 +168,8 @@ __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray 
 }
 
 __device__ inline unsigned pack_mbvh_node(int index, int id) {
+	ASSERT(index < 0x3fffffff, "Index must fit in 30 bits");
+
 	return (id << 30) | index;
 }
 
@@ -210,7 +212,7 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				if (aabb_hits.hit[id]) {
-					stack[stack_size++] = pack_mbvh_node(index, id);
+					stack[stack_size++] = pack_mbvh_node(child, id);
 				}
 			}
 		}
