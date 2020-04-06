@@ -146,7 +146,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	camera.resize(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	// Init CUDA Module and its Kernel
-	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability);
+	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, 64);
 
 	const MeshData * mesh = MeshData::load(scene_name);
 

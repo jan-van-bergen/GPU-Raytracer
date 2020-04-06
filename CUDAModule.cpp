@@ -29,7 +29,7 @@ static std::vector<std::string> get_includes(const std::string & filename) {
 	return result;
 }
 
-void CUDAModule::init(const char * filename, int compute_capability) {
+void CUDAModule::init(const char * filename, int compute_capability, int max_registers) {
 	assert(std::filesystem::exists(filename));
 
 	bool should_recompile = true;
@@ -73,9 +73,9 @@ void CUDAModule::init(const char * filename, int compute_capability) {
 	if (should_recompile) {
 		char command[256];
 #ifdef _DEBUG
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -lineinfo -arch=sm_%i -o %s %s", compute_capability, output_filename, filename);
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -lineinfo -arch=sm_%i -maxrregcount=%i -o %s %s", compute_capability, max_registers, output_filename, filename);
 #else
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -restrict -Xptxas=\"-v\" -arch=sm_%i -o %s %s", compute_capability, output_filename, filename);
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -restrict -arch=sm_%i -maxrregcount=%i -o %s %s", compute_capability, max_registers, output_filename, filename);
 #endif
 		printf("Compiling CUDA Module %s\n", filename);
 

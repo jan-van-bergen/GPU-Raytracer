@@ -48,7 +48,7 @@ struct CUDAModule {
 		}
 	};
 
-	void init(const char * filename, int compute_capability);
+	void init(const char * filename, int compute_capability, int max_registers);
 
 	void set_surface(const char * surface_name, CUarray array) const;
 	void set_texture(const char * texture_name, CUarray array, CUfilter_mode filter, CUarray_format format, int channels) const;

@@ -25,7 +25,7 @@ struct SVGFSettings {
 
 	float sigma_z;
 	float sigma_n;
-	float sigma_l;
+	float sigma_l_inv;
 };
 
 __device__ SVGFSettings svgf_settings;
@@ -43,7 +43,7 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 	const float threshold_depth  = 2.0f;
 
 	bool consistent_normals = dot(normal, prev_normal) > threshold_normal;
-	bool consistent_depth   = abs(depth - prev_depth)  < threshold_depth;
+	bool consistent_depth   = fabsf(depth - prev_depth)  < threshold_depth;
 
 	return consistent_normals && consistent_depth;
 }
@@ -68,10 +68,10 @@ __device__ inline float2 edge_stopping_weights(
 		center_depth_gradient.x * float(delta_x) + 
 		center_depth_gradient.y * float(delta_y); 
 
-	float w_z = exp(-abs(center_depth - depth) / (svgf_settings.sigma_z * abs(d) + epsilon));
+	float w_z = expf(-fabsf(center_depth - depth) / (svgf_settings.sigma_z * fabsf(d) + epsilon));
 
-	float w_n = pow(max(0.0f, dot(center_normal, normal)), svgf_settings.sigma_n);
-	// float w_n1 = max(0.0f, dot(center_normal, normal));
+	float w_n = pow(fmaxf(0.0f, dot(center_normal, normal)), svgf_settings.sigma_n);
+	// float w_n1 = fmaxf(0.0f, dot(center_normal, normal));
 	// float w_n2  = w_n1  * w_n1;
 	// float w_n4  = w_n2  * w_n2;
 	// float w_n8  = w_n4  * w_n4;
@@ -80,8 +80,8 @@ __device__ inline float2 edge_stopping_weights(
 	// float w_n64 = w_n32 * w_n32;
 	// float w_n   = w_n64 * w_n64;
 
-	float w_l_direct   = exp(-abs(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
-	float w_l_indirect = exp(-abs(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
+	float w_l_direct   = expf(-fabsf(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
+	float w_l_indirect = expf(-fabsf(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
 
 	return w_z * w_n * make_float2(
 		w_l_direct, 
@@ -93,7 +93,7 @@ __device__ float mitchell_netravali(float x) {
 	float B = 1.0f / 3.0f;
 	float C = 1.0f / 3.0f;
 
-	x = abs(x);
+	x = fabsf(x);
 	float x2 = x  * x;
 	float x3 = x2 * x;
 
@@ -134,7 +134,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	float depth_prev = normal_and_depth.w;
 
 	float2 depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
-	float  max_change_z   = max(abs(depth_gradient.x), abs(depth_gradient.y)) + epsilon;
+	float  max_change_z   = fmaxf(fabsf(depth_gradient.x), fabsf(depth_gradient.y)) + epsilon;
 
 	// Convert from [-1, 1] to [0, 1]
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
@@ -241,8 +241,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		int history = ++history_length[pixel_index]; // Increase History Length by 1 step
 
 		float inv_history = 1.0f / float(history);
-		float alpha_colour = max(svgf_settings.alpha_colour, inv_history);
-		float alpha_moment = max(svgf_settings.alpha_moment, inv_history);
+		float alpha_colour = fmaxf(svgf_settings.alpha_colour, inv_history);
+		float alpha_moment = fmaxf(svgf_settings.alpha_moment, inv_history);
 
 		// Integrate using exponential moving average
 		direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
@@ -250,8 +250,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		moment   = alpha_moment * moment   + (1.0f - alpha_moment) * prev_moment;
 		
 		if (history >= 4) {
-			float variance_direct   = max(0.0f, moment.z - moment.x * moment.x);
-			float variance_indirect = max(0.0f, moment.w - moment.y * moment.y);
+			float variance_direct   = fmaxf(0.0f, moment.z - moment.x * moment.x);
+			float variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
 			
 			// Store the Variance in the alpha channel
 			direct.w   = variance_direct;
@@ -296,8 +296,8 @@ extern "C" __global__ void kernel_svgf_variance(
 	}
 
 	// @SPEED: some redundancies here
-	float luminance_denom_direct   = 1.0f / (svgf_settings.sigma_l + epsilon);
-	float luminance_denom_indirect = 1.0f / (svgf_settings.sigma_l + epsilon);
+	float luminance_denom_direct   = svgf_settings.sigma_l_inv;
+	float luminance_denom_indirect = svgf_settings.sigma_l_inv;
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -373,16 +373,16 @@ extern "C" __global__ void kernel_svgf_variance(
 		}
 	}
 
-	sum_weight_direct   = max(sum_weight_direct,   1e-6f);
-	sum_weight_indirect = max(sum_weight_indirect, 1e-6f);
+	sum_weight_direct   = fmaxf(sum_weight_direct,   1e-6f);
+	sum_weight_indirect = fmaxf(sum_weight_indirect, 1e-6f);
 	
 	sum_colour_direct   /= sum_weight_direct;
 	sum_colour_indirect /= sum_weight_indirect;
 	
 	sum_moment /= make_float4(sum_weight_direct, sum_weight_indirect, sum_weight_direct, sum_weight_indirect);
 
-	float variance_direct   = max(0.0f, sum_moment.z - sum_moment.x * sum_moment.x);
-	float variance_indirect = max(0.0f, sum_moment.w - sum_moment.y * sum_moment.y);
+	float variance_direct   = fmaxf(0.0f, sum_moment.z - sum_moment.x * sum_moment.x);
+	float variance_indirect = fmaxf(0.0f, sum_moment.w - sum_moment.y * sum_moment.y);
 
 	// float inv_history  = 1.0f / float(history);
 	// variance_direct   *= 4.0f * inv_history;
@@ -441,8 +441,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = 1.0f / (svgf_settings.sigma_l * sqrt(max(0.0f, variance_blurred_direct))   + epsilon);
-	float luminance_denom_indirect = 1.0f / (svgf_settings.sigma_l * sqrt(max(0.0f, variance_blurred_indirect)) + epsilon);
+	float luminance_denom_direct   = svgf_settings.sigma_l_inv * rsqrtf(fmaxf(0.0f, variance_blurred_direct)   + epsilon);
+	float luminance_denom_indirect = svgf_settings.sigma_l_inv * rsqrtf(fmaxf(0.0f, variance_blurred_indirect) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -570,9 +570,9 @@ extern "C" __global__ void kernel_svgf_finalize(
 	colour = colour / (make_float4(1.0f) + colour);
 
 	// Convert to gamma space
-	colour.x = sqrt(max(0.0f, colour.x));
-	colour.y = sqrt(max(0.0f, colour.y));
-	colour.z = sqrt(max(0.0f, colour.z));
+	colour.x = sqrtf(fmaxf(0.0f, colour.x));
+	colour.y = sqrtf(fmaxf(0.0f, colour.y));
+	colour.z = sqrtf(fmaxf(0.0f, colour.z));
 
 	taa_frame_curr[pixel_index] = colour;
 
