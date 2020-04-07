@@ -36,6 +36,14 @@ When tracing non-shadow rays (i.e. looking for indirect light) the BRDF is impor
 
 Instead of a binary BVH, the Pathtracer uses a 4-way MBVH (also known as a QBVH). This MBVH is constructed by iteratively collapsing the Nodes of a binary SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
 
+### Blue Noise Sampling
+
+The Pathtracer uses a [low discrepancy sampler by Heitz et al.](https://eheitzresearch.wordpress.com/762-2/) that distributes Monte Carlo errors as a blue noise in screen space. This even works with rasterized primary rays.
+
+### SVGF
+
+A spatio-temporal filter is implemented, as described in the paper by Schied et al.
+
 ## Dependencies
 
 The project uses SDL and GLEW. Their dll's for both x86 and x64 targets are included in the repositories, as well as all required headers.
