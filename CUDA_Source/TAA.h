@@ -1,10 +1,11 @@
+
 extern "C" __global__ void kernel_taa() {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 
 	float4 colour = taa_frame_curr[pixel_index];
 
@@ -37,7 +38,7 @@ extern "C" __global__ void kernel_taa() {
 				mitchell_netravali(float(j) - t_prev);
 
 			sum_weight += weight;
-			sum        += weight * taa_frame_prev[i + j * SCREEN_WIDTH];
+			sum        += weight * taa_frame_prev[i + j * SCREEN_PITCH];
 		}
 	}
 
@@ -52,7 +53,7 @@ extern "C" __global__ void kernel_taa() {
 
 		if (x >= 1) {
 			if (y >= 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_WIDTH - 1]));
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_PITCH - 1]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -64,7 +65,7 @@ extern "C" __global__ void kernel_taa() {
 			colour_var += f * f;
 
 			if (y < SCREEN_HEIGHT - 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_WIDTH - 1]));
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_PITCH - 1]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -72,14 +73,14 @@ extern "C" __global__ void kernel_taa() {
 		}
 		
 		if (y >= 1) {
-			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_WIDTH]));
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_PITCH]));
 
 			colour_avg += f;
 			colour_var += f * f;
 		}
 
 		if (y < SCREEN_HEIGHT - 1) {
-			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_WIDTH]));
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_PITCH]));
 
 			colour_avg += f;
 			colour_var += f * f;
@@ -87,7 +88,7 @@ extern "C" __global__ void kernel_taa() {
 
 		if (x < SCREEN_WIDTH - 1) {
 			if (y >= 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 - SCREEN_WIDTH]));
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 - SCREEN_PITCH]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -99,7 +100,7 @@ extern "C" __global__ void kernel_taa() {
 			colour_var += f * f;
 
 			if (y < SCREEN_HEIGHT - 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 + SCREEN_WIDTH]));
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 + SCREEN_PITCH]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -141,7 +142,7 @@ extern "C" __global__ void kernel_taa_finalize() {
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 
 	float4 colour;
 	surf2Dread(&colour, accumulator, x * sizeof(float4), y);

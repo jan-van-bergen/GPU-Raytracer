@@ -15,7 +15,7 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 	if (x < 0 || x >= SCREEN_WIDTH)  return false;
 	if (y < 0 || y >= SCREEN_HEIGHT) return false;
 
-	float4 prev_normal_and_depth = history_normal_and_depth[x + y * SCREEN_WIDTH];
+	float4 prev_normal_and_depth = history_normal_and_depth[x + y * SCREEN_PITCH];
 	
 	float3 prev_normal = oct_decode_normal(make_float2(prev_normal_and_depth.x, prev_normal_and_depth.y));
 	float prev_depth = prev_normal_and_depth.z;
@@ -93,7 +93,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 
 	float4 direct   = frame_buffer_direct  [pixel_index];
 	float4 indirect = frame_buffer_indirect[pixel_index];
@@ -176,7 +176,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 				int tap_x = x_prev + offset.x;
 				int tap_y = y_prev + offset.y;
 
-				int tap_index = tap_x + tap_y * SCREEN_WIDTH;
+				int tap_index = tap_x + tap_y * SCREEN_PITCH;
 
 				float4 tap_direct   = history_direct  [tap_index];
 				float4 tap_indirect = history_indirect[tap_index];
@@ -200,7 +200,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 				int tap_y = y_prev + j;
 
 				if (is_tap_consistent(tap_x, tap_y, normal, depth_prev, max_change_z)) {
-					int tap_index = tap_x + tap_y * SCREEN_WIDTH;
+					int tap_index = tap_x + tap_y * SCREEN_PITCH;
 
 					prev_direct   += history_direct  [tap_index];
 					prev_indirect += history_indirect[tap_index];
@@ -259,9 +259,9 @@ extern "C" __global__ void kernel_svgf_variance(
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+	if (x >= SCREEN_PITCH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -314,7 +314,7 @@ extern "C" __global__ void kernel_svgf_variance(
 
 			if (i == 0 && j == 0) continue; // Center pixel is treated separately
 
-			int tap_index = tap_x + tap_y * SCREEN_WIDTH;
+			int tap_index = tap_x + tap_y * SCREEN_PITCH;
 
 			float tap_u = (float(tap_x) + 0.5f) / float(SCREEN_WIDTH);
 			float tap_v = (float(tap_y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -389,7 +389,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
@@ -411,8 +411,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 			// Read the Variance of Direct/Indirect Illumination
 			// The Variance is stored in the alpha channel (w coordinate)
-			float variance_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_WIDTH].w;
-			float variance_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_WIDTH].w;
+			float variance_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_PITCH].w;
+			float variance_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_PITCH].w;
 
 			float kernel_weight = kernel_gaussian[abs(i)][abs(j)];
 
@@ -460,8 +460,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 			float tap_u = (float(tap_x) + 0.5f) / float(SCREEN_WIDTH);
 			float tap_v = (float(tap_y) + 0.5f) / float(SCREEN_HEIGHT);
 
-			float4 colour_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_WIDTH];
-			float4 colour_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_WIDTH];
+			float4 colour_direct   = colour_direct_in  [tap_x + tap_y * SCREEN_PITCH];
+			float4 colour_indirect = colour_indirect_in[tap_x + tap_y * SCREEN_PITCH];
 
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
@@ -534,7 +534,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 
 	float4 direct   = colour_direct  [pixel_index];
 	float4 indirect = colour_indirect[pixel_index];

@@ -142,7 +142,7 @@ extern "C" __global__ void kernel_primary(
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 	
 	unsigned seed = (pixel_index + rand_seed * 199494991) * 949525949;
 
@@ -251,8 +251,8 @@ extern "C" __global__ void kernel_generate(
 	ASSERT(x < SCREEN_WIDTH, "");
 	ASSERT(y < SCREEN_HEIGHT, "");
 
-	int pixel_index = x + y * SCREEN_WIDTH;
-	ASSERT(pixel_index < SCREEN_WIDTH * SCREEN_HEIGHT, "Pixel should be on screen");
+	int pixel_index = x + y * SCREEN_PITCH;
+	ASSERT(pixel_index < SCREEN_PITCH * SCREEN_HEIGHT, "Pixel should fit inide the buffer");
 
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
@@ -419,8 +419,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float ray_v = ray_buffer_shade_diffuse.v[index];
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH;
+	int x = ray_pixel_index % SCREEN_PITCH;
+	int y = ray_pixel_index / SCREEN_PITCH;
 
 	float3 ray_throughput           = ray_buffer_shade_diffuse.throughput          .to_float3(index);
 	float3 ray_throughput_effective = ray_buffer_shade_diffuse.throughput_effective.to_float3(index);
@@ -589,8 +589,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float ray_v = ray_buffer_shade_glossy.v[index];
 
 	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
+	int x = ray_pixel_index % SCREEN_PITCH;
+	int y = ray_pixel_index / SCREEN_PITCH; 
 
 	float3 ray_throughput           = ray_buffer_shade_glossy.throughput          .to_float3(index);
 	float3 ray_throughput_effective = ray_buffer_shade_glossy.throughput_effective.to_float3(index);
@@ -691,8 +691,8 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 	float ray_v = ray_buffer_connect.v[index];
 
 	int ray_pixel_index = ray_buffer_connect.pixel_index[index];
-	int x = ray_pixel_index % SCREEN_WIDTH;
-	int y = ray_pixel_index / SCREEN_WIDTH; 
+	int x = ray_pixel_index % SCREEN_PITCH;
+	int y = ray_pixel_index / SCREEN_PITCH; 
 
 	float3 ray_throughput = ray_buffer_connect.throughput.to_float3(index);
 
@@ -802,7 +802,7 @@ extern "C" __global__ void kernel_accumulate(bool enable_albedo, float frames_si
 
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
-	int pixel_index = x + y * SCREEN_WIDTH;
+	int pixel_index = x + y * SCREEN_PITCH;
 
 	float4 direct   = frame_buffer_direct  [pixel_index];
 	float4 indirect = frame_buffer_indirect[pixel_index];

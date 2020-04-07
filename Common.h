@@ -1,11 +1,15 @@
 #pragma once
 // This file contains things that are shared between the CUDA files and the C++ files
 
+#define WARP_SIZE 32
+
 // Screen related
 #define SCREEN_WIDTH  904
 #define SCREEN_HEIGHT 600
 
 #define PIXEL_COUNT (SCREEN_WIDTH * SCREEN_HEIGHT)
+
+#define SCREEN_PITCH ((SCREEN_WIDTH + WARP_SIZE - 1) / WARP_SIZE * WARP_SIZE)
 
 #define BLOCK_WIDTH  8
 #define BLOCK_HEIGHT 4
@@ -13,7 +17,7 @@
 
 static_assert(SCREEN_WIDTH  % BLOCK_WIDTH  == 0, "Screen width  should be divisible by the Block width!");
 static_assert(SCREEN_HEIGHT % BLOCK_HEIGHT == 0, "Screen height should be divisible by the Block height!");
-static_assert(BLOCK_SIZE == 32, "Block size should equal CUDA warp size!");
+static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!");
 
 // Tracing related
 #define EPSILON 0.001f

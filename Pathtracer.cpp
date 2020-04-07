@@ -375,13 +375,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 	
 	// Create Frame Buffers
-	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
 	
-	ptr_direct       = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
-	ptr_indirect     = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
-	ptr_direct_alt   = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
-	ptr_indirect_alt = CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
+	ptr_direct       = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
+	ptr_indirect     = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
+	ptr_direct_alt   = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
+	ptr_indirect_alt = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
 
 	module.get_global("frame_buffer_direct").set_value(ptr_direct.ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
@@ -390,14 +390,14 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	// Create History Buffers 
-	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>  (SCREEN_WIDTH * SCREEN_HEIGHT    ).ptr);
-	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>  (SCREEN_PITCH * SCREEN_HEIGHT    ).ptr);
+	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
 	
-	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4));
-	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float>(SCREEN_WIDTH * SCREEN_HEIGHT * 4));
+	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4));
+	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4));
 
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;
