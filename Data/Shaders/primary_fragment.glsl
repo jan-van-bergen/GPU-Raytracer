@@ -8,9 +8,10 @@ layout (location = 4) in      vec4 in_screen_position_prev;
 
 layout (location = 0) out vec4 out_normal_and_depth;
 layout (location = 1) out vec2 out_uv;
-layout (location = 2) out int  out_triangle_id;
-layout (location = 3) out vec2 out_screen_position_prev;
-layout (location = 4) out vec2 out_depth_gradient;
+layout (location = 2) out vec4 out_uv_gradient;
+layout (location = 3) out int  out_triangle_id;
+layout (location = 4) out vec2 out_screen_position_prev;
+layout (location = 5) out vec2 out_depth_gradient;
 
 // Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
 vec2 oct_wrap(vec2 v) {
@@ -35,6 +36,8 @@ void main() {
 	out_normal_and_depth.a  = in_screen_position_prev.z;
 	
 	out_uv          = in_uv;
+	out_uv_gradient = vec4(dFdx(in_uv), dFdy(in_uv));
+
 	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
 
 	// Perform perspective divide

@@ -1,25 +1,5 @@
 #define epsilon 1e-8f // To avoid division by 0
 
-__device__ float4 * frame_buffer_moment;
-
-// GBuffers
-texture<float4, cudaTextureType2D> gbuffer_normal_and_depth;
-texture<float2, cudaTextureType2D> gbuffer_uv;
-texture<int,    cudaTextureType2D> gbuffer_triangle_id;
-texture<float2, cudaTextureType2D> gbuffer_screen_position_prev;
-texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
-
-// History Buffers (Temporally Integrated)
-__device__ int    * history_length;
-__device__ float4 * history_direct;
-__device__ float4 * history_indirect;
-__device__ float4 * history_moment;
-__device__ float4 * history_normal_and_depth;
-
-// Used for Temporal Anti-Aliasing
-__device__ float4 * taa_frame_curr;
-__device__ float4 * taa_frame_prev;
-
 struct SVGFSettings {
 	float alpha_colour;
 	float alpha_moment;

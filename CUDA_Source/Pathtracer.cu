@@ -16,6 +16,27 @@ __device__ float4 * frame_buffer_albedo;
 __device__ float4 * frame_buffer_direct;
 __device__ float4 * frame_buffer_indirect;
 
+__device__ float4 * frame_buffer_moment;
+
+// GBuffers
+texture<float4, cudaTextureType2D> gbuffer_normal_and_depth;
+texture<float2, cudaTextureType2D> gbuffer_uv;
+texture<float4, cudaTextureType2D> gbuffer_uv_gradient;
+texture<int,    cudaTextureType2D> gbuffer_triangle_id;
+texture<float2, cudaTextureType2D> gbuffer_screen_position_prev;
+texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
+
+// History Buffers (Temporally Integrated)
+__device__ int    * history_length;
+__device__ float4 * history_direct;
+__device__ float4 * history_indirect;
+__device__ float4 * history_moment;
+__device__ float4 * history_normal_and_depth;
+
+// Used for Temporal Anti-Aliasing
+__device__ float4 * taa_frame_curr;
+__device__ float4 * taa_frame_prev;
+
 surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 
 #include "SVGF.h"
@@ -109,6 +130,8 @@ __device__ BufferSizes buffer_sizes;
 // Sends the rasterized GBuffer to the right Material kernels,
 // as if the primary Rays they were Raytraced 
 extern "C" __global__ void kernel_primary(
+	int rand_seed,
+	int sample_index,
 	float3 camera_position,
 	float3 camera_bottom_left_corner,
 	float3 camera_x_axis,
@@ -120,6 +143,8 @@ extern "C" __global__ void kernel_primary(
 	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
 
 	int pixel_index = x + y * SCREEN_WIDTH;
+	
+	unsigned seed = (pixel_index + rand_seed * 199494991) * 949525949;
 
 	float u_screenspace = float(x) + 0.5f;
 	float v_screenspace = float(y) + 0.5f;
@@ -128,11 +153,20 @@ extern "C" __global__ void kernel_primary(
 	float v = v_screenspace / float(SCREEN_HEIGHT);
 
 	float2 uv          = tex2D(gbuffer_uv,          u, v);
-	int    triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
+	float4 uv_gradient = tex2D(gbuffer_uv_gradient, u, v);
+
+	int triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
+
+	// Jitter the barycentric coordinates in screen space using their screen space differentials
+	float dx = random_float_heitz(x, y, sample_index, 0, 0, seed) - 0.5f;
+	float dy = random_float_heitz(x, y, sample_index, 0, 1, seed) - 0.5f;
+
+	uv.x = clamp(uv.x + uv_gradient.x * dx + uv_gradient.z * dy, 1e-8f, 1.0f);
+	uv.y = clamp(uv.y + uv_gradient.y * dx + uv_gradient.w * dy, 1e-8f, 1.0f);
 
 	float3 ray_direction = normalize(camera_bottom_left_corner
-		+ u_screenspace * camera_x_axis
-		+ v_screenspace * camera_y_axis
+		+ (u_screenspace + dx) * camera_x_axis
+		+ (v_screenspace + dy) * camera_y_axis
 	);
 
 	// Triangle ID -1 means no hit
