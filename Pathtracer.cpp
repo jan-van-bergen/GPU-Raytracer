@@ -756,3 +756,4 @@ void Pathtracer::render() {
 
 	time_taa = CUDAEvent::time_elapsed_between(event_taa, event_end);
 }
+

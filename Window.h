@@ -28,4 +28,6 @@ public:
 	void begin_gui() const;
 
 	void update();
+
+	void read_frame_buffer(unsigned char * data) const;
 };

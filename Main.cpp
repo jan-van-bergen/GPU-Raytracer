@@ -149,6 +149,28 @@ int main(int argument_count, char ** arguments) {
 		ImGui::End();
 
 		window.update();
+
+		if (frames == 1) {
+			unsigned char * data = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
+			unsigned char * temp = new unsigned char[SCREEN_WIDTH * 3];
+			
+			window.read_frame_buffer(data);
+
+			// Flip image vertically
+			for (int j = 0; j < SCREEN_HEIGHT / 2; j++) {
+				unsigned char * row_top    = data + (                (j) * SCREEN_WIDTH) * 3;
+				unsigned char * row_bottom = data + ((SCREEN_HEIGHT - j) * SCREEN_WIDTH) * 3;
+
+				memcpy(temp,       row_top,    SCREEN_WIDTH * 3);
+				memcpy(row_top,    row_bottom, SCREEN_WIDTH * 3);
+				memcpy(row_bottom, temp,       SCREEN_WIDTH * 3);
+			}
+
+			Util::export_ppm("test.ppm", SCREEN_WIDTH, SCREEN_HEIGHT, data);
+
+			delete [] temp;
+			delete [] data;
+		}
 	}
 
 	return EXIT_SUCCESS;

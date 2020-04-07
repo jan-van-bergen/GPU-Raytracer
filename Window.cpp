@@ -112,3 +112,8 @@ void Window::update() {
 		}
 	}
 }
+
+void Window::read_frame_buffer(unsigned char * data) const {
+	//glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,  GL_RGB, GL_UNSIGNED_BYTE, data);
+	glGetTextureImage(frame_buffer_handle, 0, GL_RGB, GL_UNSIGNED_BYTE, SCREEN_WIDTH * SCREEN_HEIGHT * 3, data);
+}

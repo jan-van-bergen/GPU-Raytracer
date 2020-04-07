@@ -349,3 +349,6 @@ healthchecksdb
 
 # Dear ImGui configuration
 imgui.ini
+
+# PPM is used for debug output of images
+.ppm

@@ -1,6 +1,7 @@
 #include "Util.h"
 
 #include <cstring>
+#include <cstdio>
 
 const char * Util::get_path(const char * file_path) {
 	const char * path_end      = file_path;
@@ -22,4 +23,15 @@ const char * Util::get_path(const char * file_path) {
 	path[path_length] = NULL;
 
 	return path;
+}
+
+// Based on: https://rosettacode.org/wiki/Bitmap/Write_a_PPM_file
+void Util::export_ppm(const char * file_path, int width, int height, const unsigned char * data) {
+	FILE * file;
+	fopen_s(&file, file_path, "wb");
+
+	fprintf(file, "P6\n %d\n %d\n %d\n", width, height, 255);
+	fwrite(data, sizeof(char), width * height * 3, file);
+
+	fclose(file);
 }
