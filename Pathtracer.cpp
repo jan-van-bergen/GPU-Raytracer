@@ -623,7 +623,6 @@ void Pathtracer::render() {
 
 		kernel_extend.execute(rand(), 0);
 	}
-
 	// Process the various Material types in different Kernels
 	event_shade_diffuse[0].record();
 	if (scene_has_diffuse) {

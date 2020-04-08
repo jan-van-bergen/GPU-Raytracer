@@ -138,10 +138,30 @@ const MeshData * MeshData::load(const char * file_path) {
 			mesh_data->triangles[triangle_offset + v].position_1 = positions[3*v + 1];
 			mesh_data->triangles[triangle_offset + v].position_2 = positions[3*v + 2];
 
-			mesh_data->triangles[triangle_offset + v].normal_0 = normals[3*v    ];
-			mesh_data->triangles[triangle_offset + v].normal_1 = normals[3*v + 1];
-			mesh_data->triangles[triangle_offset + v].normal_2 = normals[3*v + 2];
+			Vector3 normal_0 = normals[3*v    ];
+			Vector3 normal_1 = normals[3*v + 1];
+			Vector3 normal_2 = normals[3*v + 2];
 			
+			bool normal_0_invalid = Vector3::length(normal_0) == 0;
+			bool normal_1_invalid = Vector3::length(normal_1) == 0;
+			bool normal_2_invalid = Vector3::length(normal_2) == 0;
+
+			// Replace zero normals with the geometric normal of defined by the Triangle
+			if (normal_0_invalid || normal_1_invalid || normal_2_invalid) {
+				Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
+					mesh_data->triangles[triangle_offset + v].position_1 - mesh_data->triangles[triangle_offset + v].position_0,
+					mesh_data->triangles[triangle_offset + v].position_2 - mesh_data->triangles[triangle_offset + v].position_0
+				));
+
+				if (normal_0_invalid) normal_0 = geometric_normal;
+				if (normal_1_invalid) normal_1 = geometric_normal;
+				if (normal_2_invalid) normal_2 = geometric_normal;
+			} 
+
+			mesh_data->triangles[triangle_offset + v].normal_0 = normal_0;
+			mesh_data->triangles[triangle_offset + v].normal_1 = normal_1;
+			mesh_data->triangles[triangle_offset + v].normal_2 = normal_2;
+
 			mesh_data->triangles[triangle_offset + v].tex_coord_0 = tex_coords[3*v    ];
 			mesh_data->triangles[triangle_offset + v].tex_coord_1 = tex_coords[3*v + 1];
 			mesh_data->triangles[triangle_offset + v].tex_coord_2 = tex_coords[3*v + 2];
