@@ -186,6 +186,8 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 	stack[0] = 1;
 
 	while (stack_size > 0) {
+		assert(stack_size <= 32);
+
 		// Pop Node of the stack
 		unsigned packed = stack[--stack_size];
 
@@ -195,7 +197,7 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 		int index = mbvh_nodes[node_index].child[node_id];
 		int count = mbvh_nodes[node_index].count[node_id];
 
-		ASSERT(count != -1, "Unpacked invalid Node!");
+		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
 
 		// Check if the Node is a leaf
 		if (count > 0) {
@@ -236,7 +238,7 @@ __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
 		int index = mbvh_nodes[node_index].index[node_id];
 		int count = mbvh_nodes[node_index].count[node_id];
 
-		ASSERT(count != -1, "Unpacked invalid Node!");
+		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
 
 		// Check if the Node is a leaf
 		if (count > 0) {

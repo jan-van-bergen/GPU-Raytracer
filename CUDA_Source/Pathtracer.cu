@@ -161,8 +161,8 @@ extern "C" __global__ void kernel_primary(
 	float dx = random_float_heitz(x, y, sample_index, 0, 0, seed) - 0.5f;
 	float dy = random_float_heitz(x, y, sample_index, 0, 1, seed) - 0.5f;
 
-	uv.x = clamp(uv.x + uv_gradient.x * dx + uv_gradient.z * dy, 1e-8f, 1.0f);
-	uv.y = clamp(uv.y + uv_gradient.y * dx + uv_gradient.w * dy, 1e-8f, 1.0f);
+	uv.x = saturate(uv.x + uv_gradient.x * dx + uv_gradient.z * dy);
+	uv.y = saturate(uv.y + uv_gradient.y * dx + uv_gradient.w * dy);
 
 	float3 ray_direction = normalize(camera_bottom_left_corner
 		+ (u_screenspace + dx) * camera_x_axis
