@@ -25,9 +25,12 @@ public:
 	Window(const char * title);
 	~Window();
 
-	void begin_gui() const;
+	void draw_quad() const;
 
-	void update();
+	void gui_begin() const;
+	void gui_end()   const;
+
+	void swap();
 
 	void read_frame_buffer(unsigned char * data) const;
 };

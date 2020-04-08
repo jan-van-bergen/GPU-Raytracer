@@ -79,13 +79,7 @@ Window::~Window() {
 	SDL_Quit();
 }
 
-void Window::begin_gui() const {
-	ImGui_ImplOpenGL3_NewFrame();
-	ImGui_ImplSDL2_NewFrame(window);
-	ImGui::NewFrame();
-}
-
-void Window::update() {
+void Window::draw_quad() const {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	shader.bind();
@@ -97,10 +91,20 @@ void Window::update() {
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
 	shader.unbind();
+}
 
+void Window::gui_begin() const {
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplSDL2_NewFrame(window);
+	ImGui::NewFrame();
+}
+
+void Window::gui_end() const {
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
 
+void Window::swap() {
 	SDL_GL_SwapWindow(window);
 
 	SDL_Event event;
@@ -114,6 +118,6 @@ void Window::update() {
 }
 
 void Window::read_frame_buffer(unsigned char * data) const {
-	//glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,  GL_RGB, GL_UNSIGNED_BYTE, data);
-	glGetTextureImage(frame_buffer_handle, 0, GL_RGB, GL_UNSIGNED_BYTE, SCREEN_WIDTH * SCREEN_HEIGHT * 3, data);
+	glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
+	glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, data);
 }

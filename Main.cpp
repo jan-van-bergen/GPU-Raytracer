@@ -13,6 +13,28 @@
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
+static void capture_screen(const Window & window, const char * file_name) {
+	unsigned char * data = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
+	unsigned char * temp = new unsigned char[SCREEN_WIDTH * 3];
+			
+	window.read_frame_buffer(data);
+
+	// Flip image vertically
+	for (int j = 0; j < SCREEN_HEIGHT / 2; j++) {
+		unsigned char * row_top    = data + (                (j) * SCREEN_WIDTH) * 3;
+		unsigned char * row_bottom = data + ((SCREEN_HEIGHT - j) * SCREEN_WIDTH) * 3;
+
+		memcpy(temp,       row_top,    SCREEN_WIDTH * 3);
+		memcpy(row_top,    row_bottom, SCREEN_WIDTH * 3);
+		memcpy(row_bottom, temp,       SCREEN_WIDTH * 3);
+	}
+
+	Util::export_ppm(file_name, SCREEN_WIDTH, SCREEN_HEIGHT, data);
+
+	delete [] temp;
+	delete [] data;
+}
+
 #define TOTAL_TIMING_COUNT 100
 float timings[TOTAL_TIMING_COUNT];
 int   current_frame = 0;
@@ -71,7 +93,13 @@ int main(int argument_count, char ** arguments) {
 			frames = 0;
 		}
 
-		window.begin_gui();
+		window.draw_quad();
+		
+		if (current_frame == 1) {
+			capture_screen(window, "debug.ppm");
+		}
+		
+		window.gui_begin();
 
 		ImGui::Begin("Pathtracer");
 
@@ -148,29 +176,8 @@ int main(int argument_count, char ** arguments) {
 
 		ImGui::End();
 
-		window.update();
-
-		if (frames == 1) {
-			unsigned char * data = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
-			unsigned char * temp = new unsigned char[SCREEN_WIDTH * 3];
-			
-			window.read_frame_buffer(data);
-
-			// Flip image vertically
-			for (int j = 0; j < SCREEN_HEIGHT / 2; j++) {
-				unsigned char * row_top    = data + (                (j) * SCREEN_WIDTH) * 3;
-				unsigned char * row_bottom = data + ((SCREEN_HEIGHT - j) * SCREEN_WIDTH) * 3;
-
-				memcpy(temp,       row_top,    SCREEN_WIDTH * 3);
-				memcpy(row_top,    row_bottom, SCREEN_WIDTH * 3);
-				memcpy(row_bottom, temp,       SCREEN_WIDTH * 3);
-			}
-
-			Util::export_ppm("test.ppm", SCREEN_WIDTH, SCREEN_HEIGHT, data);
-
-			delete [] temp;
-			delete [] data;
-		}
+		window.gui_end();
+		window.swap();
 	}
 
 	return EXIT_SUCCESS;
