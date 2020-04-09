@@ -276,7 +276,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.N_extend[bounce]) return;
 
-	float3 ray_origin    = ray_buffer_extend.origin.to_float3(index);
+	float3 ray_origin    = ray_buffer_extend.origin   .to_float3(index);
 	float3 ray_direction = ray_buffer_extend.direction.to_float3(index);
 
 	Ray ray;
@@ -312,7 +312,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	unsigned seed = (index + rand_seed * 906313609) * 341828143;
 
 	// Russian Roulette termination
-	float p_survive = clamp(max(ray_throughput_effective.x, max(ray_throughput_effective.y, ray_throughput_effective.z)), 0.0f, 1.0f);
+	float p_survive = saturate(fmaxf(ray_throughput_effective.x, fmaxf(ray_throughput_effective.y, ray_throughput_effective.z)));
 	if (random_float_xorshift(seed) > p_survive) {
 		return;
 	}
@@ -467,7 +467,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	float3 direction = random_cosine_weighted_diffuse_reflection(x, y, sample_index, bounce, seed, hit_normal);
 
-	ray_buffer_extend.origin.from_float3(index_out, hit_point);
+	ray_buffer_extend.origin   .from_float3(index_out, hit_point);
 	ray_buffer_extend.direction.from_float3(index_out, direction);
 
 	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
@@ -568,7 +568,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
-	ray_buffer_extend.origin.from_float3(index_out, hit_point);
+	ray_buffer_extend.origin   .from_float3(index_out, hit_point);
 	ray_buffer_extend.direction.from_float3(index_out, direction);
 
 	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
@@ -636,10 +636,10 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
 
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = (1.2f - 0.2f * sqrt(dot(direction_in, hit_normal))) * material.roughness;
+	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
 	
 	// Sample normal distribution in spherical coordinates
-	float theta = atan(sqrt(-alpha * alpha * log(random_float_heitz(x, y, sample_index, bounce, 4, seed) + 1e-8f)));
+	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 4, seed) + 1e-8f)));
 	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 5, seed);
 
 	float sin_theta, cos_theta;
@@ -671,7 +671,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	int index_out = atomic_agg_inc(&buffer_sizes.N_extend[bounce + 1]);
 
-	ray_buffer_extend.origin.from_float3(index_out, hit_point);
+	ray_buffer_extend.origin   .from_float3(index_out, hit_point);
 	ray_buffer_extend.direction.from_float3(index_out, direction_out);
 
 	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
@@ -758,7 +758,7 @@ extern "C" __global__ void kernel_connect(int rand_seed, int bounce, int sample_
 
 				float3 half_vector = normalize(to_light + prev_direction_in);
 
-				float alpha = (1.2f - 0.2f * sqrt(cos_i)) * hit_material.roughness;
+				float alpha = (1.2f - 0.2f * sqrtf(cos_i)) * hit_material.roughness;
 				
 				float i_dot_n = dot(prev_direction_in, hit_normal);
 				float m_dot_n = dot(half_vector,       hit_normal);

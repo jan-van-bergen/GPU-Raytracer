@@ -38,9 +38,8 @@ __device__ float random_float_xorshift(unsigned & seed) {
 
 __device__ float random_float_heitz(int x, int y, int sample_index, int bounce, int dimension, unsigned & seed) {
 	// Use Blue Noise sampler for first 256 samples
-	// Only do this on the first bounce, because we use up the 8 available dimensions on the first bounce
-    if (sample_index < 256 && bounce == 0) {
-        return random_heitz(x, y, sample_index, dimension);
+    if (sample_index < 256) {
+        return random_heitz(x, y, sample_index, (bounce << 3) + dimension);
     } else {
         return random_float_xorshift(seed);
     }
