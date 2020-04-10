@@ -21,8 +21,8 @@ static void capture_screen(const Window & window, const char * file_name) {
 
 	// Flip image vertically
 	for (int j = 0; j < SCREEN_HEIGHT / 2; j++) {
-		unsigned char * row_top    = data + (                (j) * SCREEN_WIDTH) * 3;
-		unsigned char * row_bottom = data + ((SCREEN_HEIGHT - j) * SCREEN_WIDTH) * 3;
+		unsigned char * row_top    = data +                  j      * SCREEN_WIDTH * 3;
+		unsigned char * row_bottom = data + (SCREEN_HEIGHT - j - 1) * SCREEN_WIDTH * 3;
 
 		memcpy(temp,       row_top,    SCREEN_WIDTH * 3);
 		memcpy(row_top,    row_bottom, SCREEN_WIDTH * 3);
@@ -95,9 +95,9 @@ int main(int argument_count, char ** arguments) {
 
 		window.draw_quad();
 		
-		//if (current_frame == 1) {
-		//	capture_screen(window, "debug.ppm");
-		//}
+		if (current_frame == 1) {
+			capture_screen(window, "debug.ppm");
+		}
 		
 		window.gui_begin();
 
