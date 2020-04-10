@@ -570,9 +570,7 @@ void Pathtracer::render() {
 
 		shader.bind();
 
-		Matrix4 jitter_view_projection = camera.view_projection * Matrix4::create_translation(Vector3(camera.jitter.x, camera.jitter.y, 0.0f));
-
-		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&jitter_view_projection));
+		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
 		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection_prev));
 
 		glEnableVertexAttribArray(0);

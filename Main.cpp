@@ -95,9 +95,9 @@ int main(int argument_count, char ** arguments) {
 
 		window.draw_quad();
 		
-		if (current_frame == 1) {
-			capture_screen(window, "debug.ppm");
-		}
+		//if (current_frame == 1) {
+		//	capture_screen(window, "debug.ppm");
+		//}
 		
 		window.gui_begin();
 

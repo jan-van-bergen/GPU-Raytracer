@@ -21,6 +21,7 @@ struct Matrix4 {
 		assert(j >= 0 && j < 4); 
 		return cells[i + (j << 2)]; 
 	}
+
 	inline const float & operator()(int i, int j) const { 
 		assert(i >= 0 && i < 4); 
 		assert(j >= 0 && j < 4); 
