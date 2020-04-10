@@ -329,6 +329,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	uniform_view_projection      = shader.get_uniform("view_projection");
 	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
 
+	uniform_jitter = shader.get_uniform("jitter");
+
 	gbuffer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	module.set_texture("gbuffer_normal_and_depth",     CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
@@ -572,6 +574,8 @@ void Pathtracer::render() {
 
 		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
 		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection_prev));
+
+		glUniform2f(uniform_jitter, camera.jitter.x, camera.jitter.y);
 
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);

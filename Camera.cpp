@@ -61,15 +61,16 @@ void Camera::update(float delta, const unsigned char * keys) {
 	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
 
 	jitter = Vector2(
-		halton_x[jitter_index], 
-		halton_y[jitter_index]
+		(halton_x[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
+		(halton_y[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
 	);
 
 	jitter_index = (jitter_index + 1) & 3;
 
 	// Apply jitter in NDC (after perspective divide)
-	projection(2, 0) = -(jitter.x * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH));
-	projection(2, 1) = -(jitter.y * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT));
+	// Jitter is negative because we divide by negative z
+	projection(2, 0) = -jitter.x;
+	projection(2, 1) = -jitter.y;
 
 	// The view matrix V is the inverse of the World M
 	// M^-1 = (RT)^-1 = T^-1 * R^-1
