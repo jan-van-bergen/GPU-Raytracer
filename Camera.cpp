@@ -22,15 +22,31 @@ void Camera::resize(int width, int height) {
 }
 
 void Camera::update(float delta, const unsigned char * keys) {
-	// Previous ViewProjection matrix is unjittered
+	static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
+	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
+
+	jitter = Vector2(
+		(halton_x[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
+		(halton_y[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
+	);
+
+	jitter_index = (jitter_index + 1) & 3;
+	
+	// Apply jitter in NDC (after perspective divide)
+	// Jitter is negative because we divide by negative z
+	Matrix4 projection_jittered = projection;
+	projection_jittered(2, 0) = -jitter.x;
+	projection_jittered(2, 1) = -jitter.y;
+
+	// Compute previous View Projection with the CURRENT jitter
 	view_projection_prev = 
 		Matrix4::create_translation(-position) * 
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
-		projection;
-
-	moved = false;
+		projection_jittered;
 
 	// Move Camera around
+	moved = false;
+
 	const float MOVEMENT_SPEED = 10.0f;
 	const float ROTATION_SPEED =  3.0f;
 
@@ -61,24 +77,6 @@ void Camera::update(float delta, const unsigned char * keys) {
 	x_axis_rotated             = rotation * x_axis;
 	y_axis_rotated             = rotation * y_axis;
 
-	static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
-	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
-
-	jitter = Vector2(
-		(halton_x[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
-		(halton_y[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
-	);
-
-	jitter_index = (jitter_index + 1) & 3;
-
-	// Apply jitter in NDC (after perspective divide)
-	// Jitter is negative because we divide by negative z
-	Matrix4 projection_jittered = projection;
-	projection_jittered(2, 0) = -jitter.x;
-	projection_jittered(2, 1) = -jitter.y;
-
-	// The view matrix V is the inverse of the World M
-	// M^-1 = (RT)^-1 = T^-1 * R^-1
 	view_projection = 
 		Matrix4::create_translation(-position) * 
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 

@@ -74,8 +74,6 @@ private:
 	GLuint uniform_view_projection;
 	GLuint uniform_view_projection_prev;
 
-	GLuint uniform_jitter;
-
 	CUDAMemory::Ptr<float> ptr_direct;
 	CUDAMemory::Ptr<float> ptr_indirect;
 	CUDAMemory::Ptr<float> ptr_direct_alt;
