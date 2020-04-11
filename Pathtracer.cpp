@@ -547,17 +547,17 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 void Pathtracer::update(float delta, const unsigned char * keys) {
 	camera.update(delta, keys);
 
-	if (enable_svgf) {
-		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
-	} else {
-		if (camera.moved) {
-			frames_since_camera_moved = 0;
-		} else {
-			frames_since_camera_moved++;
-		}
-	}
+	if (settings_changed) {
+		frames_since_camera_moved = 0;
 
-	global_svgf_settings.set_value(svgf_settings);
+		global_svgf_settings.set_value(svgf_settings);
+	} else if (enable_svgf) {
+		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
+	} else if (camera.moved) {
+		frames_since_camera_moved = 0;
+	} else {
+		frames_since_camera_moved++;
+	}
 }
 
 void Pathtracer::render() {

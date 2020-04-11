@@ -14,6 +14,8 @@ struct Pathtracer {
 	int frames_since_camera_moved = -1;
 	
 	// Settings
+	bool settings_changed = true;
+
 	bool enable_rasterization = true;
 	bool enable_svgf          = true;
 	bool enable_taa           = true;

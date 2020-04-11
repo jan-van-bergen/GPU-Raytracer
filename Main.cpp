@@ -166,13 +166,17 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
-			ImGui::Checkbox("Enable SVGF",            &pathtracer.enable_svgf);
-			ImGui::Checkbox("Enable TAA",             &pathtracer.enable_taa);
-			ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
+			bool settings_changed = false;
 
-			ImGui::SliderFloat("alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
-			ImGui::SliderFloat("alpha moment", &pathtracer.svgf_settings.alpha_moment, 0.0f, 1.0f);
+			settings_changed |= ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
+			settings_changed |= ImGui::Checkbox("Enable SVGF",            &pathtracer.enable_svgf);
+			settings_changed |= ImGui::Checkbox("Enable TAA",             &pathtracer.enable_taa);
+			settings_changed |= ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
+
+			settings_changed |= ImGui::SliderFloat("alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
+			settings_changed |= ImGui::SliderFloat("alpha moment", &pathtracer.svgf_settings.alpha_moment, 0.0f, 1.0f);
+
+			pathtracer.settings_changed = settings_changed;
 		}
 
 		ImGui::End();
