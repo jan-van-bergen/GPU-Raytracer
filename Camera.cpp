@@ -22,6 +22,12 @@ void Camera::resize(int width, int height) {
 }
 
 void Camera::update(float delta, const unsigned char * keys) {
+	// Previous ViewProjection matrix is unjittered
+	view_projection_prev = 
+		Matrix4::create_translation(-position) * 
+		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
+		projection;
+
 	moved = false;
 
 	// Move Camera around
@@ -55,8 +61,6 @@ void Camera::update(float delta, const unsigned char * keys) {
 	x_axis_rotated             = rotation * x_axis;
 	y_axis_rotated             = rotation * y_axis;
 
-	view_projection_prev = view_projection;
-
 	static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
 	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
 
@@ -69,13 +73,14 @@ void Camera::update(float delta, const unsigned char * keys) {
 
 	// Apply jitter in NDC (after perspective divide)
 	// Jitter is negative because we divide by negative z
-	projection(2, 0) = -jitter.x;
-	projection(2, 1) = -jitter.y;
+	Matrix4 projection_jittered = projection;
+	projection_jittered(2, 0) = -jitter.x;
+	projection_jittered(2, 1) = -jitter.y;
 
 	// The view matrix V is the inverse of the World M
 	// M^-1 = (RT)^-1 = T^-1 * R^-1
 	view_projection = 
 		Matrix4::create_translation(-position) * 
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
-		projection;
+		projection_jittered;
 }

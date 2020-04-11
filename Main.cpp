@@ -80,7 +80,7 @@ int main(int argument_count, char ** arguments) {
 		for (int i = 0; i < count; i++) {
 			avg += timings[i];
 		}
-		avg /= count;
+		avg /= float(count);
 
 		// Calculate fps
 		frames++;
@@ -105,8 +105,8 @@ int main(int argument_count, char ** arguments) {
 
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_since_camera_moved);
-			ImGui::Text("Delta: %.2f ms", delta_time * 1000.0f);
-			ImGui::Text("Avg:   %.2f ms", avg        * 1000.0f);
+			ImGui::Text("Delta: %.2f ms", 1000.0f * delta_time);
+			ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
 			ImGui::Text("FPS: %i", fps);
 			
 			ImGui::Text(" - Primary: %.2f ms", pathtracer.time_primary);
@@ -131,8 +131,9 @@ int main(int argument_count, char ** arguments) {
 			}
 
 			if (ImGui::TreeNode("Bounces", "Bounces: %.2f ms", sum_bounce)) {
-				for (int i = 0; i < NUM_BOUNCES; i++) {
-					char str_id[16];
+				char str_id[16];
+
+				for (int i = 0; i < NUM_BOUNCES; i++) {	
 					sprintf_s(str_id, "Bounce %i", i);
 
 					if (ImGui::TreeNode(str_id, "%i: %.2f ms", i, time_bounce[i])) {
