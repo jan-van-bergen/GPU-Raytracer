@@ -62,7 +62,7 @@ static struct ExtendBuffer {
 		last_pdf           = CUDAMemory::malloc<float>(buffer_size);
 	}
 };
-	
+
 static struct MaterialBuffer {
 	CUDAMemory::Ptr<float> direction_x;
 	CUDAMemory::Ptr<float> direction_y;

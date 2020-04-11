@@ -42,8 +42,8 @@ surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
 #include "SVGF.h"
 #include "TAA.h"
 
-// Vector3 in AoS layout
-struct Vector3 {
+// Vector3 buffer in SoA layout
+struct Vector3_SoA {
 	float * x;
 	float * y;
 	float * z;
@@ -66,13 +66,13 @@ struct Vector3 {
 // Input to the Extend Kernel in SoA layout
 struct ExtendBuffer {
 	// Ray related
-	Vector3 origin;
-	Vector3 direction;
+	Vector3_SoA origin;
+	Vector3_SoA direction;
 
 	// Pixel colour related
-	int   * pixel_index;
-	Vector3 throughput;
-	Vector3 throughput_effective; // Albedo and Illumination are separated for SVGF. Effective throughput is used for Russian Roullette
+	int       * pixel_index;
+	Vector3_SoA throughput;
+	Vector3_SoA throughput_effective; // Albedo and Illumination are separated for SVGF. Effective throughput is used for Russian Roullette
 
 	// Material related
 	char  * last_material_type;
@@ -82,7 +82,7 @@ struct ExtendBuffer {
 // Input to the various Shade Kernels in SoA layout
 struct MaterialBuffer {
 	// Ray related
-	Vector3 direction;	
+	Vector3_SoA direction;	
 	
 	// Hit related
 	int   * triangle_id;
@@ -90,15 +90,15 @@ struct MaterialBuffer {
 	float * v;
 
 	// Pixel colour related
-	int   * pixel_index;
-	Vector3 throughput;
-	Vector3 throughput_effective;
+	int       * pixel_index;
+	Vector3_SoA throughput;
+	Vector3_SoA throughput_effective;
 };
 
 // Input to the Connect Kernel in SoA layout
 struct ShadowRayBuffer {
 	// Ray related
-	Vector3 prev_direction_in;
+	Vector3_SoA prev_direction_in;
 
 	// Hit related
 	int   * triangle_id;
@@ -106,8 +106,8 @@ struct ShadowRayBuffer {
 	float * v;
 
 	// Pixel colour related
-	int   * pixel_index;
-	Vector3 throughput;
+	int       * pixel_index;
+	Vector3_SoA throughput;
 };
 
 __device__ ExtendBuffer    ray_buffer_extend;
