@@ -95,6 +95,20 @@ struct Matrix4 {
 
 		return result;
 	}
+	
+	inline static Matrix4 perspective_infinite(float fov, float aspect, float near) {
+		float tan_half_fov = tanf(0.5f * fov);
+
+		Matrix4 result;
+		result(0, 0) =  1.0f / (aspect * tan_half_fov);
+		result(1, 1) =  1.0f / tan_half_fov;
+		result(2, 2) = -1.0f;
+		result(2, 3) = -1.0f;
+		result(3, 2) = -2.0f * near;
+		result(3, 3) =  0.0f;
+
+		return result;
+	}
 
 	inline static Matrix4 transpose(const Matrix4 & matrix) {
 		Matrix4 result;

@@ -14,6 +14,8 @@
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
 static void capture_screen(const Window & window, const char * file_name) {
+	ScopedTimer timer("Screenshot");
+
 	unsigned char * data = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
 	unsigned char * temp = new unsigned char[SCREEN_WIDTH * 3];
 			
@@ -95,7 +97,7 @@ int main(int argument_count, char ** arguments) {
 
 		window.draw_quad();
 		
-		if (current_frame == 1) {
+		if (current_frame == -1) {
 			capture_screen(window, "debug.ppm");
 		}
 		
