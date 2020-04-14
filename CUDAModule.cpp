@@ -79,10 +79,23 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 #endif
 		printf("Compiling CUDA Module %s\n", filename);
 
-		ScopedTimer timer("Compilation");
+		{
+			ScopedTimer timer("Compilation");
 
-		int exit_code = system(command);
-		if (exit_code != EXIT_SUCCESS) abort(); // Compilation failed!
+			int exit_code = system(command);
+			if (exit_code != EXIT_SUCCESS) abort(); // Compilation failed!
+		}
+
+#if false
+		sprintf_s(command, "nvcc -ptx -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -restrict -arch=sm_%i -maxrregcount=%i -o %s %s", compute_capability, max_registers, "CUDA_Source/debug.ptx", filename);
+		
+		{
+			ScopedTimer timer("PTX");
+
+			int exit_code = system(command);
+			if (exit_code != EXIT_SUCCESS) abort(); // Compilation failed!
+		}
+#endif
 	} else {
 		printf("CUDA Module %s did not need to recompile.\n", filename);
 	}

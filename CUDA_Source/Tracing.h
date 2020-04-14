@@ -151,16 +151,18 @@ __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray 
 	result.t_near_i[3] = (result.t_near_i[3] & 0xfffffffc) | 3;
 
 	// Bubble sort to order the hit distances
+	#pragma unroll
 	for (int i = 1; i < MBVH_WIDTH; i++) {
-		int j = i - 1;
-
-		while (j >= 0 && result.t_near_f[j] < result.t_near_f[j + 1]) {
-			// XOR swap
-			result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
-			result.t_near_i[j + 1] ^= result.t_near_i[j    ];	
-			result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
-
-			j--;
+		#pragma unroll
+		for (int j = i - 1; j >= 0; j--) {
+			if (result.t_near_f[j] < result.t_near_f[j + 1]) {
+				// int temp             = result.t_near_i[j  ];
+				// result.t_near_i[j  ] = result.t_near_i[j+1];
+				// result.t_near_i[j+1] = temp;
+				result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
+				result.t_near_i[j + 1] ^= result.t_near_i[j    ];	
+				result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
+			}
 		}
 	}
 

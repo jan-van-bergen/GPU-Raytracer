@@ -352,3 +352,6 @@ imgui.ini
 
 # PPM is used for debug output of images
 *.ppm
+
+# CUDA PTX assembly
+*.ptx
