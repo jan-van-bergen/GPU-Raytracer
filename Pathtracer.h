@@ -16,18 +16,19 @@ struct Pathtracer {
 	// Settings
 	bool settings_changed = true;
 
-	bool enable_rasterization = true;
-	bool enable_svgf          = true;
-	bool enable_taa           = true;
-	bool enable_albedo        = true;
+	bool enable_rasterization    = true;
+	bool enable_svgf             = true;
+	bool enable_spatial_variance = false;
+	bool enable_taa              = true;
+	bool enable_albedo           = true;
 
 	struct SVGFSettings {
 		float alpha_colour = 0.2f;
 		float alpha_moment = 0.2f;
 
-		float sigma_z     =   1.0f;
-		float sigma_n     = 128.0f;
-		float sigma_l_inv = 1.0f / 40.0f;
+		float sigma_z     = 1.0f;
+		float sigma_n     = 1.0f;
+		float sigma_l_inv = 1.0f / 8.0f;
 	} svgf_settings;
 
 	// Course profile timings

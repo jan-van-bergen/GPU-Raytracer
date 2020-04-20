@@ -241,8 +241,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	} else {
 		history_length[pixel_index] = 0; // Reset History Length
 
-		direct.w   = 10000.0f;
-		indirect.w = 10000.0f;
+		direct.w   = 1.0f;
+		indirect.w = 1.0f;
 	}
 
 	frame_buffer_direct  [pixel_index] = direct;

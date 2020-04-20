@@ -682,13 +682,13 @@ void Pathtracer::render() {
 		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
 		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
-#if false
-		// Estimate Variance spatially
-		kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
-#else
-		std::swap(direct_in,   direct_out);
-		std::swap(indirect_in, indirect_out);
-#endif
+		if (enable_spatial_variance) {
+			// Estimate Variance spatially
+			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
+		} else {
+			std::swap(direct_in,   direct_out);
+			std::swap(indirect_in, indirect_out);
+		}
 
 		// À-Trous Filter
 		for (int i = 0; i < ATROUS_ITERATIONS; i++) {
