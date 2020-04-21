@@ -215,36 +215,55 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		bvh.save_to_disk(bvh_filename.c_str());
 	}
 
+	int leaf_count      = bvh.leaf_count;
+	int primitive_count = bvh.primitive_count;
+
+	int      * indices;
+	Triangle * primitives;
+
+#if BVH_TYPE == BVH_SAH
+	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+
+	indices    = bvh.indices_x;
+	primitives = bvh.primitives;
+#elif BVH_TYPE == BVH_MBVH
 	MBVH<Triangle> mbvh;
 	mbvh.init(bvh);
+	
+	// Set global MBVHNode buffer
+	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
 
+	indices    = mbvh.indices;
+	primitives = mbvh.primitives;
+#endif
+	
 	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
 	// (This does mean more memory consumption)
-	Triangle * flat_triangles  = new Triangle[mbvh.leaf_count];
-	int      * reverse_indices = new int     [mbvh.leaf_count];
+	Triangle * flat_triangles  = new Triangle[leaf_count];
+	int      * reverse_indices = new int     [leaf_count];
 
-	for (int i = 0; i < mbvh.leaf_count; i++) {
-		flat_triangles[i] = mbvh.primitives[mbvh.indices[i]];
+	for (int i = 0; i < leaf_count; i++) {
+		flat_triangles[i] = primitives[indices[i]];
 
-		reverse_indices[mbvh.indices[i]] = i;
+		reverse_indices[indices[i]] = i;
 	}
 
 	// Allocate Triangles in SoA format
-	Vector3 * triangles_position0      = new Vector3[mbvh.leaf_count];
-	Vector3 * triangles_position_edge1 = new Vector3[mbvh.leaf_count];
-	Vector3 * triangles_position_edge2 = new Vector3[mbvh.leaf_count];
+	Vector3 * triangles_position0      = new Vector3[leaf_count];
+	Vector3 * triangles_position_edge1 = new Vector3[leaf_count];
+	Vector3 * triangles_position_edge2 = new Vector3[leaf_count];
 
-	Vector3 * triangles_normal0      = new Vector3[mbvh.leaf_count];
-	Vector3 * triangles_normal_edge1 = new Vector3[mbvh.leaf_count];
-	Vector3 * triangles_normal_edge2 = new Vector3[mbvh.leaf_count]; 
+	Vector3 * triangles_normal0      = new Vector3[leaf_count];
+	Vector3 * triangles_normal_edge1 = new Vector3[leaf_count];
+	Vector3 * triangles_normal_edge2 = new Vector3[leaf_count]; 
 	
-	Vector2 * triangles_tex_coord0      = new Vector2[mbvh.leaf_count];
-	Vector2 * triangles_tex_coord_edge1 = new Vector2[mbvh.leaf_count];
-	Vector2 * triangles_tex_coord_edge2 = new Vector2[mbvh.leaf_count];
+	Vector2 * triangles_tex_coord0      = new Vector2[leaf_count];
+	Vector2 * triangles_tex_coord_edge1 = new Vector2[leaf_count];
+	Vector2 * triangles_tex_coord_edge2 = new Vector2[leaf_count];
 
-	int * triangles_material_id = new int[mbvh.leaf_count];
+	int * triangles_material_id = new int[leaf_count];
 
-	for (int i = 0; i < mbvh.leaf_count; i++) {
+	for (int i = 0; i < leaf_count; i++) {
 		triangles_position0[i]      = flat_triangles[i].position_0;
 		triangles_position_edge1[i] = flat_triangles[i].position_1 - flat_triangles[i].position_0;
 		triangles_position_edge2[i] = flat_triangles[i].position_2 - flat_triangles[i].position_0;
@@ -263,19 +282,19 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] flat_triangles;
 
 	// Set global Triangle buffers
-	module.get_global("triangles_position0")     .set_buffer(triangles_position0,      mbvh.leaf_count);
-	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, mbvh.leaf_count);
-	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, mbvh.leaf_count);
+	module.get_global("triangles_position0")     .set_buffer(triangles_position0,      leaf_count);
+	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, leaf_count);
+	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, leaf_count);
 
-	module.get_global("triangles_normal0")     .set_buffer(triangles_normal0,      mbvh.leaf_count);
-	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, mbvh.leaf_count);
-	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, mbvh.leaf_count);
+	module.get_global("triangles_normal0")     .set_buffer(triangles_normal0,      leaf_count);
+	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, leaf_count);
+	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, leaf_count);
 
-	module.get_global("triangles_tex_coord0")     .set_buffer(triangles_tex_coord0,      mbvh.leaf_count);
-	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, mbvh.leaf_count);
-	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, mbvh.leaf_count);
+	module.get_global("triangles_tex_coord0")     .set_buffer(triangles_tex_coord0,      leaf_count);
+	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, leaf_count);
+	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, leaf_count);
 
-	module.get_global("triangles_material_id").set_buffer(triangles_material_id, mbvh.leaf_count);
+	module.get_global("triangles_material_id").set_buffer(triangles_material_id, leaf_count);
 
 	// Clean up buffers on Host side
 	delete [] triangles_position0;  
@@ -289,21 +308,21 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] triangles_tex_coord_edge2;
 	delete [] triangles_material_id;
 
-	vertex_count = mbvh.primitive_count * 3;
+	vertex_count = primitive_count * 3;
 	Vertex * vertices = new Vertex[vertex_count];
 
-	for (int i = 0; i < mbvh.primitive_count; i++) {
+	for (int i = 0; i < primitive_count; i++) {
 		int index_0 = 3 * i;
 		int index_1 = 3 * i + 1;
 		int index_2 = 3 * i + 2;
 
-		vertices[index_0].position = mbvh.primitives[i].position_0;
-		vertices[index_1].position = mbvh.primitives[i].position_1;
-		vertices[index_2].position = mbvh.primitives[i].position_2;
+		vertices[index_0].position = primitives[i].position_0;
+		vertices[index_1].position = primitives[i].position_1;
+		vertices[index_2].position = primitives[i].position_2;
 
-		vertices[index_0].normal = mbvh.primitives[i].normal_0;
-		vertices[index_1].normal = mbvh.primitives[i].normal_1;
-		vertices[index_2].normal = mbvh.primitives[i].normal_2;
+		vertices[index_0].normal = primitives[i].normal_0;
+		vertices[index_1].normal = primitives[i].normal_1;
+		vertices[index_2].normal = primitives[i].normal_2;
 
 		// Barycentric coordinates
 		vertices[index_0].uv = Vector2(0.0f, 0.0f);
@@ -358,9 +377,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] reverse_indices;
 
 	module.get_global("light_count").set_value(light_count);
-
-	// Set global MBVHNode buffer
-	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
 
 	// Set Sky globals
 	Sky sky;

@@ -36,33 +36,6 @@ __device__ float2 * triangles_tex_coord_edge2;
 
 __device__ int * triangles_material_id;
 
-static_assert(MBVH_WIDTH == 4, "The implementation assumes a Quaternary BVH");
-
-struct MBVHNode {
-	float4 aabb_min_x;
-	float4 aabb_min_y;
-	float4 aabb_min_z;
-	float4 aabb_max_x;
-	float4 aabb_max_y;
-	float4 aabb_max_z;
-	union {
-		int index[MBVH_WIDTH];
-		int child[MBVH_WIDTH];
-	};
-	int count[MBVH_WIDTH];
-};
-
-__device__ MBVHNode * mbvh_nodes;
-
-struct AABBHits {
-	union {
-		float4 t_near;
-		float  t_near_f[4];
-		int    t_near_i[4];
-	};
-	bool hit[4];
-};
-
 __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit & ray_hit) {
 	const float3 & position0      = triangles_position0     [triangle_id];
 	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
@@ -117,6 +90,137 @@ __device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, floa
 
 	return true;
 }
+
+#if BVH_TYPE == BVH_SAH
+struct AABB {
+	float3 min;
+	float3 max;
+
+	__device__ inline bool intersects(const Ray & ray, float max_distance) const {
+		float3 t0 = (min - ray.origin) * ray.direction_inv;
+		float3 t1 = (max - ray.origin) * ray.direction_inv;
+		
+		float3 t_min = fminf(t0, t1);
+		float3 t_max = fmaxf(t0, t1);
+		
+		float t_near = fmaxf(fmaxf(EPSILON,      t_min.x), fmaxf(t_min.y, t_min.z));
+		float t_far  = fminf(fminf(max_distance, t_max.x), fminf(t_max.y, t_max.z));
+	
+		return t_near < t_far;
+	}
+};
+
+struct BVHNode {
+	AABB aabb;
+	union {
+		int left;
+		int first;
+	};
+	int count;
+
+	__device__ inline bool is_leaf() const {
+		return (count & (~BVH_AXIS_MASK)) > 0;
+	}
+
+	__device__ inline bool should_visit_left_first(const Ray & ray) const {
+		switch (count & BVH_AXIS_MASK) {
+			case BVH_AXIS_X_BITS: return ray.direction.x > 0.0f;
+			case BVH_AXIS_Y_BITS: return ray.direction.y > 0.0f;
+			case BVH_AXIS_Z_BITS: return ray.direction.z > 0.0f;
+		}
+	}
+};
+
+__device__ BVHNode * bvh_nodes;
+
+__device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
+	int stack[BVH_STACK_SIZE];
+	int stack_size = 1;
+
+	// Push root on stack
+	stack[0] = 0;
+
+	while (stack_size > 0) {
+		// Pop Node of the stack
+		const BVHNode & node = bvh_nodes[stack[--stack_size]];
+
+		if (node.aabb.intersects(ray, ray_hit.t)) {
+			if (node.is_leaf()) {
+				for (int i = node.first; i < node.first + node.count; i++) {
+					triangle_trace(i, ray, ray_hit);
+				}
+			} else {
+				if (node.should_visit_left_first(ray)) {
+					stack[stack_size++] = node.left + 1;
+					stack[stack_size++] = node.left;
+				} else {
+					stack[stack_size++] = node.left;
+					stack[stack_size++] = node.left + 1;
+				}
+			}
+		}
+	}
+}
+
+__device__ bool bvh_intersect(const Ray & ray, float max_distance) {
+	int stack[BVH_STACK_SIZE];
+	int stack_size = 1;
+
+	// Push root on stack
+	stack[0] = 0;
+
+	while (stack_size > 0) {
+		// Pop Node of the stack
+		const BVHNode & node = bvh_nodes[stack[--stack_size]];
+
+		if (node.aabb.intersects(ray, max_distance)) {
+			if (node.is_leaf()) {
+				for (int i = node.first; i < node.first + node.count; i++) {
+					if (triangle_intersect(i, ray, max_distance)) {
+						return true;
+					}
+				}
+			} else {
+				if (node.should_visit_left_first(ray)) {
+					stack[stack_size++] = node.left + 1;
+					stack[stack_size++] = node.left;
+				} else {
+					stack[stack_size++] = node.left;
+					stack[stack_size++] = node.left + 1;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+#elif BVH_TYPE == BVH_MBVH
+static_assert(MBVH_WIDTH == 4, "The implementation assumes a Quaternary BVH");
+
+struct MBVHNode {
+	float4 aabb_min_x;
+	float4 aabb_min_y;
+	float4 aabb_min_z;
+	float4 aabb_max_x;
+	float4 aabb_max_y;
+	float4 aabb_max_z;
+	union {
+		int index[MBVH_WIDTH];
+		int child[MBVH_WIDTH];
+	};
+	int count[MBVH_WIDTH];
+};
+
+__device__ MBVHNode * mbvh_nodes;
+
+struct AABBHits {
+	union {
+		float4 t_near;
+		float  t_near_f[4];
+		int    t_near_i[4];
+	};
+	bool hit[4];
+};
 
 // Check the Ray agains the four AABB's of the children of the given MBVH Node
 __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray & ray, float max_distance) {
@@ -180,15 +284,15 @@ __device__ inline void unpack_mbvh_node(unsigned packed, int & index, int & id) 
 	id    = packed >> 30;
 }
 
-__device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
-	unsigned stack[32];
+__device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
+	unsigned stack[BVH_STACK_SIZE];
 	int stack_size = 1;
 
 	// Push root on stack
 	stack[0] = 1;
 
 	while (stack_size > 0) {
-		assert(stack_size <= 32);
+		assert(stack_size <= BVH_STACK_SIZE);
 
 		// Pop Node of the stack
 		unsigned packed = stack[--stack_size];
@@ -223,8 +327,8 @@ __device__ inline void mbvh_trace(const Ray & ray, RayHit & ray_hit) {
 	}
 }
 
-__device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
-	unsigned stack[32];
+__device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
+	unsigned stack[BVH_STACK_SIZE];
 	int stack_size = 1;
 
 	// Push root on stack
@@ -267,3 +371,4 @@ __device__ inline bool mbvh_intersect(const Ray & ray, float max_distance) {
 
 	return false;
 }
+#endif
