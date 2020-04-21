@@ -5,7 +5,6 @@ struct SVGFSettings {
 	float alpha_moment;
 
 	float sigma_z;
-	float sigma_n;
 	float sigma_l_inv;
 };
 
@@ -51,15 +50,7 @@ __device__ inline float2 edge_stopping_weights(
 
 	float w_z = expf(-fabsf(center_depth - depth) / (svgf_settings.sigma_z * fabsf(d) + epsilon));
 
-	float w_n = pow(fmaxf(0.0f, dot(center_normal, normal)), svgf_settings.sigma_n);
-	// float w_n1 = fmaxf(0.0f, dot(center_normal, normal));
-	// float w_n2  = w_n1  * w_n1;
-	// float w_n4  = w_n2  * w_n2;
-	// float w_n8  = w_n4  * w_n4;
-	// float w_n16 = w_n8  * w_n8;
-	// float w_n32 = w_n16 * w_n16;
-	// float w_n64 = w_n32 * w_n32;
-	// float w_n   = w_n64 * w_n64;
+	float w_n = fmaxf(0.0f, dot(center_normal, normal));
 
 	float w_l_direct   = expf(-fabsf(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
 	float w_l_indirect = expf(-fabsf(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
@@ -68,23 +59,6 @@ __device__ inline float2 edge_stopping_weights(
 		w_l_direct, 
 		w_l_indirect
 	);
-}
-
-__device__ float mitchell_netravali(float x) {
-	float B = 1.0f / 3.0f;
-	float C = 1.0f / 3.0f;
-
-	x = fabsf(x);
-	float x2 = x  * x;
-	float x3 = x2 * x;
-
-	if (x < 1.0f) {
-		return (1.0f / 6.0f) * ((12 - 9 * B - 6 * C) * x3 + (-18 + 12 * B + 6 * C) * x2 + (6 - 2 * B));
-	} else if (x < 2.0f) {
-		return 1.0f / 6.0f * ((-B - 6 * C) * x3 + (6 * B + 30 * C) * x2 + (-12 * B - 48 * C) * x + (8 * B + 24 * C)); 
-	} else {
-		return 0.0f;
-	}
 }
 
 extern "C" __global__ void kernel_svgf_temporal() {
@@ -187,11 +161,6 @@ extern "C" __global__ void kernel_svgf_temporal() {
 				prev_moment   += consistent_weights[tap] * tap_moment;
 			}
 		}
-
-		// Divide by the sum of the consistent weights to renormalize the sum of the consistent weights to 1
-		prev_direct   /= consistent_weights_sum;
-		prev_indirect /= consistent_weights_sum;
-		prev_moment   /= consistent_weights_sum;
 	} else {
 		// If we haven't yet found a consistent tap in a 2x2 region, try a 3x3 region
 		for (int j = -1; j <= 1; j++) {
@@ -210,15 +179,14 @@ extern "C" __global__ void kernel_svgf_temporal() {
 				}
 			}
 		}
-
-		if (consistent_weights_sum > 0.0f) {
-			prev_direct   /= consistent_weights_sum;
-			prev_indirect /= consistent_weights_sum;
-			prev_moment   /= consistent_weights_sum;
-		}
 	}
 
 	if (consistent_weights_sum > 0.0f) {
+		// Normalize
+		prev_direct   /= consistent_weights_sum;
+		prev_indirect /= consistent_weights_sum;
+		prev_moment   /= consistent_weights_sum;
+
 		int history = ++history_length[pixel_index]; // Increase History Length by 1 step
 
 		float inv_history = 1.0f / float(history);

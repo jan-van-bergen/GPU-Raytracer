@@ -27,7 +27,6 @@ struct Pathtracer {
 		float alpha_moment = 0.2f;
 
 		float sigma_z     = 1.0f;
-		float sigma_n     = 1.0f;
 		float sigma_l_inv = 1.0f / 4.0f;
 	} svgf_settings;
 
