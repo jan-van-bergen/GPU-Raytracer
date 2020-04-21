@@ -128,7 +128,7 @@ int main(int argument_count, char ** arguments) {
 				sum_bounce += time_bounce[i];
 			}
 
-			for (int i = 0; i < ATROUS_ITERATIONS; i++) {
+			for (int i = 0; i < pathtracer.svgf_settings.atrous_iterations; i++) {
 				sum_atrous += pathtracer.time_svgf_atrous[i];
 			}
 
@@ -155,7 +155,7 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Text(" - SVGF Temporal: %.2f ms", pathtracer.time_svgf_temporal);
 
 			if (ImGui::TreeNode("Atrous", "SVGF atrous: %.2f ms", sum_atrous)) {
-				for (int i = 0; i < ATROUS_ITERATIONS; i++) {
+				for (int i = 0; i < pathtracer.svgf_settings.atrous_iterations; i++) {
 					ImGui::Text("%i: %.2f ms", i, pathtracer.time_svgf_atrous[i]);
 				}
 
@@ -176,8 +176,10 @@ int main(int argument_count, char ** arguments) {
 			settings_changed |= ImGui::Checkbox("Enable TAA",              &pathtracer.enable_taa);
 			settings_changed |= ImGui::Checkbox("Modulate Albedo",         &pathtracer.enable_albedo);
 
-			settings_changed |= ImGui::SliderFloat("alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
-			settings_changed |= ImGui::SliderFloat("alpha moment", &pathtracer.svgf_settings.alpha_moment, 0.0f, 1.0f);
+			settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.svgf_settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+
+			settings_changed |= ImGui::SliderFloat("Alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
+			settings_changed |= ImGui::SliderFloat("Alpha moment", &pathtracer.svgf_settings.alpha_moment, 0.0f, 1.0f);
 
 			pathtracer.settings_changed = settings_changed;
 		}

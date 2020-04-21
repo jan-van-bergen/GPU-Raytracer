@@ -26,6 +26,8 @@ struct Pathtracer {
 		float alpha_colour = 0.2f;
 		float alpha_moment = 0.2f;
 
+		int atrous_iterations = 6;
+
 		float sigma_z     = 1.0f;
 		float sigma_l_inv = 1.0f / 4.0f;
 	} svgf_settings;
@@ -38,7 +40,7 @@ struct Pathtracer {
 	float time_shade_glossy    [NUM_BOUNCES];
 	float time_connect[NUM_BOUNCES];
 	float time_svgf_temporal;
-	float time_svgf_atrous[ATROUS_ITERATIONS];
+	float time_svgf_atrous[MAX_ATROUS_ITERATIONS];
 	float time_svgf_finalize;
 	float time_taa;
 
@@ -89,7 +91,7 @@ private:
 	CUDAEvent event_shade_glossy    [NUM_BOUNCES];
 	CUDAEvent event_connect[NUM_BOUNCES];
 	CUDAEvent event_svgf_temporal;
-	CUDAEvent event_svgf_atrous[ATROUS_ITERATIONS];
+	CUDAEvent event_svgf_atrous[MAX_ATROUS_ITERATIONS];
 	CUDAEvent event_svgf_finalize;
 	CUDAEvent event_taa;
 	CUDAEvent event_end;

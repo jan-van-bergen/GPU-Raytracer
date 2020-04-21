@@ -25,7 +25,7 @@ static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!"
 #define NUM_BOUNCES 5
 
 // SVGF
-#define ATROUS_ITERATIONS 6
+#define MAX_ATROUS_ITERATIONS 10
 
 // Pi related
 #define PI          3.14159265359f

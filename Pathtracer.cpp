@@ -509,7 +509,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		event_connect         [i].init();
 	}
 	event_svgf_temporal.init();
-	for (int i = 0; i < ATROUS_ITERATIONS; i++) event_svgf_atrous[i].init();
+	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].init();
 	event_svgf_finalize.init();
 	event_taa.init();
 	event_end.init();
@@ -691,7 +691,7 @@ void Pathtracer::render() {
 		}
 
 		// À-Trous Filter
-		for (int i = 0; i < ATROUS_ITERATIONS; i++) {
+		for (int i = 0; i < svgf_settings.atrous_iterations; i++) {
 			int step_size = 1 << i;
 				
 			// Ping-Pong the Frame Buffers
@@ -702,6 +702,8 @@ void Pathtracer::render() {
 
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
+
+		for (int i = svgf_settings.atrous_iterations; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].record();
 
 		event_svgf_finalize.record();
 
@@ -714,7 +716,7 @@ void Pathtracer::render() {
 			kernel_taa_finalize.execute();
 		}
 	} else {
-		for (int i = 0; i < ATROUS_ITERATIONS; i++) event_svgf_atrous[i].record();
+		for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].record();
 		
 		event_svgf_finalize.record();
 
@@ -744,10 +746,10 @@ void Pathtracer::render() {
 	
 	time_svgf_temporal = CUDAEvent::time_elapsed_between(event_svgf_temporal, event_svgf_atrous[0]);
 
-	for (int i = 0; i < ATROUS_ITERATIONS - 1; i++) {
+	for (int i = 0; i < MAX_ATROUS_ITERATIONS - 1; i++) {
 		time_svgf_atrous[i] = CUDAEvent::time_elapsed_between(event_svgf_atrous[i], event_svgf_atrous[i + 1]);
 	}
-	time_svgf_atrous[ATROUS_ITERATIONS - 1] = CUDAEvent::time_elapsed_between(event_svgf_atrous[ATROUS_ITERATIONS -1], event_svgf_finalize);
+	time_svgf_atrous[MAX_ATROUS_ITERATIONS - 1] = CUDAEvent::time_elapsed_between(event_svgf_atrous[MAX_ATROUS_ITERATIONS - 1], event_svgf_finalize);
 
 	time_svgf_finalize = CUDAEvent::time_elapsed_between(event_svgf_finalize, event_taa);
 

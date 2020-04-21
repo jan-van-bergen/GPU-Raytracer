@@ -4,6 +4,8 @@ struct SVGFSettings {
 	float alpha_colour;
 	float alpha_moment;
 
+	int atrous_iterations;
+
 	float sigma_z;
 	float sigma_l_inv;
 };
@@ -244,7 +246,6 @@ extern "C" __global__ void kernel_svgf_variance(
 		return;
 	}
 
-	// @SPEED: some redundancies here
 	float luminance_denom_direct   = 0.1f * svgf_settings.sigma_l_inv;
 	float luminance_denom_indirect = 0.1f * svgf_settings.sigma_l_inv;
 
@@ -515,8 +516,8 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	surf2Dwrite(colour, accumulator, x * sizeof(float4), y); // @HACK
 
-	// Reinhard
-	colour = colour / (make_float4(1.0f) + colour);
+	// "Pseudo" Reinhard (uses luma)
+	colour = colour / (1.0f + luminance(colour.x, colour.y, colour.z));
 
 	// Convert to gamma space
 	colour.x = sqrtf(fmaxf(0.0f, colour.x));
@@ -532,10 +533,14 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
 
-#if ATROUS_ITERATIONS == 0
-	history_direct  [pixel_index] = direct;
-	history_indirect[pixel_index] = indirect;
-#endif
+	if (svgf_settings.atrous_iterations == 0) {
+		// Normally the à trous filter copies the illumination history,
+		// but in case the filter was skipped we need to do this here
+
+		history_direct  [pixel_index] = direct;
+		history_indirect[pixel_index] = indirect;
+	}
+
 	history_moment          [pixel_index] = moment;
 	history_normal_and_depth[pixel_index] = normal_and_depth;
 

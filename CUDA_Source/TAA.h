@@ -152,8 +152,8 @@ extern "C" __global__ void kernel_taa_finalize() {
 	// Inverse of gamma
 	colour = colour * colour;
 
-	// Inverse of Reinhard
-	colour = colour / (make_float4(1.0f) - colour);
+	// Inverse of "Pseudo" Reinhard
+	colour = colour / (1.0f - luminance(colour.x, colour.y, colour.z));
 
 	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
 }
