@@ -235,7 +235,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 			float variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
 			
 			// Store the Variance in the alpha channel
-			direct.w   = variance_direct;
+			direct  .w = variance_direct;
 			indirect.w = variance_indirect;
 		}
 	} else {
@@ -277,8 +277,8 @@ extern "C" __global__ void kernel_svgf_variance(
 	}
 
 	// @SPEED: some redundancies here
-	float luminance_denom_direct   = svgf_settings.sigma_l_inv;
-	float luminance_denom_indirect = svgf_settings.sigma_l_inv;
+	float luminance_denom_direct   = 0.1f * svgf_settings.sigma_l_inv;
+	float luminance_denom_indirect = 0.1f * svgf_settings.sigma_l_inv;
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -301,7 +301,7 @@ extern "C" __global__ void kernel_svgf_variance(
 	float4 sum_moment = make_float4(0.0f);
 
 	const int radius = 3; // 7x7 filter
-	
+
 	for (int j = -radius; j <= radius; j++) {
 		int tap_y = y + j;
 
@@ -337,7 +337,7 @@ extern "C" __global__ void kernel_svgf_variance(
 				center_depth, depth,
 				center_normal, normal,
 				center_luminance_direct, center_luminance_indirect,
-				luminance_direct, luminance_indirect,
+				luminance_direct,       luminance_indirect,
 				luminance_denom_direct, luminance_denom_indirect
 			);
 
@@ -365,11 +365,11 @@ extern "C" __global__ void kernel_svgf_variance(
 	float variance_direct   = fmaxf(0.0f, sum_moment.z - sum_moment.x * sum_moment.x);
 	float variance_indirect = fmaxf(0.0f, sum_moment.w - sum_moment.y * sum_moment.y);
 
-	// float inv_history  = 1.0f / float(history);
+	// float inv_history  = 1.0f / float(history + 1);
 	// variance_direct   *= 4.0f * inv_history;
 	// variance_indirect *= 4.0f * inv_history;
 
-	sum_colour_direct.w   = variance_direct;
+	sum_colour_direct  .w = variance_direct;
 	sum_colour_indirect.w = variance_indirect;
 		
 	// Store the Variance in the alpha channel

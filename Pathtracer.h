@@ -18,7 +18,7 @@ struct Pathtracer {
 
 	bool enable_rasterization    = true;
 	bool enable_svgf             = true;
-	bool enable_spatial_variance = false;
+	bool enable_spatial_variance = true;
 	bool enable_taa              = true;
 	bool enable_albedo           = true;
 
@@ -28,7 +28,7 @@ struct Pathtracer {
 
 		float sigma_z     = 1.0f;
 		float sigma_n     = 1.0f;
-		float sigma_l_inv = 1.0f / 8.0f;
+		float sigma_l_inv = 1.0f / 4.0f;
 	} svgf_settings;
 
 	// Course profile timings
