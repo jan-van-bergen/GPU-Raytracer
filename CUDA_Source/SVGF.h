@@ -50,14 +50,14 @@ __device__ inline float2 edge_stopping_weights(
 		center_depth_gradient.x * float(delta_x) + 
 		center_depth_gradient.y * float(delta_y); 
 
-	float w_z = expf(-fabsf(center_depth - depth) / (svgf_settings.sigma_z * fabsf(d) + epsilon));
+	float ln_w_z = fabsf(center_depth - depth) / (svgf_settings.sigma_z * fabsf(d) + epsilon);
 
 	float w_n = fmaxf(0.0f, dot(center_normal, normal));
 
-	float w_l_direct   = expf(-fabsf(center_luminance_direct   - luminance_direct)   * luminance_denom_direct);
-	float w_l_indirect = expf(-fabsf(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect);
+	float w_l_direct   = w_n * expf(-fabsf(center_luminance_direct   - luminance_direct)   * luminance_denom_direct   - ln_w_z);
+	float w_l_indirect = w_n * expf(-fabsf(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect - ln_w_z);
 
-	return w_z * w_n * make_float2(
+	return make_float2(
 		w_l_direct, 
 		w_l_indirect
 	);
