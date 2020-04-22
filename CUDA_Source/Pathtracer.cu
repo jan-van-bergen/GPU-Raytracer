@@ -72,7 +72,6 @@ struct ExtendBuffer {
 	// Pixel colour related
 	int       * pixel_index;
 	Vector3_SoA throughput;
-	Vector3_SoA throughput_effective; // Albedo and Illumination are separated for SVGF. Effective throughput is used for Russian Roullette
 
 	// Material related
 	char  * last_material_type;
@@ -92,7 +91,6 @@ struct MaterialBuffer {
 	// Pixel colour related
 	int       * pixel_index;
 	Vector3_SoA throughput;
-	Vector3_SoA throughput_effective;
 };
 
 // Input to the Connect Kernel in SoA layout
@@ -190,8 +188,7 @@ extern "C" __global__ void kernel_primary(
 		ray_buffer_shade_diffuse.v[index_out] = uv.y;
 
 		ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
-		ray_buffer_shade_diffuse.throughput          .from_float3(index_out, make_float3(1.0f));
-		ray_buffer_shade_diffuse.throughput_effective.from_float3(index_out, make_float3(1.0f));
+		ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
 	} else if (material.type == Material::Type::DIELECTRIC) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[0]);
 
@@ -202,8 +199,7 @@ extern "C" __global__ void kernel_primary(
 		ray_buffer_shade_dielectric.v[index_out] = uv.y;
 
 		ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
-		ray_buffer_shade_dielectric.throughput          .from_float3(index_out, make_float3(1.0f));
-		ray_buffer_shade_dielectric.throughput_effective.from_float3(index_out, make_float3(1.0f));
+		ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
 	} else if (material.type == Material::Type::GLOSSY) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[0]);
 
@@ -214,8 +210,7 @@ extern "C" __global__ void kernel_primary(
 		ray_buffer_shade_glossy.v[index_out] = uv.y;
 
 		ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
-		ray_buffer_shade_glossy.throughput          .from_float3(index_out, make_float3(1.0f));
-		ray_buffer_shade_glossy.throughput_effective.from_float3(index_out, make_float3(1.0f));
+		ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
 	}
 }
 
@@ -266,8 +261,7 @@ extern "C" __global__ void kernel_generate(
 	));
 
 	ray_buffer_extend.pixel_index[index] = pixel_index;
-	ray_buffer_extend.throughput          .from_float3(index, make_float3(1.0f));
-	ray_buffer_extend.throughput_effective.from_float3(index, make_float3(1.0f));
+	ray_buffer_extend.throughput.from_float3(index, make_float3(1.0f));
 
 	ray_buffer_extend.last_material_type[index] = char(Material::Type::DIELECTRIC);
 }
@@ -293,8 +287,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 
 	int ray_pixel_index = ray_buffer_extend.pixel_index[index];
 
-	float3 ray_throughput           = ray_buffer_extend.throughput          .to_float3(index);
-	float3 ray_throughput_effective = ray_buffer_extend.throughput_effective.to_float3(index);
+	float3 ray_throughput = ray_buffer_extend.throughput.to_float3(index);
 
 	// If we didn't hit anything, sample the Sky
 	if (hit.t == INFINITY) {
@@ -312,13 +305,12 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 	unsigned seed = (index + rand_seed * 906313609) * 341828143;
 
 	// Russian Roulette termination
-	float p_survive = saturate(fmaxf(ray_throughput_effective.x, fmaxf(ray_throughput_effective.y, ray_throughput_effective.z)));
+	float p_survive = saturate(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)));
 	if (random_float_xorshift(seed) > p_survive) {
 		return;
 	}
 
-	ray_throughput           /= p_survive;
-	ray_throughput_effective /= p_survive;
+	ray_throughput /= p_survive;
 
 	// Get the Material of the Triangle we hit
 	const Material & material = materials[triangles_material_id[hit.triangle_id]];
@@ -379,8 +371,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 		ray_buffer_shade_diffuse.v[index_out] = hit.v;
 
 		ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_diffuse.throughput          .from_float3(index_out, ray_throughput);
-		ray_buffer_shade_diffuse.throughput_effective.from_float3(index_out, ray_throughput_effective);
+		ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
 	} else if (material.type == Material::Type::DIELECTRIC) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[bounce]);
 
@@ -391,8 +382,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 		ray_buffer_shade_dielectric.v[index_out] = hit.v;
 
 		ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_dielectric.throughput          .from_float3(index_out, ray_throughput);
-		ray_buffer_shade_dielectric.throughput_effective.from_float3(index_out, ray_throughput_effective);
+		ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
 	} else if (material.type == Material::Type::GLOSSY) {
 		int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[bounce]);
 
@@ -403,8 +393,7 @@ extern "C" __global__ void kernel_extend(int rand_seed, int bounce) {
 		ray_buffer_shade_glossy.v[index_out] = hit.v;
 
 		ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_extend.pixel_index[index];
-		ray_buffer_shade_glossy.throughput          .from_float3(index_out, ray_throughput);
-		ray_buffer_shade_glossy.throughput_effective.from_float3(index_out, ray_throughput_effective);
+		ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
 	}
 }
 
@@ -422,8 +411,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	int x = ray_pixel_index % SCREEN_PITCH;
 	int y = ray_pixel_index / SCREEN_PITCH;
 
-	float3 ray_throughput           = ray_buffer_shade_diffuse.throughput          .to_float3(index);
-	float3 ray_throughput_effective = ray_buffer_shade_diffuse.throughput_effective.to_float3(index);
+	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.to_float3(index);
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -437,14 +425,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
 	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 
-	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
-	float3 throughput           = ray_throughput;
-	float3 throughput_effective = ray_throughput_effective * albedo;
+	float3 albedo     = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+	float3 throughput = ray_throughput * albedo;
 
 	if (bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
-	} else {
-		throughput *= albedo;
 	}
 
 	if (light_count > 0) {
@@ -471,8 +456,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	ray_buffer_extend.direction.from_float3(index_out, direction);
 
 	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
-	ray_buffer_extend.throughput          .from_float3(index_out, throughput);
-	ray_buffer_extend.throughput_effective.from_float3(index_out, throughput_effective);
+	ray_buffer_extend.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIFFUSE);
 	ray_buffer_extend.last_pdf[index_out] = dot(direction, hit_normal) * ONE_OVER_PI;
@@ -490,8 +474,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 
-	float3 ray_throughput           = ray_buffer_shade_dielectric.throughput          .to_float3(index);
-	float3 ray_throughput_effective = ray_buffer_shade_dielectric.throughput_effective.to_float3(index);
+	float3 ray_throughput = ray_buffer_shade_dielectric.throughput.to_float3(index);
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -572,8 +555,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_extend.direction.from_float3(index_out, direction);
 
 	ray_buffer_extend.pixel_index[index_out] = ray_pixel_index;
-	ray_buffer_extend.throughput          .from_float3(index_out, ray_throughput);
-	ray_buffer_extend.throughput_effective.from_float3(index_out, ray_throughput_effective);
+	ray_buffer_extend.throughput.from_float3(index_out, ray_throughput);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
@@ -592,8 +574,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int x = ray_pixel_index % SCREEN_PITCH;
 	int y = ray_pixel_index / SCREEN_PITCH; 
 
-	float3 ray_throughput           = ray_buffer_shade_glossy.throughput          .to_float3(index);
-	float3 ray_throughput_effective = ray_buffer_shade_glossy.throughput_effective.to_float3(index);
+	float3 ray_throughput = ray_buffer_shade_glossy.throughput.to_float3(index);
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -608,13 +589,10 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
 
 	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
-	float3 throughput           = ray_throughput;
-	float3 throughput_effective = ray_throughput_effective * albedo;
+	float3 throughput = ray_throughput * albedo;
 
 	if (bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
-	} else {
-		throughput *= albedo;
 	}
 
 	if (light_count > 0 && material.roughness >= ROUGHNESS_CUTOFF) {
@@ -675,8 +653,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_extend.direction.from_float3(index_out, direction_out);
 
 	ray_buffer_extend.pixel_index[index_out]  = ray_pixel_index;
-	ray_buffer_extend.throughput          .from_float3(index_out, throughput);
-	ray_buffer_extend.throughput_effective.from_float3(index_out, throughput_effective);
+	ray_buffer_extend.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_extend.last_material_type[index_out] = char(Material::Type::GLOSSY);
 	ray_buffer_extend.last_pdf[index_out] = D * m_dot_n / (4.0f * dot(micro_normal_world, direction_in));

@@ -71,8 +71,11 @@ extern "C" __global__ void kernel_svgf_temporal() {
 
 	int pixel_index = x + y * SCREEN_PITCH;
 
-	float4 direct   = frame_buffer_direct  [pixel_index];
-	float4 indirect = frame_buffer_indirect[pixel_index];
+	// Demodulate albedo
+	float4 albedo_inv = make_float4(1.0f) / fmaxf(frame_buffer_albedo[pixel_index], make_float4(1e-8f));
+
+	float4 direct   = frame_buffer_direct  [pixel_index] * albedo_inv;
+	float4 indirect = frame_buffer_indirect[pixel_index] * albedo_inv;
 
 	// First two raw moments of luminance
 	float4 moment;
