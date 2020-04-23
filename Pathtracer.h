@@ -9,6 +9,11 @@
 #include "GBuffer.h"
 #include "Shader.h"
 
+// Mirror CUDA vector types
+struct alignas(8) float2 { float x, y;       };
+struct            float3 { float x, y, z;    };
+struct            float4 { float x, y, z, w; };
+
 struct Pathtracer {
 	Camera camera;
 	int frames_since_camera_moved = -1;
@@ -40,6 +45,7 @@ struct Pathtracer {
 	float time_shade_glossy    [NUM_BOUNCES];
 	float time_connect[NUM_BOUNCES];
 	float time_svgf_temporal;
+	float time_svgf_variance;
 	float time_svgf_atrous[MAX_ATROUS_ITERATIONS];
 	float time_svgf_finalize;
 	float time_taa;
@@ -78,10 +84,10 @@ private:
 	GLuint uniform_view_projection;
 	GLuint uniform_view_projection_prev;
 
-	CUDAMemory::Ptr<float> ptr_direct;
-	CUDAMemory::Ptr<float> ptr_indirect;
-	CUDAMemory::Ptr<float> ptr_direct_alt;
-	CUDAMemory::Ptr<float> ptr_indirect_alt;
+	CUDAMemory::Ptr<float4> ptr_direct;
+	CUDAMemory::Ptr<float4> ptr_indirect;
+	CUDAMemory::Ptr<float4> ptr_direct_alt;
+	CUDAMemory::Ptr<float4> ptr_indirect_alt;
 
 	// Timing Events
 	CUDAEvent event_primary;
@@ -91,6 +97,7 @@ private:
 	CUDAEvent event_shade_glossy    [NUM_BOUNCES];
 	CUDAEvent event_connect[NUM_BOUNCES];
 	CUDAEvent event_svgf_temporal;
+	CUDAEvent event_svgf_variance;
 	CUDAEvent event_svgf_atrous[MAX_ATROUS_ITERATIONS];
 	CUDAEvent event_svgf_finalize;
 	CUDAEvent event_taa;

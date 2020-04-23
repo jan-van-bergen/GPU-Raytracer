@@ -16,7 +16,7 @@
 
 #include "ScopedTimer.h"
 
-struct Vertex {
+static struct Vertex {
 	Vector3 position;
 	Vector3 normal;
 	Vector2 uv;
@@ -47,12 +47,12 @@ static struct ExtendBuffer {
 		direction_y = CUDAMemory::malloc<float>(buffer_size);
 		direction_z = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
+		pixel_index  = CUDAMemory::malloc<int>  (buffer_size);
 		throughput_x = CUDAMemory::malloc<float>(buffer_size);
 		throughput_y = CUDAMemory::malloc<float>(buffer_size);
 		throughput_z = CUDAMemory::malloc<float>(buffer_size);
 
-		last_material_type = CUDAMemory::malloc<char>(buffer_size);
+		last_material_type = CUDAMemory::malloc<char> (buffer_size);
 		last_pdf           = CUDAMemory::malloc<float>(buffer_size);
 	}
 };
@@ -76,11 +76,11 @@ static struct MaterialBuffer {
 		direction_y = CUDAMemory::malloc<float>(buffer_size);
 		direction_z = CUDAMemory::malloc<float>(buffer_size);
 
-		triangle_id = CUDAMemory::malloc<int>(buffer_size);
-		u = CUDAMemory::malloc<float>(buffer_size);
-		v = CUDAMemory::malloc<float>(buffer_size);
+		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
+		u           = CUDAMemory::malloc<float>(buffer_size);
+		v           = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
+		pixel_index  = CUDAMemory::malloc<int>  (buffer_size);
 		throughput_x = CUDAMemory::malloc<float>(buffer_size);
 		throughput_y = CUDAMemory::malloc<float>(buffer_size);
 		throughput_z = CUDAMemory::malloc<float>(buffer_size);
@@ -106,11 +106,11 @@ static struct ShadowRayBuffer {
 		direction_y = CUDAMemory::malloc<float>(buffer_size);
 		direction_z = CUDAMemory::malloc<float>(buffer_size);
 
-		triangle_id = CUDAMemory::malloc<int>(buffer_size);
-		u = CUDAMemory::malloc<float>(buffer_size);
-		v = CUDAMemory::malloc<float>(buffer_size);
+		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
+		u           = CUDAMemory::malloc<float>(buffer_size);
+		v           = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
+		pixel_index  = CUDAMemory::malloc<int>  (buffer_size);
 		throughput_x = CUDAMemory::malloc<float>(buffer_size);
 		throughput_y = CUDAMemory::malloc<float>(buffer_size);
 		throughput_z = CUDAMemory::malloc<float>(buffer_size);
@@ -123,9 +123,7 @@ static struct BufferSizes {
 	int N_dielectric[NUM_BOUNCES] = { 0 };
 	int N_glossy    [NUM_BOUNCES] = { 0 };
 	int N_shadow    [NUM_BOUNCES] = { 0 };
-};
-
-static BufferSizes buffer_sizes;
+} buffer_sizes;
 
 void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
 	CUDAContext::init();
@@ -379,13 +377,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 	
 	// Create Frame Buffers
-	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
+	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
 	
-	ptr_direct       = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
-	ptr_indirect     = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
-	ptr_direct_alt   = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
-	ptr_indirect_alt = CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4);
+	ptr_direct       = CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT);
+	ptr_indirect     = CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT);
+	ptr_direct_alt   = CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT);
+	ptr_indirect_alt = CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT);
 
 	module.get_global("frame_buffer_direct").set_value(ptr_direct.ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
@@ -394,14 +392,14 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
 	// Create History Buffers 
-	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>  (SCREEN_PITCH * SCREEN_HEIGHT    ).ptr);
-	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
-	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4).ptr);
+	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>   (SCREEN_PITCH * SCREEN_HEIGHT).ptr);
+	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
+	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
+	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
+	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
 	
-	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4));
-	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float>(SCREEN_PITCH * SCREEN_HEIGHT * 4));
+	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT));
+	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT));
 
 	ExtendBuffer    ray_buffer_extend;
 	MaterialBuffer  ray_buffer_shade_diffuse;
@@ -513,6 +511,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		event_connect         [i].init();
 	}
 	event_svgf_temporal.init();
+	event_svgf_variance.init();
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].init();
 	event_svgf_finalize.init();
 	event_taa.init();
@@ -686,6 +685,8 @@ void Pathtracer::render() {
 		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
 		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
+		event_svgf_variance.record();
+
 		if (enable_spatial_variance) {
 			// Estimate Variance spatially
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
@@ -748,7 +749,8 @@ void Pathtracer::render() {
 	}
 	time_connect[NUM_BOUNCES - 1] = CUDAEvent::time_elapsed_between(event_connect[NUM_BOUNCES - 1],  event_svgf_temporal);
 	
-	time_svgf_temporal = CUDAEvent::time_elapsed_between(event_svgf_temporal, event_svgf_atrous[0]);
+	time_svgf_temporal = CUDAEvent::time_elapsed_between(event_svgf_temporal, event_svgf_variance);
+	time_svgf_variance = CUDAEvent::time_elapsed_between(event_svgf_variance, event_svgf_atrous[0]);
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS - 1; i++) {
 		time_svgf_atrous[i] = CUDAEvent::time_elapsed_between(event_svgf_atrous[i], event_svgf_atrous[i + 1]);

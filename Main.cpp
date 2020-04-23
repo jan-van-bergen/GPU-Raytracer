@@ -153,6 +153,7 @@ int main(int argument_count, char ** arguments) {
 			}
 
 			ImGui::Text(" - SVGF Temporal: %.2f ms", pathtracer.time_svgf_temporal);
+			ImGui::Text(" - SVGF Variance: %.2f ms", pathtracer.time_svgf_variance);
 
 			if (ImGui::TreeNode("Atrous", "SVGF atrous: %.2f ms", sum_atrous)) {
 				for (int i = 0; i < pathtracer.svgf_settings.atrous_iterations; i++) {
