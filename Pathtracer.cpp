@@ -724,7 +724,7 @@ void Pathtracer::render() {
 		
 		event_svgf_finalize.record();
 
-		kernel_accumulate.execute(enable_albedo, float(frames_since_camera_moved));
+		kernel_accumulate.execute(!enable_albedo, float(frames_since_camera_moved));
 
 		event_taa.record();
 	}
