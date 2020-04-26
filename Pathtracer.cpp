@@ -721,6 +721,8 @@ void Pathtracer::render() {
 			kernel_taa_finalize.execute();
 		}
 	} else {
+		event_svgf_variance.record();
+
 		for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].record();
 		
 		event_svgf_finalize.record();
