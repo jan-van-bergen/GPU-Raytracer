@@ -192,7 +192,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AABB.cpp" />
-    <ClCompile Include="BVHBuilders.cpp" />
+    <ClCompile Include="BVHBuilder.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CUDAModule.cpp" />
     <ClCompile Include="GBuffer.cpp" />
@@ -205,6 +205,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="Pathtracer.cpp" />
+    <ClCompile Include="SBVHBuilder.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Sky.cpp" />
     <ClCompile Include="Texture.cpp" />
