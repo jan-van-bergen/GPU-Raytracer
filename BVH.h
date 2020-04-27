@@ -50,50 +50,10 @@ struct BVH {
 	}
 
 	inline void build_bvh() {
-		float * sah = new float[triangle_count];
-
 		// Construct index arrays for all three dimensions
-		int * all_indices  = new int[3 * triangle_count];
-		int * indices_x = all_indices;
-		int * indices_y = all_indices + triangle_count;
-		int * indices_z = all_indices + triangle_count * 2;
-
-		for (int i = 0; i < triangle_count; i++) {
-			indices_x[i] = i;
-			indices_y[i] = i;
-			indices_z[i] = i;
-		}
-
-		std::sort(indices_x, indices_x + triangle_count, [&](int a, int b) { return triangles[a].get_position().x < triangles[b].get_position().x; });
-		std::sort(indices_y, indices_y + triangle_count, [&](int a, int b) { return triangles[a].get_position().y < triangles[b].get_position().y; });
-		std::sort(indices_z, indices_z + triangle_count, [&](int a, int b) { return triangles[a].get_position().z < triangles[b].get_position().z; });
-		
-		int * indices[3] = { indices_x, indices_y, indices_z };
-
-		int * temp = new int[triangle_count];
-
-		int node_index = 2;
-		BVHBuilders::build_bvh(nodes[0], triangles, indices, nodes, node_index, 0, triangle_count, sah, temp);
-
-		assert(node_index <= 2 * triangle_count);
-
-		node_count = node_index;
-		leaf_count = triangle_count;
-
-		delete [] temp;
-		delete [] sah;
-	}
-
-	inline void build_sbvh() {
-		float * sah = new float[triangle_count];
-		
-		int overallocation = 2; // SBVH may require more space
-		
-		// Construct index arrays for all three dimensions
-		int * all_indices  = new int[3 * overallocation * triangle_count];
-		int * indices_x = all_indices;
-		int * indices_y = all_indices + triangle_count * overallocation;
-		int * indices_z = all_indices + triangle_count * overallocation * 2;
+		int * indices_x = new int[triangle_count];
+		int * indices_y = new int[triangle_count];
+		int * indices_z = new int[triangle_count];
 
 		for (int i = 0; i < triangle_count; i++) {
 			indices_x[i] = i;
@@ -106,15 +66,58 @@ struct BVH {
 		std::sort(indices_z, indices_z + triangle_count, [&](int a, int b) { return triangles[a].get_position().z < triangles[b].get_position().z; });
 		
 		int * indices_3[3] = { indices_x, indices_y, indices_z };
+		
+		float * sah = new float[triangle_count];
 
+		int * temp = new int[triangle_count];
+
+		int node_index = 2;
+		BVHBuilders::build_bvh(nodes[0], triangles, indices_3, nodes, node_index, 0, triangle_count, sah, temp);
+
+		indices = indices_x;
+		delete [] indices_y;
+		delete [] indices_z;
+
+		assert(node_index <= 2 * triangle_count);
+
+		node_count = node_index;
+		leaf_count = triangle_count;
+
+		delete [] temp;
+		delete [] sah;
+	}
+
+	inline void build_sbvh() {
+		const int overallocation = 2; // SBVH requires more space
+
+		int * indices_x = new int[overallocation * triangle_count];
+		int * indices_y = new int[overallocation * triangle_count];
+		int * indices_z = new int[overallocation * triangle_count];
+
+		for (int i = 0; i < triangle_count; i++) {
+			indices_x[i] = i;
+			indices_y[i] = i;
+			indices_z[i] = i;
+		}
+
+		std::sort(indices_x, indices_x + triangle_count, [&](int a, int b) { return triangles[a].get_position().x < triangles[b].get_position().x; });
+		std::sort(indices_y, indices_y + triangle_count, [&](int a, int b) { return triangles[a].get_position().y < triangles[b].get_position().y; });
+		std::sort(indices_z, indices_z + triangle_count, [&](int a, int b) { return triangles[a].get_position().z < triangles[b].get_position().z; });
+		
+		int * indices_3[3] = { indices_x, indices_y, indices_z };
+		
+		float * sah = new float[triangle_count];
+		
 		int * temp[2] = { new int[triangle_count], new int[triangle_count] };
 
 		AABB root_aabb = BVHPartitions::calculate_bounds(triangles, indices_3[0], 0, triangle_count);
 
 		int node_index = 2;
 		leaf_count = BVHBuilders::build_sbvh(nodes[0], triangles, indices_3, nodes, node_index, 0, triangle_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
-
+		
 		indices = indices_x;
+		delete [] indices_y;
+		delete [] indices_z;
 
 		printf("SBVH Leaf count: %i\n", leaf_count);
 
