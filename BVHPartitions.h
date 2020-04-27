@@ -298,7 +298,7 @@ namespace BVHPartitions {
 							}
 						}
 
-						// There must be either 2 or 4 inersections with the two planes
+						// There must be either 2 or 4 intersections with the two planes
 						assert(intersection_count == 2 || intersection_count == 4);
 
 						// All intersection points should be included in the AABB

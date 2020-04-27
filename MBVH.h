@@ -95,10 +95,9 @@ struct MBVHNode {
 	}
 };
 
-template<typename PrimitiveType>
 struct MBVH {
-	int             primitive_count;
-	PrimitiveType * primitives;
+	int        triangle_count;
+	Triangle * triangles;
 
 	int * indices;
 
@@ -107,11 +106,11 @@ struct MBVH {
 
 	int leaf_count;
 
-	inline void init(const BVH<PrimitiveType> & bvh) {
-		primitive_count = bvh.primitive_count;
-		primitives      = bvh.primitives;
+	inline void init(const BVH & bvh) {
+		triangle_count = bvh.triangle_count;
+		triangles      = bvh.triangles;
 
-		indices = bvh.indices_x;
+		indices = bvh.indices;
 
 		node_count = bvh.node_count;
 		nodes      = new MBVHNode[bvh.node_count];

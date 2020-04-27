@@ -3,7 +3,7 @@
 #include <ostream>
 #include <algorithm>
 
-#include "BVHBuilders.h"
+#include "BVHPartitions.h"
 
 struct BVHNode {
 	AABB aabb;
@@ -22,14 +22,16 @@ struct BVHNode {
 	}
 };
 
-template<typename PrimitiveType>
-struct BVH {
-	int             primitive_count;
-	PrimitiveType * primitives;
+namespace BVHBuilders {
+	void build_bvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp);
+	int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp[2], float inv_root_surface_area, AABB node_aabb);
+}
 
-	int * indices_x;
-	int * indices_y;
-	int * indices_z;
+struct BVH {
+	int        triangle_count;
+	Triangle * triangles;
+
+	int * indices;
 
 	int       node_count;
 	BVHNode * nodes;
@@ -39,70 +41,84 @@ struct BVH {
 	inline void init(int count) {
 		assert(count > 0);
 
-		primitive_count = count; 
-		primitives = new PrimitiveType[primitive_count];
+		triangle_count = count; 
+		triangles = new Triangle[triangle_count];
 
-		int overallocation = 2; // SBVH requires more space
+		// Construct Node pool
+		nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(2 * triangle_count * sizeof(BVHNode), 64));
+		assert((unsigned long long)nodes % 64 == 0);
+	}
 
-		// Construct index array
-		int * all_indices  = new int[3 * overallocation * primitive_count];
-		indices_x = all_indices;
-		indices_y = all_indices + primitive_count * overallocation;
-		indices_z = all_indices + primitive_count * overallocation * 2;
+	inline void build_bvh() {
+		float * sah = new float[triangle_count];
 
-		for (int i = 0; i < primitive_count; i++) {
+		// Construct index arrays for all three dimensions
+		int * all_indices  = new int[3 * triangle_count];
+		int * indices_x = all_indices;
+		int * indices_y = all_indices + triangle_count;
+		int * indices_z = all_indices + triangle_count * 2;
+
+		for (int i = 0; i < triangle_count; i++) {
 			indices_x[i] = i;
 			indices_y[i] = i;
 			indices_z[i] = i;
 		}
 
-		// Construct Node pool
-		nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(2 * primitive_count * sizeof(BVHNode), 64));
-		assert((unsigned long long)nodes % 64 == 0);
-	}
-
-	inline void build_bvh() {
-		float * sah = new float[primitive_count];
-		
-		std::sort(indices_x, indices_x + primitive_count, [&](int a, int b) { return primitives[a].get_position().x < primitives[b].get_position().x; });
-		std::sort(indices_y, indices_y + primitive_count, [&](int a, int b) { return primitives[a].get_position().y < primitives[b].get_position().y; });
-		std::sort(indices_z, indices_z + primitive_count, [&](int a, int b) { return primitives[a].get_position().z < primitives[b].get_position().z; });
+		std::sort(indices_x, indices_x + triangle_count, [&](int a, int b) { return triangles[a].get_position().x < triangles[b].get_position().x; });
+		std::sort(indices_y, indices_y + triangle_count, [&](int a, int b) { return triangles[a].get_position().y < triangles[b].get_position().y; });
+		std::sort(indices_z, indices_z + triangle_count, [&](int a, int b) { return triangles[a].get_position().z < triangles[b].get_position().z; });
 		
 		int * indices[3] = { indices_x, indices_y, indices_z };
 
-		int * temp = new int[primitive_count];
+		int * temp = new int[triangle_count];
 
 		int node_index = 2;
-		BVHBuilders::build_bvh(nodes[0], primitives, indices, nodes, node_index, 0, primitive_count, sah, temp);
+		BVHBuilders::build_bvh(nodes[0], triangles, indices, nodes, node_index, 0, triangle_count, sah, temp);
 
-		assert(node_index <= 2 * primitive_count);
+		assert(node_index <= 2 * triangle_count);
 
 		node_count = node_index;
-		leaf_count = primitive_count;
+		leaf_count = triangle_count;
 
 		delete [] temp;
 		delete [] sah;
 	}
 
 	inline void build_sbvh() {
-		float * sah = new float[primitive_count];
+		float * sah = new float[triangle_count];
 		
-		std::sort(indices_x, indices_x + primitive_count, [&](int a, int b) { return primitives[a].get_position().x < primitives[b].get_position().x; });
-		std::sort(indices_y, indices_y + primitive_count, [&](int a, int b) { return primitives[a].get_position().y < primitives[b].get_position().y; });
-		std::sort(indices_z, indices_z + primitive_count, [&](int a, int b) { return primitives[a].get_position().z < primitives[b].get_position().z; });
+		int overallocation = 2; // SBVH may require more space
 		
-		int * indices[3] = { indices_x, indices_y, indices_z };
+		// Construct index arrays for all three dimensions
+		int * all_indices  = new int[3 * overallocation * triangle_count];
+		int * indices_x = all_indices;
+		int * indices_y = all_indices + triangle_count * overallocation;
+		int * indices_z = all_indices + triangle_count * overallocation * 2;
 
-		int * temp[2] = { new int[primitive_count], new int[primitive_count] };
+		for (int i = 0; i < triangle_count; i++) {
+			indices_x[i] = i;
+			indices_y[i] = i;
+			indices_z[i] = i;
+		}
 
-		AABB root_aabb = BVHPartitions::calculate_bounds(primitives, indices[0], 0, primitive_count);
+		std::sort(indices_x, indices_x + triangle_count, [&](int a, int b) { return triangles[a].get_position().x < triangles[b].get_position().x; });
+		std::sort(indices_y, indices_y + triangle_count, [&](int a, int b) { return triangles[a].get_position().y < triangles[b].get_position().y; });
+		std::sort(indices_z, indices_z + triangle_count, [&](int a, int b) { return triangles[a].get_position().z < triangles[b].get_position().z; });
+		
+		int * indices_3[3] = { indices_x, indices_y, indices_z };
+
+		int * temp[2] = { new int[triangle_count], new int[triangle_count] };
+
+		AABB root_aabb = BVHPartitions::calculate_bounds(triangles, indices_3[0], 0, triangle_count);
 
 		int node_index = 2;
-		leaf_count = BVHBuilders::build_sbvh<Triangle>(nodes[0], primitives, indices, nodes, node_index, 0, primitive_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
+		leaf_count = BVHBuilders::build_sbvh(nodes[0], triangles, indices_3, nodes, node_index, 0, triangle_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
+
+		indices = indices_x;
 
 		printf("SBVH Leaf count: %i\n", leaf_count);
 
-		assert(node_index <= 2 * primitive_count);
+		assert(node_index <= 2 * triangle_count);
 
 		node_count = node_index;
 
@@ -117,15 +133,15 @@ struct BVH {
 
 		if (file == nullptr) abort();
 
-		fwrite(reinterpret_cast<const char *>(&primitive_count), sizeof(int), 1, file);
-		fwrite(reinterpret_cast<const char *>(primitives), sizeof(PrimitiveType), primitive_count, file);
+		fwrite(reinterpret_cast<const char *>(&triangle_count), sizeof(int), 1, file);
+		fwrite(reinterpret_cast<const char *>(triangles), sizeof(Triangle), triangle_count, file);
 
 		fwrite(reinterpret_cast<const char *>(&node_count), sizeof(int), 1, file);
 		fwrite(reinterpret_cast<const char *>(nodes), sizeof(BVHNode), node_count, file);
 
 		fwrite(reinterpret_cast<const char *>(&leaf_count), sizeof(int), 1, file);
 		
-		fwrite(reinterpret_cast<const char *>(indices_x), sizeof(int), leaf_count, file);
+		fwrite(reinterpret_cast<const char *>(indices), sizeof(int), leaf_count, file);
 
 		fclose(file);
 	}
@@ -136,10 +152,10 @@ struct BVH {
 		
 		if (file == nullptr) abort();
 
-		fread(reinterpret_cast<char *>(&primitive_count), sizeof(int), 1, file);
+		fread(reinterpret_cast<char *>(&triangle_count), sizeof(int), 1, file);
 
-		primitives = new PrimitiveType[primitive_count];
-		fread(reinterpret_cast<char *>(primitives), sizeof(PrimitiveType), primitive_count, file);
+		triangles = new Triangle[triangle_count];
+		fread(reinterpret_cast<char *>(triangles), sizeof(Triangle), triangle_count, file);
 		
 		fread(reinterpret_cast<char *>(&node_count), sizeof(int), 1, file);
 
@@ -148,8 +164,8 @@ struct BVH {
 
 		fread(reinterpret_cast<char *>(&leaf_count), sizeof(int), 1, file);
 			
-		indices_x = new int[leaf_count];
-		fread(reinterpret_cast<char *>(indices_x), sizeof(int), leaf_count, file);
+		indices = new int[leaf_count];
+		fread(reinterpret_cast<char *>(indices), sizeof(int), leaf_count, file);
 
 		fclose(file);
 	}

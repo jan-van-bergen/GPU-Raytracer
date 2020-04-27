@@ -3,8 +3,8 @@
 
 #include "BVH.h"
 
-void BVHBuilders::build_bvh(BVHNode & node, const Triangle * primitives, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp) {
-	node.aabb = BVHPartitions::calculate_bounds(primitives, indices[0], first_index, first_index + index_count);
+void BVHBuilders::build_bvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp) {
+	node.aabb = BVHPartitions::calculate_bounds(triangles, indices[0], first_index, first_index + index_count);
 		
 	if (index_count < 3) {
 		// Leaf Node, terminate recursion
@@ -19,7 +19,7 @@ void BVHBuilders::build_bvh(BVHNode & node, const Triangle * primitives, int * i
 		
 	int split_dimension;
 	float split_cost;
-	int split_index = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, sah, temp, split_dimension, split_cost);
+	int split_index = BVHPartitions::partition_sah(triangles, indices, first_index, index_count, sah, temp, split_dimension, split_cost);
 
 	// Check SAH termination condition
 	float parent_cost = node.aabb.surface_area() * float(index_count); 
@@ -30,16 +30,16 @@ void BVHBuilders::build_bvh(BVHNode & node, const Triangle * primitives, int * i
 		return;
 	}
 
-	float split = primitives[indices[split_dimension][split_index]].get_position()[split_dimension];
-	BVHPartitions::split_indices(primitives, indices, first_index, index_count, temp, split_dimension, split_index, split);
+	float split = triangles[indices[split_dimension][split_index]].get_position()[split_dimension];
+	BVHPartitions::split_indices(triangles, indices, first_index, index_count, temp, split_dimension, split_index, split);
 
 	node.count = (split_dimension + 1) << 30;
 
 	int n_left  = split_index - first_index;
 	int n_right = first_index + index_count - split_index;
 
-	build_bvh(nodes[node.left    ], primitives, indices, nodes, node_index, first_index,          n_left,  sah, temp);
-	build_bvh(nodes[node.left + 1], primitives, indices, nodes, node_index, first_index + n_left, n_right, sah, temp);
+	build_bvh(nodes[node.left    ], triangles, indices, nodes, node_index, first_index,          n_left,  sah, temp);
+	build_bvh(nodes[node.left + 1], triangles, indices, nodes, node_index, first_index + n_left, n_right, sah, temp);
 }
 
 int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp[2], float inv_root_surface_area, AABB node_aabb) {
@@ -304,7 +304,7 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 		child_aabb_left  = spatial_split_aabb_left;
 		child_aabb_right = spatial_split_aabb_right;
 	}
-		
+
 	// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
 	int number_of_leaves_left = build_sbvh(nodes[node.left], triangles, indices, nodes, node_index, first_index, n_left, sah, temp, inv_root_surface_area, child_aabb_left);
 
@@ -321,5 +321,4 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 	delete [] children_right[2];
 		
 	return number_of_leaves_left + number_of_leaves_right;
-}
 }

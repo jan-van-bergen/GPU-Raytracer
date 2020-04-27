@@ -51,6 +51,9 @@
     <ClCompile Include="Imgui\imgui_widgets.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
+    <ClCompile Include="BVHBuilders.cpp">
+      <Filter>BVH</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -123,9 +126,6 @@
       <Filter>BVH</Filter>
     </ClInclude>
     <ClInclude Include="BVH.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
-    <ClInclude Include="BVHBuilders.h">
       <Filter>BVH</Filter>
     </ClInclude>
     <ClInclude Include="BVHPartitions.h">

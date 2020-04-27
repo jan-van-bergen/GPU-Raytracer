@@ -171,7 +171,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	}
 
 	// Construct BVH for the Triangle soup
-	BVH<Triangle> bvh;
+	BVH bvh;
 
 	std::string bvh_filename = std::string(scene_name) + ".bvh";
 	if (std::filesystem::exists(bvh_filename)) {
@@ -181,15 +181,15 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	} else {
 		bvh.init(mesh->triangle_count);
 
-		memcpy(bvh.primitives, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
+		memcpy(bvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
 
-		for (int i = 0; i < bvh.primitive_count; i++) {
+		for (int i = 0; i < bvh.triangle_count; i++) {
 			Vector3 vertices[3] = { 
-				bvh.primitives[i].position_0, 
-				bvh.primitives[i].position_1, 
-				bvh.primitives[i].position_2
+				bvh.triangles[i].position_0, 
+				bvh.triangles[i].position_1, 
+				bvh.triangles[i].position_2
 			};
-			bvh.primitives[i].aabb = AABB::from_points(vertices, 3);
+			bvh.triangles[i].aabb = AABB::from_points(vertices, 3);
 		}
 
 		{
@@ -202,7 +202,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	}
 
 	int leaf_count      = bvh.leaf_count;
-	int primitive_count = bvh.primitive_count;
+	int primitive_count = bvh.triangle_count;
 
 	int      * indices;
 	Triangle * primitives;
@@ -210,17 +210,17 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 #if BVH_TYPE == BVH_SAH
 	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
 
-	indices    = bvh.indices_x;
-	primitives = bvh.primitives;
+	indices    = bvh.indices;
+	primitives = bvh.triangles;
 #elif BVH_TYPE == BVH_MBVH
-	MBVH<Triangle> mbvh;
+	MBVH mbvh;
 	mbvh.init(bvh);
 	
 	// Set global MBVHNode buffer
 	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
 
 	indices    = mbvh.indices;
-	primitives = mbvh.primitives;
+	primitives = mbvh.triangles;
 #endif
 	
 	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it

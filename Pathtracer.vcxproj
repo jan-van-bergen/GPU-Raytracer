@@ -192,6 +192,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AABB.cpp" />
+    <ClCompile Include="BVHBuilders.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CUDAModule.cpp" />
     <ClCompile Include="GBuffer.cpp" />
@@ -214,7 +215,6 @@
     <ClInclude Include="AABB.h" />
     <ClInclude Include="BlueNoise.h" />
     <ClInclude Include="BVH.h" />
-    <ClInclude Include="BVHBuilders.h" />
     <ClInclude Include="BVHPartitions.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Common.h" />
