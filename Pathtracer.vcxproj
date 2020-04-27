@@ -215,6 +215,7 @@
     <ClInclude Include="AABB.h" />
     <ClInclude Include="BlueNoise.h" />
     <ClInclude Include="BVH.h" />
+    <ClInclude Include="BVHBuilders.h" />
     <ClInclude Include="BVHPartitions.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Common.h" />

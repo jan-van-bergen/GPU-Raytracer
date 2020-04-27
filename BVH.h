@@ -3,6 +3,7 @@
 #include <ostream>
 #include <algorithm>
 
+#include "BVHBuilders.h"
 #include "BVHPartitions.h"
 
 struct BVHNode {
@@ -21,11 +22,6 @@ struct BVHNode {
 		return get_count() > 0;
 	}
 };
-
-namespace BVHBuilders {
-	void build_bvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp);
-	int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp[2], float inv_root_surface_area, AABB node_aabb);
-}
 
 struct BVH {
 	int        triangle_count;
