@@ -197,5 +197,8 @@
     <ClInclude Include="BVHPartitions.h">
       <Filter>BVH\Builders</Filter>
     </ClInclude>
+    <ClInclude Include="CompressedWideBVH.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

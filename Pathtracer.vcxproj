@@ -226,6 +226,7 @@
     <ClInclude Include="CUDAKernel.h" />
     <ClInclude Include="CUDAMemory.h" />
     <ClInclude Include="CUDAModule.h" />
+    <ClInclude Include="CompressedWideBVH.h" />
     <ClInclude Include="GBuffer.h" />
     <ClInclude Include="Imgui\imconfig.h" />
     <ClInclude Include="Imgui\imgui.h" />

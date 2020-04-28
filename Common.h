@@ -39,10 +39,11 @@ static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!"
 #define MAX_TEXTURES  32
 
 // BVH related
-#define BVH_SAH  0 // Binary SAH-based BVH
-#define BVH_MBVH 1 // n-ary BVH, constructed by collapsing the binary BVH
+#define BVH_SAH   0 // Binary SAH-based BVH
+#define BVH_MBVH  1 // n-ary BVH, constructed by collapsing the binary BVH
+#define BVH_CWBVH 2 // Compressed Wide BVH (8 way)
 
-#define BVH_TYPE BVH_MBVH
+#define BVH_TYPE BVH_CWBVH
 
 #define BVH_STACK_SIZE 32
 

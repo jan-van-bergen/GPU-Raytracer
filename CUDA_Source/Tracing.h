@@ -371,4 +371,14 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 
 	return false;
 }
+#elif BVH_TYPE == BVH_CWBVH
+
+__device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
+	// @TODO
+}
+
+__device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
+	return false; // @TODO
+}
+
 #endif
