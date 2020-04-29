@@ -1,6 +1,8 @@
 #pragma once
 #include "BVH.h"
 
+#include "ScopedTimer.h"
+
 typedef unsigned char byte;
 
 struct CompressedWideBVHNode {
@@ -282,13 +284,15 @@ struct CompressedWideBVH {
 	int leaf_count;
 	
 	inline void init(const BVH & bvh) {
+		ScopedTimer timer("Compressed Wide BVH Construction");
+
 		triangle_count = bvh.triangle_count;
 		triangles      = bvh.triangles;
 		
 		leaf_count = 0;
 		indices    = new int[bvh.leaf_count * 2];
 
-		node_count = 0;
+		node_count = 1;
 		nodes      = new CompressedWideBVHNode[bvh.node_count];
 
 		float         * cost      = new float        [bvh.node_count * 7];
