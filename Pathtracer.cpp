@@ -202,7 +202,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		bvh.save_to_disk(bvh_filename.c_str());
 	}
 
-	int leaf_count      = bvh.leaf_count;
+	int leaf_count;
 	int primitive_count = bvh.triangle_count;
 
 	int      * indices;
@@ -210,6 +210,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 #if BVH_TYPE == BVH_SAH
 	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+
+	leaf_count = bvh.leaf_count;
 
 	indices    = bvh.indices;
 	primitives = bvh.triangles;
@@ -219,6 +221,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	
 	// Set global MBVHNode buffer
 	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
+	
+	leaf_count = bvh.leaf_count;
 
 	indices    = mbvh.indices;
 	primitives = mbvh.triangles;
@@ -227,6 +231,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	cwbvh.init(bvh);
 
 	module.get_global("cwbvh_nodes").set_buffer(cwbvh.nodes, cwbvh.node_count);
+	
+	leaf_count = cwbvh.leaf_count;
 
 	indices    = cwbvh.indices;
 	primitives = cwbvh.triangles;

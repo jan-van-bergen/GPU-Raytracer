@@ -45,7 +45,8 @@ inline int calculate_cost(float cost[], CWBVHDecision decisions[], int node_inde
 		float cost_leaf = node.aabb.surface_area() * float(num_primitives);
 
 		for (int i = 0; i < 7; i++) {
-			cost[node_index * 7 + i] = cost_leaf;
+			cost     [node_index * 7 + i]      = cost_leaf;
+			decisions[node_index * 7 + i].type = CWBVHDecision::Type::LEAF;
 		}
 	} else {
 		num_primitives = 
@@ -140,6 +141,8 @@ inline void get_children(const BVHNode nodes[], const CWBVHDecision decisions[],
 		if (decisions[child_indices[c] * 7 + distributes[c]].type == CWBVHDecision::Type::DISTRIBUTE) {
 			get_children(nodes, decisions, child_indices[c], distributes[c], child_count, children);
 		} else {
+			assert(child_count < 8);
+
 			children[child_count++] = child_indices[c];
 		}
 	}
@@ -228,6 +231,7 @@ inline void collapse(int & node_count, CompressedWideBVHNode nodes_wbvh[], int &
 
 				// @TODO: make assert
 				if (triangle_count > CWBVH_MAX_PRIMITIVES_IN_LEAF) {
+					printf("node_index=%i, triangle_count=%i\n", node_index_wbvh, triangle_count);
 					abort();
 				}
 

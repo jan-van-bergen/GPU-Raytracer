@@ -91,7 +91,7 @@ __device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, floa
 	return true;
 }
 
-#if BVH_TYPE == BVH_SAH
+#if BVH_TYPE == BVH_SBVH
 struct AABB {
 	float3 min;
 	float3 max;
@@ -372,6 +372,22 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 	return false;
 }
 #elif BVH_TYPE == BVH_CWBVH
+typedef unsigned char byte;
+
+struct CompressedWideBVHNode {
+	float3 p;
+	byte e[3];
+	byte imask;
+
+	unsigned base_index_child;
+	unsigned base_index_triangle;
+
+	byte meta            [8];
+	byte quantized_min[3][8];
+	byte quantized_max[3][8];
+};
+
+__device__ CompressedWideBVHNode * cwbvh_nodes;
 
 __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 	// @TODO

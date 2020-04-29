@@ -4,6 +4,8 @@
 
 // Contains various ways to parition space into "left" and "right" as well as helper methods
 namespace BVHPartitions {
+	const int SBVH_BIN_COUNT = 256;
+		
 	// Calculates the smallest enclosing AABB over the union of all AABB's of the primitives in the range defined by [first, last>
 	template<typename PrimitiveType>
 	inline AABB calculate_bounds(const PrimitiveType * primitives, const int * indices, int first, int last) {
@@ -205,9 +207,7 @@ namespace BVHPartitions {
 		return min_split_index;
 	}
 
-	inline int partition_spatial(const Triangle * triangles, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost, float & plane_distance, AABB & aabb_left, AABB & aabb_right, int & n_left, int & n_right, AABB bounds) {
-		const int SBVH_BIN_COUNT = 256;
-		
+	inline int partition_spatial(const Triangle * triangles, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost, AABB & aabb_left, AABB & aabb_right, int & n_left, int & n_right, AABB bounds) {
 		float min_bin_cost = INFINITY;
 		int   min_bin_index     = -1;
 		int   min_bin_dimension = -1;
@@ -407,8 +407,7 @@ namespace BVHPartitions {
 
 		split_dimension = min_bin_dimension;
 		split_cost      = min_bin_cost;
-		plane_distance  = min_bin_plane_distance;
-
+		
 		return min_bin_index;
 	}
 }

@@ -41,7 +41,7 @@ struct BVH {
 		triangles = new Triangle[triangle_count];
 
 		// Construct Node pool
-		nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(2 * triangle_count * sizeof(BVHNode), 64));
+		nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(3 * triangle_count * sizeof(BVHNode), 64));
 		assert((unsigned long long)nodes % 64 == 0);
 	}
 
