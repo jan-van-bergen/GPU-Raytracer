@@ -8,17 +8,22 @@ struct MBVHNode {
 	float aabb_max_x[MBVH_WIDTH] = { 0.0f };
 	float aabb_max_y[MBVH_WIDTH] = { 0.0f };
 	float aabb_max_z[MBVH_WIDTH] = { 0.0f };
-	union {
-		int index[MBVH_WIDTH];
-		int child[MBVH_WIDTH];
-	};
-	int count[MBVH_WIDTH];
+	
+	struct {
+		int index;
+		int count;
+	} index_and_count[MBVH_WIDTH];
+
+	inline       int & get_index(int i)       { return index_and_count[i].index; }
+	inline const int & get_index(int i) const { return index_and_count[i].index; }
+	inline       int & get_count(int i)       { return index_and_count[i].count; }
+	inline const int & get_count(int i) const { return index_and_count[i].count; }
 
 	inline int get_child_count() const {
 		int result = 0;
 
 		for (int i = 0; i < MBVH_WIDTH; i++) {
-			if (count[i] == -1) break;
+			if (get_count(i) == -1) break;
 
 			result++;
 		}
@@ -36,8 +41,8 @@ struct MBVHNode {
 
 			for (int i = 0; i < child_count; i++) {
 				// If child Node i is an internal node
-				if (count[i] == 0) {
-					int child_i_child_count = nodes[child[i]].get_child_count();
+				if (get_count(i) == 0) {
+					int child_i_child_count = nodes[get_index(i)].get_child_count();
 
 					// Check if the current Node can adopt the children of child Node i
 					if (child_count + child_i_child_count - 1 <= MBVH_WIDTH) {
@@ -58,7 +63,7 @@ struct MBVHNode {
 			// No merge possible anymore, stop trying
 			if (max_index == -1) break;
 
-			const MBVHNode & max_child = nodes[child[max_index]];
+			const MBVHNode & max_child = nodes[get_index(max_index)];
 			int max_child_child_count = max_child.get_child_count();
 
 			// Replace max child Node with its first child
@@ -68,8 +73,8 @@ struct MBVHNode {
 			aabb_max_x[max_index] = max_child.aabb_max_x[0];
 			aabb_max_y[max_index] = max_child.aabb_max_y[0];
 			aabb_max_z[max_index] = max_child.aabb_max_z[0];
-			child[max_index] = max_child.child[0];
-			count[max_index] = max_child.count[0];
+			get_index(max_index) = max_child.get_index(0);
+			get_count(max_index) = max_child.get_count(0);
 
 			// Add the rest of max child Node's children after the current Node's own children
 			for (int i = 1; i < max_child_child_count; i++) {
@@ -79,21 +84,23 @@ struct MBVHNode {
 				aabb_max_x[child_count + i - 1] = max_child.aabb_max_x[i];
 				aabb_max_y[child_count + i - 1] = max_child.aabb_max_y[i];
 				aabb_max_z[child_count + i - 1] = max_child.aabb_max_z[i];
-				child[child_count + i - 1] = max_child.child[i];
-				count[child_count + i - 1] = max_child.count[i];
+				get_index (child_count + i - 1) = max_child.get_index (i);
+				get_count (child_count + i - 1) = max_child.get_count (i);
 			}
 		};
 
 		for (int i = 0; i < MBVH_WIDTH; i++) {
-			if (count[i] == -1) break;
+			if (get_count(i) == -1) break;
 
 			// If child Node i is an internal node, recurse
-			if (count[i] == 0) {
-				nodes[child[i]].collapse(nodes);
+			if (get_count(i) == 0) {
+				nodes[get_index(i)].collapse(nodes);
 			}
 		}
 	}
 };
+
+static_assert(sizeof(MBVHNode) == 128);
 
 struct MBVH {
 	int        triangle_count;
@@ -120,8 +127,8 @@ struct MBVH {
 		for (int i = 0; i < node_count; i++) {
 			// We use index 1 as a starting point, such that it points to the first child of the root
 			if (i == 1) {
-				nodes[i].child[0] = 0;
-				nodes[i].count[0] = 0;
+				nodes[i].get_index(0) = 0;
+				nodes[i].get_count(0) = 0;
 			}
 
 			if (!bvh.nodes[i].is_leaf()) {
@@ -142,26 +149,26 @@ struct MBVH {
 				nodes[i].aabb_max_z[1] = child_right.aabb.max.z;
 
 				if (child_left.is_leaf()) {
-					nodes[i].index[0] = child_left.first;
-					nodes[i].count[0] = child_left.get_count();
+					nodes[i].get_index(0) = child_left.first;
+					nodes[i].get_count(0) = child_left.get_count();
 				} else {
-					nodes[i].child[0] = bvh.nodes[i].left;
-					nodes[i].count[0] = 0;
+					nodes[i].get_index(0) = bvh.nodes[i].left;
+					nodes[i].get_count(0) = 0;
 				}
 
 				if (child_right.is_leaf()) {
-					nodes[i].index[1] = child_right.first;
-					nodes[i].count[1] = child_right.get_count();
+					nodes[i].get_index(1) = child_right.first;
+					nodes[i].get_count(1) = child_right.get_count();
 				} else {
-					nodes[i].child[1] = bvh.nodes[i].left + 1;
-					nodes[i].count[1] = 0;
+					nodes[i].get_index(1) = bvh.nodes[i].left + 1;
+					nodes[i].get_count(1) = 0;
 				}
 				
 				// For now the tree is binary, 
 				// so make the rest of the indices invalid
 				for (int j = 2; j < MBVH_WIDTH; j++) {
-					nodes[i].child[j] = -1;
-					nodes[i].count[j] = -1;
+					nodes[i].get_index(j) = -1;
+					nodes[i].get_count(j) = -1;
 				}
 			}
 		}

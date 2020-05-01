@@ -204,11 +204,7 @@ struct MBVHNode {
 	float4 aabb_max_x;
 	float4 aabb_max_y;
 	float4 aabb_max_z;
-	union {
-		int index[MBVH_WIDTH];
-		int child[MBVH_WIDTH];
-	};
-	int count[MBVH_WIDTH];
+	int2 index_and_count[MBVH_WIDTH];
 };
 
 __device__ MBVHNode * mbvh_nodes;
@@ -300,8 +296,10 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		int node_index, node_id;
 		unpack_mbvh_node(packed, node_index, node_id);
 
-		int index = mbvh_nodes[node_index].child[node_id];
-		int count = mbvh_nodes[node_index].count[node_id];
+		int2 index_and_count = mbvh_nodes[node_index].index_and_count[node_id];
+
+		int index = index_and_count.x;
+		int count = index_and_count.y;
 
 		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
 
@@ -341,8 +339,10 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 		int node_index, node_id;
 		unpack_mbvh_node(packed, node_index, node_id);
 
-		int index = mbvh_nodes[node_index].index[node_id];
-		int count = mbvh_nodes[node_index].count[node_id];
+		int2 index_and_count = mbvh_nodes[node_index].index_and_count[node_id];
+
+		int index = index_and_count.x;
+		int count = index_and_count.y;
 
 		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
 
