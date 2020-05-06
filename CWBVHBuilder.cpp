@@ -287,8 +287,10 @@ CWBVH BVHBuilders::cwbvh_from_binary_bvh(const BVH & bvh) {
 	float         * cost      = new float        [bvh.node_count * 7];
 	CWBVHDecision * decisions = new CWBVHDecision[bvh.node_count * 7];
 
+	// Fill cost table using dynamic programming (bottom up)
 	calculate_cost(cost, decisions, 0, bvh.nodes);
 
+	// Collapse SBVH into 8-way tree (top down)
 	collapse(cwbvh.node_count, cwbvh.nodes, cwbvh.leaf_count, cwbvh.indices, bvh.nodes, bvh.indices, decisions, 0, 0);
 
 	printf("CWBVH Node Collapse: %i -> %i\n\n", bvh.node_count, cwbvh.node_count);
