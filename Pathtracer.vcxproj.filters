@@ -60,6 +60,9 @@
     <ClCompile Include="QBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
+    <ClCompile Include="CWBVHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">

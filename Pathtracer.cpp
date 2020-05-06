@@ -216,8 +216,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	indices    = bvh.indices;
 	primitives = bvh.triangles;
 #elif BVH_TYPE == BVH_QBVH
-	QBVH qbvh;
-	qbvh.init(bvh);
+	QBVH qbvh = BVHBuilders::qbvh_from_binary_bvh(bvh);
 	
 	// Set global QBVHNode buffer
 	module.get_global("qbvh_nodes").set_buffer(qbvh.nodes, qbvh.node_count);
@@ -227,8 +226,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	indices    = qbvh.indices;
 	primitives = qbvh.triangles;
 #elif BVH_TYPE == BVH_CWBVH
-	CWBVH cwbvh;
-	cwbvh.init(bvh);
+	CWBVH cwbvh = BVHBuilders::cwbvh_from_binary_bvh(bvh);
 
 	module.get_global("cwbvh_nodes").set_buffer(cwbvh.nodes, cwbvh.node_count);
 	

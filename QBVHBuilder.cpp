@@ -73,6 +73,70 @@ static void collapse(QBVHNode nodes[], int node_index) {
 	}
 }
 
-void BVHBuilders::qbvh_from_binary_bvh(QBVHNode nodes[]) {
-	collapse(nodes, 0);
+QBVH BVHBuilders::qbvh_from_binary_bvh(const BVH & bvh) {
+	QBVH qbvh;
+	
+	qbvh.triangle_count = bvh.triangle_count;
+	qbvh.triangles      = bvh.triangles;
+
+	qbvh.indices = bvh.indices;
+
+	qbvh.node_count = bvh.node_count;
+	qbvh.nodes      = new QBVHNode[bvh.node_count];
+
+	qbvh.leaf_count = bvh.leaf_count;
+
+	for (int i = 0; i < qbvh.node_count; i++) {
+		// We use index 1 as a starting point, such that it points to the first child of the root
+		if (i == 1) {
+			qbvh.nodes[i].get_index(0) = 0;
+			qbvh.nodes[i].get_count(0) = 0;
+		}
+
+		if (!bvh.nodes[i].is_leaf()) {
+			const BVHNode & child_left  = bvh.nodes[bvh.nodes[i].left];
+			const BVHNode & child_right = bvh.nodes[bvh.nodes[i].left + 1];
+
+			qbvh.nodes[i].aabb_min_x[0] = child_left.aabb.min.x;
+			qbvh.nodes[i].aabb_min_y[0] = child_left.aabb.min.y;
+			qbvh.nodes[i].aabb_min_z[0] = child_left.aabb.min.z;
+			qbvh.nodes[i].aabb_max_x[0] = child_left.aabb.max.x;
+			qbvh.nodes[i].aabb_max_y[0] = child_left.aabb.max.y;
+			qbvh.nodes[i].aabb_max_z[0] = child_left.aabb.max.z;
+			qbvh.nodes[i].aabb_min_x[1] = child_right.aabb.min.x;
+			qbvh.nodes[i].aabb_min_y[1] = child_right.aabb.min.y;
+			qbvh.nodes[i].aabb_min_z[1] = child_right.aabb.min.z;
+			qbvh.nodes[i].aabb_max_x[1] = child_right.aabb.max.x;
+			qbvh.nodes[i].aabb_max_y[1] = child_right.aabb.max.y;
+			qbvh.nodes[i].aabb_max_z[1] = child_right.aabb.max.z;
+
+			if (child_left.is_leaf()) {
+				qbvh.nodes[i].get_index(0) = child_left.first;
+				qbvh.nodes[i].get_count(0) = child_left.get_count();
+			} else {
+				qbvh.nodes[i].get_index(0) = bvh.nodes[i].left;
+				qbvh.nodes[i].get_count(0) = 0;
+			}
+
+			if (child_right.is_leaf()) {
+				qbvh.nodes[i].get_index(1) = child_right.first;
+				qbvh.nodes[i].get_count(1) = child_right.get_count();
+			} else {
+				qbvh.nodes[i].get_index(1) = bvh.nodes[i].left + 1;
+				qbvh.nodes[i].get_count(1) = 0;
+			}
+				
+			// For now the tree is binary, 
+			// so make the rest of the indices invalid
+			for (int j = 2; j < 4; j++) {
+				qbvh.nodes[i].get_index(j) = -1;
+				qbvh.nodes[i].get_count(j) = -1;
+			}
+		}
+	}
+
+	// Collapse top-down, starting from the root
+	collapse(qbvh.nodes, 0);
+
+	return qbvh;
 }

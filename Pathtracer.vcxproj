@@ -195,6 +195,7 @@
     <ClCompile Include="BVHBuilder.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CUDAModule.cpp" />
+    <ClCompile Include="CWBVHBuilder.cpp" />
     <ClCompile Include="GBuffer.cpp" />
     <ClCompile Include="Imgui\imgui.cpp" />
     <ClCompile Include="Imgui\imgui_demo.cpp" />
