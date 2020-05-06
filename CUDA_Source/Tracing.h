@@ -375,37 +375,27 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 typedef unsigned char byte;
 
 struct CompressedWideBVHNode {
-	float3 p;
-	byte e[3];
-	byte imask;
-
-	unsigned base_index_child;
-	unsigned base_index_triangle;
-
-	unsigned meta4           [2];
-	unsigned quantized_min_x4[2];
-	unsigned quantized_min_y4[2];
-	unsigned quantized_min_z4[2];
-	unsigned quantized_max_x4[2];
-	unsigned quantized_max_y4[2];
-	unsigned quantized_max_z4[2];
+	float4 node_0;
+	float4 node_1;
+	float4 node_2;
+	float4 node_3;
+	float4 node_4; // Node is stored as 5 float4's so we can load the entire 80 bytes in 5 global memory accesses
 };
 
 __device__ CompressedWideBVHNode * cwbvh_nodes;
 
 __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
-	unsigned oct = 
-		(ray.direction.x < 0.0f ? 0b100 : 0) |
-		(ray.direction.y < 0.0f ? 0b010 : 0) |
-		(ray.direction.z < 0.0f ? 0b001 : 0);
-
-	unsigned oct_inv  = 7 - oct;
-	unsigned oct_inv4 = oct_inv * 0x01010101;
-
 	bool ray_negative_x = ray.direction.x < 0.0f;
 	bool ray_negative_y = ray.direction.y < 0.0f;
 	bool ray_negative_z = ray.direction.z < 0.0f;
 
+	unsigned oct = 
+		(ray_negative_x < 0.0f ? 0b100 : 0) |
+		(ray_negative_y < 0.0f ? 0b010 : 0) |
+		(ray_negative_z < 0.0f ? 0b001 : 0);
+
+	unsigned oct_inv  = 7 - oct;
+	unsigned oct_inv4 = oct_inv * 0x01010101;
 
 	uint2 stack[BVH_STACK_SIZE];
 	int  stack_size = 0;
@@ -436,14 +426,19 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 
 			unsigned child_node_index = child_index_base + relative_index;
 
-			// @TODO: use vector loads
-			
-			float3 p = cwbvh_nodes[child_node_index].p;
-			byte e_x = cwbvh_nodes[child_node_index].e[0];
-			byte e_y = cwbvh_nodes[child_node_index].e[1];
-			byte e_z = cwbvh_nodes[child_node_index].e[2];
+			float4 node_0 = cwbvh_nodes[child_node_index].node_0;
+			float4 node_1 = cwbvh_nodes[child_node_index].node_1;
+			float4 node_2 = cwbvh_nodes[child_node_index].node_2;
+			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
+			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
 
-			byte imask = cwbvh_nodes[child_node_index].imask;
+			float3 p = make_float3(node_0);
+
+			unsigned e_imask = float_as_uint(node_0.w);
+			byte e_x   = extract_byte(e_imask, 0);
+			byte e_y   = extract_byte(e_imask, 1);
+			byte e_z   = extract_byte(e_imask, 2);
+			byte imask = extract_byte(e_imask, 3);
 
 			float adjusted_ray_direction_inv_x = uint_as_float(e_x << 23) * ray.direction_inv.x;
 			float adjusted_ray_direction_inv_y = uint_as_float(e_y << 23) * ray.direction_inv.y;
@@ -456,7 +451,7 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 
 			#pragma unroll
 			for (int i = 0; i < 2; i++) {
-				unsigned meta4 = cwbvh_nodes[child_node_index].meta4[i];
+				unsigned meta4 = float_as_uint(i == 0 ? node_1.z : node_1.w);
 
 				unsigned is_inner4   = (meta4 & (meta4 << 1)) & 0x10101010;
 				unsigned inner_mask4 = sign_extend_s8x4(is_inner4 << 3);
@@ -466,14 +461,14 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 				// @SPEED: use PRMT
 
 				// Select near and far planes based on ray octant
-				unsigned q_lo_x = ray_negative_x ? cwbvh_nodes[child_node_index].quantized_max_x4[i] : cwbvh_nodes[child_node_index].quantized_min_x4[i];
-				unsigned q_hi_x = ray_negative_x ? cwbvh_nodes[child_node_index].quantized_min_x4[i] : cwbvh_nodes[child_node_index].quantized_max_x4[i];
+				unsigned q_lo_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.z : node_2.w) : float_as_uint(i == 0 ? node_2.x : node_2.y);
+				unsigned q_hi_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.x : node_2.y) : float_as_uint(i == 0 ? node_2.z : node_2.w);
 
-				unsigned q_lo_y = ray_negative_y ? cwbvh_nodes[child_node_index].quantized_max_y4[i] : cwbvh_nodes[child_node_index].quantized_min_y4[i];
-				unsigned q_hi_y = ray_negative_y ? cwbvh_nodes[child_node_index].quantized_min_y4[i] : cwbvh_nodes[child_node_index].quantized_max_y4[i];
+				unsigned q_lo_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.z : node_3.w) : float_as_uint(i == 0 ? node_3.x : node_3.y);
+				unsigned q_hi_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.x : node_3.y) : float_as_uint(i == 0 ? node_3.z : node_3.w);
 
-				unsigned q_lo_z = ray_negative_z ? cwbvh_nodes[child_node_index].quantized_max_z4[i] : cwbvh_nodes[child_node_index].quantized_min_z4[i];
-				unsigned q_hi_z = ray_negative_z ? cwbvh_nodes[child_node_index].quantized_min_z4[i] : cwbvh_nodes[child_node_index].quantized_max_z4[i];
+				unsigned q_lo_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.z : node_4.w) : float_as_uint(i == 0 ? node_4.x : node_4.y);
+				unsigned q_hi_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.x : node_4.y) : float_as_uint(i == 0 ? node_4.z : node_4.w);
 
 				#pragma unroll
 				for (int j = 0; j < 4; j++) {
@@ -503,8 +498,8 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 				}
 			}
 
-			current_group .x = cwbvh_nodes[child_node_index].base_index_child;
-			triangle_group.x = cwbvh_nodes[child_node_index].base_index_triangle;
+			current_group .x = float_as_uint(node_1.x);
+			triangle_group.x = float_as_uint(node_1.y);
 
 			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
 			triangle_group.y = (hitmask & 0x00ffffff);

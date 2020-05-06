@@ -15,10 +15,10 @@ struct CompressedWideBVHNode {
 
 	byte meta           [8];
 	byte quantized_min_x[8];
-	byte quantized_min_y[8];
-	byte quantized_min_z[8];
 	byte quantized_max_x[8];
+	byte quantized_min_y[8];
 	byte quantized_max_y[8];
+	byte quantized_min_z[8];
 	byte quantized_max_z[8];
 };
 
