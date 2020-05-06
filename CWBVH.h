@@ -15,12 +15,9 @@ struct CWBVHNode {
 
 	byte meta[8];
 
-	byte quantized_min_x[8];
-	byte quantized_max_x[8];
-	byte quantized_min_y[8];
-	byte quantized_max_y[8];
-	byte quantized_min_z[8];
-	byte quantized_max_z[8];
+	byte quantized_min_x[8], quantized_max_x[8];
+	byte quantized_min_y[8], quantized_max_y[8];
+	byte quantized_min_z[8], quantized_max_z[8];
 };
 
 static_assert(sizeof(CWBVHNode) == 80);
@@ -137,23 +134,26 @@ inline int calculate_cost(float cost[], CWBVHDecision decisions[], int node_inde
 inline void get_children(const BVHNode nodes[], const CWBVHDecision decisions[], int node_index, int i, int & child_count, int children[8]) {
 	const BVHNode & node = nodes[node_index];
 
-	int child_indices[2] = { node.left, node.left + 1 };
-	int distributes[2] = {
-		decisions[node_index * 7 + i].distribute_0,
-		decisions[node_index * 7 + i].distribute_1
-	};
+	int distribute_0 = decisions[node_index * 7 + i].distribute_0;
+	int distribute_1 = decisions[node_index * 7 + i].distribute_1;
+	
+	assert(distribute_0 >= 0 && distribute_0 < 7);
+	assert(distribute_1 >= 0 && distribute_1 < 7);
+	
+	assert(child_count < 8);
 
-	assert(distributes[0] >= 0 && distributes[0] < 7);
-	assert(distributes[1] >= 0 && distributes[1] < 7);
-
-	for (int c = 0; c < 2; c++) {
-		if (decisions[child_indices[c] * 7 + distributes[c]].type == CWBVHDecision::Type::DISTRIBUTE) {
-			get_children(nodes, decisions, child_indices[c], distributes[c], child_count, children);
-		} else {
-			assert(child_count < 8);
-
-			children[child_count++] = child_indices[c];
-		}
+	// Recurse on left child if it needs to distribute
+	if (decisions[node.left * 7 + distribute_0].type == CWBVHDecision::Type::DISTRIBUTE) {
+		get_children(nodes, decisions, node.left, distribute_0, child_count, children);
+	} else {
+		children[child_count++] = node.left;
+	}
+	
+	// Recurse on right child if it needs to distribute
+	if (decisions[(node.left + 1) * 7 + distribute_1].type == CWBVHDecision::Type::DISTRIBUTE) {
+		get_children(nodes, decisions, node.left + 1, distribute_1, child_count, children);
+	} else {
+		children[child_count++] = node.left + 1;
 	}
 }
 
