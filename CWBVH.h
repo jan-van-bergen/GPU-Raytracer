@@ -5,7 +5,7 @@
 
 typedef unsigned char byte;
 
-struct CompressedWideBVHNode {
+struct CWBVHNode {
 	Vector3 p;
 	byte e[3];
 	byte imask;
@@ -13,7 +13,8 @@ struct CompressedWideBVHNode {
 	unsigned base_index_child;
 	unsigned base_index_triangle;
 
-	byte meta           [8];
+	byte meta[8];
+
 	byte quantized_min_x[8];
 	byte quantized_max_x[8];
 	byte quantized_min_y[8];
@@ -22,7 +23,7 @@ struct CompressedWideBVHNode {
 	byte quantized_max_z[8];
 };
 
-static_assert(sizeof(CompressedWideBVHNode) == 80);
+static_assert(sizeof(CWBVHNode) == 80);
 
 struct CWBVHDecision {
 	enum class Type : char {
@@ -175,8 +176,8 @@ inline int count_primitives(const BVHNode nodes[], int node_index, int & index_c
 		count_primitives(nodes, node.left + 1, index_count, indices_wbvh, indices_sbvh);
 }
 
-inline void collapse(int & node_count, CompressedWideBVHNode nodes_wbvh[], int & index_count, int indices_wbvh[], const BVHNode nodes_sbvh[], const int indices_sbvh[], const CWBVHDecision decisions[], int node_index_wbvh, int node_index_sbvh) {
-	CompressedWideBVHNode & node = nodes_wbvh[node_index_wbvh];
+inline void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count, int indices_wbvh[], const BVHNode nodes_sbvh[], const int indices_sbvh[], const CWBVHDecision decisions[], int node_index_wbvh, int node_index_sbvh) {
+	CWBVHNode & node = nodes_wbvh[node_index_wbvh];
 
 	const AABB & aabb = nodes_sbvh[node_index_sbvh].aabb;
 
@@ -289,14 +290,14 @@ inline void collapse(int & node_count, CompressedWideBVHNode nodes_wbvh[], int &
 	}
 }
 
-struct CompressedWideBVH {
+struct CWBVH {
 	int        triangle_count;
 	Triangle * triangles;
 	
 	int * indices;
 
 	int                     node_count;
-	CompressedWideBVHNode * nodes;
+	CWBVHNode * nodes;
 
 	int leaf_count;
 	
@@ -310,7 +311,7 @@ struct CompressedWideBVH {
 		indices    = new int[bvh.leaf_count * 2];
 
 		node_count = 1;
-		nodes      = new CompressedWideBVHNode[bvh.node_count];
+		nodes      = new CWBVHNode[bvh.node_count];
 
 		float         * cost      = new float        [bvh.node_count * 7];
 		CWBVHDecision * decisions = new CWBVHDecision[bvh.node_count * 7];

@@ -374,7 +374,7 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 #elif BVH_TYPE == BVH_CWBVH
 typedef unsigned char byte;
 
-struct CompressedWideBVHNode {
+struct CWBVH {
 	float4 node_0;
 	float4 node_1;
 	float4 node_2;
@@ -382,7 +382,7 @@ struct CompressedWideBVHNode {
 	float4 node_4; // Node is stored as 5 float4's so we can load the entire 80 bytes in 5 global memory accesses
 };
 
-__device__ CompressedWideBVHNode * cwbvh_nodes;
+__device__ CWBVH * cwbvh_nodes;
 
 __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 	bool ray_negative_x = ray.direction.x < 0.0f;
@@ -512,7 +512,7 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 
 		// While the triangle group is not empty
 		while (triangle_group.y != 0) {
-			// if (__popc(__activemask()) < active_threads / 5) {
+			// if (__popc(__activemask()) < active_threads / 4) {
 			// 	stack[stack_size++] = triangle_group;
 
 			// 	break;

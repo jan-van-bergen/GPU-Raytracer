@@ -9,7 +9,7 @@
 #include "MeshData.h"
 #include "BVH.h"
 #include "MBVH.h"
-#include "CompressedWideBVH.h"
+#include "CWBVH.h"
 
 #include "Sky.h"
 
@@ -227,7 +227,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	indices    = mbvh.indices;
 	primitives = mbvh.triangles;
 #elif BVH_TYPE == BVH_CWBVH
-	CompressedWideBVH cwbvh;
+	CWBVH cwbvh;
 	cwbvh.init(bvh);
 
 	module.get_global("cwbvh_nodes").set_buffer(cwbvh.nodes, cwbvh.node_count);
