@@ -110,3 +110,8 @@ __device__ unsigned msb(unsigned x) {
 	asm volatile("bfind.u32 %0, %1; " : "=r"(result) : "r"(x));
 	return result;
 }
+
+// Extracts the i-th most significant byte from x
+__device__ unsigned extract_byte(unsigned x, unsigned i) {
+	return (x >> (i * 8)) & 0xff;
+}
