@@ -8,7 +8,7 @@
 
 #include "MeshData.h"
 #include "BVH.h"
-#include "MBVH.h"
+#include "QBVH.h"
 #include "CWBVH.h"
 
 #include "Sky.h"
@@ -215,17 +215,17 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	indices    = bvh.indices;
 	primitives = bvh.triangles;
-#elif BVH_TYPE == BVH_MBVH
-	MBVH mbvh;
-	mbvh.init(bvh);
+#elif BVH_TYPE == BVH_QBVH
+	QBVH qbvh;
+	qbvh.init(bvh);
 	
-	// Set global MBVHNode buffer
-	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
+	// Set global QBVHNode buffer
+	module.get_global("qbvh_nodes").set_buffer(qbvh.nodes, qbvh.node_count);
 	
 	leaf_count = bvh.leaf_count;
 
-	indices    = mbvh.indices;
-	primitives = mbvh.triangles;
+	indices    = qbvh.indices;
+	primitives = qbvh.triangles;
 #elif BVH_TYPE == BVH_CWBVH
 	CWBVH cwbvh;
 	cwbvh.init(bvh);

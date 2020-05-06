@@ -57,6 +57,9 @@
     <ClCompile Include="SBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
+    <ClCompile Include="QBVHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -152,9 +155,6 @@
     <ClInclude Include="Texture.h">
       <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="MBVH.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
     <ClInclude Include="BlueNoise.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
@@ -198,6 +198,9 @@
       <Filter>BVH\Builders</Filter>
     </ClInclude>
     <ClInclude Include="CWBVH.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="QBVH.h">
       <Filter>BVH</Filter>
     </ClInclude>
   </ItemGroup>

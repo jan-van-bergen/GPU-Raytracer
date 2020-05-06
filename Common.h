@@ -40,7 +40,7 @@ static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!"
 
 // BVH related
 #define BVH_SBVH  0 // Binary SAH-based SBVH
-#define BVH_MBVH  1 // n-ary BVH, constructed by collapsing the binary BVH
+#define BVH_QBVH  1 // Quaternary BVH, constructed by collapsing the binary SBVH
 #define BVH_CWBVH 2 // Compressed Wide BVH (8 way)
 
 #define BVH_TYPE BVH_CWBVH
@@ -53,6 +53,3 @@ static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!"
 #define BVH_AXIS_Y_BITS (0b10 << 30)
 #define BVH_AXIS_Z_BITS (0b11 << 30)
 #define BVH_AXIS_MASK   (0b11 << 30)
-
-#define MBVH_WIDTH 4
-static_assert(MBVH_WIDTH >= 2, "MBVH tree must be at least binary");

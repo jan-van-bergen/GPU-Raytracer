@@ -194,20 +194,19 @@ __device__ bool bvh_intersect(const Ray & ray, float max_distance) {
 
 	return false;
 }
-#elif BVH_TYPE == BVH_MBVH
-static_assert(MBVH_WIDTH == 4, "The implementation assumes a Quaternary BVH");
+#elif BVH_TYPE == BVH_QBVH
 
-struct MBVHNode {
+struct QBVHNode {
 	float4 aabb_min_x;
 	float4 aabb_min_y;
 	float4 aabb_min_z;
 	float4 aabb_max_x;
 	float4 aabb_max_y;
 	float4 aabb_max_z;
-	int2 index_and_count[MBVH_WIDTH];
+	int2 index_and_count[4];
 };
 
-__device__ MBVHNode * mbvh_nodes;
+__device__ QBVHNode * qbvh_nodes;
 
 struct AABBHits {
 	union {
@@ -218,8 +217,8 @@ struct AABBHits {
 	bool hit[4];
 };
 
-// Check the Ray agains the four AABB's of the children of the given MBVH Node
-__device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray & ray, float max_distance) {
+// Check the Ray agains the four AABB's of the children of the given QBVH Node
+__device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray & ray, float max_distance) {
 	AABBHits result;
 
 	float4 tx0 = (node.aabb_min_x - ray.origin.x) * ray.direction_inv.x;
@@ -252,7 +251,7 @@ __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray 
 
 	// Bubble sort to order the hit distances
 	#pragma unroll
-	for (int i = 1; i < MBVH_WIDTH; i++) {
+	for (int i = 1; i < 4; i++) {
 		#pragma unroll
 		for (int j = i - 1; j >= 0; j--) {
 			if (result.t_near_f[j] < result.t_near_f[j + 1]) {
@@ -269,13 +268,13 @@ __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray 
 	return result;
 }
 
-__device__ inline unsigned pack_mbvh_node(int index, int id) {
+__device__ inline unsigned pack_qbvh_node(int index, int id) {
 	ASSERT(index < 0x3fffffff, "Index must fit in 30 bits");
 
 	return (id << 30) | index;
 }
 
-__device__ inline void unpack_mbvh_node(unsigned packed, int & index, int & id) {
+__device__ inline void unpack_qbvh_node(unsigned packed, int & index, int & id) {
 	index = packed & 0x3fffffff;
 	id    = packed >> 30;
 }
@@ -294,9 +293,9 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		unsigned packed = stack[--stack_size];
 
 		int node_index, node_id;
-		unpack_mbvh_node(packed, node_index, node_id);
+		unpack_qbvh_node(packed, node_index, node_id);
 
-		int2 index_and_count = mbvh_nodes[node_index].index_and_count[node_id];
+		int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
 
 		int index = index_and_count.x;
 		int count = index_and_count.y;
@@ -311,14 +310,14 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		} else {
 			int child = index;
 
-			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[child], ray, ray_hit.t);
+			AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, ray_hit.t);
 			
-			for (int i = 0; i < MBVH_WIDTH; i++) {
+			for (int i = 0; i < 4; i++) {
 				// Extract index from the 2 least significant bits
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				if (aabb_hits.hit[id]) {
-					stack[stack_size++] = pack_mbvh_node(child, id);
+					stack[stack_size++] = pack_qbvh_node(child, id);
 				}
 			}
 		}
@@ -337,9 +336,9 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 		unsigned packed = stack[--stack_size];
 
 		int node_index, node_id;
-		unpack_mbvh_node(packed, node_index, node_id);
+		unpack_qbvh_node(packed, node_index, node_id);
 
-		int2 index_and_count = mbvh_nodes[node_index].index_and_count[node_id];
+		int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
 
 		int index = index_and_count.x;
 		int count = index_and_count.y;
@@ -356,14 +355,14 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 		} else {
 			int child = index;
 
-			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[child], ray, max_distance);
+			AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, max_distance);
 			
-			for (int i = 0; i < MBVH_WIDTH; i++) {
+			for (int i = 0; i < 4; i++) {
 				// Extract index from the 2 least significant bits
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				if (aabb_hits.hit[id]) {
-					stack[stack_size++] = pack_mbvh_node(child, id);
+					stack[stack_size++] = pack_qbvh_node(child, id);
 				}
 			}
 		}
