@@ -508,8 +508,8 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 
 			byte imask = extract_byte(float_as_uint(node_0.w), 3);
 			
-			current_group .x = float_as_uint(node_1.x);
-			triangle_group.x = float_as_uint(node_1.y);
+			current_group .x = float_as_uint(node_1.x); // Child    base offset
+			triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
 
 			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
 			triangle_group.y = (hitmask & 0x00ffffff);
@@ -595,8 +595,8 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 
 			byte imask = extract_byte(float_as_uint(node_0.w), 3);
 			
-			current_group .x = float_as_uint(node_1.x);
-			triangle_group.x = float_as_uint(node_1.y);
+			current_group .x = float_as_uint(node_1.x); // Child    base offset
+			triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
 
 			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
 			triangle_group.y = (hitmask & 0x00ffffff);

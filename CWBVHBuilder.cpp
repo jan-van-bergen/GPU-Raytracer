@@ -214,6 +214,9 @@ static void order_children(const BVHNode nodes_sbvh[], int node_index_sbvh, int 
 	}
 
 	for (int i = 0; i < child_count; i++) {
+		assert(assignment   [i] != -1);
+		assert(children_copy[i] != -1);
+
 		children[assignment[i]] = children_copy[i];
 	}
 }
@@ -323,8 +326,9 @@ static void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 	assert(node.base_index_triangle + node_triangle_count == index_count);
 
 	// Recurse on Internal Nodes
-	for (int i = 0; i < child_count; i++) {
+	for (int i = 0; i < 8; i++) {
 		int child_index = children[i];
+		if (child_index == -1) continue;
 
 		if (decisions[child_index * 7].type == CWBVHDecision::Type::INTERNAL) {
 			collapse(node_count, nodes_wbvh, index_count, indices_wbvh, nodes_sbvh, indices_sbvh, decisions, node.base_index_child + (node.meta[i] & 31) - 24, child_index);
