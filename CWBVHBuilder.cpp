@@ -156,7 +156,7 @@ static int count_primitives(const BVHNode nodes[], int node_index, int & index_c
 		count_primitives(nodes, node.left + 1, index_count, indices_wbvh, indices_sbvh);
 }
 
-static void order_children(const BVHNode nodes_sbvh[], int node_index_sbvh, int children[], int child_count) {
+static void order_children(const BVHNode nodes_sbvh[], int node_index_sbvh, int children[8], int child_count) {
 	Vector3 p = nodes_sbvh[node_index_sbvh].aabb.get_center();
 
 	float cost[8][8];

@@ -534,6 +534,155 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 }
 
 __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
-	return false; // @TODO
+	bool ray_negative_x = ray.direction.x < 0.0f;
+	bool ray_negative_y = ray.direction.y < 0.0f;
+	bool ray_negative_z = ray.direction.z < 0.0f;
+
+	unsigned oct = 
+		(ray_negative_x < 0.0f ? 0b100 : 0) |
+		(ray_negative_y < 0.0f ? 0b010 : 0) |
+		(ray_negative_z < 0.0f ? 0b001 : 0);
+
+	unsigned oct_inv  = 7 - oct;
+	unsigned oct_inv4 = oct_inv * 0x01010101;
+
+	uint2 stack[BVH_STACK_SIZE];
+	int  stack_size = 0;
+
+	uint2 current_group = make_uint2(0, 0x80000000);
+
+	while (true) {
+		uint2 triangle_group;
+
+		if (current_group.y > 0x00ffffff) {
+			unsigned hits_imask = current_group.y;
+
+			unsigned child_index_offset = msb(hits_imask);
+			unsigned child_index_base   = current_group.x;
+
+			// Remove n from current_group;
+			current_group.y &= ~(1 << child_index_offset);
+
+			// If the node group is not yet empty, push it on the stack
+			if (current_group.y > 0x00ffffff) {
+				assert(stack_size < BVH_STACK_SIZE);
+
+				stack[stack_size++] = current_group;
+			}
+
+			unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
+			unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
+
+			unsigned child_node_index = child_index_base + relative_index;
+
+			float4 node_0 = cwbvh_nodes[child_node_index].node_0;
+			float4 node_1 = cwbvh_nodes[child_node_index].node_1;
+			float4 node_2 = cwbvh_nodes[child_node_index].node_2;
+			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
+			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+
+			float3 p = make_float3(node_0);
+
+			unsigned e_imask = float_as_uint(node_0.w);
+			byte e_x   = extract_byte(e_imask, 0);
+			byte e_y   = extract_byte(e_imask, 1);
+			byte e_z   = extract_byte(e_imask, 2);
+			byte imask = extract_byte(e_imask, 3);
+
+			float adjusted_ray_direction_inv_x = uint_as_float(e_x << 23) * ray.direction_inv.x;
+			float adjusted_ray_direction_inv_y = uint_as_float(e_y << 23) * ray.direction_inv.y;
+			float adjusted_ray_direction_inv_z = uint_as_float(e_z << 23) * ray.direction_inv.z;
+			float adjusted_ray_origin_x = (p.x - ray.origin.x) * ray.direction_inv.x;
+			float adjusted_ray_origin_y = (p.y - ray.origin.y) * ray.direction_inv.y;
+			float adjusted_ray_origin_z = (p.z - ray.origin.z) * ray.direction_inv.z;
+
+			unsigned hitmask = 0;
+
+			#pragma unroll
+			for (int i = 0; i < 2; i++) {
+				unsigned meta4 = float_as_uint(i == 0 ? node_1.z : node_1.w);
+
+				unsigned is_inner4   = (meta4 & (meta4 << 1)) & 0x10101010;
+				unsigned inner_mask4 = sign_extend_s8x4(is_inner4 << 3);
+				unsigned bit_index4  = (meta4 ^ (oct_inv4 & inner_mask4)) & 0x1f1f1f1f;
+				unsigned child_bits4 = (meta4 >> 5) & 0x07070707;
+
+				// @SPEED: use PRMT
+
+				// Select near and far planes based on ray octant
+				unsigned q_lo_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.z : node_2.w) : float_as_uint(i == 0 ? node_2.x : node_2.y);
+				unsigned q_hi_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.x : node_2.y) : float_as_uint(i == 0 ? node_2.z : node_2.w);
+
+				unsigned q_lo_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.z : node_3.w) : float_as_uint(i == 0 ? node_3.x : node_3.y);
+				unsigned q_hi_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.x : node_3.y) : float_as_uint(i == 0 ? node_3.z : node_3.w);
+
+				unsigned q_lo_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.z : node_4.w) : float_as_uint(i == 0 ? node_4.x : node_4.y);
+				unsigned q_hi_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.x : node_4.y) : float_as_uint(i == 0 ? node_4.z : node_4.w);
+
+				#pragma unroll
+				for (int j = 0; j < 4; j++) {
+					float3 tmin = make_float3(
+						float(extract_byte(q_lo_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,
+						float(extract_byte(q_lo_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,				
+						float(extract_byte(q_lo_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
+					);
+
+					float3 tmax = make_float3(
+						float(extract_byte(q_hi_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,				
+						float(extract_byte(q_hi_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,					
+						float(extract_byte(q_hi_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
+					);
+
+					// @TODO: VMIN, VMAX
+					float t_lo = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.z, EPSILON));
+					float t_hi = fminf(fminf(tmax.x, tmax.y), fminf(tmax.z, max_distance));
+
+					bool intersected = t_lo < t_hi;
+					if (intersected) {
+						unsigned child_bits = extract_byte(child_bits4, j);
+						unsigned bit_index  = extract_byte(bit_index4,  j);
+
+						hitmask |= child_bits << bit_index;
+					}
+				}
+			}
+
+			current_group .x = float_as_uint(node_1.x);
+			triangle_group.x = float_as_uint(node_1.y);
+
+			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
+			triangle_group.y = (hitmask & 0x00ffffff);
+		} else {
+			triangle_group = current_group;
+			current_group  = make_uint2(0);
+		}
+
+		int active_threads = __popc(__activemask());
+
+		// While the triangle group is not empty
+		while (triangle_group.y != 0) {
+			// if (__popc(__activemask()) < active_threads / 4) {
+			// 	stack[stack_size++] = triangle_group;
+
+			// 	break;
+			// }
+
+			int triangle_index = msb(triangle_group.y);
+
+			triangle_group.y &= ~(1 << triangle_index);
+
+			if (triangle_intersect(triangle_group.x + triangle_index, ray, max_distance)) {
+				return true;
+			}
+		}
+
+		if (current_group.y <= 0x00ffffff) {
+			if (stack_size == 0) break;
+
+			current_group = stack[--stack_size];
+		}
+	}
+
+	return false;
 }
 #endif
