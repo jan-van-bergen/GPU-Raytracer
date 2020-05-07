@@ -2,7 +2,7 @@
 
 - CUDA Pathtracer that uses Wavefront rendering. 
 - Supports Diffuse, Dielectric, and Glossy (Microfacets) materials.
-- 4-way MBVH (QBVH).
+- Multiple BVH types: SBVH, QBVH, and Compressed Wide BVH.
 
 ![Sponza](Screenshots/Sponza.png "Sponza")
 ![Glass](Screenshots/Glass.png "Dielectrics")
@@ -32,9 +32,9 @@ Glossy materials are implemented using the Beckmann microfacet model.
 Glossy materials also use NEE and MIS.
 When tracing non-shadow rays (i.e. looking for indirect light) the BRDF is importance sampled using the formulas described in [Walter et al. 2007](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf).
 
-### MBVH
+### QBVH
 
-Instead of a binary BVH, the Pathtracer uses a 4-way MBVH (also known as a QBVH). This MBVH is constructed by iteratively collapsing the Nodes of a binary SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
+Instead of a binary BVH, the Pathtracer uses a quaternary BVH (QBVH). This QBVH is constructed by iteratively collapsing the Nodes of a binary SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
 
 ### Blue Noise Sampling
 
