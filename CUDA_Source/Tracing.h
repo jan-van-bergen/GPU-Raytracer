@@ -383,6 +383,83 @@ struct CWBVH {
 
 __device__ CWBVH * cwbvh_nodes;
 
+__device__ inline unsigned cwbvh_node_intersect(
+	const Ray & ray,
+	unsigned oct_inv4,
+	bool ray_negative_x,
+	bool ray_negative_y,
+	bool ray_negative_z,
+	float max_distance,
+	const float4 & node_0, const float4 & node_1, const float4 & node_2, const float4 & node_3, const float4 & node_4) {
+
+	float3 p = make_float3(node_0);
+
+	unsigned e_imask = float_as_uint(node_0.w);
+	byte e_x   = extract_byte(e_imask, 0);
+	byte e_y   = extract_byte(e_imask, 1);
+	byte e_z   = extract_byte(e_imask, 2);
+	
+	float adjusted_ray_direction_inv_x = uint_as_float(e_x << 23) * ray.direction_inv.x;
+	float adjusted_ray_direction_inv_y = uint_as_float(e_y << 23) * ray.direction_inv.y;
+	float adjusted_ray_direction_inv_z = uint_as_float(e_z << 23) * ray.direction_inv.z;
+	float adjusted_ray_origin_x = (p.x - ray.origin.x) * ray.direction_inv.x;
+	float adjusted_ray_origin_y = (p.y - ray.origin.y) * ray.direction_inv.y;
+	float adjusted_ray_origin_z = (p.z - ray.origin.z) * ray.direction_inv.z;
+
+	unsigned hit_mask = 0;
+
+	#pragma unroll
+	for (int i = 0; i < 2; i++) {
+		unsigned meta4 = float_as_uint(i == 0 ? node_1.z : node_1.w);
+
+		unsigned is_inner4   = (meta4 & (meta4 << 1)) & 0x10101010;
+		unsigned inner_mask4 = sign_extend_s8x4(is_inner4 << 3);
+		unsigned bit_index4  = (meta4 ^ (oct_inv4 & inner_mask4)) & 0x1f1f1f1f;
+		unsigned child_bits4 = (meta4 >> 5) & 0x07070707;
+
+		// @SPEED: use PRMT
+
+		// Select near and far planes based on ray octant
+		unsigned q_lo_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.z : node_2.w) : float_as_uint(i == 0 ? node_2.x : node_2.y);
+		unsigned q_hi_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.x : node_2.y) : float_as_uint(i == 0 ? node_2.z : node_2.w);
+
+		unsigned q_lo_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.z : node_3.w) : float_as_uint(i == 0 ? node_3.x : node_3.y);
+		unsigned q_hi_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.x : node_3.y) : float_as_uint(i == 0 ? node_3.z : node_3.w);
+
+		unsigned q_lo_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.z : node_4.w) : float_as_uint(i == 0 ? node_4.x : node_4.y);
+		unsigned q_hi_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.x : node_4.y) : float_as_uint(i == 0 ? node_4.z : node_4.w);
+
+		#pragma unroll
+		for (int j = 0; j < 4; j++) {
+			float3 tmin = make_float3(
+				float(extract_byte(q_lo_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,
+				float(extract_byte(q_lo_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,				
+				float(extract_byte(q_lo_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
+			);
+
+			float3 tmax = make_float3(
+				float(extract_byte(q_hi_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,				
+				float(extract_byte(q_hi_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,					
+				float(extract_byte(q_hi_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
+			);
+
+			// @TODO: VMIN, VMAX
+			float t_lo = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.z, EPSILON));
+			float t_hi = fminf(fminf(tmax.x, tmax.y), fminf(tmax.z, max_distance));
+
+			bool intersected = t_lo < t_hi;
+			if (intersected) {
+				unsigned child_bits = extract_byte(child_bits4, j);
+				unsigned bit_index  = extract_byte(bit_index4,  j);
+
+				hit_mask |= child_bits << bit_index;
+			}
+		}
+	}
+
+	return hit_mask;
+}
+
 __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 	bool ray_negative_x = ray.direction.x < 0.0f;
 	bool ray_negative_y = ray.direction.y < 0.0f;
@@ -431,72 +508,10 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
 			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
 
-			float3 p = make_float3(node_0);
+			unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
 
-			unsigned e_imask = float_as_uint(node_0.w);
-			byte e_x   = extract_byte(e_imask, 0);
-			byte e_y   = extract_byte(e_imask, 1);
-			byte e_z   = extract_byte(e_imask, 2);
-			byte imask = extract_byte(e_imask, 3);
-
-			float adjusted_ray_direction_inv_x = uint_as_float(e_x << 23) * ray.direction_inv.x;
-			float adjusted_ray_direction_inv_y = uint_as_float(e_y << 23) * ray.direction_inv.y;
-			float adjusted_ray_direction_inv_z = uint_as_float(e_z << 23) * ray.direction_inv.z;
-			float adjusted_ray_origin_x = (p.x - ray.origin.x) * ray.direction_inv.x;
-			float adjusted_ray_origin_y = (p.y - ray.origin.y) * ray.direction_inv.y;
-			float adjusted_ray_origin_z = (p.z - ray.origin.z) * ray.direction_inv.z;
-
-			unsigned hitmask = 0;
-
-			#pragma unroll
-			for (int i = 0; i < 2; i++) {
-				unsigned meta4 = float_as_uint(i == 0 ? node_1.z : node_1.w);
-
-				unsigned is_inner4   = (meta4 & (meta4 << 1)) & 0x10101010;
-				unsigned inner_mask4 = sign_extend_s8x4(is_inner4 << 3);
-				unsigned bit_index4  = (meta4 ^ (oct_inv4 & inner_mask4)) & 0x1f1f1f1f;
-				unsigned child_bits4 = (meta4 >> 5) & 0x07070707;
-
-				// @SPEED: use PRMT
-
-				// Select near and far planes based on ray octant
-				unsigned q_lo_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.z : node_2.w) : float_as_uint(i == 0 ? node_2.x : node_2.y);
-				unsigned q_hi_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.x : node_2.y) : float_as_uint(i == 0 ? node_2.z : node_2.w);
-
-				unsigned q_lo_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.z : node_3.w) : float_as_uint(i == 0 ? node_3.x : node_3.y);
-				unsigned q_hi_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.x : node_3.y) : float_as_uint(i == 0 ? node_3.z : node_3.w);
-
-				unsigned q_lo_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.z : node_4.w) : float_as_uint(i == 0 ? node_4.x : node_4.y);
-				unsigned q_hi_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.x : node_4.y) : float_as_uint(i == 0 ? node_4.z : node_4.w);
-
-				#pragma unroll
-				for (int j = 0; j < 4; j++) {
-					float3 tmin = make_float3(
-						float(extract_byte(q_lo_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,
-						float(extract_byte(q_lo_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,				
-						float(extract_byte(q_lo_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
-					);
-
-					float3 tmax = make_float3(
-						float(extract_byte(q_hi_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,				
-						float(extract_byte(q_hi_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,					
-						float(extract_byte(q_hi_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
-					);
-
-					// @TODO: VMIN, VMAX
-					float t_lo = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.z, EPSILON));
-					float t_hi = fminf(fminf(tmax.x, tmax.y), fminf(tmax.z, ray_hit.t));
-
-					bool intersected = t_lo < t_hi;
-					if (intersected) {
-						unsigned child_bits = extract_byte(child_bits4, j);
-						unsigned bit_index  = extract_byte(bit_index4,  j);
-
-						hitmask |= child_bits << bit_index;
-					}
-				}
-			}
-
+			byte imask = extract_byte(float_as_uint(node_0.w), 3);
+			
 			current_group .x = float_as_uint(node_1.x);
 			triangle_group.x = float_as_uint(node_1.y);
 
@@ -581,72 +596,10 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
 			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
 
-			float3 p = make_float3(node_0);
+			unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, max_distance, node_0, node_1, node_2, node_3, node_4);
 
-			unsigned e_imask = float_as_uint(node_0.w);
-			byte e_x   = extract_byte(e_imask, 0);
-			byte e_y   = extract_byte(e_imask, 1);
-			byte e_z   = extract_byte(e_imask, 2);
-			byte imask = extract_byte(e_imask, 3);
-
-			float adjusted_ray_direction_inv_x = uint_as_float(e_x << 23) * ray.direction_inv.x;
-			float adjusted_ray_direction_inv_y = uint_as_float(e_y << 23) * ray.direction_inv.y;
-			float adjusted_ray_direction_inv_z = uint_as_float(e_z << 23) * ray.direction_inv.z;
-			float adjusted_ray_origin_x = (p.x - ray.origin.x) * ray.direction_inv.x;
-			float adjusted_ray_origin_y = (p.y - ray.origin.y) * ray.direction_inv.y;
-			float adjusted_ray_origin_z = (p.z - ray.origin.z) * ray.direction_inv.z;
-
-			unsigned hitmask = 0;
-
-			#pragma unroll
-			for (int i = 0; i < 2; i++) {
-				unsigned meta4 = float_as_uint(i == 0 ? node_1.z : node_1.w);
-
-				unsigned is_inner4   = (meta4 & (meta4 << 1)) & 0x10101010;
-				unsigned inner_mask4 = sign_extend_s8x4(is_inner4 << 3);
-				unsigned bit_index4  = (meta4 ^ (oct_inv4 & inner_mask4)) & 0x1f1f1f1f;
-				unsigned child_bits4 = (meta4 >> 5) & 0x07070707;
-
-				// @SPEED: use PRMT
-
-				// Select near and far planes based on ray octant
-				unsigned q_lo_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.z : node_2.w) : float_as_uint(i == 0 ? node_2.x : node_2.y);
-				unsigned q_hi_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.x : node_2.y) : float_as_uint(i == 0 ? node_2.z : node_2.w);
-
-				unsigned q_lo_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.z : node_3.w) : float_as_uint(i == 0 ? node_3.x : node_3.y);
-				unsigned q_hi_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.x : node_3.y) : float_as_uint(i == 0 ? node_3.z : node_3.w);
-
-				unsigned q_lo_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.z : node_4.w) : float_as_uint(i == 0 ? node_4.x : node_4.y);
-				unsigned q_hi_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.x : node_4.y) : float_as_uint(i == 0 ? node_4.z : node_4.w);
-
-				#pragma unroll
-				for (int j = 0; j < 4; j++) {
-					float3 tmin = make_float3(
-						float(extract_byte(q_lo_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,
-						float(extract_byte(q_lo_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,				
-						float(extract_byte(q_lo_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
-					);
-
-					float3 tmax = make_float3(
-						float(extract_byte(q_hi_x, j)) * adjusted_ray_direction_inv_x + adjusted_ray_origin_x,				
-						float(extract_byte(q_hi_y, j)) * adjusted_ray_direction_inv_y + adjusted_ray_origin_y,					
-						float(extract_byte(q_hi_z, j)) * adjusted_ray_direction_inv_z + adjusted_ray_origin_z
-					);
-
-					// @TODO: VMIN, VMAX
-					float t_lo = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.z, EPSILON));
-					float t_hi = fminf(fminf(tmax.x, tmax.y), fminf(tmax.z, max_distance));
-
-					bool intersected = t_lo < t_hi;
-					if (intersected) {
-						unsigned child_bits = extract_byte(child_bits4, j);
-						unsigned bit_index  = extract_byte(bit_index4,  j);
-
-						hitmask |= child_bits << bit_index;
-					}
-				}
-			}
-
+			byte imask = extract_byte(float_as_uint(node_0.w), 3);
+			
 			current_group .x = float_as_uint(node_1.x);
 			triangle_group.x = float_as_uint(node_1.y);
 
