@@ -71,11 +71,13 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	}
 
 	if (should_recompile) {
+		const char * ptx_args = "-v -warn-double-usage";
+
 		char command[256];
 #ifdef _DEBUG
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -lineinfo -arch=sm_%i -maxrregcount=%i -o %s %s", compute_capability, max_registers, output_filename, filename);
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"%s\" -lineinfo -arch=sm_%i -maxrregcount=%i -o %s %s", ptx_args, compute_capability, max_registers, output_filename, filename);
 #else
-		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"-v\" -restrict -arch=sm_%i -maxrregcount=%i -o %s %s", compute_capability, max_registers, output_filename, filename);
+		sprintf_s(command, "nvcc -cubin -use_fast_math -I=\"lib\\CUDA\" -Xptxas=\"%s\" -restrict -arch=sm_%i -maxrregcount=%i -o %s %s", ptx_args, compute_capability, max_registers, output_filename, filename);
 #endif
 		printf("Compiling CUDA Module %s\n", filename);
 
