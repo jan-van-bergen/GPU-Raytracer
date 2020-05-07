@@ -46,6 +46,10 @@ struct AABB {
 		max = Vector3::max(max, aabb.max);
 	}
 
+	inline Vector3 get_center() const {
+		return (min + max) * 0.5f;
+	}
+
 	static AABB overlap(const AABB & b1, const AABB & b2);
 
 	static AABB transform(const AABB & aabb, const Matrix4 & transformation);

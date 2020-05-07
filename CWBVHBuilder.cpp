@@ -156,9 +156,70 @@ static int count_primitives(const BVHNode nodes[], int node_index, int & index_c
 		count_primitives(nodes, node.left + 1, index_count, indices_wbvh, indices_sbvh);
 }
 
-inline void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count, int indices_wbvh[], const BVHNode nodes_sbvh[], const int indices_sbvh[], const CWBVHDecision decisions[], int node_index_wbvh, int node_index_sbvh) {
-	CWBVHNode & node = nodes_wbvh[node_index_wbvh];
+static void order_children(const BVHNode nodes_sbvh[], int node_index_sbvh, int children[], int child_count) {
+	Vector3 p = nodes_sbvh[node_index_sbvh].aabb.get_center();
 
+	float cost[8][8];
+
+	// Fill cost table
+	for (int c = 0; c < child_count; c++) {
+		for (int s = 0; s < 8; s++) {
+			Vector3 direction(
+				s & 1 ? -1.0f : 1.0f,
+				s & 2 ? -1.0f : 1.0f,
+				s & 4 ? -1.0f : 1.0f
+			);
+
+			cost[c][s] = Vector3::dot(nodes_sbvh[children[c]].aabb.get_center() - p, direction);
+		}
+	}
+
+	int   assignment[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
+	bool slot_filled[8] = { };
+
+	// Greedy child ordering, the paper mentions this as an alternative
+	// that works about as well as the auction algorithm in practice
+	while (true) {
+		float min_cost = INFINITY;
+
+		int min_slot  = -1;
+		int min_index = -1;
+
+		for (int c = 0; c < child_count; c++) {
+			// If this child has not been assigned yet
+			if (assignment[c] == -1) {
+				for (int s = 0; s < 8; s++) {
+					if (!slot_filled[s] && cost[s][c] < min_cost) {
+						min_cost = cost[s][c];
+
+						min_slot  = s;
+						min_index = c;
+					}
+				}
+			}
+		}
+
+		if (min_slot == -1) break;
+
+		slot_filled[min_slot]  = true;
+		assignment [min_index] = min_slot;
+	}
+
+	// Permute children array according to assignment
+	int children_copy[8];
+	memcpy(children_copy, children, sizeof(children_copy));
+
+	for (int i = 0; i < 8; i++) {
+		children[i] = -1;
+	}
+
+	for (int i = 0; i < child_count; i++) {
+		children[assignment[i]] = children_copy[i];
+	}
+}
+
+static void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count, int indices_wbvh[], const BVHNode nodes_sbvh[], const int indices_sbvh[], const CWBVHDecision decisions[], int node_index_wbvh, int node_index_sbvh) {
+	CWBVHNode  & node = nodes_wbvh[node_index_wbvh];
 	const AABB & aabb = nodes_sbvh[node_index_sbvh].aabb;
 
 	node.p = aabb.min;
@@ -188,14 +249,12 @@ inline void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 	node.e[2] = u_ez >> 23;
 	
 	int child_count = 0;
-	int children[8];
+	int children[8] = { -1 };
 	get_children(nodes_sbvh, decisions, node_index_sbvh, 0, child_count, children);
 
 	assert(child_count <= 8);
 
-	//////////////////////////
-	// @TODO: rank children //
-	//////////////////////////
+	order_children(nodes_sbvh, node_index_sbvh, children, child_count);
 
 	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
 	
@@ -211,8 +270,10 @@ inline void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 	int node_internal_count = 0;
 	int node_triangle_count = 0;
 
-	for (int i = 0; i < child_count; i++) {
+	for (int i = 0; i < 8; i++) {
 		int child_index = children[i];
+
+		if (child_index == -1) continue; // Empty slot
 
 		const AABB & child_aabb = nodes_sbvh[child_index].aabb;
 
