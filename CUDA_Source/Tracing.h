@@ -431,9 +431,11 @@ __device__ __inline__ inline unsigned cwbvh_node_intersect(
 
 		#pragma unroll
 		for (int j = 0; j < 4; j++) {
+			// Extract j-th byte
 			float3 tmin = make_float3(float(extract_byte(q_lo_x, j)), float(extract_byte(q_lo_y, j)), float(extract_byte(q_lo_z, j)));
 			float3 tmax = make_float3(float(extract_byte(q_hi_x, j)), float(extract_byte(q_hi_y, j)), float(extract_byte(q_hi_z, j)));
 
+			// Account for grid origin and scale
 			tmin = tmin * adjusted_ray_direction_inv + adjusted_ray_origin;
 			tmax = tmax * adjusted_ray_direction_inv + adjusted_ray_origin;
 

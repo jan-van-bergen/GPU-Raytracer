@@ -17,14 +17,14 @@
 
 #include "ScopedTimer.h"
 
-static struct Vertex {
+struct Vertex {
 	Vector3 position;
 	Vector3 normal;
 	Vector2 uv;
 	int     triangle_id;
 };
 
-static struct ExtendBuffer {
+struct ExtendBuffer {
 	CUDAMemory::Ptr<float> origin_x;
 	CUDAMemory::Ptr<float> origin_y;
 	CUDAMemory::Ptr<float> origin_z;
@@ -58,7 +58,7 @@ static struct ExtendBuffer {
 	}
 };
 
-static struct MaterialBuffer {
+struct MaterialBuffer {
 	CUDAMemory::Ptr<float> direction_x;
 	CUDAMemory::Ptr<float> direction_y;
 	CUDAMemory::Ptr<float> direction_z;
@@ -88,7 +88,7 @@ static struct MaterialBuffer {
 	}
 };
 
-static struct ShadowRayBuffer {
+struct ShadowRayBuffer {
 	CUDAMemory::Ptr<float> direction_x;
 	CUDAMemory::Ptr<float> direction_y;
 	CUDAMemory::Ptr<float> direction_z;

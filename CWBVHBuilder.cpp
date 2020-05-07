@@ -2,7 +2,7 @@
 
 #include "CWBVH.h"
 
-static struct CWBVHDecision {
+struct CWBVHDecision {
 	enum class Type : char {
 		LEAF,
 		INTERNAL,
@@ -165,9 +165,9 @@ static void order_children(const BVHNode nodes_sbvh[], int node_index_sbvh, int 
 	for (int c = 0; c < child_count; c++) {
 		for (int s = 0; s < 8; s++) {
 			Vector3 direction(
-				s & 1 ? -1.0f : 1.0f,
-				s & 2 ? -1.0f : 1.0f,
-				s & 4 ? -1.0f : 1.0f
+				(s & 4) ? -1.0f : 1.0f,
+				(s & 2) ? -1.0f : 1.0f,
+				(s & 1) ? -1.0f : 1.0f
 			);
 
 			cost[c][s] = Vector3::dot(nodes_sbvh[children[c]].aabb.get_center() - p, direction);
@@ -185,8 +185,8 @@ static void order_children(const BVHNode nodes_sbvh[], int node_index_sbvh, int 
 		int min_slot  = -1;
 		int min_index = -1;
 
+		// Find cheapest unfilled slot of any unassigned child
 		for (int c = 0; c < child_count; c++) {
-			// If this child has not been assigned yet
 			if (assignment[c] == -1) {
 				for (int s = 0; s < 8; s++) {
 					if (!slot_filled[s] && cost[s][c] < min_cost) {
@@ -233,6 +233,7 @@ static void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 		exp2f(ceilf(log2f((aabb.max.z - aabb.min.z) * denom)))
 	);
 
+	// Treat float as unsigned
 	unsigned u_ex, u_ey, u_ez;
 	memcpy(&u_ex, &e.x, 4);
 	memcpy(&u_ey, &e.y, 4);
