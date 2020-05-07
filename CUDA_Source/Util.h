@@ -71,7 +71,7 @@ __device__ inline int atomic_agg_inc(int * ctr) {
 __device__ inline float3 oct_decode_normal(float2 f) {
 	f = f * 2.0f - 1.0f;
 
-    float3 n = make_float3(f.x, f.y, 1.0f - abs(f.x) - abs(f.y));
+    float3 n = make_float3(f.x, f.y, 1.0f - fabsf(f.x) - fabsf(f.y));
 
     float t = saturate(-n.z);
     n.x += n.x >= 0.0 ? -t : t;
