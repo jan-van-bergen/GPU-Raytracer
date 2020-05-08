@@ -46,7 +46,7 @@ The Pathtracer uses a [low discrepancy sampler by Heitz et al.](https://eheitzre
 
 ### SVGF
 
-A spatio-temporal filter is implemented, as described in the [paper by Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf).
+A spatio-temporal filter is implemented, as described in the [paper by Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). The implementation also includes a TAA pass.
 
 ## Dependencies
 
