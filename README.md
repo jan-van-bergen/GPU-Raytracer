@@ -34,7 +34,11 @@ When tracing non-shadow rays (i.e. looking for indirect light) the BRDF is impor
 
 ### QBVH
 
-Instead of a binary BVH, the Pathtracer uses a quaternary BVH (QBVH). This QBVH is constructed by iteratively collapsing the Nodes of a binary SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
+In addition to the binary Spatial BVH, the Pathtracer supports a quaternary BVH (QBVH). This QBVH is constructed by iteratively collapsing the Nodes of a binary SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
+
+### Compressed Wide BVH
+
+The Pathtracer supports a Compressed Wide BVH, as described in [Efficient Incoherent Ray Traversal on GPUs Through Compressed Wide BVHs](https://research.nvidia.com/sites/default/files/publications/ylitie2017hpg-paper.pdf) by Ylitie et al. The CWBVH is constructed from an SBVH. The CWBVH outperforms both the QWBVH and SBVH.
 
 ### Blue Noise Sampling
 
