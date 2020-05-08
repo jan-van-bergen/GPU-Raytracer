@@ -91,7 +91,7 @@ __device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, floa
 	return true;
 }
 
-#if BVH_TYPE == BVH_SBVH
+#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
 struct AABB {
 	float3 min;
 	float3 max;

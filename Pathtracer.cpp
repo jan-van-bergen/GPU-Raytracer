@@ -1,7 +1,5 @@
 #include "Pathtracer.h"
 
-#include <filesystem>
-
 #include <SDL2/SDL.h>
 
 #include "CUDAContext.h"
@@ -173,45 +171,22 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	// Construct BVH for the Triangle soup
 	BVH bvh;
+#if BVH_TYPE == BVH_BVH
+	bvh = BVHBuilders::bvh(scene_name, mesh);
+#else // All other BVH's rely on SBVH
+	bvh = BVHBuilders::sbvh(scene_name, mesh);
+#endif
 
-	std::string bvh_filename = std::string(scene_name) + ".bvh";
-	if (std::filesystem::exists(bvh_filename)) {
-		printf("Loading BVH %s from disk.\n", bvh_filename.c_str());
-
-		bvh.load_from_disk(bvh_filename.c_str());
-	} else {
-		bvh.init(mesh->triangle_count);
-
-		memcpy(bvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
-
-		for (int i = 0; i < bvh.triangle_count; i++) {
-			Vector3 vertices[3] = { 
-				bvh.triangles[i].position_0, 
-				bvh.triangles[i].position_1, 
-				bvh.triangles[i].position_2
-			};
-			bvh.triangles[i].aabb = AABB::from_points(vertices, 3);
-		}
-
-		{
-			ScopedTimer timer("SBVH Construction");
-
-			bvh.build_sbvh();
-		}
-
-		bvh.save_to_disk(bvh_filename.c_str());
-	}
-
-	int leaf_count;
+	int index_count;
 	int primitive_count = bvh.triangle_count;
 
 	int      * indices;
 	Triangle * primitives;
 
-#if BVH_TYPE == BVH_SBVH
+#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
 	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
 
-	leaf_count = bvh.leaf_count;
+	index_count = bvh.index_count;
 
 	indices    = bvh.indices;
 	primitives = bvh.triangles;
@@ -221,7 +196,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	// Set global QBVHNode buffer
 	module.get_global("qbvh_nodes").set_buffer(qbvh.nodes, qbvh.node_count);
 	
-	leaf_count = bvh.leaf_count;
+	index_count = bvh.index_count;
 
 	indices    = qbvh.indices;
 	primitives = qbvh.triangles;
@@ -230,7 +205,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	module.get_global("cwbvh_nodes").set_buffer(cwbvh.nodes, cwbvh.node_count);
 	
-	leaf_count = cwbvh.leaf_count;
+	index_count = cwbvh.index_count;
 
 	indices    = cwbvh.indices;
 	primitives = cwbvh.triangles;
@@ -238,31 +213,31 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	
 	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
 	// (This does mean more memory consumption)
-	Triangle * flat_triangles  = new Triangle[leaf_count];
-	int      * reverse_indices = new int     [leaf_count];
+	Triangle * flat_triangles  = new Triangle[index_count];
+	int      * reverse_indices = new int     [index_count];
 
-	for (int i = 0; i < leaf_count; i++) {
+	for (int i = 0; i < index_count; i++) {
 		flat_triangles[i] = primitives[indices[i]];
 
 		reverse_indices[indices[i]] = i;
 	}
 
 	// Allocate Triangles in SoA format
-	Vector3 * triangles_position0      = new Vector3[leaf_count];
-	Vector3 * triangles_position_edge1 = new Vector3[leaf_count];
-	Vector3 * triangles_position_edge2 = new Vector3[leaf_count];
+	Vector3 * triangles_position0      = new Vector3[index_count];
+	Vector3 * triangles_position_edge1 = new Vector3[index_count];
+	Vector3 * triangles_position_edge2 = new Vector3[index_count];
 
-	Vector3 * triangles_normal0      = new Vector3[leaf_count];
-	Vector3 * triangles_normal_edge1 = new Vector3[leaf_count];
-	Vector3 * triangles_normal_edge2 = new Vector3[leaf_count]; 
+	Vector3 * triangles_normal0      = new Vector3[index_count];
+	Vector3 * triangles_normal_edge1 = new Vector3[index_count];
+	Vector3 * triangles_normal_edge2 = new Vector3[index_count]; 
 	
-	Vector2 * triangles_tex_coord0      = new Vector2[leaf_count];
-	Vector2 * triangles_tex_coord_edge1 = new Vector2[leaf_count];
-	Vector2 * triangles_tex_coord_edge2 = new Vector2[leaf_count];
+	Vector2 * triangles_tex_coord0      = new Vector2[index_count];
+	Vector2 * triangles_tex_coord_edge1 = new Vector2[index_count];
+	Vector2 * triangles_tex_coord_edge2 = new Vector2[index_count];
 
-	int * triangles_material_id = new int[leaf_count];
+	int * triangles_material_id = new int[index_count];
 
-	for (int i = 0; i < leaf_count; i++) {
+	for (int i = 0; i < index_count; i++) {
 		triangles_position0[i]      = flat_triangles[i].position_0;
 		triangles_position_edge1[i] = flat_triangles[i].position_1 - flat_triangles[i].position_0;
 		triangles_position_edge2[i] = flat_triangles[i].position_2 - flat_triangles[i].position_0;
@@ -281,19 +256,19 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] flat_triangles;
 
 	// Set global Triangle buffers
-	module.get_global("triangles_position0")     .set_buffer(triangles_position0,      leaf_count);
-	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, leaf_count);
-	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, leaf_count);
+	module.get_global("triangles_position0")     .set_buffer(triangles_position0,      index_count);
+	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, index_count);
+	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, index_count);
 
-	module.get_global("triangles_normal0")     .set_buffer(triangles_normal0,      leaf_count);
-	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, leaf_count);
-	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, leaf_count);
+	module.get_global("triangles_normal0")     .set_buffer(triangles_normal0,      index_count);
+	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, index_count);
+	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, index_count);
 
-	module.get_global("triangles_tex_coord0")     .set_buffer(triangles_tex_coord0,      leaf_count);
-	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, leaf_count);
-	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, leaf_count);
+	module.get_global("triangles_tex_coord0")     .set_buffer(triangles_tex_coord0,      index_count);
+	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, index_count);
+	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, index_count);
 
-	module.get_global("triangles_material_id").set_buffer(triangles_material_id, leaf_count);
+	module.get_global("triangles_material_id").set_buffer(triangles_material_id, index_count);
 
 	// Clean up buffers on Host side
 	delete [] triangles_position0;  

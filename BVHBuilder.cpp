@@ -1,9 +1,13 @@
 #pragma once
 #include "BVHBuilders.h"
 
+#include <filesystem>
+
 #include "BVH.h"
 
-void BVHBuilders::build_bvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp) {
+#include "ScopedTimer.h"
+
+static void build_bvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp) {
 	node.aabb = BVHPartitions::calculate_bounds(triangles, indices[0], first_index, first_index + index_count);
 		
 	if (index_count < 3) {
@@ -40,4 +44,81 @@ void BVHBuilders::build_bvh(BVHNode & node, const Triangle * triangles, int * in
 
 	build_bvh(nodes[node.left    ], triangles, indices, nodes, node_index, first_index,          n_left,  sah, temp);
 	build_bvh(nodes[node.left + 1], triangles, indices, nodes, node_index, first_index + n_left, n_right, sah, temp);
+}
+
+static void init_bvh(BVH & bvh) {
+	// Construct index arrays for all three dimensions
+	int * indices_x = new int[bvh.triangle_count];
+	int * indices_y = new int[bvh.triangle_count];
+	int * indices_z = new int[bvh.triangle_count];
+
+	for (int i = 0; i < bvh.triangle_count; i++) {
+		indices_x[i] = i;
+		indices_y[i] = i;
+		indices_z[i] = i;
+	}
+
+	std::sort(indices_x, indices_x + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_position().x < bvh.triangles[b].get_position().x; });
+	std::sort(indices_y, indices_y + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_position().y < bvh.triangles[b].get_position().y; });
+	std::sort(indices_z, indices_z + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_position().z < bvh.triangles[b].get_position().z; });
+		
+	int * indices_3[3] = { indices_x, indices_y, indices_z };
+		
+	float * sah = new float[bvh.triangle_count];
+
+	int * temp = new int[bvh.triangle_count];
+
+	int node_index = 2;
+	build_bvh(bvh.nodes[0], bvh.triangles, indices_3, bvh.nodes, node_index, 0, bvh.triangle_count, sah, temp);
+
+	bvh.indices = indices_x;
+	delete [] indices_y;
+	delete [] indices_z;
+
+	assert(node_index <= 2 * triangle_count);
+
+	bvh.node_count = node_index;
+	bvh.index_count = bvh.triangle_count;
+
+	delete [] temp;
+	delete [] sah;
+}
+
+BVH BVHBuilders::bvh(const char * filename, const MeshData * mesh) {
+	BVH bvh;
+	
+	std::string bvh_filename = std::string(filename) + ".sbvh";
+	if (std::filesystem::exists(bvh_filename)) {
+		printf("Loading BVH %s from disk.\n", bvh_filename.c_str());
+
+		bvh.load_from_disk(bvh_filename.c_str());
+	} else {
+		bvh.triangle_count = mesh->triangle_count; 
+		bvh.triangles      = new Triangle[bvh.triangle_count];
+
+		// Construct Node pool
+		bvh.nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(2 * bvh.triangle_count * sizeof(BVHNode), 64));
+		assert((unsigned long long)nodes % 64 == 0);
+	
+		memcpy(bvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
+
+		for (int i = 0; i < bvh.triangle_count; i++) {
+			Vector3 vertices[3] = { 
+				bvh.triangles[i].position_0, 
+				bvh.triangles[i].position_1, 
+				bvh.triangles[i].position_2
+			};
+			bvh.triangles[i].aabb = AABB::from_points(vertices, 3);
+		}
+
+		{
+			ScopedTimer timer("BVH Construction");
+
+			init_bvh(bvh);
+		}
+
+		bvh.save_to_disk(bvh_filename.c_str());
+	}
+
+	return bvh;
 }

@@ -40,10 +40,9 @@ struct QBVH {
 	int        triangle_count;
 	Triangle * triangles;
 
+	int   index_count;
 	int * indices;
 
 	int        node_count;
 	QBVHNode * nodes;
-
-	int leaf_count;
 };

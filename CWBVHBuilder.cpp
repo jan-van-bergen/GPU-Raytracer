@@ -165,9 +165,9 @@ static void order_children(const BVHNode nodes_sbvh[], int node_index_sbvh, int 
 	for (int c = 0; c < child_count; c++) {
 		for (int s = 0; s < 8; s++) {
 			Vector3 direction(
-				(s & 4) ? -1.0f : 1.0f,
-				(s & 2) ? -1.0f : 1.0f,
-				(s & 1) ? -1.0f : 1.0f
+				(s & 0b100) ? -1.0f : 1.0f,
+				(s & 0b010) ? -1.0f : 1.0f,
+				(s & 0b001) ? -1.0f : 1.0f
 			);
 
 			cost[c][s] = Vector3::dot(nodes_sbvh[children[c]].aabb.get_center() - p, direction);
@@ -343,9 +343,9 @@ CWBVH BVHBuilders::cwbvh_from_binary_bvh(const BVH & bvh) {
 
 	cwbvh.triangle_count = bvh.triangle_count;
 	cwbvh.triangles      = bvh.triangles;
-		
-	cwbvh.leaf_count = 0;
-	cwbvh.indices    = new int[bvh.leaf_count * 2];
+
+	cwbvh.index_count = 0;
+	cwbvh.indices     = new int[bvh.index_count * 2];
 
 	cwbvh.node_count = 1;
 	cwbvh.nodes      = new CWBVHNode[bvh.node_count];
@@ -357,7 +357,7 @@ CWBVH BVHBuilders::cwbvh_from_binary_bvh(const BVH & bvh) {
 	calculate_cost(cost, decisions, 0, bvh.nodes);
 
 	// Collapse SBVH into 8-way tree (top down)
-	collapse(cwbvh.node_count, cwbvh.nodes, cwbvh.leaf_count, cwbvh.indices, bvh.nodes, bvh.indices, decisions, 0, 0);
+	collapse(cwbvh.node_count, cwbvh.nodes, cwbvh.index_count, cwbvh.indices, bvh.nodes, bvh.indices, decisions, 0, 0);
 
 	printf("CWBVH Node Collapse: %i -> %i\n\n", bvh.node_count, cwbvh.node_count);
 

@@ -343,6 +343,7 @@ healthchecksdb
 
 # Bounding Volume Hierarchy binary
 *.bvh
+*.sbvh
 
 # Cuda Binary
 *.cubin

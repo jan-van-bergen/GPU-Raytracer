@@ -79,12 +79,12 @@ QBVH BVHBuilders::qbvh_from_binary_bvh(const BVH & bvh) {
 	qbvh.triangle_count = bvh.triangle_count;
 	qbvh.triangles      = bvh.triangles;
 
-	qbvh.indices = bvh.indices;
+	qbvh.index_count = bvh.index_count;
+	qbvh.indices     = bvh.indices;
 
 	qbvh.node_count = bvh.node_count;
 	qbvh.nodes      = new QBVHNode[bvh.node_count];
 
-	qbvh.leaf_count = bvh.leaf_count;
 
 	for (int i = 0; i < qbvh.node_count; i++) {
 		// We use index 1 as a starting point, such that it points to the first child of the root

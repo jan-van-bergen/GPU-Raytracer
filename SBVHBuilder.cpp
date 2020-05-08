@@ -1,9 +1,15 @@
 #pragma once
 #include "BVHBuilders.h"
 
+#include <filesystem>
+
 #include "BVH.h"
 
-int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp[2], float inv_root_surface_area, AABB node_aabb) {
+#include "ScopedTimer.h"
+
+#define SBVH_OVERALLOCATION 3 // SBVH requires more space
+
+static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp[2], float inv_root_surface_area, AABB node_aabb) {
 	node.aabb = node_aabb;
 
 	if (index_count == 1) {
@@ -300,4 +306,85 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 	delete [] children_right[2];
 		
 	return number_of_leaves_left + number_of_leaves_right;
+}
+
+static void init_sbvh(BVH & sbvh) {
+	int * indices_x = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
+	int * indices_y = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
+	int * indices_z = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
+
+	for (int i = 0; i < sbvh.triangle_count; i++) {
+		indices_x[i] = i;
+		indices_y[i] = i;
+		indices_z[i] = i;
+	}
+
+	std::sort(indices_x, indices_x + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_position().x < sbvh.triangles[b].get_position().x; });
+	std::sort(indices_y, indices_y + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_position().y < sbvh.triangles[b].get_position().y; });
+	std::sort(indices_z, indices_z + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_position().z < sbvh.triangles[b].get_position().z; });
+		
+	int * indices_3[3] = { indices_x, indices_y, indices_z };
+		
+	float * sah = new float[sbvh.triangle_count];
+	
+	int * temp[2] = { new int[sbvh.triangle_count], new int[sbvh.triangle_count] };
+
+	AABB root_aabb = BVHPartitions::calculate_bounds(sbvh.triangles, indices_3[0], 0, sbvh.triangle_count);
+
+	int node_index = 2;
+	sbvh.index_count = build_sbvh(sbvh.nodes[0], sbvh.triangles, indices_3, sbvh.nodes, node_index, 0, sbvh.triangle_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
+		
+	if (node_index > SBVH_OVERALLOCATION * sbvh.triangle_count) abort();
+
+	sbvh.indices = indices_x;
+	delete [] indices_y;
+	delete [] indices_z;
+
+	printf("SBVH Leaf count: %i\n", sbvh.index_count);
+
+	sbvh.node_count = node_index;
+
+	delete [] temp[0];
+	delete [] temp[1];
+	delete [] sah;
+
+}
+
+BVH BVHBuilders::sbvh(const char * filename, const MeshData * mesh) {
+	BVH sbvh;
+	
+	std::string bvh_filename = std::string(filename) + ".sbvh";
+	if (std::filesystem::exists(bvh_filename)) {
+		printf("Loading BVH %s from disk.\n", bvh_filename.c_str());
+
+		sbvh.load_from_disk(bvh_filename.c_str());
+	} else {
+		sbvh.triangle_count = mesh->triangle_count; 
+		sbvh.triangles      = new Triangle[sbvh.triangle_count];
+
+		// Construct Node pool
+		sbvh.nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(SBVH_OVERALLOCATION * sbvh.triangle_count * sizeof(BVHNode), 64));
+		assert((unsigned long long)nodes % 64 == 0);
+	
+		memcpy(sbvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
+
+		for (int i = 0; i < sbvh.triangle_count; i++) {
+			Vector3 vertices[3] = { 
+				sbvh.triangles[i].position_0, 
+				sbvh.triangles[i].position_1, 
+				sbvh.triangles[i].position_2
+			};
+			sbvh.triangles[i].aabb = AABB::from_points(vertices, 3);
+		}
+
+		{
+			ScopedTimer timer("SBVH Construction");
+
+			init_sbvh(sbvh);
+		}
+
+		sbvh.save_to_disk(bvh_filename.c_str());
+	}
+
+	return sbvh;
 }

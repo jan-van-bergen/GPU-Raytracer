@@ -26,10 +26,9 @@ struct CWBVH {
 	int        triangle_count;
 	Triangle * triangles;
 	
+	int   index_count;
 	int * indices;
 
-	int                     node_count;
+	int         node_count;
 	CWBVHNode * nodes;
-
-	int leaf_count;
 };
