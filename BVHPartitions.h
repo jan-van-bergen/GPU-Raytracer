@@ -4,6 +4,8 @@
 
 // Contains various ways to parition space into "left" and "right" as well as helper methods
 namespace BVHPartitions {
+	const int SBVH_BIN_COUNT = 256;
+		
 	// Calculates the smallest enclosing AABB over the union of all AABB's of the primitives in the range defined by [first, last>
 	template<typename PrimitiveType>
 	inline AABB calculate_bounds(const PrimitiveType * primitives, const int * indices, int first, int last) {
@@ -205,9 +207,7 @@ namespace BVHPartitions {
 		return min_split_index;
 	}
 
-	inline int partition_spatial(const Triangle * triangles, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost, float & plane_distance, AABB & aabb_left, AABB & aabb_right, int & n_left, int & n_right, AABB bounds) {
-		const int SBVH_BIN_COUNT = 256;
-		
+	inline int partition_spatial(const Triangle * triangles, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost, AABB & aabb_left, AABB & aabb_right, int & n_left, int & n_right, AABB bounds) {
 		float min_bin_cost = INFINITY;
 		int   min_bin_index     = -1;
 		int   min_bin_dimension = -1;
@@ -229,6 +229,8 @@ namespace BVHPartitions {
 			for (int i = first_index; i < first_index + index_count; i++) {
 				const Triangle & triangle = triangles[indices[dimension][i]];
 				
+				AABB triangle_aabb = AABB::overlap(triangle.aabb, bounds);
+
 				Vector3 vertices[3] = { 
 					triangle.position_0,
 					triangle.position_1, 
@@ -243,8 +245,8 @@ namespace BVHPartitions {
 				float vertex_min = vertices[0][dimension];
 				float vertex_max = vertices[2][dimension];
 				
-				int bin_min = int(SBVH_BIN_COUNT * ((triangle.aabb.min[dimension] - bounds_min) * inv_bounds_delta));
-				int bin_max = int(SBVH_BIN_COUNT * ((triangle.aabb.max[dimension] - bounds_min) * inv_bounds_delta));
+				int bin_min = int(SBVH_BIN_COUNT * ((triangle_aabb.min[dimension] - bounds_min) * inv_bounds_delta));
+				int bin_max = int(SBVH_BIN_COUNT * ((triangle_aabb.max[dimension] - bounds_min) * inv_bounds_delta));
 
 				bin_min = Math::clamp(bin_min, 0, SBVH_BIN_COUNT - 1);
 				bin_max = Math::clamp(bin_max, 0, SBVH_BIN_COUNT - 1);
@@ -269,7 +271,7 @@ namespace BVHPartitions {
 						continue;
 					// If all verticies lie between the two planes, the AABB is just the Triangle's entire AABB
 					} else if (vertex_min >= bin_left_plane && vertex_max <= bin_right_plane) {
-						box = triangle.aabb;
+						box = triangle_aabb;
 					} else {
 						Vector3 intersections[4];
 						int     intersection_count = 0;
@@ -407,8 +409,7 @@ namespace BVHPartitions {
 
 		split_dimension = min_bin_dimension;
 		split_cost      = min_bin_cost;
-		plane_distance  = min_bin_plane_distance;
-
+		
 		return min_bin_index;
 	}
 }

@@ -91,7 +91,7 @@ __device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, floa
 	return true;
 }
 
-#if BVH_TYPE == BVH_SAH
+#if BVH_TYPE == BVH_SBVH
 struct AABB {
 	float3 min;
 	float3 max;
@@ -194,24 +194,19 @@ __device__ bool bvh_intersect(const Ray & ray, float max_distance) {
 
 	return false;
 }
-#elif BVH_TYPE == BVH_MBVH
-static_assert(MBVH_WIDTH == 4, "The implementation assumes a Quaternary BVH");
+#elif BVH_TYPE == BVH_QBVH
 
-struct MBVHNode {
+struct QBVHNode {
 	float4 aabb_min_x;
 	float4 aabb_min_y;
 	float4 aabb_min_z;
 	float4 aabb_max_x;
 	float4 aabb_max_y;
 	float4 aabb_max_z;
-	union {
-		int index[MBVH_WIDTH];
-		int child[MBVH_WIDTH];
-	};
-	int count[MBVH_WIDTH];
+	int2 index_and_count[4];
 };
 
-__device__ MBVHNode * mbvh_nodes;
+__device__ QBVHNode * qbvh_nodes;
 
 struct AABBHits {
 	union {
@@ -222,8 +217,8 @@ struct AABBHits {
 	bool hit[4];
 };
 
-// Check the Ray agains the four AABB's of the children of the given MBVH Node
-__device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray & ray, float max_distance) {
+// Check the Ray agains the four AABB's of the children of the given QBVH Node
+__device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray & ray, float max_distance) {
 	AABBHits result;
 
 	float4 tx0 = (node.aabb_min_x - ray.origin.x) * ray.direction_inv.x;
@@ -256,7 +251,7 @@ __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray 
 
 	// Bubble sort to order the hit distances
 	#pragma unroll
-	for (int i = 1; i < MBVH_WIDTH; i++) {
+	for (int i = 1; i < 4; i++) {
 		#pragma unroll
 		for (int j = i - 1; j >= 0; j--) {
 			if (result.t_near_f[j] < result.t_near_f[j + 1]) {
@@ -273,13 +268,13 @@ __device__ inline AABBHits mbvh_node_intersect(const MBVHNode & node, const Ray 
 	return result;
 }
 
-__device__ inline unsigned pack_mbvh_node(int index, int id) {
+__device__ inline unsigned pack_qbvh_node(int index, int id) {
 	ASSERT(index < 0x3fffffff, "Index must fit in 30 bits");
 
 	return (id << 30) | index;
 }
 
-__device__ inline void unpack_mbvh_node(unsigned packed, int & index, int & id) {
+__device__ inline void unpack_qbvh_node(unsigned packed, int & index, int & id) {
 	index = packed & 0x3fffffff;
 	id    = packed >> 30;
 }
@@ -298,10 +293,12 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		unsigned packed = stack[--stack_size];
 
 		int node_index, node_id;
-		unpack_mbvh_node(packed, node_index, node_id);
+		unpack_qbvh_node(packed, node_index, node_id);
 
-		int index = mbvh_nodes[node_index].child[node_id];
-		int count = mbvh_nodes[node_index].count[node_id];
+		int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+
+		int index = index_and_count.x;
+		int count = index_and_count.y;
 
 		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
 
@@ -313,14 +310,14 @@ __device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
 		} else {
 			int child = index;
 
-			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[child], ray, ray_hit.t);
+			AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, ray_hit.t);
 			
-			for (int i = 0; i < MBVH_WIDTH; i++) {
+			for (int i = 0; i < 4; i++) {
 				// Extract index from the 2 least significant bits
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				if (aabb_hits.hit[id]) {
-					stack[stack_size++] = pack_mbvh_node(child, id);
+					stack[stack_size++] = pack_qbvh_node(child, id);
 				}
 			}
 		}
@@ -339,10 +336,12 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 		unsigned packed = stack[--stack_size];
 
 		int node_index, node_id;
-		unpack_mbvh_node(packed, node_index, node_id);
+		unpack_qbvh_node(packed, node_index, node_id);
 
-		int index = mbvh_nodes[node_index].index[node_id];
-		int count = mbvh_nodes[node_index].count[node_id];
+		int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+
+		int index = index_and_count.x;
+		int count = index_and_count.y;
 
 		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
 
@@ -356,16 +355,279 @@ __device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
 		} else {
 			int child = index;
 
-			AABBHits aabb_hits = mbvh_node_intersect(mbvh_nodes[child], ray, max_distance);
+			AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, max_distance);
 			
-			for (int i = 0; i < MBVH_WIDTH; i++) {
+			for (int i = 0; i < 4; i++) {
 				// Extract index from the 2 least significant bits
 				int id = aabb_hits.t_near_i[i] & 0b11;
 				
 				if (aabb_hits.hit[id]) {
-					stack[stack_size++] = pack_mbvh_node(child, id);
+					stack[stack_size++] = pack_qbvh_node(child, id);
 				}
 			}
+		}
+	}
+
+	return false;
+}
+#elif BVH_TYPE == BVH_CWBVH
+typedef unsigned char byte;
+
+struct CWBVH {
+	float4 node_0;
+	float4 node_1;
+	float4 node_2;
+	float4 node_3;
+	float4 node_4; // Node is stored as 5 float4's so we can load the entire 80 bytes in 5 global memory accesses
+};
+
+__device__ CWBVH * cwbvh_nodes;
+
+__device__ __inline__ inline unsigned cwbvh_node_intersect(
+	const Ray & ray,
+	unsigned oct_inv4,
+	bool ray_negative_x,
+	bool ray_negative_y,
+	bool ray_negative_z,
+	float max_distance,
+	const float4 & node_0, const float4 & node_1, const float4 & node_2, const float4 & node_3, const float4 & node_4) {
+
+	float3 p = make_float3(node_0);
+
+	unsigned e_imask = float_as_uint(node_0.w);
+	byte e_x   = extract_byte(e_imask, 0);
+	byte e_y   = extract_byte(e_imask, 1);
+	byte e_z   = extract_byte(e_imask, 2);
+	
+	float3 adjusted_ray_direction_inv = make_float3(
+		uint_as_float(e_x << 23) * ray.direction_inv.x,
+		uint_as_float(e_y << 23) * ray.direction_inv.y,
+		uint_as_float(e_z << 23) * ray.direction_inv.z
+	);
+	float3 adjusted_ray_origin = (p - ray.origin) * ray.direction_inv;
+
+	unsigned hit_mask = 0;
+
+	#pragma unroll
+	for (int i = 0; i < 2; i++) {
+		unsigned meta4 = float_as_uint(i == 0 ? node_1.z : node_1.w);
+
+		unsigned is_inner4   = (meta4 & (meta4 << 1)) & 0x10101010;
+		unsigned inner_mask4 = sign_extend_s8x4(is_inner4 << 3);
+		unsigned bit_index4  = (meta4 ^ (oct_inv4 & inner_mask4)) & 0x1f1f1f1f;
+		unsigned child_bits4 = (meta4 >> 5) & 0x07070707;
+
+		// @SPEED: use PRMT
+
+		// Select near and far planes based on ray octant
+		unsigned q_lo_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.z : node_2.w) : float_as_uint(i == 0 ? node_2.x : node_2.y);
+		unsigned q_hi_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.x : node_2.y) : float_as_uint(i == 0 ? node_2.z : node_2.w);
+
+		unsigned q_lo_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.z : node_3.w) : float_as_uint(i == 0 ? node_3.x : node_3.y);
+		unsigned q_hi_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.x : node_3.y) : float_as_uint(i == 0 ? node_3.z : node_3.w);
+
+		unsigned q_lo_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.z : node_4.w) : float_as_uint(i == 0 ? node_4.x : node_4.y);
+		unsigned q_hi_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.x : node_4.y) : float_as_uint(i == 0 ? node_4.z : node_4.w);
+
+		#pragma unroll
+		for (int j = 0; j < 4; j++) {
+			// Extract j-th byte
+			float3 tmin = make_float3(float(extract_byte(q_lo_x, j)), float(extract_byte(q_lo_y, j)), float(extract_byte(q_lo_z, j)));
+			float3 tmax = make_float3(float(extract_byte(q_hi_x, j)), float(extract_byte(q_hi_y, j)), float(extract_byte(q_hi_z, j)));
+
+			// Account for grid origin and scale
+			tmin = tmin * adjusted_ray_direction_inv + adjusted_ray_origin;
+			tmax = tmax * adjusted_ray_direction_inv + adjusted_ray_origin;
+
+			// @TODO: VMIN, VMAX
+			float t_lo = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.z, EPSILON));
+			float t_hi = fminf(fminf(tmax.x, tmax.y), fminf(tmax.z, max_distance));
+
+			bool intersected = t_lo < t_hi;
+			if (intersected) {
+				unsigned child_bits = extract_byte(child_bits4, j);
+				unsigned bit_index  = extract_byte(bit_index4,  j);
+
+				hit_mask |= child_bits << bit_index;
+			}
+		}
+	}
+
+	return hit_mask;
+}
+
+__device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
+	bool ray_negative_x = ray.direction.x < 0.0f;
+	bool ray_negative_y = ray.direction.y < 0.0f;
+	bool ray_negative_z = ray.direction.z < 0.0f;
+
+	unsigned oct = 
+		(ray_negative_x < 0.0f ? 0b100 : 0) |
+		(ray_negative_y < 0.0f ? 0b010 : 0) |
+		(ray_negative_z < 0.0f ? 0b001 : 0);
+
+	unsigned oct_inv  = 7 - oct;
+	unsigned oct_inv4 = oct_inv * 0x01010101;
+
+	uint2 stack[BVH_STACK_SIZE];
+	int  stack_size = 0;
+
+	uint2 current_group = make_uint2(0, 0x80000000);
+
+	while (true) {
+		uint2 triangle_group;
+
+		if (current_group.y > 0x00ffffff) {
+			unsigned hits_imask = current_group.y;
+
+			unsigned child_index_offset = msb(hits_imask);
+			unsigned child_index_base   = current_group.x;
+
+			// Remove n from current_group;
+			current_group.y &= ~(1 << child_index_offset);
+
+			// If the node group is not yet empty, push it on the stack
+			if (current_group.y > 0x00ffffff) {
+				assert(stack_size < BVH_STACK_SIZE);
+
+				stack[stack_size++] = current_group;
+			}
+
+			unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
+			unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
+
+			unsigned child_node_index = child_index_base + relative_index;
+
+			float4 node_0 = cwbvh_nodes[child_node_index].node_0;
+			float4 node_1 = cwbvh_nodes[child_node_index].node_1;
+			float4 node_2 = cwbvh_nodes[child_node_index].node_2;
+			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
+			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+
+			unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
+
+			byte imask = extract_byte(float_as_uint(node_0.w), 3);
+			
+			current_group .x = float_as_uint(node_1.x); // Child    base offset
+			triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+
+			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
+			triangle_group.y = (hitmask & 0x00ffffff);
+		} else {
+			triangle_group = current_group;
+			current_group  = make_uint2(0);
+		}
+
+		int active_threads = __popc(__activemask());
+
+		// While the triangle group is not empty
+		while (triangle_group.y != 0) {
+			// if (__popc(__activemask()) < active_threads / 4) {
+			// 	stack[stack_size++] = triangle_group;
+
+			// 	break;
+			// }
+
+			int triangle_index = msb(triangle_group.y);
+
+			triangle_group.y &= ~(1 << triangle_index);
+
+			triangle_trace(triangle_group.x + triangle_index, ray, ray_hit);
+		}
+
+		if (current_group.y <= 0x00ffffff) {
+			if (stack_size == 0) break;
+
+			current_group = stack[--stack_size];
+		}
+	}
+}
+
+__device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
+	bool ray_negative_x = ray.direction.x < 0.0f;
+	bool ray_negative_y = ray.direction.y < 0.0f;
+	bool ray_negative_z = ray.direction.z < 0.0f;
+
+	unsigned oct = 
+		(ray_negative_x < 0.0f ? 0b100 : 0) |
+		(ray_negative_y < 0.0f ? 0b010 : 0) |
+		(ray_negative_z < 0.0f ? 0b001 : 0);
+
+	unsigned oct_inv  = 7 - oct;
+	unsigned oct_inv4 = oct_inv * 0x01010101;
+
+	uint2 stack[BVH_STACK_SIZE];
+	int  stack_size = 0;
+
+	uint2 current_group = make_uint2(0, 0x80000000);
+
+	while (true) {
+		uint2 triangle_group;
+
+		if (current_group.y > 0x00ffffff) {
+			unsigned hits_imask = current_group.y;
+
+			unsigned child_index_offset = msb(hits_imask);
+			unsigned child_index_base   = current_group.x;
+
+			// Remove n from current_group;
+			current_group.y &= ~(1 << child_index_offset);
+
+			// If the node group is not yet empty, push it on the stack
+			if (current_group.y > 0x00ffffff) {
+				assert(stack_size < BVH_STACK_SIZE);
+
+				stack[stack_size++] = current_group;
+			}
+
+			unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
+			unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
+
+			unsigned child_node_index = child_index_base + relative_index;
+
+			float4 node_0 = cwbvh_nodes[child_node_index].node_0;
+			float4 node_1 = cwbvh_nodes[child_node_index].node_1;
+			float4 node_2 = cwbvh_nodes[child_node_index].node_2;
+			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
+			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+
+			unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, max_distance, node_0, node_1, node_2, node_3, node_4);
+
+			byte imask = extract_byte(float_as_uint(node_0.w), 3);
+			
+			current_group .x = float_as_uint(node_1.x); // Child    base offset
+			triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+
+			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
+			triangle_group.y = (hitmask & 0x00ffffff);
+		} else {
+			triangle_group = current_group;
+			current_group  = make_uint2(0);
+		}
+
+		int active_threads = __popc(__activemask());
+
+		// While the triangle group is not empty
+		while (triangle_group.y != 0) {
+			// if (__popc(__activemask()) < active_threads / 4) {
+			// 	stack[stack_size++] = triangle_group;
+
+			// 	break;
+			// }
+
+			int triangle_index = msb(triangle_group.y);
+
+			triangle_group.y &= ~(1 << triangle_index);
+
+			if (triangle_intersect(triangle_group.x + triangle_index, ray, max_distance)) {
+				return true;
+			}
+		}
+
+		if (current_group.y <= 0x00ffffff) {
+			if (stack_size == 0) break;
+
+			current_group = stack[--stack_size];
 		}
 	}
 

@@ -8,7 +8,8 @@
 
 #include "MeshData.h"
 #include "BVH.h"
-#include "MBVH.h"
+#include "QBVH.h"
+#include "CWBVH.h"
 
 #include "Sky.h"
 
@@ -16,14 +17,14 @@
 
 #include "ScopedTimer.h"
 
-static struct Vertex {
+struct Vertex {
 	Vector3 position;
 	Vector3 normal;
 	Vector2 uv;
 	int     triangle_id;
 };
 
-static struct ExtendBuffer {
+struct ExtendBuffer {
 	CUDAMemory::Ptr<float> origin_x;
 	CUDAMemory::Ptr<float> origin_y;
 	CUDAMemory::Ptr<float> origin_z;
@@ -57,7 +58,7 @@ static struct ExtendBuffer {
 	}
 };
 
-static struct MaterialBuffer {
+struct MaterialBuffer {
 	CUDAMemory::Ptr<float> direction_x;
 	CUDAMemory::Ptr<float> direction_y;
 	CUDAMemory::Ptr<float> direction_z;
@@ -87,7 +88,7 @@ static struct MaterialBuffer {
 	}
 };
 
-static struct ShadowRayBuffer {
+struct ShadowRayBuffer {
 	CUDAMemory::Ptr<float> direction_x;
 	CUDAMemory::Ptr<float> direction_y;
 	CUDAMemory::Ptr<float> direction_z;
@@ -201,26 +202,38 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		bvh.save_to_disk(bvh_filename.c_str());
 	}
 
-	int leaf_count      = bvh.leaf_count;
+	int leaf_count;
 	int primitive_count = bvh.triangle_count;
 
 	int      * indices;
 	Triangle * primitives;
 
-#if BVH_TYPE == BVH_SAH
+#if BVH_TYPE == BVH_SBVH
 	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+
+	leaf_count = bvh.leaf_count;
 
 	indices    = bvh.indices;
 	primitives = bvh.triangles;
-#elif BVH_TYPE == BVH_MBVH
-	MBVH mbvh;
-	mbvh.init(bvh);
+#elif BVH_TYPE == BVH_QBVH
+	QBVH qbvh = BVHBuilders::qbvh_from_binary_bvh(bvh);
 	
-	// Set global MBVHNode buffer
-	module.get_global("mbvh_nodes").set_buffer(mbvh.nodes, mbvh.node_count);
+	// Set global QBVHNode buffer
+	module.get_global("qbvh_nodes").set_buffer(qbvh.nodes, qbvh.node_count);
+	
+	leaf_count = bvh.leaf_count;
 
-	indices    = mbvh.indices;
-	primitives = mbvh.triangles;
+	indices    = qbvh.indices;
+	primitives = qbvh.triangles;
+#elif BVH_TYPE == BVH_CWBVH
+	CWBVH cwbvh = BVHBuilders::cwbvh_from_binary_bvh(bvh);
+
+	module.get_global("cwbvh_nodes").set_buffer(cwbvh.nodes, cwbvh.node_count);
+	
+	leaf_count = cwbvh.leaf_count;
+
+	indices    = cwbvh.indices;
+	primitives = cwbvh.triangles;
 #endif
 	
 	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
@@ -539,8 +552,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		camera.position = Vector3(0.528027f, 1.004323f, -0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
 	} else if (strcmp(scene_name, DATA_PATH("glossy.obj")) == 0) {
-		camera.position = Vector3(9.467193f, 5.919240f, 0.646071f);
-		camera.rotation = Quaternion(0.179088f, -0.677310f, 0.175366f, 0.691683f);
+		camera.position = Vector3(9.496315f, 7.674892f, -2.765658f);
+		camera.rotation = Quaternion(-0.261609f, 0.676698f, 0.281990f, 0.627787f);
 	} else {
 		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
