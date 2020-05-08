@@ -161,6 +161,8 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 			int index = indices[spatial_split_dimension][i];
 			const Triangle & triangle = triangles[index];
 			
+			AABB triangle_aabb = AABB::overlap(triangle.aabb, node_aabb);
+
 			Vector3 vertices[3] = { 
 				triangle.position_0,
 				triangle.position_1, 
@@ -175,15 +177,15 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 			float vertex_min = vertices[0][spatial_split_dimension];
 			float vertex_max = vertices[2][spatial_split_dimension];
 				
-			int bin_min = int(BVHPartitions::SBVH_BIN_COUNT * ((triangle.aabb.min[spatial_split_dimension] - bounds_min) * inv_bounds_delta));
-			int bin_max = int(BVHPartitions::SBVH_BIN_COUNT * ((triangle.aabb.max[spatial_split_dimension] - bounds_min) * inv_bounds_delta));
+			int bin_min = int(BVHPartitions::SBVH_BIN_COUNT * ((triangle_aabb.min[spatial_split_dimension] - bounds_min) * inv_bounds_delta));
+			int bin_max = int(BVHPartitions::SBVH_BIN_COUNT * ((triangle_aabb.max[spatial_split_dimension] - bounds_min) * inv_bounds_delta));
 
 			bool goes_left  = bin_min <  spatial_split_index;
 			bool goes_right = bin_max >= spatial_split_index;
 			
 			// A split can result in triangles that lie on one side of the plane but that don't overlap the AABB
-			bool valid_left  = AABB::overlap(triangle.aabb, spatial_split_aabb_left) .is_valid();
-			bool valid_right = AABB::overlap(triangle.aabb, spatial_split_aabb_right).is_valid();
+			bool valid_left  = AABB::overlap(triangle_aabb, spatial_split_aabb_left) .is_valid();
+			bool valid_right = AABB::overlap(triangle_aabb, spatial_split_aabb_right).is_valid();
 
 			if (goes_left && !valid_left) {
 				goes_left = false;
@@ -202,8 +204,8 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 				AABB delta_left  = spatial_split_aabb_left;
 				AABB delta_right = spatial_split_aabb_right;
 
-				delta_left .expand(triangle.aabb);
-				delta_right.expand(triangle.aabb);
+				delta_left .expand(triangle_aabb);
+				delta_right.expand(triangle_aabb);
 
 				float spatial_split_aabb_left_surface_area  = spatial_split_aabb_left .surface_area();
 				float spatial_split_aabb_right_surface_area = spatial_split_aabb_right.surface_area();
@@ -222,14 +224,14 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 
 						n_1 -= 1.0f;
 
-						spatial_split_aabb_right.expand(triangle.aabb);
+						spatial_split_aabb_right.expand(triangle_aabb);
 					} else { // C_1 is cheapest, remove from right
 						goes_right = false;
 						rejected_right++;
 								
 						n_2 -= 1.0f;
 
-						spatial_split_aabb_left.expand(triangle.aabb);
+						spatial_split_aabb_left.expand(triangle_aabb);
 					}
 				} else if (c_2 < c_split) { // C_2 is cheapest, remove from left
 					goes_left = false;
@@ -237,9 +239,11 @@ int BVHBuilders::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 							
 					n_1 -= 1.0f;
 
-					spatial_split_aabb_right.expand(triangle.aabb);
+					spatial_split_aabb_right.expand(triangle_aabb);
 				}
 			}
+			
+			assert(goes_left || goes_right);
 
 			indices_going_left [index] = goes_left;
 			indices_going_right[index] = goes_right;

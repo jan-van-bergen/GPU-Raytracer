@@ -84,7 +84,7 @@ struct BVH {
 	}
 
 	inline void build_sbvh() {
-		const int overallocation = 2; // SBVH requires more space
+		const int overallocation = 3; // SBVH requires more space
 
 		int * indices_x = new int[overallocation * triangle_count];
 		int * indices_y = new int[overallocation * triangle_count];
@@ -117,7 +117,7 @@ struct BVH {
 
 		printf("SBVH Leaf count: %i\n", leaf_count);
 
-		assert(node_index <= 2 * triangle_count);
+		if (node_index > overallocation * triangle_count) abort();
 
 		node_count = node_index;
 

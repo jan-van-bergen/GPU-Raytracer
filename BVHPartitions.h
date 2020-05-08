@@ -229,6 +229,8 @@ namespace BVHPartitions {
 			for (int i = first_index; i < first_index + index_count; i++) {
 				const Triangle & triangle = triangles[indices[dimension][i]];
 				
+				AABB triangle_aabb = AABB::overlap(triangle.aabb, bounds);
+
 				Vector3 vertices[3] = { 
 					triangle.position_0,
 					triangle.position_1, 
@@ -243,8 +245,8 @@ namespace BVHPartitions {
 				float vertex_min = vertices[0][dimension];
 				float vertex_max = vertices[2][dimension];
 				
-				int bin_min = int(SBVH_BIN_COUNT * ((triangle.aabb.min[dimension] - bounds_min) * inv_bounds_delta));
-				int bin_max = int(SBVH_BIN_COUNT * ((triangle.aabb.max[dimension] - bounds_min) * inv_bounds_delta));
+				int bin_min = int(SBVH_BIN_COUNT * ((triangle_aabb.min[dimension] - bounds_min) * inv_bounds_delta));
+				int bin_max = int(SBVH_BIN_COUNT * ((triangle_aabb.max[dimension] - bounds_min) * inv_bounds_delta));
 
 				bin_min = Math::clamp(bin_min, 0, SBVH_BIN_COUNT - 1);
 				bin_max = Math::clamp(bin_max, 0, SBVH_BIN_COUNT - 1);
@@ -269,7 +271,7 @@ namespace BVHPartitions {
 						continue;
 					// If all verticies lie between the two planes, the AABB is just the Triangle's entire AABB
 					} else if (vertex_min >= bin_left_plane && vertex_max <= bin_right_plane) {
-						box = triangle.aabb;
+						box = triangle_aabb;
 					} else {
 						Vector3 intersections[4];
 						int     intersection_count = 0;
