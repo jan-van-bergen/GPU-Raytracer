@@ -169,8 +169,8 @@ extern "C" __global__ void kernel_primary(
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
-		frame_buffer_albedo[pixel_index]  = make_float4(sample_sky(ray_direction));
-		frame_buffer_direct[pixel_index] += make_float4(1.0f);
+		frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
 
 		return;
 	}
