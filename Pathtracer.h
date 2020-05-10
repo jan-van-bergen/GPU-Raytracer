@@ -21,7 +21,7 @@ struct Pathtracer {
 	// Settings
 	bool settings_changed = true;
 
-	bool enable_rasterization    = false;
+	bool enable_rasterization    = true;
 	bool enable_svgf             = false;
 	bool enable_spatial_variance = true;
 	bool enable_taa              = true;

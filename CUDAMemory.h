@@ -2,6 +2,8 @@
 #include "CUDACall.h"
 
 namespace CUDAMemory {
+	inline int memory_usage;
+
 	// Type safe device pointer wrapper
 	template<typename T>
 	struct Ptr {
@@ -18,6 +20,8 @@ namespace CUDAMemory {
 		CUdeviceptr ptr;
 		CUDACALL(cuMemAlloc(&ptr, count * sizeof(T)));
 
+		memory_usage += count * sizeof(T);
+
 		return Ptr<T>(ptr);
 	}
 	
@@ -29,45 +33,9 @@ namespace CUDAMemory {
 		CUDACALL(cuMemcpyHtoD(ptr.ptr, data, count * sizeof(T)));
 	}
 
-	inline CUarray create_array(int width, int height, int channels, CUarray_format format) {
-		CUDA_ARRAY_DESCRIPTOR desc;
-		desc.Width  = width;
-		desc.Height = height;
-		desc.NumChannels = channels;
-		desc.Format = format;
-		
-		CUarray array;
-		CUDACALL(cuArrayCreate(&array, &desc));
-
-		return array;
-	}
-
-	inline CUarray create_array3d(int width, int height, int depth, int channels, CUarray_format format, unsigned flags) {
-		CUDA_ARRAY3D_DESCRIPTOR desc;
-		desc.Width  = width;
-		desc.Height = height;
-		desc.Depth  = depth;
-		desc.NumChannels = channels;
-		desc.Format = format;
-		desc.Flags  = flags;
-		
-		CUarray array;
-		CUDACALL(cuArray3DCreate(&array, &desc));
-
-		return array;
-	}
+	CUarray create_array  (int width, int height,            int channels, CUarray_format format);
+	CUarray create_array3d(int width, int height, int depth, int channels, CUarray_format format, unsigned flags);
 
 	// Copies data from the Host Texture to the Device Array
-	inline void copy_array(CUarray array, int width_in_bytes, int height, const void * data) {
-		CUDA_MEMCPY2D copy = { };
-		copy.srcMemoryType = CU_MEMORYTYPE_HOST;
-		copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-		copy.srcHost  = data;
-		copy.dstArray = array;
-		copy.srcPitch = width_in_bytes;
-		copy.WidthInBytes = copy.srcPitch;
-		copy.Height       = height;
-
-		CUDACALL(cuMemcpy2D(&copy));
-	}
+	void copy_array(CUarray array, int width_in_bytes, int height, const void * data);
 }

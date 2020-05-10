@@ -63,6 +63,9 @@
     <ClCompile Include="CWBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
+    <ClCompile Include="CUDAMemory.cpp">
+      <Filter>CUDA</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">

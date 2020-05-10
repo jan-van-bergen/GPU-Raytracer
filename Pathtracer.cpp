@@ -426,6 +426,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	global_svgf_settings = module.get_global("svgf_settings");
 
+	printf("CUDA Memory allocated: %i kB (%i MB)\n",
+		CUDAMemory::memory_usage >> 10,
+		CUDAMemory::memory_usage >> 20
+	);
+
 	kernel_primary         .init(&module, "kernel_primary");
 	kernel_generate        .init(&module, "kernel_generate");
 	kernel_extend          .init(&module, "kernel_extend");
@@ -768,4 +773,3 @@ void Pathtracer::render() {
 
 	time_taa = CUDAEvent::time_elapsed_between(event_taa, event_end);
 }
-
