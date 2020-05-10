@@ -135,19 +135,31 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	const MeshData * mesh = MeshData::load(scene_name);
 
-	if (mesh->material_count > MAX_MATERIALS || Texture::texture_count > MAX_TEXTURES) abort();
-
 	// Set global Material table
-	module.get_global("materials").set_buffer(mesh->materials, mesh->material_count);
+	if (mesh->material_count > 0) {
+		module.get_global("materials").set_buffer(mesh->materials, mesh->material_count);
+	}
 
 	// Set global Texture table
-	if (Texture::texture_count > 0) {
-		CUtexObject * tex_objects = new CUtexObject[Texture::texture_count];
+	int texture_count = Texture::textures.size();
+	if (texture_count > 0) {	
+		CUtexObject * tex_objects = new CUtexObject[texture_count];
 
-		for (int i = 0; i < Texture::texture_count; i++) {
-			CUarray array = CUDAMemory::create_array(Texture::textures[i].width, Texture::textures[i].height, Texture::textures[i].channels, CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8);
+		for (int i = 0; i < texture_count; i++) {
+			const Texture & texture = Texture::textures[i];
+
+			CUarray array = CUDAMemory::create_array(
+				texture.width,
+				texture.height,
+				texture.channels,
+				CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8
+			);
 		
-			CUDAMemory::copy_array(array, Texture::textures[i].channels * Texture::textures[i].width, Texture::textures[i].height, Texture::textures[i].data);
+			CUDAMemory::copy_array(array, 
+				texture.width * texture.channels, 
+				texture.height,
+				texture.data
+			);
 
 			// Describe the Array to read from
 			CUDA_RESOURCE_DESC res_desc = { };
@@ -164,7 +176,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
 		}
 
-		module.get_global("textures").set_buffer(tex_objects, Texture::texture_count);
+		module.get_global("textures").set_buffer(tex_objects, texture_count);
 
 		delete [] tex_objects;
 	}

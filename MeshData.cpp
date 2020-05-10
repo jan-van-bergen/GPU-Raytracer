@@ -32,9 +32,8 @@ const MeshData * MeshData::load(const char * file_path) {
 
 	const char * path = Util::get_path(file_path);
 
-	tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, file_path, path);
-
-	if (shapes.size() == 0) abort(); // Either the model is empty, or something went wrong
+	bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, file_path, path);
+	if (!success) abort();
 	
 	mesh_data = new MeshData();
 	

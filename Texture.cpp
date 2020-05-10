@@ -9,18 +9,17 @@
 
 static std::unordered_map<std::string, int> cache;
 
-int     Texture::texture_count;
-Texture Texture::textures[MAX_TEXTURES];
+std::vector<Texture> Texture::textures;
 
 int Texture::load(const char * file_path) {
 	int & texture_id = cache[file_path];
 
 	// If the cache already contains this Texture simply return it
-	if (texture_id != 0 && texture_count > 0) return texture_id;
+	if (texture_id != 0 > textures.size() > 0) return texture_id;
 
-	// Otherwise, load new Texture
-	texture_id = texture_count++;
-	Texture & texture = textures[texture_id];
+	// Otherwise, create new Texture and load it from disk
+	texture_id        = textures.size();
+	Texture & texture = textures.emplace_back();
 
 	texture.data = stbi_load(file_path, &texture.width, &texture.height, &texture.channels, STBI_rgb_alpha);
 	texture.channels = 4;

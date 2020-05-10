@@ -34,10 +34,6 @@ static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!"
 #define TWO_PI          6.28318530718f
 #define ONE_OVER_TWO_PI 0.15915494309f
 
-// Material related
-#define MAX_MATERIALS 128
-#define MAX_TEXTURES  32
-
 // BVH related
 #define BVH_BVH   0 // Binary SAH-based BVH
 #define BVH_SBVH  1 // Binary SAH-based Spatial BVH

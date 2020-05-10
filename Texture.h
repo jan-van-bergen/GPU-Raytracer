@@ -1,5 +1,5 @@
 #pragma once
-#include "Vector3.h"
+#include <vector>
 
 #include "Common.h"
 
@@ -11,6 +11,5 @@ struct Texture {
 	
 	static int load(const char * file_path);
 
-	static int     texture_count;
-	static Texture textures[MAX_TEXTURES];
+	static std::vector<Texture> textures;
 };
