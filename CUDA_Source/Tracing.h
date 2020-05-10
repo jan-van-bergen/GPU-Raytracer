@@ -417,23 +417,30 @@ __device__ __inline__ inline unsigned cwbvh_node_intersect(
 		unsigned bit_index4  = (meta4 ^ (oct_inv4 & inner_mask4)) & 0x1f1f1f1f;
 		unsigned child_bits4 = (meta4 >> 5) & 0x07070707;
 
-		// @SPEED: use PRMT
-
 		// Select near and far planes based on ray octant
-		unsigned q_lo_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.z : node_2.w) : float_as_uint(i == 0 ? node_2.x : node_2.y);
-		unsigned q_hi_x = ray_negative_x ? float_as_uint(i == 0 ? node_2.x : node_2.y) : float_as_uint(i == 0 ? node_2.z : node_2.w);
+		unsigned q_lo_x = float_as_uint(i == 0 ? node_2.x : node_2.y);
+		unsigned q_hi_x = float_as_uint(i == 0 ? node_2.z : node_2.w);
 
-		unsigned q_lo_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.z : node_3.w) : float_as_uint(i == 0 ? node_3.x : node_3.y);
-		unsigned q_hi_y = ray_negative_y ? float_as_uint(i == 0 ? node_3.x : node_3.y) : float_as_uint(i == 0 ? node_3.z : node_3.w);
+		unsigned q_lo_y = float_as_uint(i == 0 ? node_3.x : node_3.y);
+		unsigned q_hi_y = float_as_uint(i == 0 ? node_3.z : node_3.w);
 
-		unsigned q_lo_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.z : node_4.w) : float_as_uint(i == 0 ? node_4.x : node_4.y);
-		unsigned q_hi_z = ray_negative_z ? float_as_uint(i == 0 ? node_4.x : node_4.y) : float_as_uint(i == 0 ? node_4.z : node_4.w);
+		unsigned q_lo_z = float_as_uint(i == 0 ? node_4.x : node_4.y);
+		unsigned q_hi_z = float_as_uint(i == 0 ? node_4.z : node_4.w);
+
+		unsigned x_min = ray_negative_x ? q_hi_x : q_lo_x;
+		unsigned x_max = ray_negative_x ? q_lo_x : q_hi_x;
+
+		unsigned y_min = ray_negative_y ? q_hi_y : q_lo_y;
+		unsigned y_max = ray_negative_y ? q_lo_y : q_hi_y;
+
+		unsigned z_min = ray_negative_z ? q_hi_z : q_lo_z;
+		unsigned z_max = ray_negative_z ? q_lo_z : q_hi_z;
 
 		#pragma unroll
 		for (int j = 0; j < 4; j++) {
 			// Extract j-th byte
-			float3 tmin = make_float3(float(extract_byte(q_lo_x, j)), float(extract_byte(q_lo_y, j)), float(extract_byte(q_lo_z, j)));
-			float3 tmax = make_float3(float(extract_byte(q_hi_x, j)), float(extract_byte(q_hi_y, j)), float(extract_byte(q_hi_z, j)));
+			float3 tmin = make_float3(float(extract_byte(x_min, j)), float(extract_byte(y_min, j)), float(extract_byte(z_min, j)));
+			float3 tmax = make_float3(float(extract_byte(x_max, j)), float(extract_byte(y_max, j)), float(extract_byte(z_max, j)));
 
 			// Account for grid origin and scale
 			tmin = tmin * adjusted_ray_direction_inv + adjusted_ray_origin;

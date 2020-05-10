@@ -148,6 +148,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		for (int i = 0; i < texture_count; i++) {
 			const Texture & texture = Texture::textures[i];
 
+			// Create Array on GPU
 			CUarray array = CUDAMemory::create_array(
 				texture.width,
 				texture.height,
@@ -155,6 +156,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 				CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8
 			);
 		
+			// Copy Texture data over to GPU
 			CUDAMemory::copy_array(array, 
 				texture.width * texture.channels, 
 				texture.height,
@@ -502,6 +504,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		1
 	);
 
+	// Initialize timers
 	event_primary.init();
 	for (int i = 0; i < NUM_BOUNCES; i++) {
 		event_extend          [i].init();
@@ -517,6 +520,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	event_taa.init();
 	event_end.init();
 	
+	// Check properties of the Scene, so we know which kernels are required
 	for (int i = 0; i < mesh->material_count; i++) {
 		switch (mesh->materials[i].type) {
 			case Material::Type::DIFFUSE:    scene_has_diffuse    = true; break;
@@ -526,6 +530,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		}
 	}
 
+	// Initialize Camera position/orientation based on the Scene name
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
 		camera.position = Vector3(-7.640668f, 16.404673f, 17.845022f);
 		camera.rotation = Quaternion(-0.256006f, -0.069205f, -0.018378f, 0.964019f);	
