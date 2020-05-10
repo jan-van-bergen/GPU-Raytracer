@@ -426,10 +426,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	global_svgf_settings = module.get_global("svgf_settings");
 
-	printf("CUDA Memory allocated: %i kB (%i MB)\n",
-		CUDAMemory::memory_usage >> 10,
-		CUDAMemory::memory_usage >> 20
-	);
+	unsigned long long bytes_free, bytes_total;
+	CUDACALL(cuMemGetInfo(&bytes_free, &bytes_total));
+
+	unsigned long long bytes_allocated = bytes_total - bytes_free;
+
+	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n", bytes_allocated >> 10, bytes_allocated >> 20);
+	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n", bytes_free      >> 10, bytes_free      >> 20);
 
 	kernel_primary         .init(&module, "kernel_primary");
 	kernel_generate        .init(&module, "kernel_generate");

@@ -2,8 +2,6 @@
 #include "CUDACall.h"
 
 namespace CUDAMemory {
-	inline int memory_usage;
-
 	// Type safe device pointer wrapper
 	template<typename T>
 	struct Ptr {
@@ -19,8 +17,6 @@ namespace CUDAMemory {
 
 		CUdeviceptr ptr;
 		CUDACALL(cuMemAlloc(&ptr, count * sizeof(T)));
-
-		memory_usage += count * sizeof(T);
 
 		return Ptr<T>(ptr);
 	}
