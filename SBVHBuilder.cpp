@@ -364,7 +364,7 @@ BVH BVHBuilders::sbvh(const char * filename, const MeshData * mesh) {
 
 		// Construct Node pool
 		sbvh.nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(SBVH_OVERALLOCATION * sbvh.triangle_count * sizeof(BVHNode), 64));
-		assert((unsigned long long)nodes % 64 == 0);
+		assert((unsigned long long)sbvh.nodes % 64 == 0);
 	
 		memcpy(sbvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
 

@@ -75,7 +75,7 @@ static void init_bvh(BVH & bvh) {
 	delete [] indices_y;
 	delete [] indices_z;
 
-	assert(node_index <= 2 * triangle_count);
+	assert(node_index <= 2 * bvh.triangle_count);
 
 	bvh.node_count = node_index;
 	bvh.index_count = bvh.triangle_count;
@@ -98,7 +98,7 @@ BVH BVHBuilders::bvh(const char * filename, const MeshData * mesh) {
 
 		// Construct Node pool
 		bvh.nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(2 * bvh.triangle_count * sizeof(BVHNode), 64));
-		assert((unsigned long long)nodes % 64 == 0);
+		assert((unsigned long long)bvh.nodes % 64 == 0);
 	
 		memcpy(bvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
 
