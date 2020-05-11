@@ -345,7 +345,7 @@ CWBVH BVHBuilders::cwbvh_from_binary_bvh(const BVH & bvh) {
 	cwbvh.triangles      = bvh.triangles;
 
 	cwbvh.index_count = 0;
-	cwbvh.indices     = new int[bvh.index_count * 2];
+	cwbvh.indices     = new int[bvh.index_count];
 
 	cwbvh.node_count = 1;
 	cwbvh.nodes      = new CWBVHNode[bvh.node_count];
