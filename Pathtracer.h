@@ -39,11 +39,13 @@ struct Pathtracer {
 
 	// Course profile timings
 	float time_primary;
-	float time_extend[NUM_BOUNCES];
+	float time_trace[NUM_BOUNCES];
+	float time_sort [NUM_BOUNCES];
 	float time_shade_diffuse   [NUM_BOUNCES];
 	float time_shade_dielectric[NUM_BOUNCES];
 	float time_shade_glossy    [NUM_BOUNCES];
-	float time_connect[NUM_BOUNCES];
+	float time_shadow_trace  [NUM_BOUNCES];
+	float time_shadow_connect[NUM_BOUNCES];
 	float time_svgf_temporal;
 	float time_svgf_variance;
 	float time_svgf_atrous[MAX_ATROUS_ITERATIONS];
@@ -58,11 +60,13 @@ private:
 	CUDAKernel kernel_primary;
 
 	CUDAKernel kernel_generate;
-	CUDAKernel kernel_extend;
+	CUDAKernel kernel_trace;
+	CUDAKernel kernel_sort;
 	CUDAKernel kernel_shade_diffuse;
 	CUDAKernel kernel_shade_dielectric;
 	CUDAKernel kernel_shade_glossy;
-	CUDAKernel kernel_connect;
+	CUDAKernel kernel_shadow_trace;
+	CUDAKernel kernel_shadow_connect;
 
 	CUDAKernel kernel_svgf_temporal;
 	CUDAKernel kernel_svgf_variance;
@@ -91,11 +95,13 @@ private:
 
 	// Timing Events
 	CUDAEvent event_primary;
-	CUDAEvent event_extend[NUM_BOUNCES];
+	CUDAEvent event_trace[NUM_BOUNCES];
+	CUDAEvent event_sort [NUM_BOUNCES];
 	CUDAEvent event_shade_diffuse   [NUM_BOUNCES];
 	CUDAEvent event_shade_dielectric[NUM_BOUNCES];
 	CUDAEvent event_shade_glossy    [NUM_BOUNCES];
-	CUDAEvent event_connect[NUM_BOUNCES];
+	CUDAEvent event_shadow_trace  [NUM_BOUNCES];
+	CUDAEvent event_shadow_connect[NUM_BOUNCES];
 	CUDAEvent event_svgf_temporal;
 	CUDAEvent event_svgf_variance;
 	CUDAEvent event_svgf_atrous[MAX_ATROUS_ITERATIONS];

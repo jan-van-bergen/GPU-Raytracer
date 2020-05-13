@@ -21,7 +21,7 @@ struct CUDAKernel {
 		this->module = module;
 
 		CUDACALL(cuModuleGetFunction(&kernel, module->module, kernel_name));
-
+		
 		CUDACALL(cuFuncSetCacheConfig    (kernel, CU_FUNC_CACHE_PREFER_L1));
 		CUDACALL(cuFuncSetSharedMemConfig(kernel, CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE));
 

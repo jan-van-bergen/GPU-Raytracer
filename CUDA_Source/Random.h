@@ -70,3 +70,19 @@ __device__ float3 random_cosine_weighted_diffuse_reflection(int x, int y, int sa
 
 	return direction;
 }
+
+__device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v) {
+	// Pick a random light emitting triangle
+	int light_triangle_id = light_indices[random_xorshift(seed) % light_count];
+
+	// Pick a random point on the triangle using random barycentric coordinates
+	u = random_float_heitz(x, y, sample_index, bounce, 6, seed);
+	v = random_float_heitz(x, y, sample_index, bounce, 7, seed);
+
+	if (u + v > 1.0f) {
+		u = 1.0f - u;
+		v = 1.0f - v;
+	}
+
+	return light_triangle_id;
+}

@@ -120,11 +120,13 @@ int main(int argument_count, char ** arguments) {
 
 			for (int i = 0; i < NUM_BOUNCES; i++) {
 				time_bounce[i] = 
-					pathtracer.time_extend[i] + 
-					pathtracer.time_shade_diffuse[i] + 
+					pathtracer.time_trace[i] + 
+					pathtracer.time_sort [i] + 
+					pathtracer.time_shade_diffuse   [i] + 
 					pathtracer.time_shade_dielectric[i] + 
-					pathtracer.time_shade_glossy[i] + 
-					pathtracer.time_connect[i];
+					pathtracer.time_shade_glossy    [i] + 
+					pathtracer.time_shadow_trace  [i];
+					pathtracer.time_shadow_connect[i];
 				sum_bounce += time_bounce[i];
 			}
 
@@ -139,11 +141,13 @@ int main(int argument_count, char ** arguments) {
 					sprintf_s(str_id, "Bounce %i", i);
 
 					if (ImGui::TreeNode(str_id, "%i: %.2f ms", i, time_bounce[i])) {
-						ImGui::Text("Extend:     %.2f ms", pathtracer.time_extend[i]);
-						ImGui::Text("Diffuse:    %.2f ms", pathtracer.time_shade_diffuse[i]);
-						ImGui::Text("Dielectric: %.2f ms", pathtracer.time_shade_dielectric[i]);
-						ImGui::Text("Glossy:     %.2f ms", pathtracer.time_shade_glossy[i]);
-						ImGui::Text("Connect:    %.2f ms", pathtracer.time_connect[i]);
+						ImGui::Text("Trace:          %.2f ms", pathtracer.time_trace[i]);
+						ImGui::Text("Sort:           %.2f ms", pathtracer.time_sort [i]);
+						ImGui::Text("Diffuse:        %.2f ms", pathtracer.time_shade_diffuse   [i]);
+						ImGui::Text("Dielectric:     %.2f ms", pathtracer.time_shade_dielectric[i]);
+						ImGui::Text("Glossy:         %.2f ms", pathtracer.time_shade_glossy    [i]);
+						ImGui::Text("Shadow Trace:   %.2f ms", pathtracer.time_shadow_trace  [i]);
+						ImGui::Text("Shadow Connect: %.2f ms", pathtracer.time_shadow_connect[i]);
 
 						ImGui::TreePop();
 					}

@@ -18,7 +18,7 @@ struct RayHit {
 	float t = INFINITY;
 	float u, v;
 
-	int triangle_id;
+	int triangle_id = -1;
 };
 
 // Triangles in SoA layout

@@ -22,14 +22,18 @@ struct Vertex {
 	int     triangle_id;
 };
 
-struct ExtendBuffer {
+struct TraceBuffer {
 	CUDAMemory::Ptr<float> origin_x;
 	CUDAMemory::Ptr<float> origin_y;
 	CUDAMemory::Ptr<float> origin_z;
 	CUDAMemory::Ptr<float> direction_x;
 	CUDAMemory::Ptr<float> direction_y;
 	CUDAMemory::Ptr<float> direction_z;
-	
+		
+	CUDAMemory::Ptr<int> triangle_id;
+	CUDAMemory::Ptr<float> u;
+	CUDAMemory::Ptr<float> v;
+
 	CUDAMemory::Ptr<int>   pixel_index;
 	CUDAMemory::Ptr<float> throughput_x;
 	CUDAMemory::Ptr<float> throughput_y;
@@ -45,6 +49,10 @@ struct ExtendBuffer {
 		direction_x = CUDAMemory::malloc<float>(buffer_size);
 		direction_y = CUDAMemory::malloc<float>(buffer_size);
 		direction_z = CUDAMemory::malloc<float>(buffer_size);
+		
+		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
+		u           = CUDAMemory::malloc<float>(buffer_size);
+		v           = CUDAMemory::malloc<float>(buffer_size);
 
 		pixel_index  = CUDAMemory::malloc<int>  (buffer_size);
 		throughput_x = CUDAMemory::malloc<float>(buffer_size);
@@ -87,9 +95,25 @@ struct MaterialBuffer {
 };
 
 struct ShadowRayBuffer {
-	CUDAMemory::Ptr<float> direction_x;
-	CUDAMemory::Ptr<float> direction_y;
-	CUDAMemory::Ptr<float> direction_z;
+	CUDAMemory::Ptr<float> prev_direction_in_x;
+	CUDAMemory::Ptr<float> prev_direction_in_y;
+	CUDAMemory::Ptr<float> prev_direction_in_z;
+
+	CUDAMemory::Ptr<int>   light_id;
+	CUDAMemory::Ptr<float> light_u;
+	CUDAMemory::Ptr<float> light_v;
+	
+	CUDAMemory::Ptr<float> max_distance;
+
+	CUDAMemory::Ptr<float> ray_origin_x;
+	CUDAMemory::Ptr<float> ray_origin_y;
+	CUDAMemory::Ptr<float> ray_origin_z;
+
+	CUDAMemory::Ptr<float> ray_direction_x;
+	CUDAMemory::Ptr<float> ray_direction_y;
+	CUDAMemory::Ptr<float> ray_direction_z;
+
+	CUDAMemory::Ptr<bool> hit;
 
 	CUDAMemory::Ptr<int> triangle_id;
 	CUDAMemory::Ptr<float> u;
@@ -101,9 +125,25 @@ struct ShadowRayBuffer {
 	CUDAMemory::Ptr<float> throughput_z;
 
 	inline void init(int buffer_size) {
-		direction_x = CUDAMemory::malloc<float>(buffer_size);
-		direction_y = CUDAMemory::malloc<float>(buffer_size);
-		direction_z = CUDAMemory::malloc<float>(buffer_size);
+		prev_direction_in_x = CUDAMemory::malloc<float>(buffer_size);
+		prev_direction_in_y = CUDAMemory::malloc<float>(buffer_size);
+		prev_direction_in_z = CUDAMemory::malloc<float>(buffer_size);
+
+		light_id = CUDAMemory::malloc<int>  (buffer_size);
+		light_u  = CUDAMemory::malloc<float>(buffer_size);
+		light_v  = CUDAMemory::malloc<float>(buffer_size);
+
+		max_distance = CUDAMemory::malloc<float>(buffer_size);
+
+		ray_origin_x = CUDAMemory::malloc<float>(buffer_size);
+		ray_origin_y = CUDAMemory::malloc<float>(buffer_size);
+		ray_origin_z = CUDAMemory::malloc<float>(buffer_size);
+
+		ray_direction_x = CUDAMemory::malloc<float>(buffer_size);
+		ray_direction_y = CUDAMemory::malloc<float>(buffer_size);
+		ray_direction_z = CUDAMemory::malloc<float>(buffer_size);
+
+		hit = CUDAMemory::malloc<bool>(buffer_size);
 
 		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
 		u           = CUDAMemory::malloc<float>(buffer_size);
@@ -117,7 +157,7 @@ struct ShadowRayBuffer {
 };
 
 static struct BufferSizes {
-	int N_extend    [NUM_BOUNCES] = { PIXEL_COUNT }; // On the first bounce the ExtendBuffer contains exactly PIXEL_COUNT Rays
+	int N_trace     [NUM_BOUNCES] = { PIXEL_COUNT }; // On the first bounce the TraceBuffer contains exactly PIXEL_COUNT Rays
 	int N_diffuse   [NUM_BOUNCES] = { 0 };
 	int N_dielectric[NUM_BOUNCES] = { 0 };
 	int N_glossy    [NUM_BOUNCES] = { 0 };
@@ -403,19 +443,19 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT));
 	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT));
 
-	ExtendBuffer    ray_buffer_extend;
+	TraceBuffer     ray_buffer_trace;
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric;
 	MaterialBuffer  ray_buffer_shade_glossy;
 	ShadowRayBuffer ray_buffer_connect;
 
-	ray_buffer_extend          .init(PIXEL_COUNT);
+	ray_buffer_trace           .init(PIXEL_COUNT);
 	ray_buffer_shade_diffuse   .init(PIXEL_COUNT);
 	ray_buffer_shade_dielectric.init(PIXEL_COUNT);
 	ray_buffer_shade_glossy    .init(PIXEL_COUNT);
 	ray_buffer_connect         .init(PIXEL_COUNT);
 
-	module.get_global("ray_buffer_extend")          .set_value(ray_buffer_extend);
+	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
 	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
 	module.get_global("ray_buffer_shade_glossy")    .set_value(ray_buffer_shade_glossy);
@@ -436,11 +476,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	kernel_primary         .init(&module, "kernel_primary");
 	kernel_generate        .init(&module, "kernel_generate");
-	kernel_extend          .init(&module, "kernel_extend");
+	kernel_trace           .init(&module, "kernel_trace");
+	kernel_sort            .init(&module, "kernel_sort");
 	kernel_shade_diffuse   .init(&module, "kernel_shade_diffuse");
 	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
 	kernel_shade_glossy    .init(&module, "kernel_shade_glossy");
-	kernel_connect         .init(&module, "kernel_connect");
+	kernel_shadow_trace    .init(&module, "kernel_shadow_trace");
+	kernel_shadow_connect  .init(&module, "kernel_shadow_connect");
 	kernel_svgf_temporal   .init(&module, "kernel_svgf_temporal");
 	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
 	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
@@ -459,11 +501,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
 	kernel_generate        .set_block_dim(32, 1, 1);
-	kernel_extend          .set_block_dim(32, 1, 1);
+	kernel_trace           .set_block_dim(32, 1, 1);
+	kernel_sort            .set_block_dim(32, 1, 1);
 	kernel_shade_diffuse   .set_block_dim(32, 1, 1);
 	kernel_shade_dielectric.set_block_dim(32, 1, 1);
 	kernel_shade_glossy    .set_block_dim(32, 1, 1);
-	kernel_connect         .set_block_dim(32, 1, 1);
+	kernel_shadow_trace    .set_block_dim(32, 1, 1);
+	kernel_shadow_connect  .set_block_dim(32, 1, 1);
 	
 	kernel_primary.set_grid_dim(
 		(SCREEN_WIDTH  + kernel_primary.block_dim_x - 1) / kernel_primary.block_dim_x, 
@@ -471,11 +515,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		1
 	);
 	kernel_generate        .set_grid_dim(PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
-	kernel_extend          .set_grid_dim(PIXEL_COUNT / kernel_extend.block_dim_x,           1, 1);
+	kernel_trace           .set_grid_dim(PIXEL_COUNT / kernel_trace.block_dim_x,            1, 1);
+	kernel_sort            .set_grid_dim(PIXEL_COUNT / kernel_sort.block_dim_x,             1, 1);
 	kernel_shade_diffuse   .set_grid_dim(PIXEL_COUNT / kernel_shade_diffuse.block_dim_x,    1, 1);
 	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
 	kernel_shade_glossy    .set_grid_dim(PIXEL_COUNT / kernel_shade_glossy.block_dim_x,     1, 1);
-	kernel_connect         .set_grid_dim(PIXEL_COUNT / kernel_connect.block_dim_x,          1, 1);
+	kernel_shadow_trace    .set_grid_dim(PIXEL_COUNT / kernel_shadow_trace.block_dim_x,     1, 1);
+	kernel_shadow_connect  .set_grid_dim(PIXEL_COUNT / kernel_shadow_connect.block_dim_x,   1, 1);
 	kernel_svgf_temporal   .set_grid_dim(
 		(SCREEN_WIDTH  + kernel_svgf_temporal.block_dim_x - 1) / kernel_svgf_temporal.block_dim_x, 
 		(SCREEN_HEIGHT + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y,
@@ -515,11 +561,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	// Initialize timers
 	event_primary.init();
 	for (int i = 0; i < NUM_BOUNCES; i++) {
-		event_extend          [i].init();
+		event_trace           [i].init();
+		event_sort            [i].init();
 		event_shade_diffuse   [i].init();
 		event_shade_dielectric[i].init();
 		event_shade_glossy    [i].init();
-		event_connect         [i].init();
+		event_shadow_trace    [i].init();
+		event_shadow_connect  [i].init();
 	}
 	event_svgf_temporal.init();
 	event_svgf_variance.init();
@@ -621,7 +669,9 @@ void Pathtracer::render() {
 			camera.y_axis_rotated
 		);
 
-		event_extend[0].record();
+		// Trace and Sort can be skipped when rasterizing primary Rays
+		event_trace[0].record();
+		event_sort [0].record();
 	} else {
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(
@@ -633,9 +683,11 @@ void Pathtracer::render() {
 			camera.y_axis_rotated
 		);
 
-		event_extend[0].record();
+		event_trace[0].record();
+		kernel_trace.execute(0);
 
-		kernel_extend.execute(rand(), 0);
+		event_sort[0].record();
+		kernel_sort.execute(rand(), 0);
 	}
 	// Process the various Material types in different Kernels
 	event_shade_diffuse[0].record();
@@ -654,15 +706,23 @@ void Pathtracer::render() {
 	}
 
 	// Trace shadow Rays
-	event_connect[0].record();
+	event_shadow_trace[0].record();
 	if (scene_has_lights) {
-		kernel_connect.execute(rand(), 0, frames_since_camera_moved);
+		kernel_shadow_trace.execute(0);
+
+		event_shadow_connect[0].record();
+		kernel_shadow_connect.execute(0);
+	} else {
+		event_shadow_connect[0].record();
 	}
 
 	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
-		event_extend[bounce].record();
-		kernel_extend.execute(rand(), bounce);
+		event_trace[bounce].record();
+		kernel_trace.execute(bounce);
+
+		event_sort[bounce].record();
+		kernel_sort.execute(rand(), bounce);
 
 		// Process the various Material types in different Kernels
 		event_shade_diffuse[bounce].record();
@@ -681,9 +741,14 @@ void Pathtracer::render() {
 		}
 
 		// Trace shadow Rays
-		event_connect[bounce].record();
+		event_shadow_trace[bounce].record();
 		if (scene_has_lights) {
-			kernel_connect.execute(rand(), bounce, frames_since_camera_moved);
+			kernel_shadow_trace.execute(bounce);
+
+			event_shadow_connect[bounce].record();
+			kernel_shadow_connect.execute(bounce);
+		} else {
+			event_shadow_connect[bounce].record();
 		}
 	}
 
@@ -750,19 +815,23 @@ void Pathtracer::render() {
 	// Reset buffer sizes to default for next frame
 	global_buffer_sizes.set_value(buffer_sizes);
 
-	time_primary = CUDAEvent::time_elapsed_between(event_primary, event_extend[0]);
+	// Calculate time each Kernel took
+	time_primary = CUDAEvent::time_elapsed_between(event_primary, event_trace[0]);
 	
 	for (int i = 0; i < NUM_BOUNCES; i++) {
-		time_extend[i] = CUDAEvent::time_elapsed_between(event_extend[i], event_shade_diffuse[i]);
+		time_trace[i] = CUDAEvent::time_elapsed_between(event_trace[i], event_sort[i]);
+		time_sort [i] = CUDAEvent::time_elapsed_between(event_sort [i], event_shade_diffuse[i]);
+
 		time_shade_diffuse   [i] = CUDAEvent::time_elapsed_between(event_shade_diffuse   [i],  event_shade_dielectric[i]);
 		time_shade_dielectric[i] = CUDAEvent::time_elapsed_between(event_shade_dielectric[i],  event_shade_glossy    [i]);
-		time_shade_glossy    [i] = CUDAEvent::time_elapsed_between(event_shade_glossy    [i],  event_connect         [i]);
+		time_shade_glossy    [i] = CUDAEvent::time_elapsed_between(event_shade_glossy    [i],  event_shadow_trace    [i]);
 
+		time_shadow_trace[i] = CUDAEvent::time_elapsed_between(event_shadow_trace[i], event_shadow_connect[i]);
 		if (i < NUM_BOUNCES - 1) {
-			time_connect[i] = CUDAEvent::time_elapsed_between(event_connect[i], event_extend[i + 1]);
+			time_shadow_connect[i] = CUDAEvent::time_elapsed_between(event_shadow_connect[i], event_trace[i + 1]);
 		}
 	}
-	time_connect[NUM_BOUNCES - 1] = CUDAEvent::time_elapsed_between(event_connect[NUM_BOUNCES - 1],  event_svgf_temporal);
+	time_shadow_connect[NUM_BOUNCES - 1] = CUDAEvent::time_elapsed_between(event_shadow_connect[NUM_BOUNCES - 1],  event_svgf_temporal);
 	
 	time_svgf_temporal = CUDAEvent::time_elapsed_between(event_svgf_temporal, event_svgf_variance);
 	time_svgf_variance = CUDAEvent::time_elapsed_between(event_svgf_variance, event_svgf_atrous[0]);
