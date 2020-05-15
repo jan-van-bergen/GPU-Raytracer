@@ -463,181 +463,311 @@ __device__ __inline__ inline unsigned cwbvh_node_intersect(
 	return hit_mask;
 }
 
-__device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
-	bool ray_negative_x = ray.direction.x < 0.0f;
-	bool ray_negative_y = ray.direction.y < 0.0f;
-	bool ray_negative_z = ray.direction.z < 0.0f;
+// Constants used by Dynamic Fetch Heurisic (see section 4.4 of Ylitie et al. 2017)
+#define N_d 4
+#define N_w 16
 
-	unsigned oct = 
-		(ray_negative_x < 0.0f ? 0b100 : 0) |
-		(ray_negative_y < 0.0f ? 0b010 : 0) |
-		(ray_negative_z < 0.0f ? 0b001 : 0);
+// Portion of the Stack that resides in Shared Memory
+#define SHARED_STACK_SIZE 8
+static_assert(SHARED_STACK_SIZE < BVH_STACK_SIZE, "Shared Stack size must be strictly smaller than total Stack size");
 
-	unsigned oct_inv  = 7 - oct;
-	unsigned oct_inv4 = oct_inv * 0x01010101;
+__device__ inline void bvh_trace(int ray_count, int * rays_retired) {
+	__shared__ uint2 shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
-	uint2 stack[BVH_STACK_SIZE];
-	int  stack_size = 0;
+	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
+	int   stack_size = 0;
 
-	uint2 current_group = make_uint2(0, 0x80000000);
+	uint2 current_group = make_uint2(0, 0);
+
+	int ray_index;
+	Ray ray;
+
+	bool ray_negative_x, ray_negative_y, ray_negative_z;
+
+	unsigned oct_inv;
+	unsigned oct_inv4;
+	
+	RayHit ray_hit;
 
 	while (true) {
-		uint2 triangle_group;
+		bool inactive = stack_size == 0 && current_group.y <= 0x00ffffff;
 
-		if (current_group.y > 0x00ffffff) {
-			unsigned hits_imask = current_group.y;
+		if (inactive) {
+			ray_index = atomic_agg_inc(rays_retired);
+			if (ray_index >= ray_count) return;
 
-			unsigned child_index_offset = msb(hits_imask);
-			unsigned child_index_base   = current_group.x;
+			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.direction_inv = make_float3(
+				1.0f / ray.direction.x, 
+				1.0f / ray.direction.y, 
+				1.0f / ray.direction.z
+			);
 
-			// Remove n from current_group;
-			current_group.y &= ~(1 << child_index_offset);
+			ray_negative_x = ray.direction.x < 0.0f;
+			ray_negative_y = ray.direction.y < 0.0f;
+			ray_negative_z = ray.direction.z < 0.0f;
 
-			// If the node group is not yet empty, push it on the stack
+			unsigned oct = 
+				(ray_negative_x ? 0b100 : 0) |
+				(ray_negative_y ? 0b010 : 0) |
+				(ray_negative_z ? 0b001 : 0);
+
+			oct_inv  = 7 - oct;
+			oct_inv4 = oct_inv * 0x01010101;
+
+			current_group = make_uint2(0, 0x80000000);
+
+			ray_hit.t           = INFINITY;
+			ray_hit.triangle_id = -1;
+		}
+
+		int iterations_lost = 0;
+
+		do {
+			uint2 triangle_group;
+
 			if (current_group.y > 0x00ffffff) {
-				assert(stack_size < BVH_STACK_SIZE);
+				unsigned hits_imask = current_group.y;
 
-				stack[stack_size++] = current_group;
+				unsigned child_index_offset = msb(hits_imask);
+				unsigned child_index_base   = current_group.x;
+
+				// Remove n from current_group;
+				current_group.y &= ~(1 << child_index_offset);
+
+				// If the node group is not yet empty, push it on the stack
+				if (current_group.y > 0x00ffffff) {
+					assert(stack_size < BVH_STACK_SIZE);
+
+					// Push Stack
+					if (stack_size < SHARED_STACK_SIZE) {
+						shared_stack[threadIdx.x][threadIdx.y][stack_size] = current_group;
+					} else {
+						stack[stack_size - SHARED_STACK_SIZE] = current_group;
+					}
+					stack_size++;
+				}
+
+				unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
+				unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
+
+				unsigned child_node_index = child_index_base + relative_index;
+
+				float4 node_0 = cwbvh_nodes[child_node_index].node_0;
+				float4 node_1 = cwbvh_nodes[child_node_index].node_1;
+				float4 node_2 = cwbvh_nodes[child_node_index].node_2;
+				float4 node_3 = cwbvh_nodes[child_node_index].node_3;
+				float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+
+				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
+
+				byte imask = extract_byte(float_as_uint(node_0.w), 3);
+				
+				current_group .x = float_as_uint(node_1.x); // Child    base offset
+				triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+
+				current_group .y = (hitmask & 0xff000000) | unsigned(imask);
+				triangle_group.y = (hitmask & 0x00ffffff);
+			} else {
+				triangle_group = current_group;
+				current_group  = make_uint2(0);
 			}
 
-			unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
-			unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
+			// 20% of active threads in warp
+			int utilization_threshold = __popc(active_thread_mask()) / 5;
 
-			unsigned child_node_index = child_index_base + relative_index;
+			// While the triangle group is not empty
+			while (triangle_group.y != 0) {
+				// if (__popc(active_thread_mask()) < utilization_threshold) {
+				// 	stack[stack_size++] = triangle_group;
 
-			float4 node_0 = cwbvh_nodes[child_node_index].node_0;
-			float4 node_1 = cwbvh_nodes[child_node_index].node_1;
-			float4 node_2 = cwbvh_nodes[child_node_index].node_2;
-			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
-			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+				// 	break;
+				// }
 
-			unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
+				int triangle_index = msb(triangle_group.y);
 
-			byte imask = extract_byte(float_as_uint(node_0.w), 3);
-			
-			current_group .x = float_as_uint(node_1.x); // Child    base offset
-			triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+				triangle_group.y &= ~(1 << triangle_index);
 
-			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
-			triangle_group.y = (hitmask & 0x00ffffff);
-		} else {
-			triangle_group = current_group;
-			current_group  = make_uint2(0);
-		}
+				triangle_trace(triangle_group.x + triangle_index, ray, ray_hit);
+			}
 
-		int active_threads = __popc(__activemask());
+			if (current_group.y <= 0x00ffffff) {
+				if (stack_size == 0) {
+					ray_buffer_trace.triangle_id[ray_index] = ray_hit.triangle_id;
+					ray_buffer_trace.u[ray_index] = ray_hit.u;
+					ray_buffer_trace.v[ray_index] = ray_hit.v;
 
-		// While the triangle group is not empty
-		while (triangle_group.y != 0) {
-			// if (__popc(__activemask()) < active_threads / 4) {
-			// 	stack[stack_size++] = triangle_group;
+					break;
+				}
 
-			// 	break;
-			// }
+				// Pop Stack
+				stack_size--;
+				if (stack_size < SHARED_STACK_SIZE) {
+					current_group = shared_stack[threadIdx.x][threadIdx.y][stack_size];
+				} else {
+					current_group = stack[stack_size - SHARED_STACK_SIZE];
+				}
+			}
 
-			int triangle_index = msb(triangle_group.y);
-
-			triangle_group.y &= ~(1 << triangle_index);
-
-			triangle_trace(triangle_group.x + triangle_index, ray, ray_hit);
-		}
-
-		if (current_group.y <= 0x00ffffff) {
-			if (stack_size == 0) break;
-
-			current_group = stack[--stack_size];
-		}
+			iterations_lost += WARP_SIZE - __popc(active_thread_mask()) - N_d;
+		} while (iterations_lost < N_w);
 	}
 }
 
-__device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
-	bool ray_negative_x = ray.direction.x < 0.0f;
-	bool ray_negative_y = ray.direction.y < 0.0f;
-	bool ray_negative_z = ray.direction.z < 0.0f;
+__device__ inline void bvh_intersect(int ray_count, int * rays_retired) {
+	__shared__ uint2 shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
-	unsigned oct = 
-		(ray_negative_x < 0.0f ? 0b100 : 0) |
-		(ray_negative_y < 0.0f ? 0b010 : 0) |
-		(ray_negative_z < 0.0f ? 0b001 : 0);
+	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
+	int   stack_size = 0;
 
-	unsigned oct_inv  = 7 - oct;
-	unsigned oct_inv4 = oct_inv * 0x01010101;
+	uint2 current_group = make_uint2(0, 0);
 
-	uint2 stack[BVH_STACK_SIZE];
-	int  stack_size = 0;
+	int ray_index;
+	Ray ray;
 
-	uint2 current_group = make_uint2(0, 0x80000000);
+	bool ray_negative_x, ray_negative_y, ray_negative_z;
+
+	unsigned oct_inv;
+	unsigned oct_inv4;
+
+	float max_distance;
 
 	while (true) {
-		uint2 triangle_group;
+		bool inactive = stack_size == 0 && current_group.y <= 0x00ffffff;
 
-		if (current_group.y > 0x00ffffff) {
-			unsigned hits_imask = current_group.y;
+		if (inactive) {
+			ray_index = atomic_agg_inc(rays_retired);
+			if (ray_index >= ray_count) return;
 
-			unsigned child_index_offset = msb(hits_imask);
-			unsigned child_index_base   = current_group.x;
+			ray.origin    = ray_buffer_connect.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_connect.ray_direction.to_float3(ray_index);
+			ray.direction_inv = make_float3(
+				1.0f / ray.direction.x, 
+				1.0f / ray.direction.y, 
+				1.0f / ray.direction.z
+			);
 
-			// Remove n from current_group;
-			current_group.y &= ~(1 << child_index_offset);
+			ray_negative_x = ray.direction.x < 0.0f;
+			ray_negative_y = ray.direction.y < 0.0f;
+			ray_negative_z = ray.direction.z < 0.0f;
 
-			// If the node group is not yet empty, push it on the stack
+			unsigned oct = 
+				(ray_negative_x ? 0b100 : 0) |
+				(ray_negative_y ? 0b010 : 0) |
+				(ray_negative_z ? 0b001 : 0);
+
+			oct_inv  = 7 - oct;
+			oct_inv4 = oct_inv * 0x01010101;
+
+			current_group = make_uint2(0, 0x80000000);
+
+			max_distance = ray_buffer_connect.max_distance[ray_index];
+		}
+
+		int iterations_lost = 0;
+
+		do {
+			uint2 triangle_group;
+
 			if (current_group.y > 0x00ffffff) {
-				assert(stack_size < BVH_STACK_SIZE);
+				unsigned hits_imask = current_group.y;
 
-				stack[stack_size++] = current_group;
+				unsigned child_index_offset = msb(hits_imask);
+				unsigned child_index_base   = current_group.x;
+
+				// Remove n from current_group;
+				current_group.y &= ~(1 << child_index_offset);
+
+				// If the node group is not yet empty, push it on the stack
+				if (current_group.y > 0x00ffffff) {
+					assert(stack_size < BVH_STACK_SIZE);
+
+					// Push Stack
+					if (stack_size < SHARED_STACK_SIZE) {
+						shared_stack[threadIdx.x][threadIdx.y][stack_size] = current_group;
+					} else {
+						stack[stack_size - SHARED_STACK_SIZE] = current_group;
+					}
+					stack_size++;
+				}
+
+				unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
+				unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
+
+				unsigned child_node_index = child_index_base + relative_index;
+
+				float4 node_0 = cwbvh_nodes[child_node_index].node_0;
+				float4 node_1 = cwbvh_nodes[child_node_index].node_1;
+				float4 node_2 = cwbvh_nodes[child_node_index].node_2;
+				float4 node_3 = cwbvh_nodes[child_node_index].node_3;
+				float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+
+				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, max_distance, node_0, node_1, node_2, node_3, node_4);
+
+				byte imask = extract_byte(float_as_uint(node_0.w), 3);
+				
+				current_group .x = float_as_uint(node_1.x); // Child    base offset
+				triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+
+				current_group .y = (hitmask & 0xff000000) | unsigned(imask);
+				triangle_group.y = (hitmask & 0x00ffffff);
+			} else {
+				triangle_group = current_group;
+				current_group  = make_uint2(0);
 			}
 
-			unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
-			unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
+			// 20% of active threads in warp
+			int utilization_threshold = __popc(active_thread_mask()) / 5;
 
-			unsigned child_node_index = child_index_base + relative_index;
+			bool hit = false;
 
-			float4 node_0 = cwbvh_nodes[child_node_index].node_0;
-			float4 node_1 = cwbvh_nodes[child_node_index].node_1;
-			float4 node_2 = cwbvh_nodes[child_node_index].node_2;
-			float4 node_3 = cwbvh_nodes[child_node_index].node_3;
-			float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+			// While the triangle group is not empty
+			while (triangle_group.y != 0) {
+				// if (__popc(active_thread_mask()) < utilization_threshold) {
+				// 	stack[stack_size++] = triangle_group;
 
-			unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, max_distance, node_0, node_1, node_2, node_3, node_4);
+				// 	break;
+				// }
 
-			byte imask = extract_byte(float_as_uint(node_0.w), 3);
-			
-			current_group .x = float_as_uint(node_1.x); // Child    base offset
-			triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+				int triangle_index = msb(triangle_group.y);
 
-			current_group .y = (hitmask & 0xff000000) | unsigned(imask);
-			triangle_group.y = (hitmask & 0x00ffffff);
-		} else {
-			triangle_group = current_group;
-			current_group  = make_uint2(0);
-		}
+				triangle_group.y &= ~(1 << triangle_index);
 
-		int active_threads = __popc(__activemask());
+				if (triangle_intersect(triangle_group.x + triangle_index, ray, max_distance)) {
+					hit = true;
 
-		// While the triangle group is not empty
-		while (triangle_group.y != 0) {
-			// if (__popc(__activemask()) < active_threads / 4) {
-			// 	stack[stack_size++] = triangle_group;
-
-			// 	break;
-			// }
-
-			int triangle_index = msb(triangle_group.y);
-
-			triangle_group.y &= ~(1 << triangle_index);
-
-			if (triangle_intersect(triangle_group.x + triangle_index, ray, max_distance)) {
-				return true;
+					break;
+				}
 			}
-		}
 
-		if (current_group.y <= 0x00ffffff) {
-			if (stack_size == 0) break;
+			if (hit) {
+				ray_buffer_connect.hit[ray_index] = true;
 
-			current_group = stack[--stack_size];
-		}
+				stack_size      = 0;
+				current_group.y = 0;
+
+				break;
+			}
+
+			if (current_group.y <= 0x00ffffff) {
+				if (stack_size == 0) {
+					ray_buffer_connect.hit[ray_index] = false;
+
+					break;
+				}
+
+				// Pop Stack
+				stack_size--;
+				if (stack_size < SHARED_STACK_SIZE) {
+					current_group = shared_stack[threadIdx.x][threadIdx.y][stack_size];
+				} else {
+					current_group = stack[stack_size - SHARED_STACK_SIZE];
+				}
+			}
+
+			iterations_lost += WARP_SIZE - __popc(active_thread_mask()) - N_d;
+		} while (iterations_lost < N_w);
 	}
-
-	return false;
 }
 #endif
