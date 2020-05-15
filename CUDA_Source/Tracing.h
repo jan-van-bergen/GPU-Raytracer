@@ -279,96 +279,199 @@ __device__ inline void unpack_qbvh_node(unsigned packed, int & index, int & id) 
 	id    = packed >> 30;
 }
 
-__device__ inline void bvh_trace(const Ray & ray, RayHit & ray_hit) {
-	unsigned stack[BVH_STACK_SIZE];
-	int stack_size = 1;
+__device__ inline void bvh_trace(int ray_count, int * rays_retired) {
+	__shared__ unsigned shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
-	// Push root on stack
-	stack[0] = 1;
+	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
+	int stack_size = 0;
 
-	while (stack_size > 0) {
-		assert(stack_size <= BVH_STACK_SIZE);
+	int    ray_index;
+	Ray    ray;
+	RayHit ray_hit;
 
-		// Pop Node of the stack
-		unsigned packed = stack[--stack_size];
+	while (true) {
+		bool inactive = stack_size == 0;
 
-		int node_index, node_id;
-		unpack_qbvh_node(packed, node_index, node_id);
+		if (inactive) {
+			ray_index = atomic_agg_inc(rays_retired);
+			if (ray_index >= ray_count) return;
 
-		int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.direction_inv = make_float3(
+				1.0f / ray.direction.x, 
+				1.0f / ray.direction.y, 
+				1.0f / ray.direction.z
+			);
 
-		int index = index_and_count.x;
-		int count = index_and_count.y;
+			ray_hit.t           = INFINITY;
+			ray_hit.triangle_id = -1;
 
-		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
+			// Push root on stack
+			stack_size                                = 1;
+			shared_stack[threadIdx.x][threadIdx.y][0] = 1;
+		}
 
-		// Check if the Node is a leaf
-		if (count > 0) {
-			for (int j = index; j < index + count; j++) {
-				triangle_trace(j, ray, ray_hit);
+		while (true) {
+			assert(stack_size <= BVH_STACK_SIZE);
+
+			--stack_size;
+			unsigned packed;
+			if (stack_size < SHARED_STACK_SIZE) {
+				packed = shared_stack[threadIdx.x][threadIdx.y][stack_size];
+			} else {
+				packed = stack[stack_size - SHARED_STACK_SIZE];
 			}
-		} else {
-			int child = index;
 
-			AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, ray_hit.t);
-			
-			for (int i = 0; i < 4; i++) {
-				// Extract index from the 2 least significant bits
-				int id = aabb_hits.t_near_i[i] & 0b11;
-				
-				if (aabb_hits.hit[id]) {
-					stack[stack_size++] = pack_qbvh_node(child, id);
+			int node_index, node_id;
+			unpack_qbvh_node(packed, node_index, node_id);
+
+			int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+
+			int index = index_and_count.x;
+			int count = index_and_count.y;
+
+			ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
+
+			// Check if the Node is a leaf
+			if (count > 0) {
+				for (int j = index; j < index + count; j++) {
+					triangle_trace(j, ray, ray_hit);
 				}
+			} else {
+				int child = index;
+
+				AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, ray_hit.t);
+				
+				for (int i = 0; i < 4; i++) {
+					// Extract index from the 2 least significant bits
+					int id = aabb_hits.t_near_i[i] & 0b11;
+					
+					if (aabb_hits.hit[id]) {
+						unsigned packed_child = pack_qbvh_node(child, id);
+
+						if (stack_size < SHARED_STACK_SIZE) {
+							shared_stack[threadIdx.x][threadIdx.y][stack_size] = packed_child;
+						} else {
+							stack[stack_size - SHARED_STACK_SIZE] = packed_child;
+						}
+						stack_size++;
+					}
+				}
+			}
+
+			if (stack_size == 0) {
+				ray_buffer_trace.triangle_id[ray_index] = ray_hit.triangle_id;
+				ray_buffer_trace.u[ray_index] = ray_hit.u;
+				ray_buffer_trace.v[ray_index] = ray_hit.v;
+
+				break;
 			}
 		}
 	}
 }
 
-__device__ inline bool bvh_intersect(const Ray & ray, float max_distance) {
-	unsigned stack[BVH_STACK_SIZE];
-	int stack_size = 1;
+__device__ inline void bvh_intersect(int ray_count, int * rays_retired) {
+	__shared__ unsigned shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
-	// Push root on stack
-	stack[0] = 1;
+	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
+	int stack_size = 0;
 
-	while (stack_size > 0) {
-		// Pop Node of the stack
-		unsigned packed = stack[--stack_size];
+	int ray_index;
+	Ray ray;
+	
+	float max_distance;
 
-		int node_index, node_id;
-		unpack_qbvh_node(packed, node_index, node_id);
+	while (true) {
+		bool inactive = stack_size == 0;
 
-		int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+		if (inactive) {
+			ray_index = atomic_agg_inc(rays_retired);
+			if (ray_index >= ray_count) return;
 
-		int index = index_and_count.x;
-		int count = index_and_count.y;
+			ray.origin    = ray_buffer_connect.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_connect.ray_direction.to_float3(ray_index);
+			ray.direction_inv = make_float3(
+				1.0f / ray.direction.x, 
+				1.0f / ray.direction.y, 
+				1.0f / ray.direction.z
+			);
 
-		ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
+			max_distance = ray_buffer_connect.max_distance[ray_index];
 
-		// Check if the Node is a leaf
-		if (count > 0) {
-			for (int j = index; j < index + count; j++) {
-				if (triangle_intersect(j, ray, max_distance)) {
-					return true;
+			// Push root on stack
+			stack_size                                = 1;
+			shared_stack[threadIdx.x][threadIdx.y][0] = 1;
+		}
+
+		while (true) {
+			// Pop Node of the stack
+			--stack_size;
+			unsigned packed;
+			if (stack_size < SHARED_STACK_SIZE) {
+				packed = shared_stack[threadIdx.x][threadIdx.y][stack_size];
+			} else {
+				packed = stack[stack_size - SHARED_STACK_SIZE];
+			}
+
+			int node_index, node_id;
+			unpack_qbvh_node(packed, node_index, node_id);
+
+			int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+
+			int index = index_and_count.x;
+			int count = index_and_count.y;
+
+			ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
+
+			// Check if the Node is a leaf
+			if (count > 0) {
+				bool hit = false;
+
+				for (int j = index; j < index + count; j++) {
+					if (triangle_intersect(j, ray, max_distance)) {
+						hit = true;
+
+						break;
+					}
+				}
+
+				if (hit) {
+					ray_buffer_connect.hit[ray_index] = true;
+
+					stack_size = 0;
+
+					break;
+				}
+			} else {
+				int child = index;
+
+				AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, max_distance);
+				
+				for (int i = 0; i < 4; i++) {
+					// Extract index from the 2 least significant bits
+					int id = aabb_hits.t_near_i[i] & 0b11;
+					
+					if (aabb_hits.hit[id]) {
+						unsigned packed_child = pack_qbvh_node(child, id);
+
+						if (stack_size < SHARED_STACK_SIZE) {
+							shared_stack[threadIdx.x][threadIdx.y][stack_size] = packed_child;
+						} else {
+							stack[stack_size - SHARED_STACK_SIZE] = packed_child;
+						}
+						stack_size++;
+					}
 				}
 			}
-		} else {
-			int child = index;
 
-			AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, max_distance);
-			
-			for (int i = 0; i < 4; i++) {
-				// Extract index from the 2 least significant bits
-				int id = aabb_hits.t_near_i[i] & 0b11;
-				
-				if (aabb_hits.hit[id]) {
-					stack[stack_size++] = pack_qbvh_node(child, id);
-				}
+			if (stack_size == 0) {
+				ray_buffer_connect.hit[ray_index] = false;
+
+				break;
 			}
 		}
 	}
-
-	return false;
 }
 #elif BVH_TYPE == BVH_CWBVH
 typedef unsigned char byte;
@@ -466,10 +569,6 @@ __device__ __inline__ inline unsigned cwbvh_node_intersect(
 // Constants used by Dynamic Fetch Heurisic (see section 4.4 of Ylitie et al. 2017)
 #define N_d 4
 #define N_w 16
-
-// Portion of the Stack that resides in Shared Memory
-#define SHARED_STACK_SIZE 8
-static_assert(SHARED_STACK_SIZE < BVH_STACK_SIZE, "Shared Stack size must be strictly smaller than total Stack size");
 
 __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	__shared__ uint2 shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
