@@ -162,6 +162,9 @@ static struct BufferSizes {
 	int N_dielectric[NUM_BOUNCES] = { 0 };
 	int N_glossy    [NUM_BOUNCES] = { 0 };
 	int N_shadow    [NUM_BOUNCES] = { 0 };
+
+	int rays_retired       [NUM_BOUNCES] = { 0 };
+	int rays_retired_shadow[NUM_BOUNCES] = { 0 };
 } buffer_sizes;
 
 void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
@@ -491,6 +494,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_taa_finalize    .init(&module, "kernel_taa_finalize");
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
+	// Set Block dimensions for all Kernels
 	kernel_primary      .occupancy_max_block_size_2d();
 	kernel_svgf_temporal.occupancy_max_block_size_2d();
 	kernel_svgf_variance.occupancy_max_block_size_2d();
@@ -500,63 +504,35 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_taa_finalize .occupancy_max_block_size_2d();
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
-	kernel_generate        .set_block_dim(32, 1, 1);
-	kernel_trace           .set_block_dim(32, 1, 1);
-	kernel_sort            .set_block_dim(32, 1, 1);
-	kernel_shade_diffuse   .set_block_dim(32, 1, 1);
-	kernel_shade_dielectric.set_block_dim(32, 1, 1);
-	kernel_shade_glossy    .set_block_dim(32, 1, 1);
-	kernel_shadow_trace    .set_block_dim(32, 1, 1);
-	kernel_shadow_connect  .set_block_dim(32, 1, 1);
+	kernel_generate        .set_block_dim(WARP_SIZE, 1, 1);
+	kernel_sort            .set_block_dim(WARP_SIZE, 1, 1);
+	kernel_shade_diffuse   .set_block_dim(WARP_SIZE, 1, 1);
+	kernel_shade_dielectric.set_block_dim(WARP_SIZE, 1, 1);
+	kernel_shade_glossy    .set_block_dim(WARP_SIZE, 1, 1);
+	kernel_shadow_connect  .set_block_dim(WARP_SIZE, 1, 1);
 	
-	kernel_primary.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_primary.block_dim_x - 1) / kernel_primary.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_primary.block_dim_y - 1) / kernel_primary.block_dim_y,
-		1
-	);
-	kernel_generate        .set_grid_dim(PIXEL_COUNT / kernel_generate.block_dim_x,         1, 1);
-	kernel_trace           .set_grid_dim(PIXEL_COUNT / kernel_trace.block_dim_x,            1, 1);
-	kernel_sort            .set_grid_dim(PIXEL_COUNT / kernel_sort.block_dim_x,             1, 1);
-	kernel_shade_diffuse   .set_grid_dim(PIXEL_COUNT / kernel_shade_diffuse.block_dim_x,    1, 1);
+	kernel_trace       .set_block_dim(WARP_SIZE,        TRACE_BLOCK_Y, 1);
+	kernel_shadow_trace.set_block_dim(WARP_SIZE, SHADOW_TRACE_BLOCK_Y, 1);
+
+	// Set Grid dimensions for all Kernels
+	kernel_primary      .set_grid_dim(SCREEN_PITCH / kernel_primary      .block_dim_x, (SCREEN_HEIGHT + kernel_primary      .block_dim_y - 1) / kernel_primary      .block_dim_y, 1);
+	kernel_svgf_temporal.set_grid_dim(SCREEN_PITCH / kernel_svgf_temporal.block_dim_x, (SCREEN_HEIGHT + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y, 1);
+	kernel_svgf_variance.set_grid_dim(SCREEN_PITCH / kernel_svgf_variance.block_dim_x, (SCREEN_HEIGHT + kernel_svgf_variance.block_dim_y - 1) / kernel_svgf_variance.block_dim_y, 1);
+	kernel_svgf_atrous  .set_grid_dim(SCREEN_PITCH / kernel_svgf_atrous  .block_dim_x, (SCREEN_HEIGHT + kernel_svgf_atrous  .block_dim_y - 1) / kernel_svgf_atrous  .block_dim_y, 1);
+	kernel_svgf_finalize.set_grid_dim(SCREEN_PITCH / kernel_svgf_finalize.block_dim_x, (SCREEN_HEIGHT + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y, 1);
+	kernel_taa          .set_grid_dim(SCREEN_PITCH / kernel_taa          .block_dim_x, (SCREEN_HEIGHT + kernel_taa          .block_dim_y - 1) / kernel_taa          .block_dim_y, 1);
+	kernel_taa_finalize .set_grid_dim(SCREEN_PITCH / kernel_taa_finalize .block_dim_x, (SCREEN_HEIGHT + kernel_taa_finalize .block_dim_y - 1) / kernel_taa_finalize .block_dim_y, 1);
+	kernel_accumulate   .set_grid_dim(SCREEN_PITCH / kernel_accumulate   .block_dim_x, (SCREEN_HEIGHT + kernel_accumulate   .block_dim_y - 1) / kernel_accumulate   .block_dim_y, 1);
+
+	kernel_generate        .set_grid_dim(PIXEL_COUNT / kernel_generate        .block_dim_x, 1, 1);
+	kernel_sort            .set_grid_dim(PIXEL_COUNT / kernel_sort            .block_dim_x, 1, 1);
+	kernel_shade_diffuse   .set_grid_dim(PIXEL_COUNT / kernel_shade_diffuse   .block_dim_x, 1, 1);
 	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
-	kernel_shade_glossy    .set_grid_dim(PIXEL_COUNT / kernel_shade_glossy.block_dim_x,     1, 1);
-	kernel_shadow_trace    .set_grid_dim(PIXEL_COUNT / kernel_shadow_trace.block_dim_x,     1, 1);
-	kernel_shadow_connect  .set_grid_dim(PIXEL_COUNT / kernel_shadow_connect.block_dim_x,   1, 1);
-	kernel_svgf_temporal   .set_grid_dim(
-		(SCREEN_WIDTH  + kernel_svgf_temporal.block_dim_x - 1) / kernel_svgf_temporal.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y,
-		1
-	);
-	kernel_svgf_variance.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_svgf_variance.block_dim_x - 1) / kernel_svgf_variance.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_svgf_variance.block_dim_y - 1) / kernel_svgf_variance.block_dim_y,
-		1
-	);
-	kernel_svgf_atrous.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_svgf_atrous.block_dim_x - 1) / kernel_svgf_atrous.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_svgf_atrous.block_dim_y - 1) / kernel_svgf_atrous.block_dim_y,
-		1
-	);
-	kernel_svgf_finalize.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_svgf_finalize.block_dim_x - 1) / kernel_svgf_finalize.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y,
-		1
-	);
-	kernel_taa.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_taa.block_dim_x - 1) / kernel_taa.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_taa.block_dim_y - 1) / kernel_taa.block_dim_y,
-		1
-	);
-	kernel_taa_finalize.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_taa_finalize.block_dim_x - 1) / kernel_taa_finalize.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_taa_finalize.block_dim_y - 1) / kernel_taa_finalize.block_dim_y,
-		1
-	);
-	kernel_accumulate.set_grid_dim(
-		(SCREEN_WIDTH  + kernel_accumulate.block_dim_x - 1) / kernel_accumulate.block_dim_x, 
-		(SCREEN_HEIGHT + kernel_accumulate.block_dim_y - 1) / kernel_accumulate.block_dim_y,
-		1
-	);
+	kernel_shade_glossy    .set_grid_dim(PIXEL_COUNT / kernel_shade_glossy    .block_dim_x, 1, 1);
+	kernel_shadow_connect  .set_grid_dim(PIXEL_COUNT / kernel_shadow_connect  .block_dim_x, 1, 1);
+
+	kernel_trace       .set_grid_dim(32, 32, 1);
+	kernel_shadow_trace.set_grid_dim(32, 32, 1);
 
 	// Initialize timers
 	event_primary.init();

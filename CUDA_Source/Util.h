@@ -52,9 +52,13 @@ __device__ inline float3 world_to_local(const float3 & vector, const float3 & ta
 	return make_float3(dot(tangent, vector), dot(binormal, vector), dot(normal, vector));
 }
 
+__device__ inline unsigned active_thread_mask() {
+	return __ballot_sync(0xffffffff, 1);
+}
+
 // Based on: https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
 __device__ inline int atomic_agg_inc(int * ctr) {
-	int mask   =  __activemask();
+	int mask   = active_thread_mask();
 	int leader = __ffs(mask) - 1;
 	int laneid = threadIdx.x % 32;
 	

@@ -6,7 +6,6 @@
 #include "../Common.h"
 
 #include "Util.h"
-#include "Tracing.h"
 #include "Lighting.h"
 #include "Sky.h"
 #include "Random.h"
@@ -127,9 +126,14 @@ struct BufferSizes {
 	int N_dielectric[NUM_BOUNCES];
 	int N_glossy    [NUM_BOUNCES];
 	int N_shadow    [NUM_BOUNCES];
+
+	int rays_retired       [NUM_BOUNCES];
+	int rays_retired_shadow[NUM_BOUNCES];
 };
 
 __device__ BufferSizes buffer_sizes;
+
+#include "Tracing.h"
 
 // Sends the rasterized GBuffer to the right Material kernels,
 // as if the primary Rays they were Raytraced 
@@ -273,27 +277,7 @@ extern "C" __global__ void kernel_generate(
 }
 
 extern "C" __global__ void kernel_trace(int bounce) {
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.N_trace[bounce]) return;
-
-	float3 ray_origin    = ray_buffer_trace.origin   .to_float3(index);
-	float3 ray_direction = ray_buffer_trace.direction.to_float3(index);
-
-	Ray ray;
-	ray.origin    = ray_origin;
-	ray.direction = ray_direction;
-	ray.direction_inv = make_float3(
-		1.0f / ray.direction.x, 
-		1.0f / ray.direction.y, 
-		1.0f / ray.direction.z
-	);
-
-	RayHit hit;
-	bvh_trace(ray, hit);
-
-	ray_buffer_trace.triangle_id[index] = hit.triangle_id;
-	ray_buffer_trace.u[index] = hit.u;
-	ray_buffer_trace.v[index] = hit.v;
+	bvh_trace(buffer_sizes.N_trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
 extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
@@ -738,26 +722,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 }
 
 extern "C" __global__ void kernel_shadow_trace(int bounce) {
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.N_shadow[bounce]) return;
-
-	float3 shadow_ray_origin    = ray_buffer_connect.ray_origin   .to_float3(index);
-	float3 shadow_ray_direction = ray_buffer_connect.ray_direction.to_float3(index);
-
-	Ray shadow_ray;
-	shadow_ray.origin    = shadow_ray_origin;
-	shadow_ray.direction = shadow_ray_direction;
-	shadow_ray.direction_inv = make_float3(
-		1.0f / shadow_ray.direction.x, 
-		1.0f / shadow_ray.direction.y, 
-		1.0f / shadow_ray.direction.z
-	);
-
-	float max_distance = ray_buffer_connect.max_distance[index];
-
-	bool hit = bvh_intersect(shadow_ray, max_distance);
-
-	ray_buffer_connect.hit[index] = hit;
+	bvh_intersect(buffer_sizes.N_shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
 extern "C" __global__ void kernel_shadow_connect(int bounce) {
