@@ -133,66 +133,194 @@ struct BVHNode {
 
 __device__ BVHNode * bvh_nodes;
 
-__device__ void bvh_trace(const Ray & ray, RayHit & ray_hit) {
-	int stack[BVH_STACK_SIZE];
-	int stack_size = 1;
+__device__ void bvh_trace(int ray_count, int * rays_retired) {
+	__shared__ unsigned shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
-	// Push root on stack
-	stack[0] = 0;
+	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
+	int stack_size = 0;
 
-	while (stack_size > 0) {
-		// Pop Node of the stack
-		const BVHNode & node = bvh_nodes[stack[--stack_size]];
+	int    ray_index;
+	Ray    ray;
+	RayHit ray_hit;
 
-		if (node.aabb.intersects(ray, ray_hit.t)) {
-			if (node.is_leaf()) {
-				for (int i = node.first; i < node.first + node.count; i++) {
-					triangle_trace(i, ray, ray_hit);
-				}
+	while (true) {
+		bool inactive = stack_size == 0;
+
+		if (inactive) {
+			ray_index = atomic_agg_inc(rays_retired);
+			if (ray_index >= ray_count) return;
+
+			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.direction_inv = make_float3(
+				1.0f / ray.direction.x, 
+				1.0f / ray.direction.y, 
+				1.0f / ray.direction.z
+			);
+
+			ray_hit.t           = INFINITY;
+			ray_hit.triangle_id = -1;
+
+			// Push root on stack
+			stack_size                                = 1;
+			shared_stack[threadIdx.x][threadIdx.y][0] = 0;
+		}
+
+		while (true) {
+			// Pop Node of the stack
+			int child;
+
+			--stack_size;
+			if (stack_size < SHARED_STACK_SIZE) {
+				child = shared_stack[threadIdx.x][threadIdx.y][stack_size];
 			} else {
-				if (node.should_visit_left_first(ray)) {
-					stack[stack_size++] = node.left + 1;
-					stack[stack_size++] = node.left;
+				child = stack[stack_size - SHARED_STACK_SIZE];
+			}
+
+			const BVHNode & node = bvh_nodes[child];
+
+			if (node.aabb.intersects(ray, ray_hit.t)) {
+				if (node.is_leaf()) {
+					for (int i = node.first; i < node.first + node.count; i++) {
+						triangle_trace(i, ray, ray_hit);
+					}
 				} else {
-					stack[stack_size++] = node.left;
-					stack[stack_size++] = node.left + 1;
+					int first, second;
+
+					if (node.should_visit_left_first(ray)) {
+						second = node.left + 1;
+						first  = node.left;
+					} else {
+						second = node.left;
+						first = node.left + 1;
+					}
+
+					if (stack_size < SHARED_STACK_SIZE) {
+						shared_stack[threadIdx.x][threadIdx.y][stack_size] = second;
+					} else {
+						stack[stack_size - SHARED_STACK_SIZE] = second;
+					}
+					stack_size++;
+					
+					if (stack_size < SHARED_STACK_SIZE) {
+						shared_stack[threadIdx.x][threadIdx.y][stack_size] = first;
+					} else {
+						stack[stack_size - SHARED_STACK_SIZE] = first;
+					}
+					stack_size++;
 				}
+			}
+
+			if (stack_size == 0) {
+				ray_buffer_trace.triangle_id[ray_index] = ray_hit.triangle_id;
+				ray_buffer_trace.u[ray_index] = ray_hit.u;
+				ray_buffer_trace.v[ray_index] = ray_hit.v;
+
+				break;
 			}
 		}
 	}
 }
 
-__device__ bool bvh_intersect(const Ray & ray, float max_distance) {
-	int stack[BVH_STACK_SIZE];
-	int stack_size = 1;
+__device__ void bvh_intersect(int ray_count, int * rays_retired) {
+	__shared__ unsigned shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
-	// Push root on stack
-	stack[0] = 0;
+	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
+	int stack_size = 0;
 
-	while (stack_size > 0) {
-		// Pop Node of the stack
-		const BVHNode & node = bvh_nodes[stack[--stack_size]];
+	int ray_index;
+	Ray ray;
+	
+	float max_distance;
 
-		if (node.aabb.intersects(ray, max_distance)) {
-			if (node.is_leaf()) {
-				for (int i = node.first; i < node.first + node.count; i++) {
-					if (triangle_intersect(i, ray, max_distance)) {
-						return true;
-					}
-				}
+	while (true) {
+		bool inactive = stack_size == 0;
+
+		if (inactive) {
+			ray_index = atomic_agg_inc(rays_retired);
+			if (ray_index >= ray_count) return;
+
+			ray.origin    = ray_buffer_connect.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_connect.ray_direction.to_float3(ray_index);
+			ray.direction_inv = make_float3(
+				1.0f / ray.direction.x, 
+				1.0f / ray.direction.y, 
+				1.0f / ray.direction.z
+			);
+
+			max_distance = ray_buffer_connect.max_distance[ray_index];
+
+			// Push root on stack
+			stack_size                                = 1;
+			shared_stack[threadIdx.x][threadIdx.y][0] = 0;
+		}
+
+		while (true) {
+			// Pop Node of the stack
+			int child;
+
+			--stack_size;
+			if (stack_size < SHARED_STACK_SIZE) {
+				child = shared_stack[threadIdx.x][threadIdx.y][stack_size];
 			} else {
-				if (node.should_visit_left_first(ray)) {
-					stack[stack_size++] = node.left + 1;
-					stack[stack_size++] = node.left;
+				child = stack[stack_size - SHARED_STACK_SIZE];
+			}
+
+			const BVHNode & node = bvh_nodes[child];
+
+			if (node.aabb.intersects(ray, max_distance)) {
+				if (node.is_leaf()) {
+					bool hit = false;
+
+					for (int i = node.first; i < node.first + node.count; i++) {
+						if (triangle_intersect(i, ray, max_distance)) {
+							hit = true;
+
+							break;
+						}
+					}
+					
+					if (hit) {
+						ray_buffer_connect.hit[ray_index] = true;
+
+						stack_size = 0;
+
+						break;
+					}
 				} else {
-					stack[stack_size++] = node.left;
-					stack[stack_size++] = node.left + 1;
+					int first, second;
+
+					if (node.should_visit_left_first(ray)) {
+						second = node.left + 1;
+						first  = node.left;
+					} else {
+						second = node.left;
+						first = node.left + 1;
+					}
+
+					if (stack_size < SHARED_STACK_SIZE) {
+						shared_stack[threadIdx.x][threadIdx.y][stack_size] = second;
+					} else {
+						stack[stack_size - SHARED_STACK_SIZE] = second;
+					}
+					stack_size++;
+					
+					if (stack_size < SHARED_STACK_SIZE) {
+						shared_stack[threadIdx.x][threadIdx.y][stack_size] = first;
+					} else {
+						stack[stack_size - SHARED_STACK_SIZE] = first;
+					}
+					stack_size++;
 				}
+			}
+
+			if (stack_size == 0) {
+				ray_buffer_connect.hit[ray_index] = false;
+
+				break;
 			}
 		}
 	}
-
-	return false;
 }
 #elif BVH_TYPE == BVH_QBVH
 

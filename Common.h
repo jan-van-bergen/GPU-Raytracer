@@ -50,7 +50,7 @@ static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!"
 #define BVH_QBVH  2 // Quaternary BVH, constructed by collapsing the binary SBVH
 #define BVH_CWBVH 3 // Compressed Wide BVH (8 way)
 
-#define BVH_TYPE BVH_QBVH
+#define BVH_TYPE BVH_CWBVH
 
 #define SBVH_MAX_PRIMITIVES_IN_LEAF 1
 
