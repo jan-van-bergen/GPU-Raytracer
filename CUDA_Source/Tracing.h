@@ -8,6 +8,8 @@
 
 #include "../Common.h"
 
+#define TRIANGLE_POSTPONING false
+
 struct Ray {
 	float3 origin;
 	float3 direction;
@@ -65,7 +67,7 @@ __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit &
 	}
 }
 
-__device__ inline bool triangle_intersect(int triangle_id, const Ray & ray, float max_distance) {
+__device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, float max_distance) {
 	const float3 & position0      = triangles_position0     [triangle_id];
 	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
 	const float3 & position_edge2 = triangles_position_edge2[triangle_id];
@@ -230,7 +232,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ void bvh_intersect(int ray_count, int * rays_retired) {
+__device__ void bvh_trace_shadow(int ray_count, int * rays_retired) {
 	__shared__ int shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -274,7 +276,7 @@ __device__ void bvh_intersect(int ray_count, int * rays_retired) {
 					bool hit = false;
 
 					for (int i = node.first; i < node.first + node.count; i++) {
-						if (triangle_intersect(i, ray, max_distance)) {
+						if (triangle_trace_shadow(i, ray, max_distance)) {
 							hit = true;
 
 							break;
@@ -476,7 +478,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ inline void bvh_intersect(int ray_count, int * rays_retired) {
+__device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 	__shared__ unsigned shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -528,7 +530,7 @@ __device__ inline void bvh_intersect(int ray_count, int * rays_retired) {
 				bool hit = false;
 
 				for (int j = index; j < index + count; j++) {
-					if (triangle_intersect(j, ray, max_distance)) {
+					if (triangle_trace_shadow(j, ray, max_distance)) {
 						hit = true;
 
 						break;
@@ -764,11 +766,13 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
-				// if (__popc(active_thread_mask()) < utilization_threshold) {
-				// 	stack[stack_size++] = triangle_group;
+#if TRIANGLE_POSTPONING
+				if (__popc(active_thread_mask()) < utilization_threshold) {
+					stack_push(shared_stack, stack, stack_size, triangle_group);
 
-				// 	break;
-				// }
+					break;
+				}
+#endif
 
 				int triangle_index = msb(triangle_group.y);
 
@@ -794,7 +798,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ inline void bvh_intersect(int ray_count, int * rays_retired) {
+__device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 	__shared__ uint2 shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -903,17 +907,19 @@ __device__ inline void bvh_intersect(int ray_count, int * rays_retired) {
 
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
-				// if (__popc(active_thread_mask()) < utilization_threshold) {
-				// 	stack[stack_size++] = triangle_group;
+#if TRIANGLE_POSTPONING
+				if (__popc(active_thread_mask()) < utilization_threshold) {
+					stack_push(shared_stack, stack, stack_size, triangle_group);
 
-				// 	break;
-				// }
+					break;
+				}
+#endif
 
 				int triangle_index = msb(triangle_group.y);
 
 				triangle_group.y &= ~(1 << triangle_index);
 
-				if (triangle_intersect(triangle_group.x + triangle_index, ray, max_distance)) {
+				if (triangle_trace_shadow(triangle_group.x + triangle_index, ray, max_distance)) {
 					hit = true;
 
 					break;

@@ -722,7 +722,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 }
 
 extern "C" __global__ void kernel_shadow_trace(int bounce) {
-	bvh_intersect(buffer_sizes.N_shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
+	bvh_trace_shadow(buffer_sizes.N_shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
 extern "C" __global__ void kernel_shadow_connect(int bounce) {
