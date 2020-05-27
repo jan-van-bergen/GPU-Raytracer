@@ -112,7 +112,6 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Text("FPS: %i", fps);
 			
 			bool category_changed = true;
-			bool category_visible;
 			int  padding;
 
 			// Display Profile timings per category
@@ -123,7 +122,8 @@ int main(int argument_count, char ** arguments) {
 					// Sum the times of all events in the new Category so it can be displayed in the header
 					float time_sum = 0.0f;
 
-					for (int j = i; j < pathtracer.events.size() - 1; j++) {
+					int j;
+					for (j = i; j < pathtracer.events.size() - 1; j++) {
 						int length = strlen(pathtracer.events[j]->name);
 						if (length > padding) padding = length;
 
@@ -132,22 +132,24 @@ int main(int argument_count, char ** arguments) {
 						if (strcmp(pathtracer.events[j]->category, pathtracer.events[j + 1]->category) != 0) break;
 					}
 
-					category_visible = ImGui::TreeNode(pathtracer.events[i]->category, "%s: %.2f ms", pathtracer.events[i]->category, time_sum);
+					bool category_visible = ImGui::TreeNode(pathtracer.events[i]->category, "%s: %.2f ms", pathtracer.events[i]->category, time_sum);
+					if (!category_visible) {
+						// Skip ahead to next category
+						i = j;
+
+						continue;
+					}
 				}
 
-				if (category_visible) {
-					const CUDAEvent * event_curr = pathtracer.events[i];
-					const CUDAEvent * event_next = pathtracer.events[i + 1];
+				const CUDAEvent * event_curr = pathtracer.events[i];
+				const CUDAEvent * event_next = pathtracer.events[i + 1];
 
-					float time = CUDAEvent::time_elapsed_between(*event_curr, *event_next);
+				float time = CUDAEvent::time_elapsed_between(*event_curr, *event_next);
 
-					ImGui::Text("%s: %*.2f ms", event_curr->name, 5 + padding - strlen(event_curr->name), time);
-				}
+				ImGui::Text("%s: %*.2f ms", event_curr->name, 5 + padding - strlen(event_curr->name), time);
 
 				category_changed = strcmp(pathtracer.events[i]->category, pathtracer.events[i + 1]->category);
-
-				// If the previous category was visible, pop it 
-				if (category_visible && category_changed) {
+				if (category_changed) {
 					ImGui::TreePop();
 				}
 			}
