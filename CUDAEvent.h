@@ -8,11 +8,17 @@
 struct CUDAEvent {
 	CUevent event;
 
-	inline void init() {
+	const char * category;
+	const char * name;
+
+	inline void init(const char * category, const char * name) {
 		CUDACALL(cuEventCreate(&event, CU_EVENT_DEFAULT));
+
+		this->category = category;
+		this->name     = name;
 	}
 
-	inline void record(CUstream stream = nullptr) {
+	inline void record(CUstream stream = nullptr) const {
 		CUDACALL(cuEventRecord(event, stream));
 	}
 

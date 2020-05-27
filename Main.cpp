@@ -111,65 +111,46 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
 			ImGui::Text("FPS: %i", fps);
 			
-			ImGui::Text(" - Primary: %.2f ms", pathtracer.time_primary);
+			bool category_changed = true;
+			bool category_visible;
+			int  padding;
 
-			float time_bounce[NUM_BOUNCES];
+			// Display Profile timings per category
+			for (int i = 0; i < pathtracer.events.size() - 1; i++) {
+				if (category_changed) {
+					padding = 0;
 
-			float sum_bounce = 0.0f;
-			float sum_atrous = 0.0f;
+					// Sum the times of all events in the new Category so it can be displayed in the header
+					float time_sum = 0.0f;
 
-			for (int i = 0; i < NUM_BOUNCES; i++) {
-				time_bounce[i] = 
-					pathtracer.time_trace[i] + 
-					pathtracer.time_sort [i] + 
-					pathtracer.time_shade_diffuse   [i] + 
-					pathtracer.time_shade_dielectric[i] + 
-					pathtracer.time_shade_glossy    [i] + 
-					pathtracer.time_shadow_trace  [i];
-					pathtracer.time_shadow_connect[i];
-				sum_bounce += time_bounce[i];
-			}
+					for (int j = i; j < pathtracer.events.size() - 1; j++) {
+						int length = strlen(pathtracer.events[j]->name);
+						if (length > padding) padding = length;
 
-			for (int i = 0; i < pathtracer.svgf_settings.atrous_iterations; i++) {
-				sum_atrous += pathtracer.time_svgf_atrous[i];
-			}
+						time_sum += CUDAEvent::time_elapsed_between(*pathtracer.events[j], *pathtracer.events[j + 1]);
 
-			if (ImGui::TreeNode("Bounces", "Bounces: %.2f ms", sum_bounce)) {
-				char str_id[16];
-
-				for (int i = 0; i < NUM_BOUNCES; i++) {	
-					sprintf_s(str_id, "Bounce %i", i);
-
-					if (ImGui::TreeNode(str_id, "%i: %.2f ms", i, time_bounce[i])) {
-						ImGui::Text("Trace:          %.2f ms", pathtracer.time_trace[i]);
-						ImGui::Text("Sort:           %.2f ms", pathtracer.time_sort [i]);
-						ImGui::Text("Diffuse:        %.2f ms", pathtracer.time_shade_diffuse   [i]);
-						ImGui::Text("Dielectric:     %.2f ms", pathtracer.time_shade_dielectric[i]);
-						ImGui::Text("Glossy:         %.2f ms", pathtracer.time_shade_glossy    [i]);
-						ImGui::Text("Shadow Trace:   %.2f ms", pathtracer.time_shadow_trace  [i]);
-						ImGui::Text("Shadow Connect: %.2f ms", pathtracer.time_shadow_connect[i]);
-
-						ImGui::TreePop();
+						if (strcmp(pathtracer.events[j]->category, pathtracer.events[j + 1]->category) != 0) break;
 					}
-				}
-				
-				ImGui::TreePop();
-			}
 
-			ImGui::Text(" - SVGF Temporal: %.2f ms", pathtracer.time_svgf_temporal);
-			ImGui::Text(" - SVGF Variance: %.2f ms", pathtracer.time_svgf_variance);
-
-			if (ImGui::TreeNode("Atrous", "SVGF atrous: %.2f ms", sum_atrous)) {
-				for (int i = 0; i < pathtracer.svgf_settings.atrous_iterations; i++) {
-					ImGui::Text("%i: %.2f ms", i, pathtracer.time_svgf_atrous[i]);
+					category_visible = ImGui::TreeNode(pathtracer.events[i]->category, "%s: %.2f ms", pathtracer.events[i]->category, time_sum);
 				}
 
-				ImGui::TreePop();
+				if (category_visible) {
+					const CUDAEvent * event_curr = pathtracer.events[i];
+					const CUDAEvent * event_next = pathtracer.events[i + 1];
+
+					float time = CUDAEvent::time_elapsed_between(*event_curr, *event_next);
+
+					ImGui::Text("%s: %*.2f ms", event_curr->name, 5 + padding - strlen(event_curr->name), time);
+				}
+
+				category_changed = strcmp(pathtracer.events[i]->category, pathtracer.events[i + 1]->category);
+
+				// If the previous category was visible, pop it 
+				if (category_visible && category_changed) {
+					ImGui::TreePop();
+				}
 			}
-
-			ImGui::Text(" - SVGF Finalize: %.2f ms", pathtracer.time_svgf_finalize);
-
-			ImGui::Text(" - TAA: %.2f ms", pathtracer.time_taa);
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {

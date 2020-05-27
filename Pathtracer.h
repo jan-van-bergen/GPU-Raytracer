@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+
 #include "Camera.h"
 
 #include "CUDAModule.h"
@@ -36,21 +38,8 @@ struct Pathtracer {
 		float sigma_z     = 1.0f;
 		float sigma_l_inv = 1.0f / 4.0f;
 	} svgf_settings;
-
-	// Course profile timings
-	float time_primary;
-	float time_trace[NUM_BOUNCES];
-	float time_sort [NUM_BOUNCES];
-	float time_shade_diffuse   [NUM_BOUNCES];
-	float time_shade_dielectric[NUM_BOUNCES];
-	float time_shade_glossy    [NUM_BOUNCES];
-	float time_shadow_trace  [NUM_BOUNCES];
-	float time_shadow_connect[NUM_BOUNCES];
-	float time_svgf_temporal;
-	float time_svgf_variance;
-	float time_svgf_atrous[MAX_ATROUS_ITERATIONS];
-	float time_svgf_finalize;
-	float time_taa;
+	
+	std::vector<const CUDAEvent *> events;
 
 private:
 	GBuffer gbuffer;
@@ -107,6 +96,7 @@ private:
 	CUDAEvent event_svgf_atrous[MAX_ATROUS_ITERATIONS];
 	CUDAEvent event_svgf_finalize;
 	CUDAEvent event_taa;
+	CUDAEvent event_accumulate;
 	CUDAEvent event_end;
 
 	bool scene_has_diffuse    = false;

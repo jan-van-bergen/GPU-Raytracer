@@ -535,22 +535,37 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shadow_trace.set_grid_dim(32, 32, 1);
 
 	// Initialize timers
-	event_primary.init();
+	event_primary.init("Primary", "Primary");
+
 	for (int i = 0; i < NUM_BOUNCES; i++) {
-		event_trace           [i].init();
-		event_sort            [i].init();
-		event_shade_diffuse   [i].init();
-		event_shade_dielectric[i].init();
-		event_shade_glossy    [i].init();
-		event_shadow_trace    [i].init();
-		event_shadow_connect  [i].init();
+		const int len = 16;
+		char    * category = new char[len];
+		sprintf_s(category, len, "Bounce %i", i);
+
+		event_trace           [i].init(category, "Trace");
+		event_sort            [i].init(category, "Sort");
+		event_shade_diffuse   [i].init(category, "Diffuse");
+		event_shade_dielectric[i].init(category, "Dielectric");
+		event_shade_glossy    [i].init(category, "Glossy");
+		event_shadow_trace    [i].init(category, "Shadow Trace");
+		event_shadow_connect  [i].init(category, "Shadow Connect");
 	}
-	event_svgf_temporal.init();
-	event_svgf_variance.init();
-	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].init();
-	event_svgf_finalize.init();
-	event_taa.init();
-	event_end.init();
+
+	event_svgf_temporal.init("SVGF", "Temporal");
+	event_svgf_variance.init("SVGF", "Variance");
+	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
+		const int len = 16;
+		char    * name = new char[len];
+		sprintf_s(name, len, "A Trous %i", i);
+
+		event_svgf_atrous[i].init("SVGF", name);
+	}
+	event_svgf_finalize.init("SVGF", "Finalize");
+
+	event_taa       .init("Post", "TAA");
+	event_accumulate.init("Post", "Accumulate");
+
+	event_end.init("END", "END");
 	
 	// Check properties of the Scene, so we know which kernels are required
 	for (int i = 0; i < mesh->material_count; i++) {
@@ -600,8 +615,12 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 	}
 }
 
+#define RECORD_EVENT(e) e.record(); events.push_back(&e);
+
 void Pathtracer::render() {
-	event_primary.record();
+	events.clear();
+
+	RECORD_EVENT(event_primary);
 
 	if (enable_rasterization) {
 		gbuffer.bind();
@@ -644,10 +663,6 @@ void Pathtracer::render() {
 			camera.x_axis_rotated,
 			camera.y_axis_rotated
 		);
-
-		// Trace and Sort can be skipped when rasterizing primary Rays
-		event_trace[0].record();
-		event_sort [0].record();
 	} else {
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(
@@ -659,79 +674,75 @@ void Pathtracer::render() {
 			camera.y_axis_rotated
 		);
 
-		event_trace[0].record();
+		RECORD_EVENT(event_trace[0]);
 		kernel_trace.execute(0);
 
-		event_sort[0].record();
+		RECORD_EVENT(event_sort[0]);
 		kernel_sort.execute(rand(), 0);
 	}
+
 	// Process the various Material types in different Kernels
-	event_shade_diffuse[0].record();
 	if (scene_has_diffuse) {
+		RECORD_EVENT(event_shade_diffuse[0]);
 		kernel_shade_diffuse.execute(rand(), 0, frames_since_camera_moved);
 	}
-
-	event_shade_dielectric[0].record();
+	
 	if (scene_has_dielectric) {
+		RECORD_EVENT(event_shade_dielectric[0]);
 		kernel_shade_dielectric.execute(rand(), 0);
 	}
 
-	event_shade_glossy[0].record();
 	if (scene_has_glossy) {
+		RECORD_EVENT(event_shade_glossy[0]);
 		kernel_shade_glossy.execute(rand(), 0, frames_since_camera_moved);
 	}
 
 	// Trace shadow Rays
-	event_shadow_trace[0].record();
 	if (scene_has_lights) {
+		RECORD_EVENT(event_shadow_trace[0]);
 		kernel_shadow_trace.execute(0);
 
-		event_shadow_connect[0].record();
+		RECORD_EVENT(event_shadow_connect[0]);
 		kernel_shadow_connect.execute(0);
-	} else {
-		event_shadow_connect[0].record();
 	}
 
 	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
 		// Extend all Rays that are still alive to their next Triangle intersection
-		event_trace[bounce].record();
+		RECORD_EVENT(event_trace[bounce]);
 		kernel_trace.execute(bounce);
 
-		event_sort[bounce].record();
+		RECORD_EVENT(event_sort[bounce]);
 		kernel_sort.execute(rand(), bounce);
 
 		// Process the various Material types in different Kernels
-		event_shade_diffuse[bounce].record();
 		if (scene_has_diffuse) {
+			RECORD_EVENT(event_shade_diffuse[bounce]);
 			kernel_shade_diffuse.execute(rand(), bounce, frames_since_camera_moved);
 		}
 
-		event_shade_dielectric[bounce].record();
 		if (scene_has_dielectric) {
+			RECORD_EVENT(event_shade_dielectric[bounce]);
 			kernel_shade_dielectric.execute(rand(), bounce);
 		}
 
-		event_shade_glossy[bounce].record();
 		if (scene_has_glossy) {
+			RECORD_EVENT(event_shade_glossy[bounce]);
 			kernel_shade_glossy.execute(rand(), bounce, frames_since_camera_moved);
 		}
 
 		// Trace shadow Rays
-		event_shadow_trace[bounce].record();
 		if (scene_has_lights) {
+			RECORD_EVENT(event_shadow_trace[bounce]);
 			kernel_shadow_trace.execute(bounce);
 
-			event_shadow_connect[bounce].record();
+			RECORD_EVENT(event_shadow_connect[bounce]);
 			kernel_shadow_connect.execute(bounce);
-		} else {
-			event_shadow_connect[bounce].record();
 		}
 	}
 
-	event_svgf_temporal.record();
-
 	if (enable_svgf) {
 		// Integrate temporally
+		RECORD_EVENT(event_svgf_temporal);
 		kernel_svgf_temporal.execute();
 	
 		CUdeviceptr direct_in    = ptr_direct.ptr;
@@ -739,10 +750,9 @@ void Pathtracer::render() {
 		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
 		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
-		event_svgf_variance.record();
-
 		if (enable_spatial_variance) {
 			// Estimate Variance spatially
+			RECORD_EVENT(event_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
 		} else {
 			std::swap(direct_in,   direct_out);
@@ -757,67 +767,26 @@ void Pathtracer::render() {
 			std::swap(direct_in,   direct_out);
 			std::swap(indirect_in, indirect_out);
 
-			event_svgf_atrous[i].record();
-
+			RECORD_EVENT(event_svgf_atrous[i]);
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
 
-		for (int i = svgf_settings.atrous_iterations; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].record();
-
-		event_svgf_finalize.record();
-
+		RECORD_EVENT(event_svgf_finalize);
 		kernel_svgf_finalize.execute(enable_albedo, direct_out, indirect_out);
 
-		event_taa.record();
-
 		if (enable_taa) {
+			RECORD_EVENT(event_taa);
+
 			kernel_taa         .execute();
 			kernel_taa_finalize.execute();
 		}
 	} else {
-		event_svgf_variance.record();
-
-		for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) event_svgf_atrous[i].record();
-		
-		event_svgf_finalize.record();
-
+		RECORD_EVENT(event_accumulate);
 		kernel_accumulate.execute(!enable_albedo, float(frames_since_camera_moved));
-
-		event_taa.record();
 	}
 
-	event_end.record();
+	RECORD_EVENT(event_end);
 	
 	// Reset buffer sizes to default for next frame
 	global_buffer_sizes.set_value(buffer_sizes);
-
-	// Calculate time each Kernel took
-	time_primary = CUDAEvent::time_elapsed_between(event_primary, event_trace[0]);
-	
-	for (int i = 0; i < NUM_BOUNCES; i++) {
-		time_trace[i] = CUDAEvent::time_elapsed_between(event_trace[i], event_sort[i]);
-		time_sort [i] = CUDAEvent::time_elapsed_between(event_sort [i], event_shade_diffuse[i]);
-
-		time_shade_diffuse   [i] = CUDAEvent::time_elapsed_between(event_shade_diffuse   [i],  event_shade_dielectric[i]);
-		time_shade_dielectric[i] = CUDAEvent::time_elapsed_between(event_shade_dielectric[i],  event_shade_glossy    [i]);
-		time_shade_glossy    [i] = CUDAEvent::time_elapsed_between(event_shade_glossy    [i],  event_shadow_trace    [i]);
-
-		time_shadow_trace[i] = CUDAEvent::time_elapsed_between(event_shadow_trace[i], event_shadow_connect[i]);
-		if (i < NUM_BOUNCES - 1) {
-			time_shadow_connect[i] = CUDAEvent::time_elapsed_between(event_shadow_connect[i], event_trace[i + 1]);
-		}
-	}
-	time_shadow_connect[NUM_BOUNCES - 1] = CUDAEvent::time_elapsed_between(event_shadow_connect[NUM_BOUNCES - 1],  event_svgf_temporal);
-	
-	time_svgf_temporal = CUDAEvent::time_elapsed_between(event_svgf_temporal, event_svgf_variance);
-	time_svgf_variance = CUDAEvent::time_elapsed_between(event_svgf_variance, event_svgf_atrous[0]);
-
-	for (int i = 0; i < MAX_ATROUS_ITERATIONS - 1; i++) {
-		time_svgf_atrous[i] = CUDAEvent::time_elapsed_between(event_svgf_atrous[i], event_svgf_atrous[i + 1]);
-	}
-	time_svgf_atrous[MAX_ATROUS_ITERATIONS - 1] = CUDAEvent::time_elapsed_between(event_svgf_atrous[MAX_ATROUS_ITERATIONS - 1], event_svgf_finalize);
-
-	time_svgf_finalize = CUDAEvent::time_elapsed_between(event_svgf_finalize, event_taa);
-
-	time_taa = CUDAEvent::time_elapsed_between(event_taa, event_end);
 }
