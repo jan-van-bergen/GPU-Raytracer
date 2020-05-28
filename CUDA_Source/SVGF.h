@@ -539,7 +539,6 @@ extern "C" __global__ void kernel_svgf_finalize(
 	if (svgf_settings.atrous_iterations == 0) {
 		// Normally the à trous filter copies the illumination history,
 		// but in case the filter was skipped we need to do this here
-
 		history_direct  [pixel_index] = direct;
 		history_indirect[pixel_index] = indirect;
 	}

@@ -6,7 +6,7 @@
 #include "../Common.h"
 
 #include "Util.h"
-#include "Lighting.h"
+#include "Shading.h"
 #include "Sky.h"
 #include "Random.h"
 
@@ -25,7 +25,7 @@ texture<int,    cudaTextureType2D> gbuffer_triangle_id;
 texture<float2, cudaTextureType2D> gbuffer_screen_position_prev;
 texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
 
-// History Buffers (Temporally Integrated)
+// SVGF History Buffers (Temporally Integrated)
 __device__ int    * history_length;
 __device__ float4 * history_direct;
 __device__ float4 * history_indirect;
@@ -36,7 +36,8 @@ __device__ float4 * history_normal_and_depth;
 __device__ float4 * taa_frame_curr;
 __device__ float4 * taa_frame_prev;
 
-surface<void, 2> accumulator; // Final Frame buffer to be displayed on Screen
+// Final Frame buffer, shared with OpenGL
+surface<void, 2> accumulator; 
 
 #include "SVGF.h"
 #include "TAA.h"
@@ -120,6 +121,8 @@ __device__ MaterialBuffer  ray_buffer_shade_glossy;
 __device__ ShadowRayBuffer ray_buffer_connect;
 
 // Number of elements in each Buffer
+// Sizes are stored for ALL bounces so we only have to reset these
+// values back to 0 after every frame, instead of after every bounce
 struct BufferSizes {
 	int N_trace     [NUM_BOUNCES];
 	int N_diffuse   [NUM_BOUNCES];
@@ -127,11 +130,10 @@ struct BufferSizes {
 	int N_glossy    [NUM_BOUNCES];
 	int N_shadow    [NUM_BOUNCES];
 
+	// Global counters for tracing kernels
 	int rays_retired       [NUM_BOUNCES];
 	int rays_retired_shadow[NUM_BOUNCES];
-};
-
-__device__ BufferSizes buffer_sizes;
+} __device__ buffer_sizes;
 
 #include "Tracing.h"
 
@@ -187,40 +189,58 @@ extern "C" __global__ void kernel_primary(
 
 	const Material & material = materials[triangles_material_id[triangle_id]];
 
-	if (material.type == Material::Type::LIGHT) {
-		frame_buffer_albedo[pixel_index] = make_float4(material.emission);
-		frame_buffer_direct[pixel_index] = make_float4(1.0f);
-	} else if (material.type == Material::Type::DIFFUSE) {
-		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
+	// Decide which Kernel to invoke, based on Material Type
+	switch (material.type) {
+		case Material::Type::LIGHT: {
+			// Terminate Path
+			frame_buffer_albedo[pixel_index] = make_float4(material.emission);
+			frame_buffer_direct[pixel_index] = make_float4(1.0f);
 
-		ray_buffer_shade_diffuse.triangle_id[index_out] = triangle_id;
-		ray_buffer_shade_diffuse.u[index_out] = uv.x;
-		ray_buffer_shade_diffuse.v[index_out] = uv.y;
+			break;
+		}
+		
+		case Material::Type::DIFFUSE: {
+			int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
 
-		ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
-		ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
-	} else if (material.type == Material::Type::DIELECTRIC) {
-		int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[0]);
+			ray_buffer_shade_diffuse.triangle_id[index_out] = triangle_id;
+			ray_buffer_shade_diffuse.u[index_out] = uv.x;
+			ray_buffer_shade_diffuse.v[index_out] = uv.y;
 
-		ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
+			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
 
-		ray_buffer_shade_dielectric.triangle_id[index_out] = triangle_id;
-		ray_buffer_shade_dielectric.u[index_out] = uv.x;
-		ray_buffer_shade_dielectric.v[index_out] = uv.y;
+			break;
+		} 
 
-		ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
-		ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
-	} else if (material.type == Material::Type::GLOSSY) {
-		int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[0]);
+		case Material::Type::DIELECTRIC: {
+			int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[0]);
 
-		ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-		ray_buffer_shade_glossy.triangle_id[index_out] = triangle_id;
-		ray_buffer_shade_glossy.u[index_out] = uv.x;
-		ray_buffer_shade_glossy.v[index_out] = uv.y;
+			ray_buffer_shade_dielectric.triangle_id[index_out] = triangle_id;
+			ray_buffer_shade_dielectric.u[index_out] = uv.x;
+			ray_buffer_shade_dielectric.v[index_out] = uv.y;
 
-		ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
-		ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
+			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
+			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
+			
+			break;
+		} 
+
+		case Material::Type::GLOSSY: {
+			int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[0]);
+
+			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
+
+			ray_buffer_shade_glossy.triangle_id[index_out] = triangle_id;
+			ray_buffer_shade_glossy.u[index_out] = uv.x;
+			ray_buffer_shade_glossy.v[index_out] = uv.y;
+
+			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
+			ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
+			
+			break;
+		}
 	}
 }
 
@@ -237,24 +257,15 @@ extern "C" __global__ void kernel_generate(
 
 	unsigned seed = (index + rand_seed * 199494991) * 949525949;
 	
-	int block_index = index / BLOCK_SIZE;
-	int i = (block_index % (SCREEN_WIDTH / BLOCK_WIDTH)) * BLOCK_WIDTH;
-	int j = (block_index / (SCREEN_WIDTH / BLOCK_WIDTH)) * BLOCK_HEIGHT;
+	int tile_index = index / TILE_SIZE;
+	int i = (tile_index % (SCREEN_WIDTH / TILE_WIDTH)) * TILE_WIDTH;
+	int j = (tile_index / (SCREEN_WIDTH / TILE_WIDTH)) * TILE_HEIGHT;
 
-	ASSERT(i < SCREEN_WIDTH, "");
-	ASSERT(j < SCREEN_HEIGHT, "");
-
-	int k = (index % BLOCK_SIZE) % BLOCK_WIDTH;
-	int l = (index % BLOCK_SIZE) / BLOCK_WIDTH;
-
-	ASSERT(k < BLOCK_WIDTH, "");
-	ASSERT(l < BLOCK_HEIGHT, "");
+	int k = (index % TILE_SIZE) % TILE_WIDTH;
+	int l = (index % TILE_SIZE) / TILE_WIDTH;
 
 	int x = i + k;
 	int y = j + l;
-
-	ASSERT(x < SCREEN_WIDTH, "");
-	ASSERT(y < SCREEN_HEIGHT, "");
 
 	int pixel_index = x + y * SCREEN_PITCH;
 	ASSERT(pixel_index < SCREEN_PITCH * SCREEN_HEIGHT, "Pixel should fit inide the buffer");
@@ -321,85 +332,101 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	// Get the Material of the Triangle we hit
 	const Material & material = materials[triangles_material_id[hit_triangle_id]];
 
-	if (material.type == Material::Type::LIGHT) {
-		if ((ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
-		    (ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
-			float3 illumination = ray_throughput * material.emission;
+	switch (material.type) {
+		case Material::Type::LIGHT: {
+			if ((ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
+				(ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
+				float3 illumination = ray_throughput * material.emission;
 
-			if (bounce == 0) {
-				frame_buffer_albedo[ray_pixel_index] = make_float4(material.emission);
-				frame_buffer_direct[ray_pixel_index] = make_float4(1.0f);
-			} else if (bounce == 1) {
+				if (bounce == 0) {
+					frame_buffer_albedo[ray_pixel_index] = make_float4(material.emission);
+					frame_buffer_direct[ray_pixel_index] = make_float4(1.0f);
+				} else if (bounce == 1) {
+					frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
+				} else {
+					frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
+				}
+
+				return;
+			}
+
+			float3 light_point  = barycentric(hit_u, hit_v, triangles_position0[hit_triangle_id], triangles_position_edge1[hit_triangle_id], triangles_position_edge2[hit_triangle_id]);
+			float3 light_normal = barycentric(hit_u, hit_v, triangles_normal0  [hit_triangle_id], triangles_normal_edge1  [hit_triangle_id], triangles_normal_edge2  [hit_triangle_id]);
+		
+			light_normal = normalize(light_normal);
+		
+			float3 to_light = light_point - ray_origin;;
+			float distance_to_light_squared = dot(to_light, to_light);
+			float distance_to_light         = sqrtf(distance_to_light_squared);
+		
+			// Normalize the vector to the light
+			to_light /= distance_to_light;
+			
+			float cos_o = -dot(to_light, light_normal);
+
+			float light_area = 0.5f * length(cross(
+				triangles_position_edge1[hit_triangle_id], 
+				triangles_position_edge2[hit_triangle_id]
+			));
+
+			float light_pdf = distance_to_light_squared / (cos_o * light_area); // 1 / solid_angle
+			float brdf_pdf  = ray_buffer_trace.last_pdf[index];
+
+			float mis_pdf = light_pdf + brdf_pdf;
+
+			float3 illumination = ray_throughput * material.emission / mis_pdf;
+
+			if (bounce == 1) {
 				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 			} else {
 				frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
 			}
 
-			return;
+			break;
 		}
 
-		float3 light_point  = barycentric(hit_u, hit_v, triangles_position0[hit_triangle_id], triangles_position_edge1[hit_triangle_id], triangles_position_edge2[hit_triangle_id]);
-		float3 light_normal = barycentric(hit_u, hit_v, triangles_normal0  [hit_triangle_id], triangles_normal_edge1  [hit_triangle_id], triangles_normal_edge2  [hit_triangle_id]);
-	
-		light_normal = normalize(light_normal);
-	
-		float3 to_light = light_point - ray_origin;;
-		float distance_to_light_squared = dot(to_light, to_light);
-		float distance_to_light         = sqrtf(distance_to_light_squared);
-	
-		// Normalize the vector to the light
-		to_light /= distance_to_light;
-		
-		float cos_o = -dot(to_light, light_normal);
+		case Material::Type::DIFFUSE: {
+			int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[bounce]);
 
-		float light_area = 0.5f * length(cross(
-			triangles_position_edge1[hit_triangle_id], 
-			triangles_position_edge2[hit_triangle_id]
-		));
+			ray_buffer_shade_diffuse.triangle_id[index_out] = hit_triangle_id;
+			ray_buffer_shade_diffuse.u[index_out] = hit_u;
+			ray_buffer_shade_diffuse.v[index_out] = hit_v;
 
-		float light_pdf = distance_to_light_squared / (cos_o * light_area); // 1 / solid_angle
-		float brdf_pdf  = ray_buffer_trace.last_pdf[index];
+			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
+			ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
 
-		float mis_pdf = light_pdf + brdf_pdf;
-
-		float3 illumination = ray_throughput * material.emission / mis_pdf;
-
-		if (bounce == 1) {
-			frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
-		} else {
-			frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
+			break;
 		}
-	} else if (material.type == Material::Type::DIFFUSE) {
-		int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[bounce]);
 
-		ray_buffer_shade_diffuse.triangle_id[index_out] = hit_triangle_id;
-		ray_buffer_shade_diffuse.u[index_out] = hit_u;
-		ray_buffer_shade_diffuse.v[index_out] = hit_v;
+		case Material::Type::DIELECTRIC: {
+			int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[bounce]);
 
-		ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
-		ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
-	} else if (material.type == Material::Type::DIELECTRIC) {
-		int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[bounce]);
+			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-		ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_dielectric.triangle_id[index_out] = hit_triangle_id;
+			ray_buffer_shade_dielectric.u[index_out] = hit_u;
+			ray_buffer_shade_dielectric.v[index_out] = hit_v;
 
-		ray_buffer_shade_dielectric.triangle_id[index_out] = hit_triangle_id;
-		ray_buffer_shade_dielectric.u[index_out] = hit_u;
-		ray_buffer_shade_dielectric.v[index_out] = hit_v;
+			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
+			ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
 
-		ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
-		ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
-	} else if (material.type == Material::Type::GLOSSY) {
-		int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[bounce]);
+			break;
+		}
 
-		ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
+		case Material::Type::GLOSSY: {
+			int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[bounce]);
 
-		ray_buffer_shade_glossy.triangle_id[index_out] = hit_triangle_id;
-		ray_buffer_shade_glossy.u[index_out] = hit_u;
-		ray_buffer_shade_glossy.v[index_out] = hit_v;
+			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-		ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
-		ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
+			ray_buffer_shade_glossy.triangle_id[index_out] = hit_triangle_id;
+			ray_buffer_shade_glossy.u[index_out] = hit_u;
+			ray_buffer_shade_glossy.v[index_out] = hit_v;
+
+			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
+			ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
+
+			break;
+		}
 	}
 }
 

@@ -43,7 +43,7 @@ int   current_frame = 0;
 
 int main(int argument_count, char ** arguments) {
 	Window window("Pathtracer");
-	
+
 	// Initialize timing stuff
 	Uint64 now  = 0;
 	Uint64 last = 0;

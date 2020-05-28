@@ -33,22 +33,3 @@ AABB AABB::overlap(const AABB & b1, const AABB & b2) {
 
 	return aabb;
 }
-
-AABB AABB::transform(const AABB & aabb, const Matrix4 & transformation) {
-	Vector3 corners[8] = {
-		Vector3(aabb.min.x, aabb.min.y, aabb.min.z),
-		Vector3(aabb.min.x, aabb.min.y, aabb.max.z),
-		Vector3(aabb.max.x, aabb.min.y, aabb.max.z),
-		Vector3(aabb.max.x, aabb.min.y, aabb.min.z),
-		Vector3(aabb.min.x, aabb.max.y, aabb.min.z),
-		Vector3(aabb.min.x, aabb.max.y, aabb.max.z),
-		Vector3(aabb.max.x, aabb.max.y, aabb.max.z),
-		Vector3(aabb.max.x, aabb.max.y, aabb.min.z)
-	};
-
-	for (int i = 0; i < 8; i++) {
-		corners[i] = Matrix4::transform_position(transformation, corners[i]);
-	}
-
-	return AABB::from_points(corners, 8);
-}

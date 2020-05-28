@@ -13,13 +13,13 @@
 #define SCREEN_PITCH ((SCREEN_WIDTH + WARP_SIZE - 1) / WARP_SIZE * WARP_SIZE)
 
 
-#define BLOCK_WIDTH  8
-#define BLOCK_HEIGHT 4
-#define BLOCK_SIZE   (BLOCK_WIDTH * BLOCK_HEIGHT)
+#define TILE_WIDTH  8
+#define TILE_HEIGHT 4
+#define TILE_SIZE (TILE_WIDTH * TILE_HEIGHT)
 
-static_assert(SCREEN_WIDTH  % BLOCK_WIDTH  == 0, "Screen width  should be divisible by the Block width!");
-static_assert(SCREEN_HEIGHT % BLOCK_HEIGHT == 0, "Screen height should be divisible by the Block height!");
-static_assert(BLOCK_SIZE == WARP_SIZE, "Block size should equal CUDA warp size!");
+static_assert(SCREEN_WIDTH  % TILE_WIDTH  == 0, "Screen width  should be divisible by the Tile width!");
+static_assert(SCREEN_HEIGHT % TILE_HEIGHT == 0, "Screen height should be divisible by the Tile height!");
+static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 
 
 // Tracing related

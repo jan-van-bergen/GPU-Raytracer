@@ -85,17 +85,17 @@ __device__ inline float3 oct_decode_normal(float2 f) {
 }
 
 __device__ float mitchell_netravali(float x) {
-	float B = 1.0f / 3.0f;
-	float C = 1.0f / 3.0f;
+	const float B = 1.0f / 3.0f;
+	const float C = 1.0f / 3.0f;
 
 	x = fabsf(x);
 	float x2 = x  * x;
 	float x3 = x2 * x;
 
 	if (x < 1.0f) {
-		return (1.0f / 6.0f) * ((12 - 9 * B - 6 * C) * x3 + (-18 + 12 * B + 6 * C) * x2 + (6 - 2 * B));
+		return (1.0f / 6.0f) * ((12.0f - 9.0f * B - 6.0f * C) * x3 + (-18.0f + 12.0f * B + 6.0f  * C) * x2 + (6.0f - 2.0f * B));
 	} else if (x < 2.0f) {
-		return 1.0f / 6.0f * ((-B - 6 * C) * x3 + (6 * B + 30 * C) * x2 + (-12 * B - 48 * C) * x + (8 * B + 24 * C)); 
+		return (1.0f / 6.0f) * (              (-B - 6.0f * C) * x3 +           (6.0f * B + 30.0f * C) * x2 + (-12.0f * B - 48.0f * C) * x + (8.0f * B + 24.0f * C)); 
 	} else {
 		return 0.0f;
 	}

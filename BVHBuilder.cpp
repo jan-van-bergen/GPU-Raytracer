@@ -23,7 +23,7 @@ static void build_bvh(BVHNode & node, const Triangle * triangles, int * indices[
 		
 	int split_dimension;
 	float split_cost;
-	int split_index = BVHPartitions::partition_sah(triangles, indices, first_index, index_count, sah, temp, split_dimension, split_cost);
+	int split_index = BVHPartitions::partition_sah(triangles, indices, first_index, index_count, sah, split_dimension, split_cost);
 
 	// Check SAH termination condition
 	float parent_cost = node.aabb.surface_area() * float(index_count); 

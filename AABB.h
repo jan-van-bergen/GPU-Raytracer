@@ -51,6 +51,4 @@ struct AABB {
 	}
 
 	static AABB overlap(const AABB & b1, const AABB & b2);
-
-	static AABB transform(const AABB & aabb, const Matrix4 & transformation);
 };

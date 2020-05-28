@@ -25,7 +25,7 @@ extern "C" __global__ void kernel_taa() {
 	int y1 = int(t_prev - 2.0f);
 
 	float  sum_weight = 0.0f;
-	float4 sum        = make_float4(0.0f);
+	float4 sum = make_float4(0.0f);
 
 	for (int j = y1; j < y1 + 4; j++) {
 		if (j < 0 || j >= SCREEN_HEIGHT) continue;
@@ -111,6 +111,7 @@ extern "C" __global__ void kernel_taa() {
 		colour_avg *= 1.0f / 9.0f;
 		colour_var *= 1.0f / 9.0f;
 
+		// Compute variance and standard deviation
 		float3 sigma2 = colour_var - colour_avg * colour_avg;
 		float3 sigma = make_float3(
 			sqrt(max(0.0f, sigma2.x)),
@@ -118,19 +119,19 @@ extern "C" __global__ void kernel_taa() {
 			sqrt(max(0.0f, sigma2.z))
 		);
 
+		// Clamp based on average and standard seviation
 		float3 colour_min = colour_avg - 1.25f * sigma;
 		float3 colour_max = colour_avg + 1.25f * sigma;
 
 		colour_prev = clamp(colour_prev, colour_min, colour_max);
 
-		if (!isnan(colour_prev.x + colour_prev.y + colour_prev.z)) {
-			const float alpha = 0.1f;
-			float3 integrated = ycocg_to_rgb(alpha * colour_curr + (1.0f - alpha) * colour_prev);
+		// Integrate temporally
+		const float alpha = 0.1f;
+		float3 integrated = ycocg_to_rgb(alpha * colour_curr + (1.0f - alpha) * colour_prev);
 
-			colour.x = integrated.x;
-			colour.y = integrated.y;
-			colour.z = integrated.z;
-		}
+		colour.x = integrated.x;
+		colour.y = integrated.y;
+		colour.z = integrated.z;
 	}
 
 	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);

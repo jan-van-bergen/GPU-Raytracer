@@ -103,7 +103,7 @@ namespace BVHPartitions {
 
 	// Evaluates SAH for every object for every dimension to determine splitting candidate
 	template<typename PrimitiveType>
-	inline int partition_sah(const PrimitiveType * primitives, int * indices[3], int first_index, int index_count, float * sah, int * temp, int & split_dimension, float & split_cost) {
+	inline int partition_sah(const PrimitiveType * primitives, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost) {
 		float min_split_cost = INFINITY;
 		int   min_split_index     = -1;
 		int   min_split_dimension = -1;
