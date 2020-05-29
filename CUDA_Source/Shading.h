@@ -60,7 +60,7 @@ __device__ inline float fresnel_schlick(float n_1, float n_2, float cos_theta_i,
 	return r_0 + (1.0f - r_0) * one_minus_cos_theta5;
 }
 
-// Normal distribution term D for the Beckmann microfacet model
+// Distribution of Normals term D for the Beckmann microfacet model
 __device__ inline float beckmann_D(float m_dot_n, float alpha) {
 	if (m_dot_n <= 0.0f) return 0.0f;
 
@@ -75,7 +75,7 @@ __device__ inline float beckmann_D(float m_dot_n, float alpha) {
  	return exp(-tan2_theta_m / alpha2) / (PI * alpha2 * cos4_theta_m);
 }
 
-// Monodirectional shadowing term G1 for the Smith shadowing function G for the Beckmann microfacet model
+// Monodirectional Smith shadowing term G1 for the Beckmann microfacet model
 __device__ inline float beckmann_G1(float v_dot_n, float v_dot_m, float alpha) {
 	if (v_dot_m <= 0.0f || v_dot_n <= 0.0f) return 0.0f;
 
@@ -89,32 +89,7 @@ __device__ inline float beckmann_G1(float v_dot_n, float v_dot_m, float alpha) {
 	return (a * (3.535f + 2.181f * a)) / (1.0f + a * (2.276f + 2.577f * a));
 }
 
-/*
-// Height Correlated Masking and Shadowing 
-__device__ inline float beckmann_G2(float i_dot_m, float o_dot_m, float i_dot_n, float o_dot_n, float m_dot_n, float alpha) {
-#if false // Use separable form with two monodirectional terms for masking and shadowing
-	return
-		beckmann_G1(i_dot_n, m_dot_n, alpha) * 
-		beckmann_G1(o_dot_n, m_dot_n, alpha);
-#else // Use height-correlated masking and shadowing
-	if (i_dot_m <= 0.0f || o_dot_m <= 0.0f) return 0.0f;
-	
-	// Rational approximation to lambda
-	auto lambda = [alpha](float cos_theta) {
-		float tan_theta_v = sqrtf(max(1e-8f, 1.0f - cos_theta*cos_theta)) / cos_theta; // tan(acos(x)) = sqrt(1 - x^2) / x
-		float a = 1.0f / (alpha * tan_theta_v);
-
-		if (a >= 1.6f) return 0.0f;
-
-		return (1.0f - a * (1.259f + 0.396f*a)) / (a * (3.535f + 2.181f*a));
-	};
-	
-	return 1.0f / (1.0f + lambda(i_dot_n) + lambda(o_dot_m));
-#endif
-}
-*/
-
-// Rational approximation to lambda
+// Rational approximation to lambda term for the Beckmann microfacet model
 __device__ float beckmann_lambda(float cos_theta, float alpha) {
 	float tan_theta_v = sqrtf(max(1e-8f, 1.0f - cos_theta*cos_theta)) / cos_theta;
 	float a = 1.0f / (alpha * tan_theta_v);
@@ -124,6 +99,7 @@ __device__ float beckmann_lambda(float cos_theta, float alpha) {
 	return (1.0f - a * (1.259f + 0.396f*a)) / (a * (3.535f + 2.181f*a));
 };
 
+// Distribution of Normals term D for the GGX microfacet model
 __device__ inline float ggx_D(float m_dot_n, float alpha) {
 	if (m_dot_n <= 0.0f) return 0.0f;
 
@@ -139,6 +115,7 @@ __device__ inline float ggx_D(float m_dot_n, float alpha) {
 	return alpha2 / (PI * cos_theta4 * alpha2_plus_tan_theta2 * alpha2_plus_tan_theta2);
 }
 
+// Monodirectional Smith shadowing term G1 for the GGX microfacet model
 __device__ inline float ggx_G1(float v_dot_n, float v_dot_m, float alpha) {
 	if (v_dot_m <= 0.0f || v_dot_n <= 0.0f) return 0.0f;
 
@@ -152,6 +129,7 @@ __device__ inline float ggx_G1(float v_dot_n, float v_dot_m, float alpha) {
 	return 2.0f / (1.0f - sqrtf(1.0f + alpha2 * tan_theta2));
 }
 
+// Lambda term for the Beckmann microfacet model
 __device__ inline float ggx_lambda(float cos_theta, float alpha) {
 	float cos_theta2 = cos_theta  * cos_theta;
 	float tan_theta2 = (1.0f - cos_theta2) / cos_theta2;
@@ -169,6 +147,9 @@ __device__ inline float microfacet_D(float m_dot_n, float alpha) {
 #endif
 }
 
+// Shadowing/Masking term for the given microfacet model
+// If MICROFACET_SEPARATE_G_TERMS is set to true, two separate monodirectional Smith terms G1 are used,
+// otherwise a Height-Correlated Masking and Shadowing term G2 is used based on 2 lambda terms.
 __device__ inline float microfacet_G(float i_dot_m, float o_dot_m, float i_dot_n, float o_dot_n, float m_dot_n, float alpha) {
 #if MICROFACET_SEPARATE_G_TERMS
 	#if MICROFACET_MODEL == MICROFACET_BECKMANN
