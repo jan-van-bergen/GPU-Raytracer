@@ -25,7 +25,7 @@ extern "C" __global__ void kernel_taa() {
 	int y1 = int(t_prev - 2.0f);
 
 	float  sum_weight = 0.0f;
-	float4 sum = make_float4(0.0f);
+	float4 sum        = make_float4(0.0f);
 
 	for (int j = y1; j < y1 + 4; j++) {
 		if (j < 0 || j >= SCREEN_HEIGHT) continue;

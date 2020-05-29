@@ -36,6 +36,15 @@ static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 #define MAX_ATROUS_ITERATIONS 10
 
 
+// Microfacet
+#define MICROFACET_BECKMANN 0 
+#define MICROFACET_GGX      1
+
+#define MICROFACET_MODEL MICROFACET_GGX
+
+#define MICROFACET_SEPARATE_G_TERMS false
+
+
 // Pi related
 #define PI          3.14159265359f
 #define ONE_OVER_PI 0.31830988618f

@@ -588,20 +588,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	} else {
 		float3 direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
 
-		// Use Schlick's Approximation
-		float r_0 = (n_1 - n_2) / (n_1 + n_2);
-		r_0 *= r_0;
+		float fresnel = fresnel_schlick(n_1, n_2, cos_theta, -dot(direction_refracted, normal));
 
-		if (n_1 > n_2) {
-			cos_theta = -dot(direction_refracted, normal);
-		}
-
-		float one_minus_cos         = 1.0f - cos_theta;
-		float one_minus_cos_squared = one_minus_cos * one_minus_cos;
-
-		float F_r = r_0 + ((1.0f - r_0) * one_minus_cos_squared) * (one_minus_cos_squared * one_minus_cos);
-
-		if (random_float_xorshift(seed) < F_r) {
+		if (random_float_xorshift(seed) < fresnel) {
 			direction = direction_reflected;
 		} else {
 			direction = direction_refracted;
@@ -725,27 +714,27 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 direction_out = reflect(-direction_in, micro_normal_world);
 
-	float i_dot_m = dot(direction_in, micro_normal_world);
+	float i_dot_m = dot(direction_in,  micro_normal_world);
+	float o_dot_m = dot(direction_out, micro_normal_world);
 	float i_dot_n = dot(direction_in,       hit_normal);
 	float o_dot_n = dot(direction_out,      hit_normal);
 	float m_dot_n = dot(micro_normal_world, hit_normal);
 
-	float D = beckmann_D(m_dot_n, alpha);
-	float G = 
-		beckmann_G1(i_dot_n, m_dot_n, alpha) * 
-		beckmann_G1(o_dot_n, m_dot_n, alpha);
-	float weight = abs(i_dot_m) * G / abs(i_dot_n * m_dot_n);
+	float F = fresnel_schlick(1.0f, material.index_of_refraction, i_dot_m, i_dot_m);
+	float D = microfacet_D(m_dot_n, alpha);
+	float G = microfacet_G(i_dot_m, o_dot_m, i_dot_n, o_dot_n, m_dot_n, alpha);
+	float weight = fabsf(i_dot_m) * F * G / fabsf(i_dot_n * m_dot_n);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.N_trace[bounce + 1]);
 
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
 	ray_buffer_trace.direction.from_float3(index_out, direction_out);
 
-	ray_buffer_trace.pixel_index[index_out]  = ray_pixel_index;
+	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
 	ray_buffer_trace.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::GLOSSY);
-	ray_buffer_trace.last_pdf[index_out] = D * m_dot_n / (4.0f * dot(micro_normal_world, direction_in));
+	ray_buffer_trace.last_pdf[index_out] = F * G * D * m_dot_n / (4.0f * i_dot_m);
 }
 
 extern "C" __global__ void kernel_shadow_trace(int bounce) {
