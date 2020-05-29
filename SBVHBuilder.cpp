@@ -1,10 +1,9 @@
 #pragma once
 #include "BVHBuilders.h"
 
-#include <filesystem>
-
 #include "BVH.h"
 
+#include "Util.h"
 #include "ScopedTimer.h"
 
 #define SBVH_OVERALLOCATION 3 // SBVH requires more space
@@ -340,8 +339,6 @@ static void init_sbvh(BVH & sbvh) {
 	delete [] indices_y;
 	delete [] indices_z;
 
-	printf("SBVH Leaf count: %i\n", sbvh.index_count);
-
 	sbvh.node_count = node_index;
 
 	delete [] temp[0];
@@ -353,12 +350,12 @@ static void init_sbvh(BVH & sbvh) {
 BVH BVHBuilders::sbvh(const char * filename, const MeshData * mesh) {
 	BVH sbvh;
 	
-	std::string bvh_filename = std::string(filename) + ".sbvh";
-	if (std::filesystem::exists(bvh_filename)) {
-		printf("Loading BVH %s from disk.\n", bvh_filename.c_str());
+	const char * file_extension = ".sbvh";
+	bool loaded = sbvh.try_to_load_from_disk(filename, file_extension);
 
-		sbvh.load_from_disk(bvh_filename.c_str());
-	} else {
+	if (!loaded) {
+		printf("Construcing SBVH, this may take a few seconds for large scenes...\n");
+
 		sbvh.triangle_count = mesh->triangle_count; 
 		sbvh.triangles      = new Triangle[sbvh.triangle_count];
 
@@ -383,7 +380,7 @@ BVH BVHBuilders::sbvh(const char * filename, const MeshData * mesh) {
 			init_sbvh(sbvh);
 		}
 
-		sbvh.save_to_disk(bvh_filename.c_str());
+		sbvh.save_to_disk(filename, file_extension);
 	}
 
 	return sbvh;

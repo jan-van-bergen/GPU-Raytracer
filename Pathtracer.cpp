@@ -567,6 +567,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	event_end.init("END", "END");
 	
+	scene_has_diffuse    = false;
+	scene_has_dielectric = false;
+	scene_has_glossy     = false;
+	scene_has_lights     = false;
+
 	// Check properties of the Scene, so we know which kernels are required
 	for (int i = 0; i < mesh->material_count; i++) {
 		switch (mesh->materials[i].type) {
@@ -576,6 +581,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 			case Material::Type::LIGHT:      scene_has_lights     = true; break;
 		}
 	}
+
+	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
+		scene_has_diffuse    ? "yes" : "no",
+		scene_has_dielectric ? "yes" : "no",
+		scene_has_glossy     ? "yes" : "no",
+		scene_has_lights     ? "yes" : "no"
+	);
 
 	// Initialize Camera position/orientation based on the Scene name
 	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
@@ -591,8 +603,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		camera.position = Vector3(0.528027f, 1.004323f, -0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
 	} else if (strcmp(scene_name, DATA_PATH("glossy.obj")) == 0) {
-		camera.position = Vector3(9.496315f, 7.674892f, -2.765658f);
-		camera.rotation = Quaternion(-0.261609f, 0.676698f, 0.281990f, 0.627787f);
+		camera.position = Vector3(-5.438800f, 5.910520f, -7.185338f);
+		camera.rotation = Quaternion(0.242396f, 0.716713f, 0.298666f, -0.581683f);
+	} else if (strcmp(scene_name, DATA_PATH("Bunny.obj")) == 0) {
+		camera.position = Vector3(-27.662603f, 26.719784f, -15.835464f);
+		camera.rotation = Quaternion(0.076750f, 0.900785f, 0.177892f, -0.388638f);
 	} else {
 		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);

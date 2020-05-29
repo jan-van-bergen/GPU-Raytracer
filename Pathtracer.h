@@ -41,6 +41,11 @@ struct Pathtracer {
 	
 	std::vector<const CUDAEvent *> events;
 
+	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
+
+	void update(float delta, const unsigned char * keys);
+	void render();
+
 private:
 	GBuffer gbuffer;
 
@@ -99,14 +104,8 @@ private:
 	CUDAEvent event_accumulate;
 	CUDAEvent event_end;
 
-	bool scene_has_diffuse    = false;
-	bool scene_has_dielectric = false;
-	bool scene_has_glossy     = false;
-	bool scene_has_lights     = false;
-
-public:
-	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
-
-	void update(float delta, const unsigned char * keys);
-	void render();
+	bool scene_has_diffuse;
+	bool scene_has_dielectric;
+	bool scene_has_glossy;
+	bool scene_has_lights;
 };

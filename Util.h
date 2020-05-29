@@ -18,6 +18,11 @@
 
 namespace Util {
 	const char * get_path(const char * file_path);
+	
+	bool file_exists(const char * filename);
+
+	// Checks if file_check is newer than file_reference
+	bool file_is_newer(const char * file_reference, const char * file_check);
 
 	template<typename T>
 	void swap(T & a, T & b) {
@@ -27,4 +32,5 @@ namespace Util {
 	}
 
 	void export_ppm(const char * file_path, int width, int height, const unsigned char * data);
+
 }

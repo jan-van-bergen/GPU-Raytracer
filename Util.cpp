@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cstdio>
 
+#include <filesystem>
+
 const char * Util::get_path(const char * file_path) {
 	const char * path_end      = file_path;
 	const char * last_path_end = nullptr;
@@ -23,6 +25,17 @@ const char * Util::get_path(const char * file_path) {
 	path[path_length] = NULL;
 
 	return path;
+}
+
+bool Util::file_exists(const char * filename) {
+	return std::filesystem::exists(filename);
+}
+
+bool Util::file_is_newer(const char * file_reference, const char * file_check) {
+	std::filesystem::file_time_type last_write_time_reference = std::filesystem::last_write_time(file_reference);
+	std::filesystem::file_time_type last_write_time_check     = std::filesystem::last_write_time(file_check);
+
+	return last_write_time_reference < last_write_time_check;
 }
 
 // Based on: https://rosettacode.org/wiki/Bitmap/Write_a_PPM_file

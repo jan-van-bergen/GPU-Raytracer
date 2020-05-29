@@ -1,8 +1,6 @@
 #pragma once
 #include "BVHBuilders.h"
 
-#include <filesystem>
-
 #include "BVH.h"
 
 #include "ScopedTimer.h"
@@ -87,12 +85,10 @@ static void init_bvh(BVH & bvh) {
 BVH BVHBuilders::bvh(const char * filename, const MeshData * mesh) {
 	BVH bvh;
 	
-	std::string bvh_filename = std::string(filename) + ".sbvh";
-	if (std::filesystem::exists(bvh_filename)) {
-		printf("Loading BVH %s from disk.\n", bvh_filename.c_str());
+	const char * file_extension = ".bvh";
+	bool loaded = bvh.try_to_load_from_disk(filename, file_extension);
 
-		bvh.load_from_disk(bvh_filename.c_str());
-	} else {
+	if (!loaded) {
 		bvh.triangle_count = mesh->triangle_count; 
 		bvh.triangles      = new Triangle[bvh.triangle_count];
 
@@ -117,7 +113,7 @@ BVH BVHBuilders::bvh(const char * filename, const MeshData * mesh) {
 			init_bvh(bvh);
 		}
 
-		bvh.save_to_disk(bvh_filename.c_str());
+		bvh.save_to_disk(filename, file_extension);
 	}
 
 	return bvh;

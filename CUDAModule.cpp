@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 #include <fstream>
-#include <filesystem>
 
 #include <nvrtc.h>
 
@@ -30,7 +29,7 @@ static std::vector<std::string> get_includes(const std::string & filename) {
 }
 
 void CUDAModule::init(const char * filename, int compute_capability, int max_registers) {
-	assert(std::filesystem::exists(filename));
+	assert(Util::file_exists(filename));
 
 	bool should_recompile = true;
 
@@ -42,25 +41,18 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 #endif
 
 	// If the binary does not exists we definately need to compile
-	if (std::filesystem::exists(output_filename)) {
-		std::filesystem::file_time_type last_write_time_source = std::filesystem::last_write_time(       filename);
-		std::filesystem::file_time_type last_write_time_cubin  = std::filesystem::last_write_time(output_filename);
-
+	if (Util::file_exists(output_filename)) {
 		// Recompile if the source file is newer than the binary
-		should_recompile = last_write_time_cubin < last_write_time_source;
+		should_recompile = Util::file_is_newer(output_filename, filename);
 	}
 	
 	// If any included file has changed we should recompile
 	if (!should_recompile) {
 		std::string directory = Util::get_path(filename);
 
-		std::filesystem::file_time_type last_write_time_cubin = std::filesystem::last_write_time(output_filename);
-
 		for (const std::string & include : get_includes(filename)) {
-			std::filesystem::file_time_type last_write_time_include = std::filesystem::last_write_time(directory + include);
-
 			// Recompile if the include file is newer than the binary
-			if (last_write_time_cubin < last_write_time_include) {
+			if (Util::file_is_newer(output_filename, (directory + include).c_str())) {
 				should_recompile = true;
 
 				printf("Recompiling %s because included file %s changed.\n", filename, include.c_str());
