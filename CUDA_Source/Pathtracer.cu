@@ -584,6 +584,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float k = 1.0f - eta*eta * (1.0f - cos_theta*cos_theta);
 
 	if (k < 0.0f) {
+		// Total Internal Reflection
 		direction = direction_reflected;
 	} else {
 		float3 direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
