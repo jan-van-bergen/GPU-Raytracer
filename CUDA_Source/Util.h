@@ -119,3 +119,41 @@ __device__ unsigned msb(unsigned x) {
 __device__ unsigned extract_byte(unsigned x, unsigned i) {
 	return (x >> (i * 8)) & 0xff;
 }
+
+// VMIN, VMAX functions, see "Understanding the Efficiency of Ray Traversal on GPUs –Kepler and Fermi Addendum" by Aila et al.
+
+// Computes min(min(a, b), c)
+__device__ float vmin_min(float a, float b, float c) {
+	int result;
+
+	asm("vmin.s32.s32.s32.min %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
+	
+	return __int_as_float(result);
+}
+
+// Computes max(min(a, b), c)
+__device__ float vmin_max(float a, float b, float c) {
+	int result;
+
+	asm("vmin.s32.s32.s32.max %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
+	
+	return __int_as_float(result);
+}
+
+// Computes min(max(a, b), c)
+__device__ float vmax_min(float a, float b, float c) {
+	int result;
+	
+	asm("vmax.s32.s32.s32.min %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
+	
+	return __int_as_float(result);
+}
+
+// Computes max(max(a, b), c)
+__device__ float vmax_max(float a, float b, float c) {
+	int result;
+
+	asm("vmax.s32.s32.s32.max %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
+	
+	return __int_as_float(result);
+}

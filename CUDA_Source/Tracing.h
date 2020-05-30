@@ -127,12 +127,9 @@ struct AABB {
 	__device__ inline bool intersects(const Ray & ray, float max_distance) const {
 		float3 t0 = (min - ray.origin) * ray.direction_inv;
 		float3 t1 = (max - ray.origin) * ray.direction_inv;
-		
-		float3 t_min = fminf(t0, t1);
-		float3 t_max = fmaxf(t0, t1);
-		
-		float t_near = fmaxf(fmaxf(EPSILON,      t_min.x), fmaxf(t_min.y, t_min.z));
-		float t_far  = fminf(fminf(max_distance, t_max.x), fminf(t_max.y, t_max.z));
+
+		float t_near = vmin_max(t0.x, t1.x, vmin_max(t0.y, t1.y, vmin_max(t0.z, t1.z, EPSILON)));
+		float t_far  = vmax_min(t0.x, t1.x, vmax_min(t0.y, t1.y, vmax_min(t0.z, t1.z, max_distance)));
 	
 		return t_near < t_far;
 	}
@@ -348,15 +345,18 @@ __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray 
 	float4 tz0 = (node.aabb_min_z - ray.origin.z) * ray.direction_inv.z;
 	float4 tz1 = (node.aabb_max_z - ray.origin.z) * ray.direction_inv.z;
 
-	float4 tx_min = fminf(tx0, tx1);
-	float4 tx_max = fmaxf(tx0, tx1);
-	float4 ty_min = fminf(ty0, ty1);
-	float4 ty_max = fmaxf(ty0, ty1);
-	float4 tz_min = fminf(tz0, tz1);
-	float4 tz_max = fmaxf(tz0, tz1);
-	
-	result.t_near = fmaxf(fmaxf(make_float4(EPSILON),      tx_min), fmaxf(ty_min, tz_min));
-	float4 t_far  = fminf(fminf(make_float4(max_distance), tx_max), fminf(ty_max, tz_max));
+	result.t_near = make_float4(
+		vmin_max(tx0.x, tx1.x, vmin_max(ty0.x, ty1.x, vmin_max(tz0.x, tz1.x, EPSILON))),
+		vmin_max(tx0.y, tx1.y, vmin_max(ty0.y, ty1.y, vmin_max(tz0.y, tz1.y, EPSILON))),
+		vmin_max(tx0.z, tx1.z, vmin_max(ty0.z, ty1.z, vmin_max(tz0.z, tz1.z, EPSILON))),
+		vmin_max(tx0.w, tx1.w, vmin_max(ty0.w, ty1.w, vmin_max(tz0.w, tz1.w, EPSILON)))
+	); 
+	float4 t_far = make_float4(
+		vmax_min(tx0.x, tx1.x, vmax_min(ty0.x, ty1.x, vmax_min(tz0.x, tz1.x, max_distance))),
+		vmax_min(tx0.y, tx1.y, vmax_min(ty0.y, ty1.y, vmax_min(tz0.y, tz1.y, max_distance))),
+		vmax_min(tx0.z, tx1.z, vmax_min(ty0.z, ty1.z, vmax_min(tz0.z, tz1.z, max_distance))),
+		vmax_min(tx0.w, tx1.w, vmax_min(ty0.w, ty1.w, vmax_min(tz0.w, tz1.w, max_distance)))
+	);
 
 	result.hit[0] = result.t_near_f[0] < t_far.x;
 	result.hit[1] = result.t_near_f[1] < t_far.y;
@@ -570,7 +570,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 #elif BVH_TYPE == BVH_CWBVH
 typedef unsigned char byte;
 
-struct CWBVH {
+struct CWBVHNode {
 	float4 node_0;
 	float4 node_1;
 	float4 node_2;
@@ -578,7 +578,7 @@ struct CWBVH {
 	float4 node_4; // Node is stored as 5 float4's so we can load the entire 80 bytes in 5 global memory accesses
 };
 
-__device__ CWBVH * cwbvh_nodes;
+__device__ CWBVHNode * cwbvh_nodes;
 
 __device__ __inline__ inline unsigned cwbvh_node_intersect(
 	const Ray & ray,
@@ -635,19 +635,18 @@ __device__ __inline__ inline unsigned cwbvh_node_intersect(
 
 		#pragma unroll
 		for (int j = 0; j < 4; j++) {
-			// Extract j-th byte
-			float3 tmin = make_float3(float(extract_byte(x_min, j)), float(extract_byte(y_min, j)), float(extract_byte(z_min, j)));
-			float3 tmax = make_float3(float(extract_byte(x_max, j)), float(extract_byte(y_max, j)), float(extract_byte(z_max, j)));
+			// Extract j-th bytes
+			float3 tmin3 = make_float3(float(extract_byte(x_min, j)), float(extract_byte(y_min, j)), float(extract_byte(z_min, j)));
+			float3 tmax3 = make_float3(float(extract_byte(x_max, j)), float(extract_byte(y_max, j)), float(extract_byte(z_max, j)));
 
 			// Account for grid origin and scale
-			tmin = tmin * adjusted_ray_direction_inv + adjusted_ray_origin;
-			tmax = tmax * adjusted_ray_direction_inv + adjusted_ray_origin;
+			tmin3 = tmin3 * adjusted_ray_direction_inv + adjusted_ray_origin;
+			tmax3 = tmax3 * adjusted_ray_direction_inv + adjusted_ray_origin;
 
-			// @TODO: VMIN, VMAX
-			float t_lo = fmaxf(fmaxf(tmin.x, tmin.y), fmaxf(tmin.z, EPSILON));
-			float t_hi = fminf(fminf(tmax.x, tmax.y), fminf(tmax.z, max_distance));
+			float tmin = vmax_max(tmin3.x, tmin3.y, fmaxf(tmin3.z, EPSILON));
+			float tmax = vmin_min(tmax3.x, tmax3.y, fminf(tmax3.z, max_distance));
 
-			bool intersected = t_lo < t_hi;
+			bool intersected = tmin < tmax;
 			if (intersected) {
 				unsigned child_bits = extract_byte(child_bits4, j);
 				unsigned bit_index  = extract_byte(bit_index4,  j);
