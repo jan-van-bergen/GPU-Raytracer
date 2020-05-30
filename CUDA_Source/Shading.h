@@ -72,7 +72,7 @@ __device__ inline float beckmann_D(float m_dot_n, float alpha) {
 
 	float alpha2 = alpha * alpha;
 
- 	return exp(-tan2_theta_m / alpha2) / (PI * alpha2 * cos4_theta_m);
+	return exp(-tan2_theta_m / alpha2) / (PI * alpha2 * cos4_theta_m);
 }
 
 // Monodirectional Smith shadowing term G1 for the Beckmann microfacet model

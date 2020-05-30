@@ -28,7 +28,7 @@ __device__ unsigned random_xorshift(unsigned & seed) {
 	seed ^= (seed >> 17);
 	seed ^= (seed << 5);
 
-    return seed;
+	return seed;
 }
 
 __device__ float random_float_xorshift(unsigned & seed) {
@@ -38,11 +38,11 @@ __device__ float random_float_xorshift(unsigned & seed) {
 
 __device__ float random_float_heitz(int x, int y, int sample_index, int bounce, int dimension, unsigned & seed) {
 	// Use Blue Noise sampler for first 256 samples
-    if (sample_index < 256) {
-        return random_heitz(x, y, sample_index, (bounce << 3) + dimension);
-    } else {
-        return random_float_xorshift(seed);
-    }
+	if (sample_index < 256) {
+		return random_heitz(x, y, sample_index, (bounce << 3) + dimension);
+	} else {
+		return random_float_xorshift(seed);
+	}
 }
 
 __device__ float3 random_cosine_weighted_diffuse_reflection(int x, int y, int sample_index, int bounce, unsigned & seed, const float3 & normal) {
