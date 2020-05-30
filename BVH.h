@@ -70,14 +70,14 @@ struct BVH {
 		strcpy_s(bvh_filename, bvh_filename_length, filename);
 		strcat_s(bvh_filename, bvh_filename_length, file_extension);
 
-		if (Util::file_exists(bvh_filename) || Util::file_is_newer(filename, bvh_filename)) {
+		if (!Util::file_exists(bvh_filename) || !Util::file_is_newer(filename, bvh_filename)) {
 			delete [] bvh_filename;
 
 			return false;
 		}
 
 		FILE * file;
-		fopen_s(&file, bvh_filename, "wb");
+		fopen_s(&file, bvh_filename, "rb");
 
 		if (!file) return false;
 
@@ -97,6 +97,8 @@ struct BVH {
 		fread(reinterpret_cast<char *>(indices), sizeof(int), index_count, file);
 
 		fclose(file);
+
+		printf("Loaded BVH  %s from disk\n", bvh_filename);
 
 		delete [] bvh_filename;
 
