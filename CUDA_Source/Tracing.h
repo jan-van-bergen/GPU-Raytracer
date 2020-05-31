@@ -247,15 +247,15 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_connect.ray_origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_connect.ray_direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
 			ray.direction_inv = make_float3(
 				1.0f / ray.direction.x, 
 				1.0f / ray.direction.y, 
 				1.0f / ray.direction.z
 			);
 
-			max_distance = ray_buffer_connect.max_distance[ray_index];
+			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
 			// Push root on stack
 			stack_size                                = 1;
@@ -281,7 +281,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired) {
 					}
 					
 					if (hit) {
-						ray_buffer_connect.hit[ray_index] = true;
+						ray_buffer_shadow.hit[ray_index] = true;
 
 						stack_size = 0;
 
@@ -304,7 +304,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_connect.hit[ray_index] = false;
+				ray_buffer_shadow.hit[ray_index] = false;
 
 				break;
 			}
@@ -496,15 +496,15 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_connect.ray_origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_connect.ray_direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
 			ray.direction_inv = make_float3(
 				1.0f / ray.direction.x, 
 				1.0f / ray.direction.y, 
 				1.0f / ray.direction.z
 			);
 
-			max_distance = ray_buffer_connect.max_distance[ray_index];
+			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
 			// Push root on stack
 			stack_size                                = 1;
@@ -538,7 +538,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 				}
 
 				if (hit) {
-					ray_buffer_connect.hit[ray_index] = true;
+					ray_buffer_shadow.hit[ray_index] = true;
 
 					stack_size = 0;
 
@@ -560,7 +560,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_connect.hit[ray_index] = false;
+				ray_buffer_shadow.hit[ray_index] = false;
 
 				break;
 			}
@@ -822,8 +822,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_connect.ray_origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_connect.ray_direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
 			ray.direction_inv = make_float3(
 				1.0f / ray.direction.x, 
 				1.0f / ray.direction.y, 
@@ -844,7 +844,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 
 			current_group = make_uint2(0, 0x80000000);
 
-			max_distance = ray_buffer_connect.max_distance[ray_index];
+			max_distance = ray_buffer_shadow.max_distance[ray_index];
 		}
 
 		int iterations_lost = 0;
@@ -926,7 +926,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			}
 
 			if (hit) {
-				ray_buffer_connect.hit[ray_index] = true;
+				ray_buffer_shadow.hit[ray_index] = true;
 
 				stack_size      = 0;
 				current_group.y = 0;
@@ -936,7 +936,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 
 			if (current_group.y <= 0x00ffffff) {
 				if (stack_size == 0) {
-					ray_buffer_connect.hit[ray_index] = false;
+					ray_buffer_shadow.hit[ray_index] = false;
 
 					break;
 				}

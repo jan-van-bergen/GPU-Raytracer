@@ -118,7 +118,7 @@ __device__ TraceBuffer     ray_buffer_trace;
 __device__ MaterialBuffer  ray_buffer_shade_diffuse;
 __device__ MaterialBuffer  ray_buffer_shade_dielectric;
 __device__ MaterialBuffer  ray_buffer_shade_glossy;
-__device__ ShadowRayBuffer ray_buffer_connect;
+__device__ ShadowRayBuffer ray_buffer_shadow;
 
 // Number of elements in each Buffer
 // Sizes are stored for ALL bounces so we only have to reset these
@@ -486,21 +486,21 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		if (cos_o > 0.0f && cos_i > 0.0f) {
 			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
 
-			ray_buffer_connect.light_id[shadow_ray_index] = light_id;
-			ray_buffer_connect.light_u [shadow_ray_index] = u;
-			ray_buffer_connect.light_v [shadow_ray_index] = v;
+			ray_buffer_shadow.light_id[shadow_ray_index] = light_id;
+			ray_buffer_shadow.light_u [shadow_ray_index] = u;
+			ray_buffer_shadow.light_v [shadow_ray_index] = v;
 
-			ray_buffer_connect.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
-			ray_buffer_connect.ray_origin   .from_float3(shadow_ray_index, hit_point);
-			ray_buffer_connect.ray_direction.from_float3(shadow_ray_index, to_light);
+			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
+			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
 
-			ray_buffer_connect.triangle_id[shadow_ray_index] = ray_triangle_id;
-			ray_buffer_connect.u[shadow_ray_index] = ray_u;
-			ray_buffer_connect.v[shadow_ray_index] = ray_v;
+			ray_buffer_shadow.triangle_id[shadow_ray_index] = ray_triangle_id;
+			ray_buffer_shadow.u[shadow_ray_index] = ray_u;
+			ray_buffer_shadow.v[shadow_ray_index] = ray_v;
 
-			ray_buffer_connect.pixel_index[shadow_ray_index] = ray_pixel_index;
-			ray_buffer_connect.throughput.from_float3(shadow_ray_index, throughput);
+			ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
+			ray_buffer_shadow.throughput.from_float3(shadow_ray_index, throughput);
 		}
 	}
 
@@ -667,23 +667,23 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		if (cos_o > 0.0f && cos_i > 0.0f) {
 			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
 
-			ray_buffer_connect.prev_direction_in.from_float3(shadow_ray_index, direction_in);
+			ray_buffer_shadow.prev_direction_in.from_float3(shadow_ray_index, direction_in);
 
-			ray_buffer_connect.light_id[shadow_ray_index] = light_id;
-			ray_buffer_connect.light_u [shadow_ray_index] = u;
-			ray_buffer_connect.light_v [shadow_ray_index] = v;
+			ray_buffer_shadow.light_id[shadow_ray_index] = light_id;
+			ray_buffer_shadow.light_u [shadow_ray_index] = u;
+			ray_buffer_shadow.light_v [shadow_ray_index] = v;
 
-			ray_buffer_connect.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
-			ray_buffer_connect.ray_origin   .from_float3(shadow_ray_index, hit_point);
-			ray_buffer_connect.ray_direction.from_float3(shadow_ray_index, to_light);
+			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
+			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
 
-			ray_buffer_connect.triangle_id[shadow_ray_index] = ray_triangle_id;
-			ray_buffer_connect.u[shadow_ray_index] = ray_u;
-			ray_buffer_connect.v[shadow_ray_index] = ray_v;
+			ray_buffer_shadow.triangle_id[shadow_ray_index] = ray_triangle_id;
+			ray_buffer_shadow.u[shadow_ray_index] = ray_u;
+			ray_buffer_shadow.v[shadow_ray_index] = ray_v;
 
-			ray_buffer_connect.pixel_index[shadow_ray_index] = ray_pixel_index;
-			ray_buffer_connect.throughput.from_float3(shadow_ray_index, throughput);
+			ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
+			ray_buffer_shadow.throughput.from_float3(shadow_ray_index, throughput);
 		}
 	}
 
@@ -746,20 +746,20 @@ extern "C" __global__ void kernel_shadow_connect(int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.N_shadow[bounce]) return;
 
-	bool hit_light = ray_buffer_connect.hit[index];
+	bool hit_light = ray_buffer_shadow.hit[index];
 	if (hit_light) return;
 
-	int   ray_triangle_id = ray_buffer_connect.triangle_id[index];
-	float ray_u = ray_buffer_connect.u[index];
-	float ray_v = ray_buffer_connect.v[index];
+	int   ray_triangle_id = ray_buffer_shadow.triangle_id[index];
+	float ray_u = ray_buffer_shadow.u[index];
+	float ray_v = ray_buffer_shadow.v[index];
 
-	int ray_pixel_index = ray_buffer_connect.pixel_index[index];
+	int ray_pixel_index = ray_buffer_shadow.pixel_index[index];
 
-	float3 ray_throughput = ray_buffer_connect.throughput.to_float3(index);
+	float3 ray_throughput = ray_buffer_shadow.throughput.to_float3(index);
 
-	int light_id = ray_buffer_connect.light_id[index];
-	int light_u  = ray_buffer_connect.light_u [index];
-	int light_v  = ray_buffer_connect.light_v [index];
+	int light_id = ray_buffer_shadow.light_id[index];
+	int light_u  = ray_buffer_shadow.light_u [index];
+	int light_v  = ray_buffer_shadow.light_v [index];
 
 	ASSERT(length(materials[triangles_material_id[light_id]].emission) > 0.0f, "Material was not emissive!\n");
 
@@ -793,7 +793,7 @@ extern "C" __global__ void kernel_shadow_connect(int bounce) {
 		brdf     = cos_i * ONE_OVER_PI;
 		brdf_pdf = cos_i * ONE_OVER_PI;
 	} else if (hit_material.type == Material::Type::GLOSSY) {			
-		float3 prev_direction_in = ray_buffer_connect.prev_direction_in.to_float3(index);
+		float3 prev_direction_in = ray_buffer_shadow.prev_direction_in.to_float3(index);
 
 		float3 half_vector = normalize(to_light + prev_direction_in);
 

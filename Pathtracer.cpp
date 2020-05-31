@@ -450,19 +450,19 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric;
 	MaterialBuffer  ray_buffer_shade_glossy;
-	ShadowRayBuffer ray_buffer_connect;
+	ShadowRayBuffer ray_buffer_shadow;
 
 	ray_buffer_trace           .init(PIXEL_COUNT);
 	ray_buffer_shade_diffuse   .init(PIXEL_COUNT);
 	ray_buffer_shade_dielectric.init(PIXEL_COUNT);
 	ray_buffer_shade_glossy    .init(PIXEL_COUNT);
-	ray_buffer_connect         .init(PIXEL_COUNT);
+	ray_buffer_shadow          .init(PIXEL_COUNT);
 
 	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
 	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
 	module.get_global("ray_buffer_shade_glossy")    .set_value(ray_buffer_shade_glossy);
-	module.get_global("ray_buffer_connect")         .set_value(ray_buffer_connect);
+	module.get_global("ray_buffer_shadow")          .set_value(ray_buffer_shadow);
 
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
