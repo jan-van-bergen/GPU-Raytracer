@@ -6,7 +6,7 @@
 #include "Util.h"
 #include "ScopedTimer.h"
 
-#define SBVH_OVERALLOCATION 3 // SBVH requires more space
+#define SBVH_OVERALLOCATION 4 // SBVH requires more space
 
 static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp[2], float inv_root_surface_area, AABB node_aabb) {
 	node.aabb = node_aabb;

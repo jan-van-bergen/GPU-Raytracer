@@ -29,7 +29,7 @@ struct Material {
 	float index_of_refraction;
 
 	float roughness;
-
+	
 	__device__ inline float3 albedo(float s, float t) const {
 		if (texture_id == -1) return diffuse;
 

@@ -193,8 +193,8 @@ extern "C" __global__ void kernel_primary(
 	switch (material.type) {
 		case Material::Type::LIGHT: {
 			// Terminate Path
-			frame_buffer_albedo[pixel_index] = make_float4(material.emission);
-			frame_buffer_direct[pixel_index] = make_float4(1.0f);
+			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+			frame_buffer_direct[pixel_index] = make_float4(material.emission);
 
 			break;
 		}
@@ -339,8 +339,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 				float3 illumination = ray_throughput * material.emission;
 
 				if (bounce == 0) {
-					frame_buffer_albedo[ray_pixel_index] = make_float4(material.emission);
-					frame_buffer_direct[ray_pixel_index] = make_float4(1.0f);
+					frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+					frame_buffer_direct[ray_pixel_index] = make_float4(material.emission);
 				} else if (bounce == 1) {
 					frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 				} else {
@@ -721,7 +721,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float o_dot_n = dot(direction_out,      hit_normal);
 	float m_dot_n = dot(micro_normal_world, hit_normal);
 
-	float F = fresnel_schlick(1.0f, material.index_of_refraction, i_dot_m, i_dot_m);
+	float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_m, i_dot_m);
 	float D = microfacet_D(m_dot_n, alpha);
 	float G = microfacet_G(i_dot_m, o_dot_m, i_dot_n, o_dot_n, m_dot_n, alpha);
 	float weight = fabsf(i_dot_m) * F * G / fabsf(i_dot_n * m_dot_n);
@@ -802,18 +802,13 @@ extern "C" __global__ void kernel_shadow_connect(int bounce) {
 		float i_dot_n = dot(prev_direction_in, hit_normal);
 		float m_dot_n = dot(half_vector,       hit_normal);
 
-		// Self-shadowing term (using two monodirectional Smith terms)
-		float G =
-			beckmann_G1(i_dot_n, m_dot_n, alpha) *
-			beckmann_G1(cos_i,   m_dot_n, alpha);
-
-		// Normal Distribution Function: samples the likelihood of observing 'halfvector'
-		// as a microsurface normal, given the macrosurface normal 'hit_normal'
-		float D = beckmann_D(m_dot_n, alpha);
+		float F = fresnel_schlick(hit_material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
+		float D = microfacet_D(m_dot_n, alpha);
+		float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
 
 		// NOTE: N dot L is omitted from the denominator here
-		brdf     = (G * D) / (4.0f * i_dot_n);
-		brdf_pdf = D * m_dot_n / (4.0f * dot(half_vector, prev_direction_in));
+		brdf     = (F * G * D) / (4.0f * i_dot_n);
+		brdf_pdf = F * D * m_dot_n / (4.0f * dot(half_vector, prev_direction_in));
 	}
 
 	float light_area = 0.5f * length(cross(

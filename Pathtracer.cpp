@@ -608,6 +608,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	} else if (strcmp(scene_name, DATA_PATH("Bunny.obj")) == 0) {
 		camera.position = Vector3(-27.662603f, 26.719784f, -15.835464f);
 		camera.rotation = Quaternion(0.076750f, 0.900785f, 0.177892f, -0.388638f);
+	} else if (strcmp(scene_name, DATA_PATH("Test.obj")) == 0) {
+		camera.position = Vector3(4.157419f, 4.996608f, 8.337481f);
+		camera.rotation = Quaternion(0.000000f, 0.310172f, 0.000000f, 0.950679f);
 	} else {
 		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
