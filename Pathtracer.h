@@ -60,7 +60,6 @@ private:
 	CUDAKernel kernel_shade_dielectric;
 	CUDAKernel kernel_shade_glossy;
 	CUDAKernel kernel_shadow_trace;
-	CUDAKernel kernel_shadow_connect;
 
 	CUDAKernel kernel_svgf_temporal;
 	CUDAKernel kernel_svgf_variance;
@@ -94,8 +93,7 @@ private:
 	CUDAEvent event_shade_diffuse   [NUM_BOUNCES];
 	CUDAEvent event_shade_dielectric[NUM_BOUNCES];
 	CUDAEvent event_shade_glossy    [NUM_BOUNCES];
-	CUDAEvent event_shadow_trace  [NUM_BOUNCES];
-	CUDAEvent event_shadow_connect[NUM_BOUNCES];
+	CUDAEvent event_shadow_trace[NUM_BOUNCES];
 	CUDAEvent event_svgf_temporal;
 	CUDAEvent event_svgf_variance;
 	CUDAEvent event_svgf_atrous[MAX_ATROUS_ITERATIONS];

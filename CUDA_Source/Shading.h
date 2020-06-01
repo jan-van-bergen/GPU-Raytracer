@@ -43,8 +43,9 @@ __device__ Material * materials;
 
 __device__ int     light_count;
 __device__ int   * light_indices;
-__device__ float * light_areas;
-__device__ float total_light_area;
+
+__device__ float * light_areas_cumulative;
+__device__ float   light_area_total;
 
 // Assumes no Total Internal Reflection
 __device__ inline float fresnel_schlick(float n_1, float n_2, float cos_theta_i, float cos_theta_t) {

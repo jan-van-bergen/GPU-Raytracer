@@ -45,7 +45,7 @@ __device__ float random_float_heitz(int x, int y, int sample_index, int bounce, 
 	}
 }
 
-__device__ float3 random_cosine_weighted_diffuse_reflection(int x, int y, int sample_index, int bounce, unsigned & seed, const float3 & normal) {
+__device__ float3 random_cosine_weighted_direction(int x, int y, int sample_index, int bounce, unsigned & seed, const float3 & normal) {
 	float r0 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
 	float r1 = random_float_heitz(x, y, sample_index, bounce, 3, seed);
 
@@ -72,8 +72,30 @@ __device__ float3 random_cosine_weighted_diffuse_reflection(int x, int y, int sa
 }
 
 __device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v) {
-	// Pick a random light emitting triangle
+#if false
+	// Pick random value between 0 and light_area_total
+	float random_value = random_float_xorshift(seed) * light_area_total;
+
+	int index_left  = 0;
+	int index_right = light_count - 1;
+
+	int light_triangle_id;
+	while (true) {
+		int index_middle = (index_left + index_right) >> 1;
+
+		if (random_value < light_areas_cumulative[index_middle]) {
+			index_right = index_middle - 1;
+		} else if (random_value > light_areas_cumulative[index_middle + 1]) {
+			index_left = index_middle + 1;
+		} else {
+			light_triangle_id = light_indices[index_middle];
+
+			break;
+		}
+	}
+#else
 	int light_triangle_id = light_indices[random_xorshift(seed) % light_count];
+#endif
 
 	// Pick a random point on the triangle using random barycentric coordinates
 	u = random_float_heitz(x, y, sample_index, bounce, 6, seed);

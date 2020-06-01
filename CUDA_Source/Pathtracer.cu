@@ -91,27 +91,15 @@ struct MaterialBuffer {
 	Vector3_SoA throughput;
 };
 
-// Input to the Connect Kernel in SoA layout
+// Input to the Shadow Trace Kernel in SoA layout
 struct ShadowRayBuffer {
-	Vector3_SoA prev_direction_in;
-
-	int   * light_id;
-	float * light_u;
-	float * light_v;
-
-	float * max_distance;
-
 	Vector3_SoA ray_origin;
 	Vector3_SoA ray_direction;
 
-	bool * hit;
-
-	int   * triangle_id;
-	float * u;
-	float * v;
+	float * max_distance;
 
 	int       * pixel_index;
-	Vector3_SoA throughput;
+	Vector3_SoA illumination;
 };
 
 __device__ TraceBuffer     ray_buffer_trace;
@@ -319,6 +307,72 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		return;
 	}
 
+	// Get the Material of the Triangle we hit
+	const Material & material = materials[triangles_material_id[hit_triangle_id]];
+
+	if (material.type == Material::Type::LIGHT) {
+#if ENABLE_NEXT_EVENT_ESTIMATION
+		bool no_mis = 
+			(ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
+			(ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF);
+#else
+		bool no_mis = true;
+#endif
+		if (no_mis) {
+			float3 illumination = ray_throughput * material.emission;
+
+			if (bounce == 0) {
+				frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+				frame_buffer_direct[ray_pixel_index] = make_float4(material.emission);
+			} else if (bounce == 1) {
+				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
+			} else {
+				frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
+			}
+
+			return;
+		}
+
+		float3 light_point  = barycentric(hit_u, hit_v, triangles_position0[hit_triangle_id], triangles_position_edge1[hit_triangle_id], triangles_position_edge2[hit_triangle_id]);
+		float3 light_normal = barycentric(hit_u, hit_v, triangles_normal0  [hit_triangle_id], triangles_normal_edge1  [hit_triangle_id], triangles_normal_edge2  [hit_triangle_id]);
+	
+		light_normal = normalize(light_normal);
+	
+		float3 to_light = light_point - ray_origin;;
+		float distance_to_light_squared = dot(to_light, to_light);
+		float distance_to_light         = sqrtf(distance_to_light_squared);
+	
+		// ray_direction is the same direction as light is same direction as to_light, but normalized
+		to_light = ray_direction;
+
+		float cos_o = -dot(to_light, light_normal);
+
+		if (cos_o <= 0.0f) return;
+
+		float light_area = 0.5f * length(cross(
+			triangles_position_edge1[hit_triangle_id], 
+			triangles_position_edge2[hit_triangle_id]
+		));
+		
+		float brdf_pdf = ray_buffer_trace.last_pdf[index];
+
+		float light_select_pdf = 1.0f / float(light_count);
+		// float light_select_pdf = light_area / light_area_total;
+		float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+
+		float mis_pdf = brdf_pdf + light_pdf;
+
+		float3 illumination = ray_throughput * material.emission * brdf_pdf / mis_pdf;
+
+		if (bounce == 1) {
+			frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
+		} else {
+			frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
+		}
+
+		return;
+	}
+
 	unsigned seed = (index + rand_seed * 906313609) * 341828143;
 
 	// Russian Roulette termination
@@ -329,62 +383,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	ray_throughput /= p_survive;
 
-	// Get the Material of the Triangle we hit
-	const Material & material = materials[triangles_material_id[hit_triangle_id]];
-
 	switch (material.type) {
-		case Material::Type::LIGHT: {
-			if ((ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
-				(ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF)) {
-				float3 illumination = ray_throughput * material.emission;
-
-				if (bounce == 0) {
-					frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
-					frame_buffer_direct[ray_pixel_index] = make_float4(material.emission);
-				} else if (bounce == 1) {
-					frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
-				} else {
-					frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
-				}
-
-				return;
-			}
-
-			float3 light_point  = barycentric(hit_u, hit_v, triangles_position0[hit_triangle_id], triangles_position_edge1[hit_triangle_id], triangles_position_edge2[hit_triangle_id]);
-			float3 light_normal = barycentric(hit_u, hit_v, triangles_normal0  [hit_triangle_id], triangles_normal_edge1  [hit_triangle_id], triangles_normal_edge2  [hit_triangle_id]);
-		
-			light_normal = normalize(light_normal);
-		
-			float3 to_light = light_point - ray_origin;;
-			float distance_to_light_squared = dot(to_light, to_light);
-			float distance_to_light         = sqrtf(distance_to_light_squared);
-		
-			// Normalize the vector to the light
-			to_light /= distance_to_light;
-			
-			float cos_o = -dot(to_light, light_normal);
-
-			float light_area = 0.5f * length(cross(
-				triangles_position_edge1[hit_triangle_id], 
-				triangles_position_edge2[hit_triangle_id]
-			));
-
-			float light_pdf = distance_to_light_squared / (cos_o * light_area); // 1 / solid_angle
-			float brdf_pdf  = ray_buffer_trace.last_pdf[index];
-
-			float mis_pdf = light_pdf + brdf_pdf;
-
-			float3 illumination = ray_throughput * material.emission / mis_pdf;
-
-			if (bounce == 1) {
-				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
-			} else {
-				frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
-			}
-
-			break;
-		}
-
 		case Material::Type::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[bounce]);
 
@@ -465,6 +464,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
+#if ENABLE_NEXT_EVENT_ESTIMATION
 	if (light_count > 0) {
 		// Trace Shadow Ray
 		float u, v;
@@ -474,7 +474,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		float3 light_normal = normalize(barycentric(u, v, triangles_normal0  [light_id], triangles_normal_edge1  [light_id], triangles_normal_edge2  [light_id]));
 
 		float3 to_light = light_point - hit_point;
-		float distance_to_light = length(to_light);
+		float distance_to_light_squared = dot(to_light, to_light);
+		float distance_to_light         = sqrtf(distance_to_light_squared);
 
 		// Normalize the vector to the light
 		to_light /= distance_to_light;
@@ -484,25 +485,36 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	
 		// Only trace Shadow Ray if light transport is possible given the normals
 		if (cos_o > 0.0f && cos_i > 0.0f) {
+			// NOTE: N dot L is included here
+			float brdf     = cos_i * ONE_OVER_PI;
+			float brdf_pdf = cos_i * ONE_OVER_PI;
+
+			float light_area = 0.5f * length(cross(
+				triangles_position_edge1[light_id], 
+				triangles_position_edge2[light_id]
+			));
+
+			float light_select_pdf = 1.0f / float(light_count);
+			// float light_select_pdf = light_area / light_area_total;
+			float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+
+			float mis_pdf = brdf_pdf + light_pdf;
+
+			float3 emission     = materials[triangles_material_id[light_id]].emission;
+			float3 illumination = throughput * brdf * emission / mis_pdf;
+
 			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
-
-			ray_buffer_shadow.light_id[shadow_ray_index] = light_id;
-			ray_buffer_shadow.light_u [shadow_ray_index] = u;
-			ray_buffer_shadow.light_v [shadow_ray_index] = v;
-
-			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
 			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
 			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
 
-			ray_buffer_shadow.triangle_id[shadow_ray_index] = ray_triangle_id;
-			ray_buffer_shadow.u[shadow_ray_index] = ray_u;
-			ray_buffer_shadow.v[shadow_ray_index] = ray_v;
+			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
 			ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-			ray_buffer_shadow.throughput.from_float3(shadow_ray_index, throughput);
+			ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
 		}
 	}
+#endif
 
 	if (bounce == NUM_BOUNCES - 1) return;
 
@@ -511,7 +523,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	int index_out = atomic_agg_inc(&buffer_sizes.N_trace[bounce + 1]);
 
-	float3 direction = random_cosine_weighted_diffuse_reflection(x, y, sample_index, bounce, seed, hit_normal);
+	float3 direction = random_cosine_weighted_direction(x, y, sample_index, bounce, seed, hit_normal);
 
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
 	ray_buffer_trace.direction.from_float3(index_out, direction);
@@ -520,7 +532,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	ray_buffer_trace.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::DIFFUSE);
-	ray_buffer_trace.last_pdf[index_out] = dot(direction, hit_normal) * ONE_OVER_PI;
+	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction, hit_normal)) * ONE_OVER_PI;
 }
 
 extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
@@ -646,16 +658,22 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
+	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
+	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
+	
+#if ENABLE_NEXT_EVENT_ESTIMATION
 	if (light_count > 0 && material.roughness >= ROUGHNESS_CUTOFF) {
 		// Trace Shadow Ray
-		float u, v;
-		int light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, u, v);
+		float light_u;
+		float light_v;
+		int light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v);
 	
-		float3 light_point  =           barycentric(u, v, triangles_position0[light_id], triangles_position_edge1[light_id], triangles_position_edge2[light_id]);
-		float3 light_normal = normalize(barycentric(u, v, triangles_normal0  [light_id], triangles_normal_edge1  [light_id], triangles_normal_edge2  [light_id]));
+		float3 light_point  =           barycentric(light_u, light_v, triangles_position0[light_id], triangles_position_edge1[light_id], triangles_position_edge2[light_id]);
+		float3 light_normal = normalize(barycentric(light_u, light_v, triangles_normal0  [light_id], triangles_normal_edge1  [light_id], triangles_normal_edge2  [light_id]));
 
 		float3 to_light = light_point - hit_point;
-		float distance_to_light = length(to_light);
+		float distance_to_light_squared = dot(to_light, to_light);
+		float distance_to_light         = sqrtf(distance_to_light_squared);
 
 		// Normalize the vector to the light
 		to_light /= distance_to_light;
@@ -665,36 +683,51 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 		// Only trace Shadow Ray if light transport is possible given the normals
 		if (cos_o > 0.0f && cos_i > 0.0f) {
+			float3 half_vector = normalize(to_light + direction_in);
+
+			float i_dot_n = dot(direction_in, hit_normal);
+			float m_dot_n = dot(half_vector,  hit_normal);
+
+			float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
+			float D = microfacet_D(m_dot_n, alpha);
+			float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
+
+			// NOTE: N dot L is omitted from the denominator here
+			float brdf     = (F * G * D) / (4.0f * i_dot_n);
+			float brdf_pdf = F * D * m_dot_n / (4.0f * dot(half_vector, direction_in));
+			
+			float light_area = 0.5f * length(cross(
+				triangles_position_edge1[light_id], 
+				triangles_position_edge2[light_id]
+			));
+
+			float light_select_pdf = 1.0f / float(light_count);
+			// float light_select_pdf = light_area / light_area_total;
+			float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+
+			float mis_pdf = brdf_pdf + light_pdf;
+
+			float3 emission     = materials[triangles_material_id[light_id]].emission;
+			float3 illumination = throughput * brdf * emission / mis_pdf;
+
 			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
-
-			ray_buffer_shadow.prev_direction_in.from_float3(shadow_ray_index, direction_in);
-
-			ray_buffer_shadow.light_id[shadow_ray_index] = light_id;
-			ray_buffer_shadow.light_u [shadow_ray_index] = u;
-			ray_buffer_shadow.light_v [shadow_ray_index] = v;
-
-			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
 			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
 			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
 
-			ray_buffer_shadow.triangle_id[shadow_ray_index] = ray_triangle_id;
-			ray_buffer_shadow.u[shadow_ray_index] = ray_u;
-			ray_buffer_shadow.v[shadow_ray_index] = ray_v;
+			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
 			ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-			ray_buffer_shadow.throughput.from_float3(shadow_ray_index, throughput);
+			ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
 		}
 	}
+#endif
 
 	if (bounce == NUM_BOUNCES - 1) return;
 
 	hit_normal = normalize(hit_normal);
 	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
 
-	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
-	
 	// Sample normal distribution in spherical coordinates
 	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 4, seed) + 1e-8f)));
 	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 5, seed);
@@ -735,97 +768,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_trace.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::GLOSSY);
-	ray_buffer_trace.last_pdf[index_out] = F * G * D * m_dot_n / (4.0f * i_dot_m);
+	ray_buffer_trace.last_pdf[index_out] = D * fabsf(m_dot_n) / (4.0f * fabsf(o_dot_m));
 }
 
 extern "C" __global__ void kernel_shadow_trace(int bounce) {
-	bvh_trace_shadow(buffer_sizes.N_shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
-}
-
-extern "C" __global__ void kernel_shadow_connect(int bounce) {
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.N_shadow[bounce]) return;
-
-	bool hit_light = ray_buffer_shadow.hit[index];
-	if (hit_light) return;
-
-	int   ray_triangle_id = ray_buffer_shadow.triangle_id[index];
-	float ray_u = ray_buffer_shadow.u[index];
-	float ray_v = ray_buffer_shadow.v[index];
-
-	int ray_pixel_index = ray_buffer_shadow.pixel_index[index];
-
-	float3 ray_throughput = ray_buffer_shadow.throughput.to_float3(index);
-
-	int light_id = ray_buffer_shadow.light_id[index];
-	int light_u  = ray_buffer_shadow.light_u [index];
-	int light_v  = ray_buffer_shadow.light_v [index];
-
-	ASSERT(length(materials[triangles_material_id[light_id]].emission) > 0.0f, "Material was not emissive!\n");
-
-	float3 light_point  = barycentric(light_u, light_v, triangles_position0[light_id], triangles_position_edge1[light_id], triangles_position_edge2[light_id]);
-	float3 light_normal = barycentric(light_u, light_v, triangles_normal0  [light_id], triangles_normal_edge1  [light_id], triangles_normal_edge2  [light_id]);
-
-	float3 hit_point  = barycentric(ray_u, ray_v, triangles_position0[ray_triangle_id], triangles_position_edge1[ray_triangle_id], triangles_position_edge2[ray_triangle_id]);
-	float3 hit_normal = barycentric(ray_u, ray_v, triangles_normal0  [ray_triangle_id], triangles_normal_edge1  [ray_triangle_id], triangles_normal_edge2  [ray_triangle_id]);
-
-	hit_normal   = normalize(hit_normal);
-	light_normal = normalize(light_normal);
-
-	float3 to_light = light_point - hit_point;
-	float distance_to_light_squared = dot(to_light, to_light);
-	float distance_to_light         = sqrtf(distance_to_light_squared);
-
-	// Normalize the vector to the light
-	to_light /= distance_to_light;
-	
-	float cos_o = -dot(to_light, light_normal);
-	float cos_i =  dot(to_light,   hit_normal);
-
-	const Material & hit_material   = materials[triangles_material_id[ray_triangle_id]];
-	const Material & light_material = materials[triangles_material_id[light_id]];
-
-	float brdf;
-	float brdf_pdf;
-
-	if (hit_material.type == Material::Type::DIFFUSE) {
-		// NOTE: N dot L is included here
-		brdf     = cos_i * ONE_OVER_PI;
-		brdf_pdf = cos_i * ONE_OVER_PI;
-	} else if (hit_material.type == Material::Type::GLOSSY) {			
-		float3 prev_direction_in = ray_buffer_shadow.prev_direction_in.to_float3(index);
-
-		float3 half_vector = normalize(to_light + prev_direction_in);
-
-		float alpha = (1.2f - 0.2f * sqrtf(cos_i)) * hit_material.roughness;
-		
-		float i_dot_n = dot(prev_direction_in, hit_normal);
-		float m_dot_n = dot(half_vector,       hit_normal);
-
-		float F = fresnel_schlick(hit_material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
-		float D = microfacet_D(m_dot_n, alpha);
-		float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
-
-		// NOTE: N dot L is omitted from the denominator here
-		brdf     = (F * G * D) / (4.0f * i_dot_n);
-		brdf_pdf = F * D * m_dot_n / (4.0f * dot(half_vector, prev_direction_in));
-	}
-
-	float light_area = 0.5f * length(cross(
-		triangles_position_edge1[light_id], 
-		triangles_position_edge2[light_id]
-	));
-	float light_pdf = distance_to_light_squared / (cos_o * light_area); // 1 / solid_angle
-
-	float mis_pdf = brdf_pdf + light_pdf;
-
-	float3 illumination = ray_throughput * brdf * light_count * light_material.emission / mis_pdf;
-
-	if (bounce == 0) {
-		frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
-	} else {
-		frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
-	}
+	bvh_trace_shadow(buffer_sizes.N_shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
 }
 
 extern "C" __global__ void kernel_accumulate(bool demodulate_albedo, float frames_since_camera_moved) {

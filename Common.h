@@ -22,7 +22,7 @@ static_assert(SCREEN_HEIGHT % TILE_HEIGHT == 0, "Screen height should be divisib
 static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 
 
-// Tracing related
+// Tracing
 #define EPSILON 0.001f
 
 #define NUM_BOUNCES 5
@@ -31,6 +31,7 @@ static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 #define        TRACE_BLOCK_Y 2
 #define SHADOW_TRACE_BLOCK_Y 2
 
+#define ENABLE_NEXT_EVENT_ESTIMATION true
 
 // SVGF
 #define MAX_ATROUS_ITERATIONS 10

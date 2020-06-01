@@ -95,64 +95,34 @@ struct MaterialBuffer {
 };
 
 struct ShadowRayBuffer {
-	CUDAMemory::Ptr<float> prev_direction_in_x;
-	CUDAMemory::Ptr<float> prev_direction_in_y;
-	CUDAMemory::Ptr<float> prev_direction_in_z;
-
-	CUDAMemory::Ptr<int>   light_id;
-	CUDAMemory::Ptr<float> light_u;
-	CUDAMemory::Ptr<float> light_v;
-	
-	CUDAMemory::Ptr<float> max_distance;
-
 	CUDAMemory::Ptr<float> ray_origin_x;
 	CUDAMemory::Ptr<float> ray_origin_y;
 	CUDAMemory::Ptr<float> ray_origin_z;
-
 	CUDAMemory::Ptr<float> ray_direction_x;
 	CUDAMemory::Ptr<float> ray_direction_y;
 	CUDAMemory::Ptr<float> ray_direction_z;
 
-	CUDAMemory::Ptr<bool> hit;
+	CUDAMemory::Ptr<float> max_distance;
 
-	CUDAMemory::Ptr<int> triangle_id;
-	CUDAMemory::Ptr<float> u;
-	CUDAMemory::Ptr<float> v;
-
-	CUDAMemory::Ptr<int> pixel_index;
-	CUDAMemory::Ptr<float> throughput_x;
-	CUDAMemory::Ptr<float> throughput_y;
-	CUDAMemory::Ptr<float> throughput_z;
+	CUDAMemory::Ptr<int>   pixel_index;
+	CUDAMemory::Ptr<float> illumination_x;
+	CUDAMemory::Ptr<float> illumination_y;
+	CUDAMemory::Ptr<float> illumination_z;
 
 	inline void init(int buffer_size) {
-		prev_direction_in_x = CUDAMemory::malloc<float>(buffer_size);
-		prev_direction_in_y = CUDAMemory::malloc<float>(buffer_size);
-		prev_direction_in_z = CUDAMemory::malloc<float>(buffer_size);
-
-		light_id = CUDAMemory::malloc<int>  (buffer_size);
-		light_u  = CUDAMemory::malloc<float>(buffer_size);
-		light_v  = CUDAMemory::malloc<float>(buffer_size);
-
-		max_distance = CUDAMemory::malloc<float>(buffer_size);
-
-		ray_origin_x = CUDAMemory::malloc<float>(buffer_size);
-		ray_origin_y = CUDAMemory::malloc<float>(buffer_size);
-		ray_origin_z = CUDAMemory::malloc<float>(buffer_size);
-
+		ray_origin_x    = CUDAMemory::malloc<float>(buffer_size);
+		ray_origin_y    = CUDAMemory::malloc<float>(buffer_size);
+		ray_origin_z    = CUDAMemory::malloc<float>(buffer_size);
 		ray_direction_x = CUDAMemory::malloc<float>(buffer_size);
 		ray_direction_y = CUDAMemory::malloc<float>(buffer_size);
 		ray_direction_z = CUDAMemory::malloc<float>(buffer_size);
 
-		hit = CUDAMemory::malloc<bool>(buffer_size);
+		max_distance = CUDAMemory::malloc<float>(buffer_size);
 
-		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
-		u           = CUDAMemory::malloc<float>(buffer_size);
-		v           = CUDAMemory::malloc<float>(buffer_size);
-
-		pixel_index  = CUDAMemory::malloc<int>  (buffer_size);
-		throughput_x = CUDAMemory::malloc<float>(buffer_size);
-		throughput_y = CUDAMemory::malloc<float>(buffer_size);
-		throughput_z = CUDAMemory::malloc<float>(buffer_size);
+		pixel_index    = CUDAMemory::malloc<int>  (buffer_size);
+		illumination_x = CUDAMemory::malloc<float>(buffer_size);
+		illumination_y = CUDAMemory::malloc<float>(buffer_size);
+		illumination_z = CUDAMemory::malloc<float>(buffer_size);
 	}
 };
 
@@ -327,18 +297,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	module.get_global("triangles_material_id").set_buffer(triangles_material_id, index_count);
 
-	// Clean up buffers on Host side
-	delete [] triangles_position0;  
-	delete [] triangles_position_edge1;
-	delete [] triangles_position_edge2;
-	delete [] triangles_normal0;
-	delete [] triangles_normal_edge1;
-	delete [] triangles_normal_edge2;
-	delete [] triangles_tex_coord0;  
-	delete [] triangles_tex_coord_edge1;
-	delete [] triangles_tex_coord_edge2;
-	delete [] triangles_material_id;
-
 	vertex_count = primitive_count * 3;
 	Vertex * vertices = new Vertex[vertex_count];
 
@@ -388,23 +346,67 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_texture("gbuffer_screen_position_prev", CUDAContext::map_gl_texture(gbuffer.buffer_motion,           CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
 	module.set_texture("gbuffer_depth_gradient",       CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,       CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
 
-	int * light_indices = new int[mesh->triangle_count];
-	int   light_count = 0;
+	struct LightDescription {
+		int   index;
+		float area;
+	};
+	std::vector<LightDescription> lights;
 
 	// For every Triangle, check whether it is a Light based on its Material
 	for (int i = 0; i < mesh->triangle_count; i++) {
 		const Triangle & triangle = mesh->triangles[i];
 
 		if (mesh->materials[triangle.material_id].type == Material::Type::LIGHT) {
-			light_indices[light_count++] = reverse_indices[i];
+			float area = 0.5f * Vector3::length(Vector3::cross(
+				triangles_position_edge1[i],
+				triangles_position_edge2[i]
+			));
+
+			lights.push_back({ reverse_indices[i], area });
 		}
 	}
 	
-	if (light_count > 0) {
-		module.get_global("light_indices").set_buffer(light_indices, light_count);
-	}
+	int light_count = lights.size();
 
-	delete [] light_indices;
+	if (light_count > 0) {
+		// Sort Lights on area
+		std::sort(lights.begin(), lights.end(), [](const LightDescription & a, const LightDescription & b) { return a.area < b.area; });
+
+		int   * light_indices          = new int  [light_count];
+		float * light_areas_cumulative = new float[light_count + 1];
+
+		float light_area_total = 0.0f;
+
+		for (int i = 0; i < light_count; i++) {
+			light_indices         [i] = lights[i].index;
+			light_areas_cumulative[i] = light_area_total;
+
+			light_area_total += lights[i].area;
+		} 
+
+		light_areas_cumulative[light_count] = light_area_total;
+
+		module.get_global("light_indices")         .set_buffer(light_indices,          light_count);
+		module.get_global("light_areas_cumulative").set_buffer(light_areas_cumulative, light_count + 1);
+
+		module.get_global("light_area_total").set_value(light_area_total);
+
+		delete [] light_indices;
+		delete [] light_areas_cumulative;
+	}
+	
+	// Clean up buffers on Host side
+	delete [] triangles_position0;  
+	delete [] triangles_position_edge1;
+	delete [] triangles_position_edge2;
+	delete [] triangles_normal0;
+	delete [] triangles_normal_edge1;
+	delete [] triangles_normal_edge2;
+	delete [] triangles_tex_coord0;  
+	delete [] triangles_tex_coord_edge1;
+	delete [] triangles_tex_coord_edge2;
+	delete [] triangles_material_id;
+
 	delete [] reverse_indices;
 
 	module.get_global("light_count").set_value(light_count);
@@ -485,7 +487,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
 	kernel_shade_glossy    .init(&module, "kernel_shade_glossy");
 	kernel_shadow_trace    .init(&module, "kernel_shadow_trace");
-	kernel_shadow_connect  .init(&module, "kernel_shadow_connect");
 	kernel_svgf_temporal   .init(&module, "kernel_svgf_temporal");
 	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
 	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
@@ -509,7 +510,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_diffuse   .set_block_dim(WARP_SIZE, 1, 1);
 	kernel_shade_dielectric.set_block_dim(WARP_SIZE, 1, 1);
 	kernel_shade_glossy    .set_block_dim(WARP_SIZE, 1, 1);
-	kernel_shadow_connect  .set_block_dim(WARP_SIZE, 1, 1);
 	
 	kernel_trace       .set_block_dim(WARP_SIZE,        TRACE_BLOCK_Y, 1);
 	kernel_shadow_trace.set_block_dim(WARP_SIZE, SHADOW_TRACE_BLOCK_Y, 1);
@@ -529,8 +529,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_diffuse   .set_grid_dim(PIXEL_COUNT / kernel_shade_diffuse   .block_dim_x, 1, 1);
 	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
 	kernel_shade_glossy    .set_grid_dim(PIXEL_COUNT / kernel_shade_glossy    .block_dim_x, 1, 1);
-	kernel_shadow_connect  .set_grid_dim(PIXEL_COUNT / kernel_shadow_connect  .block_dim_x, 1, 1);
-
+	
 	kernel_trace       .set_grid_dim(32, 32, 1);
 	kernel_shadow_trace.set_grid_dim(32, 32, 1);
 
@@ -547,8 +546,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		event_shade_diffuse   [i].init(category, "Diffuse");
 		event_shade_dielectric[i].init(category, "Dielectric");
 		event_shade_glossy    [i].init(category, "Glossy");
-		event_shadow_trace    [i].init(category, "Shadow Trace");
-		event_shadow_connect  [i].init(category, "Shadow Connect");
+		event_shadow_trace    [i].init(category, "Shadow");
 	}
 
 	event_svgf_temporal.init("SVGF", "Temporal");
@@ -719,9 +717,6 @@ void Pathtracer::render() {
 	if (scene_has_lights) {
 		RECORD_EVENT(event_shadow_trace[0]);
 		kernel_shadow_trace.execute(0);
-
-		RECORD_EVENT(event_shadow_connect[0]);
-		kernel_shadow_connect.execute(0);
 	}
 
 	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
@@ -752,9 +747,6 @@ void Pathtracer::render() {
 		if (scene_has_lights) {
 			RECORD_EVENT(event_shadow_trace[bounce]);
 			kernel_shadow_trace.execute(bounce);
-
-			RECORD_EVENT(event_shadow_connect[bounce]);
-			kernel_shadow_connect.execute(bounce);
 		}
 	}
 

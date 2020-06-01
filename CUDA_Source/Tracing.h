@@ -229,7 +229,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ void bvh_trace_shadow(int ray_count, int * rays_retired) {
+__device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
 	__shared__ int shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -281,8 +281,6 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired) {
 					}
 					
 					if (hit) {
-						ray_buffer_shadow.hit[ray_index] = true;
-
 						stack_size = 0;
 
 						break;
@@ -304,7 +302,15 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_shadow.hit[ray_index] = false;
+				// We didn't hit anything, apply illumination
+				int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
+				float3 illumination = ray_buffer_shadow.illumination.to_float3(ray_index);
+
+				if (bounce == 0) {
+					frame_buffer_direct[pixel_index] += make_float4(illumination);
+				} else {
+					frame_buffer_indirect[pixel_index] += make_float4(illumination);
+				}
 
 				break;
 			}
@@ -478,7 +484,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
+__device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
 	__shared__ unsigned shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -538,8 +544,6 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 				}
 
 				if (hit) {
-					ray_buffer_shadow.hit[ray_index] = true;
-
 					stack_size = 0;
 
 					break;
@@ -560,8 +564,16 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_shadow.hit[ray_index] = false;
+				// We didn't hit anything, apply illumination
+				int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
+				float3 illumination = ray_buffer_shadow.illumination.to_float3(ray_index);
 
+				if (bounce == 0) {
+					frame_buffer_direct[pixel_index] += make_float4(illumination);
+				} else {
+					frame_buffer_indirect[pixel_index] += make_float4(illumination);
+				}
+				
 				break;
 			}
 		}
@@ -797,7 +809,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
+__device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
 	__shared__ uint2 shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -926,8 +938,6 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 			}
 
 			if (hit) {
-				ray_buffer_shadow.hit[ray_index] = true;
-
 				stack_size      = 0;
 				current_group.y = 0;
 
@@ -936,7 +946,15 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired) {
 
 			if (current_group.y <= 0x00ffffff) {
 				if (stack_size == 0) {
-					ray_buffer_shadow.hit[ray_index] = false;
+					// We didn't hit anything, apply illumination
+					int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
+					float3 illumination = ray_buffer_shadow.illumination.to_float3(ray_index);
+
+					if (bounce == 0) {
+						frame_buffer_direct[pixel_index] += make_float4(illumination);
+					} else {
+						frame_buffer_indirect[pixel_index] += make_float4(illumination);
+					}
 
 					break;
 				}
