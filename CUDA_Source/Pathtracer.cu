@@ -333,6 +333,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			return;
 		}
 
+#if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 		float3 light_point  = barycentric(hit_u, hit_v, triangles_position0[hit_triangle_id], triangles_position_edge1[hit_triangle_id], triangles_position_edge2[hit_triangle_id]);
 		float3 light_normal = barycentric(hit_u, hit_v, triangles_normal0  [hit_triangle_id], triangles_normal_edge1  [hit_triangle_id], triangles_normal_edge2  [hit_triangle_id]);
 	
@@ -345,9 +346,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		// ray_direction is the same direction as light is same direction as to_light, but normalized
 		to_light = ray_direction;
 
-		float cos_o = -dot(to_light, light_normal);
+		float cos_o = fabsf(dot(to_light, light_normal));
 
-		if (cos_o <= 0.0f) return;
+		// if (cos_o <= 0.0f) return;
 
 		float light_area = 0.5f * length(cross(
 			triangles_position_edge1[hit_triangle_id], 
@@ -369,6 +370,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		} else {
 			frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
 		}
+#endif
 
 		return;
 	}
@@ -498,7 +500,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			// float light_select_pdf = light_area / light_area_total;
 			float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
 
+#if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;
+#else
+			float mis_pdf = light_pdf;
+#endif
 
 			float3 emission     = materials[triangles_material_id[light_id]].emission;
 			float3 illumination = throughput * brdf * emission / mis_pdf;
@@ -705,8 +711,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			// float light_select_pdf = light_area / light_area_total;
 			float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
 
+#if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;
-
+#else
+			float mis_pdf = light_pdf;
+#endif
 			float3 emission     = materials[triangles_material_id[light_id]].emission;
 			float3 illumination = throughput * brdf * emission / mis_pdf;
 

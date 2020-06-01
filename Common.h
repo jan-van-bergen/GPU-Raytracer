@@ -32,6 +32,7 @@ static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 #define SHADOW_TRACE_BLOCK_Y 2
 
 #define ENABLE_NEXT_EVENT_ESTIMATION true
+#define ENABLE_MULTIPLE_IMPORTANCE_SAMPLING true
 
 // SVGF
 #define MAX_ATROUS_ITERATIONS 10

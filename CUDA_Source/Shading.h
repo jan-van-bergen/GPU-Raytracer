@@ -130,7 +130,7 @@ __device__ inline float ggx_G1(float v_dot_n, float v_dot_m, float alpha) {
 	return 2.0f / (1.0f - sqrtf(1.0f + alpha2 * tan_theta2));
 }
 
-// Lambda term for the Beckmann microfacet model
+// Lambda term for the GGX microfacet model
 __device__ inline float ggx_lambda(float cos_theta, float alpha) {
 	float cos_theta2 = cos_theta  * cos_theta;
 	float tan_theta2 = (1.0f - cos_theta2) / cos_theta2;

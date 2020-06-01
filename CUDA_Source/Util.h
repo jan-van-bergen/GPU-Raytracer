@@ -13,7 +13,7 @@ __device__ inline float luminance(float r, float g, float b) {
 __device__ inline float3 rgb_to_ycocg(const float3 & colour) {
 	return make_float3(
 		 0.25f * colour.x + 0.5f * colour.y + 0.25f * colour.z,
-		 0.5f  * colour.x +                 - 0.5f  * colour.z,
+		 0.5f  * colour.x                   - 0.5f  * colour.z,
 		-0.25f * colour.x + 0.5f * colour.y - 0.25f * colour.z
 	);
 }
