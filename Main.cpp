@@ -111,6 +111,8 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
 			ImGui::Text("FPS: %i", fps);
 			
+			ImGui::BeginChild("Performance Region", ImVec2(0, 150), true);
+
 			bool category_changed = true;
 			int  padding;
 
@@ -153,6 +155,8 @@ int main(int argument_count, char ** arguments) {
 					ImGui::TreePop();
 				}
 			}
+
+			ImGui::EndChild();
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
