@@ -190,6 +190,8 @@ extern "C" __global__ void kernel_primary(
 		case Material::Type::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
 
+			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
+
 			ray_buffer_shade_diffuse.triangle_id[index_out] = triangle_id;
 			ray_buffer_shade_diffuse.u[index_out] = uv.x;
 			ray_buffer_shade_diffuse.v[index_out] = uv.y;
@@ -392,6 +394,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		case Material::Type::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[bounce]);
 
+			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
+
 			ray_buffer_shade_diffuse.triangle_id[index_out] = hit_triangle_id;
 			ray_buffer_shade_diffuse.u[index_out] = hit_u;
 			ray_buffer_shade_diffuse.v[index_out] = hit_v;
@@ -438,7 +442,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.N_diffuse[bounce]) return;
 
-	// float3 ray_direction = ray_buffer_shade_diffuse.direction[index];
+	float3 ray_direction = ray_buffer_shade_diffuse.direction.to_float3(index);
 
 	int   ray_triangle_id = ray_buffer_shade_diffuse.triangle_id[index];
 	float ray_u = ray_buffer_shade_diffuse.u[index];
@@ -461,6 +465,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
 	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
 	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+
+	hit_normal = normalize(hit_normal);
+	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float3 albedo     = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
@@ -526,9 +533,6 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #endif
 
 	if (bounce == NUM_BOUNCES - 1) return;
-
-	hit_normal = normalize(hit_normal);
-	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	int index_out = atomic_agg_inc(&buffer_sizes.N_trace[bounce + 1]);
 

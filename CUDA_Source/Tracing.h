@@ -79,18 +79,18 @@ __device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, f
 	float3 s = ray.origin - position0;
 	float  u = f * dot(s, h);
 
-	if (u < 0.0f || u > 1.0f) return false;
+	if (u >= 0.0f && u <= 1.0f) {
+		float3 q = cross(s, position_edge1);
+		float  v = f * dot(ray.direction, q);
 
-	float3 q = cross(s, position_edge1);
-	float  v = f * dot(ray.direction, q);
+		if (v >= 0.0f && u + v <= 1.0f) {
+			float t = f * dot(position_edge2, q);
 
-	if (v < 0.0f || u + v > 1.0f) return false;
+			if (t > EPSILON && t < max_distance) return true;
+		}
+	}
 
-	float t = f * dot(position_edge2, q);
-
-	if (t < EPSILON || t >= max_distance) return false;
-
-	return true;
+	return false;
 }
 
 // Function that decides whether to push on the shared stack or thread local stack
@@ -573,7 +573,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				} else {
 					frame_buffer_indirect[pixel_index] += make_float4(illumination);
 				}
-				
+
 				break;
 			}
 		}
