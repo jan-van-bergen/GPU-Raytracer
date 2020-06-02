@@ -33,10 +33,11 @@ struct Pathtracer {
 		float alpha_colour = 0.2f;
 		float alpha_moment = 0.2f;
 
-		int atrous_iterations = 6;
+		int atrous_iterations = 5;
 
-		float sigma_z     = 1.0f;
-		float sigma_l_inv = 1.0f / 4.0f;
+		float sigma_z =  4.0f;
+		float sigma_n = 16.0f;
+		float sigma_l = 10.0f;
 	} svgf_settings;
 	
 	std::vector<const CUDAEvent *> events;

@@ -7,7 +7,8 @@ struct SVGFSettings {
 	int atrous_iterations;
 
 	float sigma_z;
-	float sigma_l_inv;
+	float sigma_n;
+	float sigma_l;
 };
 
 __device__ SVGFSettings svgf_settings;
@@ -52,15 +53,12 @@ __device__ inline float2 edge_stopping_weights(
 
 	float ln_w_z = fabsf(center_depth - depth) / (svgf_settings.sigma_z * fabsf(d) + epsilon);
 
-	float w_n = fmaxf(0.0f, dot(center_normal, normal));
+	float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), svgf_settings.sigma_n);
 
 	float w_l_direct   = w_n * expf(-fabsf(center_luminance_direct   - luminance_direct)   * luminance_denom_direct   - ln_w_z);
 	float w_l_indirect = w_n * expf(-fabsf(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect - ln_w_z);
 
-	return make_float2(
-		w_l_direct, 
-		w_l_indirect
-	);
+	return make_float2(w_l_direct, w_l_indirect);
 }
 
 extern "C" __global__ void kernel_svgf_temporal() {
@@ -258,8 +256,8 @@ extern "C" __global__ void kernel_svgf_variance(
 		return;
 	}
 
-	float luminance_denom_direct   = 0.1f * svgf_settings.sigma_l_inv;
-	float luminance_denom_indirect = 0.1f * svgf_settings.sigma_l_inv;
+	float luminance_denom_direct   = 1.0f / svgf_settings.sigma_l;
+	float luminance_denom_indirect = 1.0f / svgf_settings.sigma_l;
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -415,8 +413,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = svgf_settings.sigma_l_inv * rsqrtf(fmaxf(0.0f, variance_blurred_direct)   + epsilon);
-	float luminance_denom_indirect = svgf_settings.sigma_l_inv * rsqrtf(fmaxf(0.0f, variance_blurred_indirect) + epsilon);
+	float luminance_denom_direct   = rsqrtf(svgf_settings.sigma_l * svgf_settings.sigma_l * fmaxf(0.0f, variance_blurred_direct)   + epsilon);
+	float luminance_denom_indirect = rsqrtf(svgf_settings.sigma_l * svgf_settings.sigma_l * fmaxf(0.0f, variance_blurred_indirect) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -490,6 +488,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 			sum_colour_indirect += make_float4(weight_indirect, weight_indirect, weight_indirect, weight_indirect * weight_indirect) * colour_indirect;
 		}
 	}
+
+	// surf2Dwrite(make_float4(sum_weight_direct + sum_weight_indirect) / temp, accumulator, x * sizeof(float4), y); // @HACK
 
 	ASSERT(sum_weight_direct   > 10e-6f, "Divide by 0!");
 	ASSERT(sum_weight_indirect > 10e-6f, "Divide by 0!");

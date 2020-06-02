@@ -163,9 +163,9 @@ int main(int argument_count, char ** arguments) {
 			bool settings_changed = false;
 
 			settings_changed |= ImGui::Checkbox("Rasterize Primary Rays",  &pathtracer.enable_rasterization);
-			settings_changed |= ImGui::Checkbox("Enable SVGF",             &pathtracer.enable_svgf);
-			settings_changed |= ImGui::Checkbox("Enable Spatial Variance", &pathtracer.enable_spatial_variance);
-			settings_changed |= ImGui::Checkbox("Enable TAA",              &pathtracer.enable_taa);
+			settings_changed |= ImGui::Checkbox("SVGF",                    &pathtracer.enable_svgf);
+			settings_changed |= ImGui::Checkbox("Spatial Variance",        &pathtracer.enable_spatial_variance);
+			settings_changed |= ImGui::Checkbox("TAA",                     &pathtracer.enable_taa);
 			settings_changed |= ImGui::Checkbox("Modulate Albedo",         &pathtracer.enable_albedo);
 
 			settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.svgf_settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
