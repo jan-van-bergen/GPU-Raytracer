@@ -737,9 +737,7 @@ void Pathtracer::render() {
 				kernel_shadow_trace.execute(bounce);
 			}
 		}
-		
-		RECORD_EVENT(event_end);
-	
+
 		pixels_left -= BATCH_SIZE;
 
 		if (pixels_left > 0) {
@@ -779,10 +777,10 @@ void Pathtracer::render() {
 			RECORD_EVENT(event_svgf_atrous[i]);
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
-			
+
 		RECORD_EVENT(event_svgf_finalize);
 		kernel_svgf_finalize.execute(enable_albedo, direct_out, indirect_out);
-			
+
 		if (enable_taa) {
 			RECORD_EVENT(event_taa);
 
@@ -793,6 +791,8 @@ void Pathtracer::render() {
 		RECORD_EVENT(event_accumulate);
 		kernel_accumulate.execute(!enable_albedo, float(frames_since_camera_moved));
 	}
+	
+	RECORD_EVENT(event_end);
 	
 	// Reset buffer sizes to default for next frame
 	buffer_sizes.trace[0] = BATCH_SIZE;
