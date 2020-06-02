@@ -21,14 +21,18 @@ void Camera::resize(int width, int height) {
 	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
 }
 
-void Camera::update(float delta, const unsigned char * keys) {
+void Camera::update(float delta, const unsigned char * keys, bool apply_jitter) {
 	static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
 	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
 
-	jitter = Vector2(
-		(halton_x[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
-		(halton_y[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
-	);
+	if (apply_jitter) {
+		jitter = Vector2(
+			(halton_x[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
+			(halton_y[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
+		);
+	} else {
+		jitter = Vector2(0.0f);
+	}
 
 	jitter_index = (jitter_index + 1) & 3;
 	

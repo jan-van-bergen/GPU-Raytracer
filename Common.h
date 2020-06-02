@@ -12,7 +12,6 @@
 
 #define SCREEN_PITCH ((SCREEN_WIDTH + WARP_SIZE - 1) / WARP_SIZE * WARP_SIZE)
 
-
 #define TILE_WIDTH  8
 #define TILE_HEIGHT 4
 #define TILE_SIZE (TILE_WIDTH * TILE_HEIGHT)
@@ -21,6 +20,12 @@ static_assert(SCREEN_WIDTH  % TILE_WIDTH  == 0, "Screen width  should be divisib
 static_assert(SCREEN_HEIGHT % TILE_HEIGHT == 0, "Screen height should be divisible by the Tile height!");
 static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 
+
+// Rendering is performance in batches of BATCH_SIZE pixels
+// Larger batches are more efficient, but also require more GPU memory
+#define BATCH_SIZE PIXEL_COUNT
+
+#define BATCH_ITERATIONS ((PIXEL_COUNT + BATCH_SIZE - 1) / BATCH_SIZE)
 
 // Tracing
 #define EPSILON 0.001f

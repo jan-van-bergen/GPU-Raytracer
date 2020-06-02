@@ -112,11 +112,11 @@ __device__ ShadowRayBuffer ray_buffer_shadow;
 // Sizes are stored for ALL bounces so we only have to reset these
 // values back to 0 after every frame, instead of after every bounce
 struct BufferSizes {
-	int N_trace     [NUM_BOUNCES];
-	int N_diffuse   [NUM_BOUNCES];
-	int N_dielectric[NUM_BOUNCES];
-	int N_glossy    [NUM_BOUNCES];
-	int N_shadow    [NUM_BOUNCES];
+	int trace     [NUM_BOUNCES];
+	int diffuse   [NUM_BOUNCES];
+	int dielectric[NUM_BOUNCES];
+	int glossy    [NUM_BOUNCES];
+	int shadow    [NUM_BOUNCES];
 
 	// Global counters for tracing kernels
 	int rays_retired       [NUM_BOUNCES];
@@ -130,18 +130,23 @@ struct BufferSizes {
 extern "C" __global__ void kernel_primary(
 	int rand_seed,
 	int sample_index,
+	int pixel_offset,
+	int pixel_count,
 	float3 camera_position,
 	float3 camera_bottom_left_corner,
 	float3 camera_x_axis,
 	float3 camera_y_axis
 ) {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= pixel_count) return;
 
-	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+	int index_offset = index + pixel_offset;
+
+	int x = index_offset % SCREEN_WIDTH;
+	int y = index_offset / SCREEN_WIDTH;
 
 	int pixel_index = x + y * SCREEN_PITCH;
-	
+
 	unsigned seed = (pixel_index + rand_seed * 199494991) * 949525949;
 
 	float u_screenspace = float(x) + 0.5f;
@@ -188,7 +193,7 @@ extern "C" __global__ void kernel_primary(
 		}
 		
 		case Material::Type::DIFFUSE: {
-			int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[0]);
+			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[0]);
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
@@ -203,7 +208,7 @@ extern "C" __global__ void kernel_primary(
 		} 
 
 		case Material::Type::DIELECTRIC: {
-			int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[0]);
+			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[0]);
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
@@ -218,7 +223,7 @@ extern "C" __global__ void kernel_primary(
 		} 
 
 		case Material::Type::GLOSSY: {
-			int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[0]);
+			int index_out = atomic_agg_inc(&buffer_sizes.glossy[0]);
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
@@ -237,22 +242,26 @@ extern "C" __global__ void kernel_primary(
 extern "C" __global__ void kernel_generate(
 	int rand_seed,
 	int sample_index,
+	int pixel_offset,
+	int pixel_count,
 	float3 camera_position,
 	float3 camera_bottom_left_corner,
 	float3 camera_x_axis,
 	float3 camera_y_axis
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= SCREEN_WIDTH * SCREEN_HEIGHT) return;
+	if (index >= pixel_count) return;
 
-	unsigned seed = (index + rand_seed * 199494991) * 949525949;
+	int index_offset = index + pixel_offset;
+
+	unsigned seed = (index_offset + rand_seed * 199494991) * 949525949;
 	
-	int tile_index = index / TILE_SIZE;
+	int tile_index = index_offset / TILE_SIZE;
 	int i = (tile_index % (SCREEN_WIDTH / TILE_WIDTH)) * TILE_WIDTH;
 	int j = (tile_index / (SCREEN_WIDTH / TILE_WIDTH)) * TILE_HEIGHT;
 
-	int k = (index % TILE_SIZE) % TILE_WIDTH;
-	int l = (index % TILE_SIZE) / TILE_WIDTH;
+	int k = (index_offset % TILE_SIZE) % TILE_WIDTH;
+	int l = (index_offset % TILE_SIZE) / TILE_WIDTH;
 
 	int x = i + k;
 	int y = j + l;
@@ -278,12 +287,12 @@ extern "C" __global__ void kernel_generate(
 }
 
 extern "C" __global__ void kernel_trace(int bounce) {
-	bvh_trace(buffer_sizes.N_trace[bounce], &buffer_sizes.rays_retired[bounce]);
+	bvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
 extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.N_trace[bounce]) return;
+	if (index >= buffer_sizes.trace[bounce]) return;
 
 	float3 ray_origin    = ray_buffer_trace.origin   .to_float3(index);
 	float3 ray_direction = ray_buffer_trace.direction.to_float3(index);
@@ -392,7 +401,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	switch (material.type) {
 		case Material::Type::DIFFUSE: {
-			int index_out = atomic_agg_inc(&buffer_sizes.N_diffuse[bounce]);
+			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[bounce]);
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
@@ -407,7 +416,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		}
 
 		case Material::Type::DIELECTRIC: {
-			int index_out = atomic_agg_inc(&buffer_sizes.N_dielectric[bounce]);
+			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[bounce]);
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
@@ -422,7 +431,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		}
 
 		case Material::Type::GLOSSY: {
-			int index_out = atomic_agg_inc(&buffer_sizes.N_glossy[bounce]);
+			int index_out = atomic_agg_inc(&buffer_sizes.glossy[bounce]);
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
@@ -440,7 +449,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.N_diffuse[bounce]) return;
+	if (index >= buffer_sizes.diffuse[bounce]) return;
 
 	float3 ray_direction = ray_buffer_shade_diffuse.direction.to_float3(index);
 
@@ -519,7 +528,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			float3 emission     = materials[triangles_material_id[light_id]].emission;
 			float3 illumination = throughput * brdf * emission / mis_pdf;
 
-			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
+			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
 			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
 			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
@@ -534,7 +543,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	if (bounce == NUM_BOUNCES - 1) return;
 
-	int index_out = atomic_agg_inc(&buffer_sizes.N_trace[bounce + 1]);
+	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
 	float3 direction = random_cosine_weighted_direction(x, y, sample_index, bounce, seed, hit_normal);
 
@@ -550,7 +559,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.N_dielectric[bounce] || bounce == NUM_BOUNCES - 1) return;
+	if (index >= buffer_sizes.dielectric[bounce] || bounce == NUM_BOUNCES - 1) return;
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
 
@@ -577,7 +586,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	hit_normal = normalize(hit_normal);
 	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
-	int index_out = atomic_agg_inc(&buffer_sizes.N_trace[bounce + 1]);
+	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
 	float3 direction;
 	float3 direction_reflected = reflect(ray_direction, hit_normal);
@@ -638,7 +647,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.N_glossy[bounce]) return;
+	if (index >= buffer_sizes.glossy[bounce]) return;
 
 	float3 direction_in = -ray_buffer_shade_glossy.direction.to_float3(index);
 
@@ -726,7 +735,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			float3 emission     = materials[triangles_material_id[light_id]].emission;
 			float3 illumination = throughput * brdf * emission / mis_pdf;
 
-			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.N_shadow[bounce]);
+			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
 			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
 			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
@@ -775,7 +784,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float G = microfacet_G(i_dot_m, o_dot_m, i_dot_n, o_dot_n, m_dot_n, alpha);
 	float weight = fabsf(i_dot_m) * F * G / fabsf(i_dot_n * m_dot_n);
 
-	int index_out = atomic_agg_inc(&buffer_sizes.N_trace[bounce + 1]);
+	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
 	ray_buffer_trace.direction.from_float3(index_out, direction_out);
@@ -788,7 +797,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 }
 
 extern "C" __global__ void kernel_shadow_trace(int bounce) {
-	bvh_trace_shadow(buffer_sizes.N_shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
+	bvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
 }
 
 extern "C" __global__ void kernel_accumulate(bool demodulate_albedo, float frames_since_camera_moved) {

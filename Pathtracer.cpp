@@ -127,11 +127,11 @@ struct ShadowRayBuffer {
 };
 
 static struct BufferSizes {
-	int N_trace     [NUM_BOUNCES] = { PIXEL_COUNT }; // On the first bounce the TraceBuffer contains exactly PIXEL_COUNT Rays
-	int N_diffuse   [NUM_BOUNCES] = { 0 };
-	int N_dielectric[NUM_BOUNCES] = { 0 };
-	int N_glossy    [NUM_BOUNCES] = { 0 };
-	int N_shadow    [NUM_BOUNCES] = { 0 };
+	int trace     [NUM_BOUNCES] = { BATCH_SIZE }; // On the first bounce the TraceBuffer contains exactly BATCH_SIZE Rays
+	int diffuse   [NUM_BOUNCES] = { 0 };
+	int dielectric[NUM_BOUNCES] = { 0 };
+	int glossy    [NUM_BOUNCES] = { 0 };
+	int shadow    [NUM_BOUNCES] = { 0 };
 
 	int rays_retired       [NUM_BOUNCES] = { 0 };
 	int rays_retired_shadow[NUM_BOUNCES] = { 0 };
@@ -454,11 +454,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	MaterialBuffer  ray_buffer_shade_glossy;
 	ShadowRayBuffer ray_buffer_shadow;
 
-	ray_buffer_trace           .init(PIXEL_COUNT);
-	ray_buffer_shade_diffuse   .init(PIXEL_COUNT);
-	ray_buffer_shade_dielectric.init(PIXEL_COUNT);
-	ray_buffer_shade_glossy    .init(PIXEL_COUNT);
-	ray_buffer_shadow          .init(PIXEL_COUNT);
+	ray_buffer_trace           .init(BATCH_SIZE);
+	ray_buffer_shade_diffuse   .init(BATCH_SIZE);
+	ray_buffer_shade_dielectric.init(BATCH_SIZE);
+	ray_buffer_shade_glossy    .init(BATCH_SIZE);
+	ray_buffer_shadow          .init(BATCH_SIZE);
 
 	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
@@ -496,7 +496,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
 	// Set Block dimensions for all Kernels
-	kernel_primary      .occupancy_max_block_size_2d();
 	kernel_svgf_temporal.occupancy_max_block_size_2d();
 	kernel_svgf_variance.occupancy_max_block_size_2d();
 	kernel_svgf_atrous  .occupancy_max_block_size_2d();
@@ -505,6 +504,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_taa_finalize .occupancy_max_block_size_2d();
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
+	kernel_primary         .set_block_dim(WARP_SIZE, 1, 1);
 	kernel_generate        .set_block_dim(WARP_SIZE, 1, 1);
 	kernel_sort            .set_block_dim(WARP_SIZE, 1, 1);
 	kernel_shade_diffuse   .set_block_dim(WARP_SIZE, 1, 1);
@@ -515,7 +515,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shadow_trace.set_block_dim(WARP_SIZE, SHADOW_TRACE_BLOCK_Y, 1);
 
 	// Set Grid dimensions for all Kernels
-	kernel_primary      .set_grid_dim(SCREEN_PITCH / kernel_primary      .block_dim_x, (SCREEN_HEIGHT + kernel_primary      .block_dim_y - 1) / kernel_primary      .block_dim_y, 1);
 	kernel_svgf_temporal.set_grid_dim(SCREEN_PITCH / kernel_svgf_temporal.block_dim_x, (SCREEN_HEIGHT + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y, 1);
 	kernel_svgf_variance.set_grid_dim(SCREEN_PITCH / kernel_svgf_variance.block_dim_x, (SCREEN_HEIGHT + kernel_svgf_variance.block_dim_y - 1) / kernel_svgf_variance.block_dim_y, 1);
 	kernel_svgf_atrous  .set_grid_dim(SCREEN_PITCH / kernel_svgf_atrous  .block_dim_x, (SCREEN_HEIGHT + kernel_svgf_atrous  .block_dim_y - 1) / kernel_svgf_atrous  .block_dim_y, 1);
@@ -524,11 +523,12 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_taa_finalize .set_grid_dim(SCREEN_PITCH / kernel_taa_finalize .block_dim_x, (SCREEN_HEIGHT + kernel_taa_finalize .block_dim_y - 1) / kernel_taa_finalize .block_dim_y, 1);
 	kernel_accumulate   .set_grid_dim(SCREEN_PITCH / kernel_accumulate   .block_dim_x, (SCREEN_HEIGHT + kernel_accumulate   .block_dim_y - 1) / kernel_accumulate   .block_dim_y, 1);
 
-	kernel_generate        .set_grid_dim(PIXEL_COUNT / kernel_generate        .block_dim_x, 1, 1);
-	kernel_sort            .set_grid_dim(PIXEL_COUNT / kernel_sort            .block_dim_x, 1, 1);
-	kernel_shade_diffuse   .set_grid_dim(PIXEL_COUNT / kernel_shade_diffuse   .block_dim_x, 1, 1);
-	kernel_shade_dielectric.set_grid_dim(PIXEL_COUNT / kernel_shade_dielectric.block_dim_x, 1, 1);
-	kernel_shade_glossy    .set_grid_dim(PIXEL_COUNT / kernel_shade_glossy    .block_dim_x, 1, 1);
+	kernel_primary         .set_grid_dim(BATCH_SIZE / kernel_primary         .block_dim_x, 1, 1);
+	kernel_generate        .set_grid_dim(BATCH_SIZE / kernel_generate        .block_dim_x, 1, 1);
+	kernel_sort            .set_grid_dim(BATCH_SIZE / kernel_sort            .block_dim_x, 1, 1);
+	kernel_shade_diffuse   .set_grid_dim(BATCH_SIZE / kernel_shade_diffuse   .block_dim_x, 1, 1);
+	kernel_shade_dielectric.set_grid_dim(BATCH_SIZE / kernel_shade_dielectric.block_dim_x, 1, 1);
+	kernel_shade_glossy    .set_grid_dim(BATCH_SIZE / kernel_shade_glossy    .block_dim_x, 1, 1);
 	
 	kernel_trace       .set_grid_dim(32, 32, 1);
 	kernel_shadow_trace.set_grid_dim(32, 32, 1);
@@ -616,7 +616,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 }
 
 void Pathtracer::update(float delta, const unsigned char * keys) {
-	camera.update(delta, keys);
+	bool jitter = enable_taa;
+	camera.update(delta, keys, jitter);
 
 	if (settings_changed) {
 		frames_since_camera_moved = 0;
@@ -635,8 +636,6 @@ void Pathtracer::update(float delta, const unsigned char * keys) {
 
 void Pathtracer::render() {
 	events.clear();
-
-	RECORD_EVENT(event_primary);
 
 	if (enable_rasterization) {
 		gbuffer.bind();
@@ -669,84 +668,84 @@ void Pathtracer::render() {
 		gbuffer.unbind();
 
 		glFinish();
-
-		// Convert rasterized GBuffers into primary Rays
-		kernel_primary.execute(
-			rand(),
-			frames_since_camera_moved,
-			camera.position,
-			camera.bottom_left_corner_rotated,
-			camera.x_axis_rotated,
-			camera.y_axis_rotated
-		);
-	} else {
-		// Generate primary Rays from the current Camera orientation
-		kernel_generate.execute(
-			rand(),
-			frames_since_camera_moved,
-			camera.position, 
-			camera.bottom_left_corner_rotated, 
-			camera.x_axis_rotated, 
-			camera.y_axis_rotated
-		);
-
-		RECORD_EVENT(event_trace[0]);
-		kernel_trace.execute(0);
-
-		RECORD_EVENT(event_sort[0]);
-		kernel_sort.execute(rand(), 0);
 	}
 
-	// Process the various Material types in different Kernels
-	if (scene_has_diffuse) {
-		RECORD_EVENT(event_shade_diffuse[0]);
-		kernel_shade_diffuse.execute(rand(), 0, frames_since_camera_moved);
-	}
+	int pixels_left = PIXEL_COUNT;
+
+	while (pixels_left > 0) {
+		int pixel_offset = PIXEL_COUNT - pixels_left;
+		int pixel_count  = pixels_left > BATCH_SIZE ? BATCH_SIZE : pixels_left;
+
+		RECORD_EVENT(event_primary);
+
+		if (enable_rasterization) {
+			// Convert rasterized GBuffers into primary Rays
+			kernel_primary.execute(
+				rand(),
+				frames_since_camera_moved,
+				pixel_offset,
+				pixel_count,
+				camera.position,
+				camera.bottom_left_corner_rotated,
+				camera.x_axis_rotated,
+				camera.y_axis_rotated
+			);
+		} else {
+			// Generate primary Rays from the current Camera orientation
+			kernel_generate.execute(
+				rand(),
+				frames_since_camera_moved,
+				pixel_offset,
+				pixel_count,
+				camera.position, 
+				camera.bottom_left_corner_rotated, 
+				camera.x_axis_rotated, 
+				camera.y_axis_rotated
+			);
+		}
+
+		for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
+			// When rasterizing primary rays we can skip tracing rays on bounce 0
+			if (!(bounce == 0 && enable_rasterization)) {
+				// Extend all Rays that are still alive to their next Triangle intersection
+				RECORD_EVENT(event_trace[bounce]);
+				kernel_trace.execute(bounce);
+
+				RECORD_EVENT(event_sort[bounce]);
+				kernel_sort.execute(rand(), bounce);
+			}
+
+			// Process the various Material types in different Kernels
+			if (scene_has_diffuse) {
+				RECORD_EVENT(event_shade_diffuse[bounce]);
+				kernel_shade_diffuse.execute(rand(), bounce, frames_since_camera_moved);
+			}
+
+			if (scene_has_dielectric) {
+				RECORD_EVENT(event_shade_dielectric[bounce]);
+				kernel_shade_dielectric.execute(rand(), bounce);
+			}
+
+			if (scene_has_glossy) {
+				RECORD_EVENT(event_shade_glossy[bounce]);
+				kernel_shade_glossy.execute(rand(), bounce, frames_since_camera_moved);
+			}
+
+			// Trace shadow Rays
+			if (scene_has_lights) {
+				RECORD_EVENT(event_shadow_trace[bounce]);
+				kernel_shadow_trace.execute(bounce);
+			}
+		}
+		
+		RECORD_EVENT(event_end);
 	
-	if (scene_has_dielectric) {
-		RECORD_EVENT(event_shade_dielectric[0]);
-		kernel_shade_dielectric.execute(rand(), 0);
-	}
+		pixels_left -= BATCH_SIZE;
 
-	if (scene_has_glossy) {
-		RECORD_EVENT(event_shade_glossy[0]);
-		kernel_shade_glossy.execute(rand(), 0, frames_since_camera_moved);
-	}
-
-	// Trace shadow Rays
-	if (scene_has_lights) {
-		RECORD_EVENT(event_shadow_trace[0]);
-		kernel_shadow_trace.execute(0);
-	}
-
-	for (int bounce = 1; bounce < NUM_BOUNCES; bounce++) {
-		// Extend all Rays that are still alive to their next Triangle intersection
-		RECORD_EVENT(event_trace[bounce]);
-		kernel_trace.execute(bounce);
-
-		RECORD_EVENT(event_sort[bounce]);
-		kernel_sort.execute(rand(), bounce);
-
-		// Process the various Material types in different Kernels
-		if (scene_has_diffuse) {
-			RECORD_EVENT(event_shade_diffuse[bounce]);
-			kernel_shade_diffuse.execute(rand(), bounce, frames_since_camera_moved);
-		}
-
-		if (scene_has_dielectric) {
-			RECORD_EVENT(event_shade_dielectric[bounce]);
-			kernel_shade_dielectric.execute(rand(), bounce);
-		}
-
-		if (scene_has_glossy) {
-			RECORD_EVENT(event_shade_glossy[bounce]);
-			kernel_shade_glossy.execute(rand(), bounce, frames_since_camera_moved);
-		}
-
-		// Trace shadow Rays
-		if (scene_has_lights) {
-			RECORD_EVENT(event_shadow_trace[bounce]);
-			kernel_shadow_trace.execute(bounce);
+		if (pixels_left > 0) {
+			// Set buffer sizes to appropriate pixel count for next Batch
+			buffer_sizes.trace[0] = pixels_left > BATCH_SIZE ? BATCH_SIZE : pixels_left;
+			global_buffer_sizes.set_value(buffer_sizes);
 		}
 	}
 
@@ -780,10 +779,10 @@ void Pathtracer::render() {
 			RECORD_EVENT(event_svgf_atrous[i]);
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
-
+			
 		RECORD_EVENT(event_svgf_finalize);
 		kernel_svgf_finalize.execute(enable_albedo, direct_out, indirect_out);
-
+			
 		if (enable_taa) {
 			RECORD_EVENT(event_taa);
 
@@ -794,9 +793,8 @@ void Pathtracer::render() {
 		RECORD_EVENT(event_accumulate);
 		kernel_accumulate.execute(!enable_albedo, float(frames_since_camera_moved));
 	}
-
-	RECORD_EVENT(event_end);
 	
 	// Reset buffer sizes to default for next frame
+	buffer_sizes.trace[0] = BATCH_SIZE;
 	global_buffer_sizes.set_value(buffer_sizes);
 }
