@@ -472,7 +472,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 				center_depth, depth,
 				center_normal, normal,
 				center_luminance_direct, center_luminance_indirect,
-				luminance_direct, luminance_indirect,
+				luminance_direct,       luminance_indirect,
 				luminance_denom_direct, luminance_denom_indirect
 			);
 
@@ -482,7 +482,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 			sum_weight_direct   += weight_direct;
 			sum_weight_indirect += weight_indirect;
 
-			// Filter Colour using the weights
+			// Filter Colour   using the weights
 			// Filter Variance using the square of the weights
 			sum_colour_direct   += make_float4(weight_direct,   weight_direct,   weight_direct,   weight_direct   * weight_direct)   * colour_direct;
 			sum_colour_indirect += make_float4(weight_indirect, weight_indirect, weight_indirect, weight_indirect * weight_indirect) * colour_indirect;
@@ -495,11 +495,12 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float inv_sum_weight_direct   = 1.0f / sum_weight_direct;
 	float inv_sum_weight_indirect = 1.0f / sum_weight_indirect;
 
+	// Normalize
 	sum_colour_direct   *= inv_sum_weight_direct;
 	sum_colour_indirect *= inv_sum_weight_indirect;
 
 	// Alpha channel contains Variance, and needs to be divided by the square of the weights
-	sum_colour_direct.w *= inv_sum_weight_direct; 
+	sum_colour_direct  .w *= inv_sum_weight_direct; 
 	sum_colour_indirect.w *= inv_sum_weight_indirect;
 
 	colour_direct_out  [pixel_index] = sum_colour_direct;
@@ -554,8 +555,8 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
 
-	if (svgf_settings.atrous_iterations == 0) {
-		// Normally the à trous filter copies the illumination history,
+	if (svgf_settings.atrous_iterations <= feedback_iteration) {
+		// Normally the à-trous filter copies the illumination history,
 		// but in case the filter was skipped we need to do this here
 		history_direct  [pixel_index] = direct;
 		history_indirect[pixel_index] = indirect;
