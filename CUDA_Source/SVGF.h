@@ -91,7 +91,16 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	float2 screen_position_prev = tex2D(gbuffer_screen_position_prev, u, v);
 
 	float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
+	float depth      = normal_and_depth.z;
 	float depth_prev = normal_and_depth.w;
+
+	// Check if this pixel belongs to the Skybox
+	if (depth == 0.0f) {
+		frame_buffer_direct  [pixel_index] = direct;
+		frame_buffer_indirect[pixel_index] = indirect;
+
+		return;
+	}
 
 	float2 depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
 	float  max_change_z   = fmaxf(fabsf(depth_gradient.x), fabsf(depth_gradient.y)) + epsilon;
@@ -264,6 +273,14 @@ extern "C" __global__ void kernel_svgf_variance(
 	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
 	float center_depth = center_normal_and_depth.z;
 
+	// Check if this pixel belongs to the Skybox
+	if (center_depth == 0.0f) {
+		colour_direct_out  [pixel_index] = center_colour_direct;
+		colour_indirect_out[pixel_index] = center_colour_indirect;
+
+		return;
+	}
+
 	float sum_weight_direct   = 1.0f;
 	float sum_weight_indirect = 1.0f;
 
@@ -349,6 +366,10 @@ extern "C" __global__ void kernel_svgf_variance(
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
 }
 
+// Determines which iterations' colour buffers are used as history colour buffers for the next frame
+// Can be used to balance between temporal stability and bias from spatial filtering
+const int feedback_iteration = 1;
+
 extern "C" __global__ void kernel_svgf_atrous(
 	float4 const * colour_direct_in,
 	float4 const * colour_indirect_in,
@@ -408,6 +429,9 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
 	float center_depth = center_normal_and_depth.z;
+
+	// Check if the pixel belongs to the Skybox
+	if (center_depth == 0.0f) return;
 
 	float  sum_weight_direct   = 1.0f;
 	float  sum_weight_indirect = 1.0f;
@@ -482,11 +506,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 	colour_direct_out  [pixel_index] = sum_colour_direct;
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
-	
-	// Determines which iterations' colour buffers are used as history colour buffers for the next frame
-	// Can be used to balance between temporal stability and bias from spatial filtering
-	const int feedback_iteration = 1;
-	
+
 	if (step_size == (1 << feedback_iteration)) {
 		history_direct  [pixel_index] = sum_colour_direct;
 		history_indirect[pixel_index] = sum_colour_indirect;

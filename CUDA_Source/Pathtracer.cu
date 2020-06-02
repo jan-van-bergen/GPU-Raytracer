@@ -298,7 +298,10 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	if (hit_triangle_id == -1) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
 
-		if (bounce == 1) {
+		if (bounce == 0) {
+			frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+			frame_buffer_direct[ray_pixel_index] = make_float4(illumination);
+		} else if (bounce == 1) {
 			frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 		} else {
 			frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
