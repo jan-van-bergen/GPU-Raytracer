@@ -489,8 +489,6 @@ extern "C" __global__ void kernel_svgf_atrous(
 		}
 	}
 
-	// surf2Dwrite(make_float4(sum_weight_direct + sum_weight_indirect) / temp, accumulator, x * sizeof(float4), y); // @HACK
-
 	ASSERT(sum_weight_direct   > 10e-6f, "Divide by 0!");
 	ASSERT(sum_weight_indirect > 10e-6f, "Divide by 0!");
 
