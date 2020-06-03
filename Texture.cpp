@@ -15,7 +15,7 @@ int Texture::load(const char * file_path) {
 	int & texture_id = cache[file_path];
 
 	// If the cache already contains this Texture simply return it
-	if (texture_id != 0 > textures.size() > 0) return texture_id;
+	if (texture_id != 0 && textures.size() > 0) return texture_id;
 
 	// Otherwise, create new Texture and load it from disk
 	texture_id        = textures.size();
@@ -26,9 +26,11 @@ int Texture::load(const char * file_path) {
 	
 	// Check if the Texture is valid
 	if (texture.data == nullptr || texture.width == 0 || texture.height == 0) {
-		printf("An error occured while loading Texture '%s'!\n", file_path);
+		printf("WARNING: Failed to load Texture '%s'!\n", file_path);
 
-		abort();
+		texture.width  = 1;
+		texture.height = 1;
+		texture.data = new unsigned char[4] { 255, 0, 255, 255 };
 	}
 
 	return texture_id;
