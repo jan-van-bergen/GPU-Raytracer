@@ -672,6 +672,7 @@ void Pathtracer::render() {
 
 	int pixels_left = PIXEL_COUNT;
 
+	// Render in batches of BATCH_SIZE pixels at a time
 	while (pixels_left > 0) {
 		int pixel_offset = PIXEL_COUNT - pixels_left;
 		int pixel_count  = pixels_left > BATCH_SIZE ? BATCH_SIZE : pixels_left;
@@ -679,12 +680,15 @@ void Pathtracer::render() {
 		RECORD_EVENT(event_primary);
 
 		if (enable_rasterization) {
+			bool jitter = enable_taa;
+
 			// Convert rasterized GBuffers into primary Rays
 			kernel_primary.execute(
 				rand(),
 				frames_since_camera_moved,
 				pixel_offset,
 				pixel_count,
+				jitter,
 				camera.position,
 				camera.bottom_left_corner_rotated,
 				camera.x_axis_rotated,

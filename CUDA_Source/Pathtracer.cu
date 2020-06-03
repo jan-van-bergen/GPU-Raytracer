@@ -132,6 +132,7 @@ extern "C" __global__ void kernel_primary(
 	int sample_index,
 	int pixel_offset,
 	int pixel_count,
+	bool jitter,
 	float3 camera_position,
 	float3 camera_bottom_left_corner,
 	float3 camera_x_axis,
@@ -160,12 +161,17 @@ extern "C" __global__ void kernel_primary(
 
 	int triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
 
-	// Jitter the barycentric coordinates in screen space using their screen space differentials
-	float dx = random_float_heitz(x, y, sample_index, 0, 0, seed) - 0.5f;
-	float dy = random_float_heitz(x, y, sample_index, 0, 1, seed) - 0.5f;
+	float dx = 0.0f;
+	float dy = 0.0f;
+	
+	if (jitter) {
+		// Jitter the barycentric coordinates in screen space using their screen space differentials
+		dx = random_float_heitz(x, y, sample_index, 0, 0, seed) - 0.5f;
+		dy = random_float_heitz(x, y, sample_index, 0, 1, seed) - 0.5f;
 
-	uv.x = saturate(uv.x + uv_gradient.x * dx + uv_gradient.z * dy);
-	uv.y = saturate(uv.y + uv_gradient.y * dx + uv_gradient.w * dy);
+		uv.x = saturate(uv.x + uv_gradient.x * dx + uv_gradient.z * dy);
+		uv.y = saturate(uv.y + uv_gradient.y * dx + uv_gradient.w * dy);
+	}
 
 	float3 ray_direction = normalize(camera_bottom_left_corner
 		+ (u_screenspace + dx) * camera_x_axis
