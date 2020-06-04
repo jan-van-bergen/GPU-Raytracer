@@ -91,15 +91,15 @@ static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[
 		// Perform Object Split
 
 		// Obtain split plane
-		float split = triangles[indices[object_split_dimension][object_split_index]].get_position()[object_split_dimension];
+		float split = triangles[indices[object_split_dimension][object_split_index]].get_center()[object_split_dimension];
 
 		for (int dimension = 0; dimension < 3; dimension++) {
 			for (int i = first_index; i < first_index + index_count; i++) {
 				int index = indices[dimension][i];
 
-				bool goes_left = triangles[index].get_position()[object_split_dimension] < split;
+				bool goes_left = triangles[index].get_center()[object_split_dimension] < split;
 
-				if (triangles[index].get_position()[object_split_dimension] == split) {
+				if (triangles[index].get_center()[object_split_dimension] == split) {
 					// In case the current primitive has the same coordianate as the one we split on along the split dimension,
 					// We don't know whether the primitive should go left or right.
 					// In this case check all primitive indices on the left side of the split that 
@@ -107,7 +107,7 @@ static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[
 
 					int j = object_split_index - 1;
 					// While we can go left and the left primitive has the same coordinate along the split dimension as the split itself
-					while (j >= first_index && triangles[indices[object_split_dimension][j]].get_position()[object_split_dimension] == split) {
+					while (j >= first_index && triangles[indices[object_split_dimension][j]].get_center()[object_split_dimension] == split) {
 						if (indices[object_split_dimension][j] == index) {
 							goes_left = true;
 
@@ -318,9 +318,9 @@ static void init_sbvh(BVH & sbvh) {
 		indices_z[i] = i;
 	}
 
-	std::sort(indices_x, indices_x + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_position().x < sbvh.triangles[b].get_position().x; });
-	std::sort(indices_y, indices_y + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_position().y < sbvh.triangles[b].get_position().y; });
-	std::sort(indices_z, indices_z + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_position().z < sbvh.triangles[b].get_position().z; });
+	std::sort(indices_x, indices_x + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_center().x < sbvh.triangles[b].get_center().x; });
+	std::sort(indices_y, indices_y + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_center().y < sbvh.triangles[b].get_center().y; });
+	std::sort(indices_z, indices_z + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_center().z < sbvh.triangles[b].get_center().z; });
 		
 	int * indices_3[3] = { indices_x, indices_y, indices_z };
 		

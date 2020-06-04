@@ -32,7 +32,7 @@ static void build_bvh(BVHNode & node, const Triangle * triangles, int * indices[
 		return;
 	}
 
-	float split = triangles[indices[split_dimension][split_index]].get_position()[split_dimension];
+	float split = triangles[indices[split_dimension][split_index]].get_center()[split_dimension];
 	BVHPartitions::split_indices(triangles, indices, first_index, index_count, temp, split_dimension, split_index, split);
 
 	node.count = (split_dimension + 1) << 30;
@@ -56,9 +56,9 @@ static void init_bvh(BVH & bvh) {
 		indices_z[i] = i;
 	}
 
-	std::sort(indices_x, indices_x + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_position().x < bvh.triangles[b].get_position().x; });
-	std::sort(indices_y, indices_y + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_position().y < bvh.triangles[b].get_position().y; });
-	std::sort(indices_z, indices_z + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_position().z < bvh.triangles[b].get_position().z; });
+	std::sort(indices_x, indices_x + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_center().x < bvh.triangles[b].get_center().x; });
+	std::sort(indices_y, indices_y + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_center().y < bvh.triangles[b].get_center().y; });
+	std::sort(indices_z, indices_z + bvh.triangle_count, [&](int a, int b) { return bvh.triangles[a].get_center().z < bvh.triangles[b].get_center().z; });
 		
 	int * indices_3[3] = { indices_x, indices_y, indices_z };
 		

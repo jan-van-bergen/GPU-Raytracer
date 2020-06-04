@@ -23,8 +23,8 @@ struct Triangle {
 
 	int material_id = -1;
 
-	Vector3 get_position() const {
-		return (position_0 + position_1 + position_2) * 0.333333333333333f;
+	inline Vector3 get_center() const {
+		return (position_0 + position_1 + position_2) / 3.0f;
 	}
 };
 

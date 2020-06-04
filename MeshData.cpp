@@ -1,6 +1,5 @@
 #include "MeshData.h"
 
-#include <vector>
 #include <unordered_map>
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -8,11 +7,6 @@
 
 #include "Util.h"
 #include "ScopedTimer.h"
-
-#define MESH_USE_BVH  0
-#define MESH_USE_SBVH 1
-
-#define MESH_ACCELERATOR MESH_USE_SBVH
 
 static std::unordered_map<std::string, MeshData *> cache;
 

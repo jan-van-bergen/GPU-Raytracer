@@ -37,13 +37,13 @@ static void capture_screen(const Window & window, const char * file_name) {
 	delete [] data;
 }
 
-#define TOTAL_TIMING_COUNT 100
-float timings[TOTAL_TIMING_COUNT];
-int   current_frame = 0;
+#define FRAMETIME_HISTORY_LENGTH 100
+static float frame_times[FRAMETIME_HISTORY_LENGTH];
+
+static int current_frame = 0;
 
 // Index of frame to take screen capture on
 static constexpr int capture_frame_index = 0;
-
 
 int main(int argument_count, char ** arguments) {
 	Window window("Pathtracer");
@@ -55,7 +55,7 @@ int main(int argument_count, char ** arguments) {
 	float delta_time = 0;
 
 	float second = 0.0f;
-	int frames = 0;
+	int frames_this_second = 0;
 	int fps    = 0;
 	
 	const char * scene_filename = DATA_PATH("sponza/sponza_lit.obj");
@@ -89,25 +89,31 @@ int main(int argument_count, char ** arguments) {
 		delta_time = float(now - last) * inv_perf_freq;
 		last = now;
 
-		// Calculate average of last TOTAL_TIMING_COUNT frames
-		timings[current_frame++ % TOTAL_TIMING_COUNT] = delta_time;
+		// Calculate average of last frames
+		frame_times[current_frame++ % FRAMETIME_HISTORY_LENGTH] = delta_time;
+
+		int count = current_frame < FRAMETIME_HISTORY_LENGTH ? current_frame : FRAMETIME_HISTORY_LENGTH;
 
 		float avg = 0.0f;
-		int count = current_frame < TOTAL_TIMING_COUNT ? current_frame : TOTAL_TIMING_COUNT;
+		float min = INFINITY;
+		float max = 0.0f;
+
 		for (int i = 0; i < count; i++) {
-			avg += timings[i];
+			avg += frame_times[i];
+			min = fminf(min, frame_times[i]);
+			max = fmaxf(max, frame_times[i]);
 		}
 		avg /= float(count);
 
 		// Calculate fps
-		frames++;
+		frames_this_second++;
 
 		second += delta_time;
 		while (second >= 1.0f) {
 			second -= 1.0f;
 
-			fps = frames;
-			frames = 0;
+			fps = frames_this_second;
+			frames_this_second = 0;
 		}
 
 		// Draw GUI
@@ -119,6 +125,8 @@ int main(int argument_count, char ** arguments) {
 			ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_since_camera_moved);
 			ImGui::Text("Delta: %.2f ms", 1000.0f * delta_time);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
+			ImGui::Text("Min:   %.2f ms", 1000.0f * min);
+			ImGui::Text("Max:   %.2f ms", 1000.0f * max);
 			ImGui::Text("FPS: %i", fps);
 			
 			ImGui::BeginChild("Performance Region", ImVec2(0, 150), true);

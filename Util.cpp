@@ -43,6 +43,12 @@ void Util::export_ppm(const char * file_path, int width, int height, const unsig
 	FILE * file;
 	fopen_s(&file, file_path, "wb");
 
+	if (file == nullptr) {
+		printf("Failed to take export %s!\n", file_path);
+
+		return;
+	}
+
 	fprintf(file, "P6\n %d\n %d\n %d\n", width, height, 255);
 	fwrite(data, sizeof(char), width * height * 3, file);
 

@@ -11,8 +11,6 @@ struct CWBVHDecision {
 
 	char distribute_0 = -1;
 	char distribute_1 = -1;
-
-	// char padding;
 };
 
 static int calculate_cost(float cost[], CWBVHDecision decisions[], int node_index, const BVHNode nodes[]) {

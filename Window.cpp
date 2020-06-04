@@ -4,8 +4,6 @@
 #include <Imgui/imgui_impl_sdl.h>
 #include <Imgui/imgui_impl_opengl3.h>
 
-#include "GBuffer.h"
-
 #include "Util.h"
 
 static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * user_param) {
