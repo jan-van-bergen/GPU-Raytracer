@@ -2,7 +2,7 @@
 
 ![Sponza](Screenshots/Sponza.png "Sponza")
 
-Efficient CUDA pathtracer using Wavefront rendering. 
+Interactive CUDA pathtracer using Wavefront rendering. 
 
 ## Features
 
@@ -24,6 +24,11 @@ Efficient CUDA pathtracer using Wavefront rendering.
   - Diffuse
   - Dielectrics
   - Microfacets (Beckmann and GGX)
+
+## Usage
+
+Camera can be controlled with WASD for movement and the arrow keys for orientation. Shift and space do vertical movement.
+Various configurable options are available in `Common.h`.
 
 ## Screenshots
 
