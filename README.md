@@ -28,8 +28,10 @@ Efficient CUDA pathtracer using Wavefront rendering.
 ## Screenshots
 
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
+SVGF example: Raw output of the pathtracer on the left and the filtered result on the right.
 
 ![Microfacet Model](Screenshots/Microfacets.png "Glossy materials using the Beckmann microfacet model")
+Glossy spheres with varying roughness.
 
 ## Dependencies
 
