@@ -18,11 +18,11 @@ extern "C" __global__ void kernel_taa() {
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
 	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
 
-	float s_prev = u_prev * float(SCREEN_WIDTH)  - 0.5f;
-	float t_prev = v_prev * float(SCREEN_HEIGHT) - 0.5f;
+	float s_prev = u_prev * float(SCREEN_WIDTH) ;
+	float t_prev = v_prev * float(SCREEN_HEIGHT);
 
-	int x1 = int(s_prev - 2.0f);
-	int y1 = int(t_prev - 2.0f);
+	int x1 = int(s_prev + 0.5f) - 2;
+	int y1 = int(t_prev + 0.5f) - 2;
 
 	float  sum_weight = 0.0f;
 	float4 sum        = make_float4(0.0f);
@@ -34,8 +34,8 @@ extern "C" __global__ void kernel_taa() {
 			if (i < 0 || i >= SCREEN_WIDTH) continue;
 
 			float weight = 
-				mitchell_netravali(float(i) - s_prev) * 
-				mitchell_netravali(float(j) - t_prev);
+				mitchell_netravali(float(i) + 0.5f - s_prev) * 
+				mitchell_netravali(float(j) + 0.5f - t_prev);
 
 			sum_weight += weight;
 			sum        += weight * taa_frame_prev[i + j * SCREEN_PITCH];
@@ -119,7 +119,7 @@ extern "C" __global__ void kernel_taa() {
 			sqrt(max(0.0f, sigma2.z))
 		);
 
-		// Clamp based on average and standard seviation
+		// Clamp based on average and standard deviation
 		float3 colour_min = colour_avg - 1.25f * sigma;
 		float3 colour_max = colour_avg + 1.25f * sigma;
 

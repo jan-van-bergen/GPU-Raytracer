@@ -107,8 +107,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
 	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
 
-	float s_prev = u_prev * float(SCREEN_WIDTH)  - 0.5f;
-	float t_prev = v_prev * float(SCREEN_HEIGHT) - 0.5f;
+	float s_prev = u_prev * float(SCREEN_WIDTH);
+	float t_prev = v_prev * float(SCREEN_HEIGHT);
 	
 	int x_prev = int(s_prev);
 	int y_prev = int(t_prev);
