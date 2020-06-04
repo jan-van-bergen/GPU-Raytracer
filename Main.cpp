@@ -41,6 +41,10 @@ static void capture_screen(const Window & window, const char * file_name) {
 float timings[TOTAL_TIMING_COUNT];
 int   current_frame = 0;
 
+// Index of frame to take screen capture on
+static constexpr int capture_frame_index = 0;
+
+
 int main(int argument_count, char ** arguments) {
 	Window window("Pathtracer");
 
@@ -66,9 +70,20 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
-		pathtracer.update(delta_time, SDL_GetKeyboardState(nullptr));
-		pathtracer.render();
+		const unsigned char * keys = SDL_GetKeyboardState(nullptr);
 
+		pathtracer.update(delta_time, keys);
+		pathtracer.render();
+		
+		window.draw_quad();
+		
+		if (keys[SDL_SCANCODE_P] || current_frame == capture_frame_index) {
+			char screenshot_name[32];
+			sprintf_s(screenshot_name, "screenshot_%i.ppm", current_frame);
+
+			capture_screen(window, screenshot_name);
+		}
+		
 		// Perform frame timing
 		now = SDL_GetPerformanceCounter();
 		delta_time = float(now - last) * inv_perf_freq;
@@ -95,12 +110,7 @@ int main(int argument_count, char ** arguments) {
 			frames = 0;
 		}
 
-		window.draw_quad();
-		
-		if (current_frame == -1) {
-			capture_screen(window, "debug.ppm");
-		}
-		
+		// Draw GUI
 		window.gui_begin();
 
 		ImGui::Begin("Pathtracer");
