@@ -2,7 +2,7 @@
 
 ![Sponza](Screenshots/Sponza.png "Sponza")
 
-Interactive CUDA pathtracer using Wavefront rendering. 
+Interactive CUDA pathtracer that implements a wide variety of rendering techniques. 
 
 ## Features
 
@@ -25,11 +25,6 @@ Interactive CUDA pathtracer using Wavefront rendering.
   - Dielectrics
   - Microfacets (Beckmann and GGX)
 
-## Usage
-
-Camera can be controlled with WASD for movement and the arrow keys for orientation. Shift and space do vertical movement.
-Various configurable options are available in `Common.h`.
-
 ## Screenshots
 
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
@@ -37,6 +32,11 @@ SVGF example: Raw output of the pathtracer on the left and the filtered result o
 
 ![Microfacet Model](Screenshots/Microfacets.png "Glossy materials using the Beckmann microfacet model")
 Glossy spheres with varying roughness.
+
+## Usage
+
+Camera can be controlled with WASD for movement and the arrow keys for orientation. Shift and space do vertical movement.
+Various configurable options are available in `Common.h`.
 
 ## Dependencies
 
