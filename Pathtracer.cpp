@@ -22,42 +22,42 @@ struct Vertex {
 	int     triangle_id;
 };
 
+struct CUDAVector3_SoA {
+	CUDAMemory::Ptr<float> x;
+	CUDAMemory::Ptr<float> y;
+	CUDAMemory::Ptr<float> z;
+
+	inline void init(int buffer_size) {
+		x = CUDAMemory::malloc<float>(buffer_size);
+		y = CUDAMemory::malloc<float>(buffer_size);
+		z = CUDAMemory::malloc<float>(buffer_size);
+	}
+};
+
 struct TraceBuffer {
-	CUDAMemory::Ptr<float> origin_x;
-	CUDAMemory::Ptr<float> origin_y;
-	CUDAMemory::Ptr<float> origin_z;
-	CUDAMemory::Ptr<float> direction_x;
-	CUDAMemory::Ptr<float> direction_y;
-	CUDAMemory::Ptr<float> direction_z;
+	CUDAVector3_SoA origin;
+	CUDAVector3_SoA direction;
 		
 	CUDAMemory::Ptr<int> triangle_id;
 	CUDAMemory::Ptr<float> u;
 	CUDAMemory::Ptr<float> v;
 
-	CUDAMemory::Ptr<int>   pixel_index;
-	CUDAMemory::Ptr<float> throughput_x;
-	CUDAMemory::Ptr<float> throughput_y;
-	CUDAMemory::Ptr<float> throughput_z;
+	CUDAMemory::Ptr<int> pixel_index;
+	CUDAVector3_SoA      throughput;
 
 	CUDAMemory::Ptr<char>  last_material_type;
 	CUDAMemory::Ptr<float> last_pdf;
 
 	inline void init(int buffer_size) {
-		origin_x    = CUDAMemory::malloc<float>(buffer_size);
-		origin_y    = CUDAMemory::malloc<float>(buffer_size);
-		origin_z    = CUDAMemory::malloc<float>(buffer_size);
-		direction_x = CUDAMemory::malloc<float>(buffer_size);
-		direction_y = CUDAMemory::malloc<float>(buffer_size);
-		direction_z = CUDAMemory::malloc<float>(buffer_size);
+		origin   .init(buffer_size);
+		direction.init(buffer_size);
 		
 		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
 		u           = CUDAMemory::malloc<float>(buffer_size);
 		v           = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index  = CUDAMemory::malloc<int>  (buffer_size);
-		throughput_x = CUDAMemory::malloc<float>(buffer_size);
-		throughput_y = CUDAMemory::malloc<float>(buffer_size);
-		throughput_z = CUDAMemory::malloc<float>(buffer_size);
+		pixel_index = CUDAMemory::malloc<int>(buffer_size);
+		throughput.init(buffer_size);
 
 		last_material_type = CUDAMemory::malloc<char> (buffer_size);
 		last_pdf           = CUDAMemory::malloc<float>(buffer_size);
@@ -65,64 +65,44 @@ struct TraceBuffer {
 };
 
 struct MaterialBuffer {
-	CUDAMemory::Ptr<float> direction_x;
-	CUDAMemory::Ptr<float> direction_y;
-	CUDAMemory::Ptr<float> direction_z;
+	CUDAVector3_SoA direction;
 	
 	CUDAMemory::Ptr<int> triangle_id;
 	CUDAMemory::Ptr<float> u;
 	CUDAMemory::Ptr<float> v;
 
-	CUDAMemory::Ptr<int>   pixel_index;
-	CUDAMemory::Ptr<float> throughput_x;
-	CUDAMemory::Ptr<float> throughput_y;
-	CUDAMemory::Ptr<float> throughput_z;
+	CUDAMemory::Ptr<int> pixel_index;
+	CUDAVector3_SoA      throughput;
 
 	inline void init(int buffer_size) {
-		direction_x = CUDAMemory::malloc<float>(buffer_size);
-		direction_y = CUDAMemory::malloc<float>(buffer_size);
-		direction_z = CUDAMemory::malloc<float>(buffer_size);
+		direction.init(buffer_size);
 
 		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
 		u           = CUDAMemory::malloc<float>(buffer_size);
 		v           = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index  = CUDAMemory::malloc<int>  (buffer_size);
-		throughput_x = CUDAMemory::malloc<float>(buffer_size);
-		throughput_y = CUDAMemory::malloc<float>(buffer_size);
-		throughput_z = CUDAMemory::malloc<float>(buffer_size);
+		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
+		throughput.init(buffer_size);
 	}
 };
 
 struct ShadowRayBuffer {
-	CUDAMemory::Ptr<float> ray_origin_x;
-	CUDAMemory::Ptr<float> ray_origin_y;
-	CUDAMemory::Ptr<float> ray_origin_z;
-	CUDAMemory::Ptr<float> ray_direction_x;
-	CUDAMemory::Ptr<float> ray_direction_y;
-	CUDAMemory::Ptr<float> ray_direction_z;
+	CUDAVector3_SoA ray_origin;
+	CUDAVector3_SoA ray_direction;
 
 	CUDAMemory::Ptr<float> max_distance;
 
-	CUDAMemory::Ptr<int>   pixel_index;
-	CUDAMemory::Ptr<float> illumination_x;
-	CUDAMemory::Ptr<float> illumination_y;
-	CUDAMemory::Ptr<float> illumination_z;
+	CUDAMemory::Ptr<int> pixel_index;
+	CUDAVector3_SoA      illumination;
 
 	inline void init(int buffer_size) {
-		ray_origin_x    = CUDAMemory::malloc<float>(buffer_size);
-		ray_origin_y    = CUDAMemory::malloc<float>(buffer_size);
-		ray_origin_z    = CUDAMemory::malloc<float>(buffer_size);
-		ray_direction_x = CUDAMemory::malloc<float>(buffer_size);
-		ray_direction_y = CUDAMemory::malloc<float>(buffer_size);
-		ray_direction_z = CUDAMemory::malloc<float>(buffer_size);
+		ray_origin   .init(buffer_size);
+		ray_direction.init(buffer_size);
 
 		max_distance = CUDAMemory::malloc<float>(buffer_size);
 
-		pixel_index    = CUDAMemory::malloc<int>  (buffer_size);
-		illumination_x = CUDAMemory::malloc<float>(buffer_size);
-		illumination_y = CUDAMemory::malloc<float>(buffer_size);
-		illumination_z = CUDAMemory::malloc<float>(buffer_size);
+		pixel_index = CUDAMemory::malloc<int>(buffer_size);
+		illumination.init(buffer_size);
 	}
 };
 
