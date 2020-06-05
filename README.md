@@ -2,18 +2,18 @@
 
 ![Sponza](Screenshots/Sponza.png "Sponza")
 
-Interactive CUDA pathtracer that implements a wide variety of rendering techniques. 
+Interactive CUDA pathtracer that implements a variety of rendering techniques. 
 
 ## Features
 
-- Wavefront rendering, [Laine et al. 2013](https://research.nvidia.com/sites/default/files/pubs/2013-07_Megakernels-Considered-Harmful/laine2013hpg_paper.pdf)
+- Wavefront rendering, see [Laine et al. 2013](https://research.nvidia.com/sites/default/files/pubs/2013-07_Megakernels-Considered-Harmful/laine2013hpg_paper.pdf)
 - Multiple BVH types
   - Standard SAH-based BVH
   - SBVH (Spatial BVH), see [Stich et al. 2009](https://www.nvidia.in/docs/IO/77714/sbvh.pdf)
   - QBVH (Quaternary BVH). The QBVH is constructed by iteratively collapsing the Nodes of the SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
   - CWBVH (Compressed Wide BVH), see [Ylitie et al. 2017](https://research.nvidia.com/sites/default/files/publications/ylitie2017hpg-paper.pdf). The CWBVH outperforms both the QBVH and SBVH.
   - All BVH types use Dynamic Ray Fetching, see [Aila et al. 2009](https://www.nvidia.com/docs/IO/76976/HPG2009-Trace-Efficiency.pdf)
-- SVGF (Spatio-Temporal Variance Guided Filter), see [Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). Denoising filter that allows for noise-free images at interactive framerates.
+- SVGF (Spatio-Temporal Variance Guided Filter), see [Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). Denoising filter that allows for noise-free images at interactive framerates. Also includes a TAA pass.
 - Importance Sampling
   - Next Event Estimation (NEE)
   - Multiple Importance Sampling (MIS)
@@ -28,7 +28,7 @@ Interactive CUDA pathtracer that implements a wide variety of rendering techniqu
 ## Screenshots
 
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
-SVGF example: Raw output of the pathtracer on the left and the filtered result on the right.
+SVGF: Raw output of the pathtracer on the left and the filtered result on the right.
 
 ![Microfacet Model](Screenshots/Microfacets.png "Glossy materials using the Beckmann microfacet model")
 Glossy spheres with varying roughness.
