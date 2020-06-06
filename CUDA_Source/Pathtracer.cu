@@ -354,8 +354,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		}
 
 #if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
-		float3 light_point  = barycentric(hit_u, hit_v, triangles_position0[hit_triangle_id], triangles_position_edge1[hit_triangle_id], triangles_position_edge2[hit_triangle_id]);
-		float3 light_normal = barycentric(hit_u, hit_v, triangles_normal0  [hit_triangle_id], triangles_normal_edge1  [hit_triangle_id], triangles_normal_edge2  [hit_triangle_id]);
+		float3 light_point  = barycentric(hit_u, hit_v, triangles_position_0[hit_triangle_id], triangles_position_edge_1[hit_triangle_id], triangles_position_edge_2[hit_triangle_id]);
+		float3 light_normal = barycentric(hit_u, hit_v, triangles_normal_0  [hit_triangle_id], triangles_normal_edge_1  [hit_triangle_id], triangles_normal_edge_2  [hit_triangle_id]);
 	
 		light_normal = normalize(light_normal);
 	
@@ -371,8 +371,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		// if (cos_o <= 0.0f) return;
 
 		float light_area = 0.5f * length(cross(
-			triangles_position_edge1[hit_triangle_id], 
-			triangles_position_edge2[hit_triangle_id]
+			triangles_position_edge_1[hit_triangle_id], 
+			triangles_position_edge_2[hit_triangle_id]
 		));
 		
 		float brdf_pdf = ray_buffer_trace.last_pdf[index];
@@ -477,9 +477,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	ASSERT(material.type == Material::Type::DIFFUSE, "Material should be diffuse in this Kernel");
 
-	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
-	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position_0 [ray_triangle_id], triangles_position_edge_1 [ray_triangle_id], triangles_position_edge_2 [ray_triangle_id]);
+	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal_0   [ray_triangle_id], triangles_normal_edge_1   [ray_triangle_id], triangles_normal_edge_2   [ray_triangle_id]);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord_0[ray_triangle_id], triangles_tex_coord_edge_1[ray_triangle_id], triangles_tex_coord_edge_2[ray_triangle_id]);
 
 	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -497,8 +497,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		float u, v;
 		int light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, u, v);
 	
-		float3 light_point  =           barycentric(u, v, triangles_position0[light_id], triangles_position_edge1[light_id], triangles_position_edge2[light_id]);
-		float3 light_normal = normalize(barycentric(u, v, triangles_normal0  [light_id], triangles_normal_edge1  [light_id], triangles_normal_edge2  [light_id]));
+		float3 light_point  =           barycentric(u, v, triangles_position_0[light_id], triangles_position_edge_1[light_id], triangles_position_edge_2[light_id]);
+		float3 light_normal = normalize(barycentric(u, v, triangles_normal_0  [light_id], triangles_normal_edge_1  [light_id], triangles_normal_edge_2  [light_id]));
 
 		float3 to_light = light_point - hit_point;
 		float distance_to_light_squared = dot(to_light, to_light);
@@ -517,8 +517,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			float brdf_pdf = cos_i * ONE_OVER_PI;
 
 			float light_area = 0.5f * length(cross(
-				triangles_position_edge1[light_id], 
-				triangles_position_edge2[light_id]
+				triangles_position_edge_1[light_id], 
+				triangles_position_edge_2[light_id]
 			));
 
 			float light_select_pdf = 1.0f / float(light_count);
@@ -585,9 +585,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	ASSERT(material.type == Material::Type::DIELECTRIC, "Material should be dielectric in this Kernel");
 
-	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
-	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position_0 [ray_triangle_id], triangles_position_edge_1 [ray_triangle_id], triangles_position_edge_2 [ray_triangle_id]);
+	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal_0   [ray_triangle_id], triangles_normal_edge_1   [ray_triangle_id], triangles_normal_edge_2   [ray_triangle_id]);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord_0[ray_triangle_id], triangles_tex_coord_edge_1[ray_triangle_id], triangles_tex_coord_edge_2[ray_triangle_id]);
 
 	hit_normal = normalize(hit_normal);
 	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -675,9 +675,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	ASSERT(material.type == Material::Type::GLOSSY, "Material should be glossy in this Kernel");
 
-	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position0 [ray_triangle_id], triangles_position_edge1 [ray_triangle_id], triangles_position_edge2 [ray_triangle_id]);
-	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal0   [ray_triangle_id], triangles_normal_edge1   [ray_triangle_id], triangles_normal_edge2   [ray_triangle_id]);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord0[ray_triangle_id], triangles_tex_coord_edge1[ray_triangle_id], triangles_tex_coord_edge2[ray_triangle_id]);
+	float3 hit_point     = barycentric(ray_u, ray_v, triangles_position_0 [ray_triangle_id], triangles_position_edge_1 [ray_triangle_id], triangles_position_edge_2 [ray_triangle_id]);
+	float3 hit_normal    = barycentric(ray_u, ray_v, triangles_normal_0   [ray_triangle_id], triangles_normal_edge_1   [ray_triangle_id], triangles_normal_edge_2   [ray_triangle_id]);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, triangles_tex_coord_0[ray_triangle_id], triangles_tex_coord_edge_1[ray_triangle_id], triangles_tex_coord_edge_2[ray_triangle_id]);
 
 	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
@@ -696,8 +696,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		float light_v;
 		int light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v);
 	
-		float3 light_point  =           barycentric(light_u, light_v, triangles_position0[light_id], triangles_position_edge1[light_id], triangles_position_edge2[light_id]);
-		float3 light_normal = normalize(barycentric(light_u, light_v, triangles_normal0  [light_id], triangles_normal_edge1  [light_id], triangles_normal_edge2  [light_id]));
+		float3 light_point  =           barycentric(light_u, light_v, triangles_position_0[light_id], triangles_position_edge_1[light_id], triangles_position_edge_2[light_id]);
+		float3 light_normal = normalize(barycentric(light_u, light_v, triangles_normal_0  [light_id], triangles_normal_edge_1  [light_id], triangles_normal_edge_2  [light_id]));
 
 		float3 to_light = light_point - hit_point;
 		float distance_to_light_squared = dot(to_light, to_light);
@@ -725,8 +725,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			float brdf_pdf = F * D * m_dot_n / (4.0f * dot(half_vector, direction_in));
 			
 			float light_area = 0.5f * length(cross(
-				triangles_position_edge1[light_id], 
-				triangles_position_edge2[light_id]
+				triangles_position_edge_1[light_id], 
+				triangles_position_edge_2[light_id]
 			));
 
 			float light_select_pdf = 1.0f / float(light_count);

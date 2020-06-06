@@ -230,32 +230,32 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	}
 
 	// Allocate Triangles in SoA format
-	Vector3 * triangles_position0      = new Vector3[index_count];
-	Vector3 * triangles_position_edge1 = new Vector3[index_count];
-	Vector3 * triangles_position_edge2 = new Vector3[index_count];
+	Vector3 * triangles_position_0      = new Vector3[index_count];
+	Vector3 * triangles_position_edge_1 = new Vector3[index_count];
+	Vector3 * triangles_position_edge_2 = new Vector3[index_count];
 
-	Vector3 * triangles_normal0      = new Vector3[index_count];
-	Vector3 * triangles_normal_edge1 = new Vector3[index_count];
-	Vector3 * triangles_normal_edge2 = new Vector3[index_count]; 
+	Vector3 * triangles_normal_0      = new Vector3[index_count];
+	Vector3 * triangles_normal_edge_1 = new Vector3[index_count];
+	Vector3 * triangles_normal_edge_2 = new Vector3[index_count]; 
 	
-	Vector2 * triangles_tex_coord0      = new Vector2[index_count];
-	Vector2 * triangles_tex_coord_edge1 = new Vector2[index_count];
-	Vector2 * triangles_tex_coord_edge2 = new Vector2[index_count];
+	Vector2 * triangles_tex_coord_0      = new Vector2[index_count];
+	Vector2 * triangles_tex_coord_edge_1 = new Vector2[index_count];
+	Vector2 * triangles_tex_coord_edge_2 = new Vector2[index_count];
 
 	int * triangles_material_id = new int[index_count];
 
 	for (int i = 0; i < index_count; i++) {
-		triangles_position0[i]      = flat_triangles[i].position_0;
-		triangles_position_edge1[i] = flat_triangles[i].position_1 - flat_triangles[i].position_0;
-		triangles_position_edge2[i] = flat_triangles[i].position_2 - flat_triangles[i].position_0;
+		triangles_position_0     [i] = flat_triangles[i].position_0;
+		triangles_position_edge_1[i] = flat_triangles[i].position_1 - flat_triangles[i].position_0;
+		triangles_position_edge_2[i] = flat_triangles[i].position_2 - flat_triangles[i].position_0;
 
-		triangles_normal0[i]      = flat_triangles[i].normal_0;
-		triangles_normal_edge1[i] = flat_triangles[i].normal_1 - flat_triangles[i].normal_0;
-		triangles_normal_edge2[i] = flat_triangles[i].normal_2 - flat_triangles[i].normal_0;
+		triangles_normal_0     [i] = flat_triangles[i].normal_0;
+		triangles_normal_edge_1[i] = flat_triangles[i].normal_1 - flat_triangles[i].normal_0;
+		triangles_normal_edge_2[i] = flat_triangles[i].normal_2 - flat_triangles[i].normal_0;
 
-		triangles_tex_coord0[i]      = flat_triangles[i].tex_coord_0;
-		triangles_tex_coord_edge1[i] = flat_triangles[i].tex_coord_1 - flat_triangles[i].tex_coord_0;
-		triangles_tex_coord_edge2[i] = flat_triangles[i].tex_coord_2 - flat_triangles[i].tex_coord_0;
+		triangles_tex_coord_0     [i] = flat_triangles[i].tex_coord_0;
+		triangles_tex_coord_edge_1[i] = flat_triangles[i].tex_coord_1 - flat_triangles[i].tex_coord_0;
+		triangles_tex_coord_edge_2[i] = flat_triangles[i].tex_coord_2 - flat_triangles[i].tex_coord_0;
 
 		triangles_material_id[i] = flat_triangles[i].material_id;
 	}
@@ -263,17 +263,17 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	delete [] flat_triangles;
 
 	// Set global Triangle buffers
-	module.get_global("triangles_position0")     .set_buffer(triangles_position0,      index_count);
-	module.get_global("triangles_position_edge1").set_buffer(triangles_position_edge1, index_count);
-	module.get_global("triangles_position_edge2").set_buffer(triangles_position_edge2, index_count);
+	module.get_global("triangles_position_0")     .set_buffer(triangles_position_0,      index_count);
+	module.get_global("triangles_position_edge_1").set_buffer(triangles_position_edge_1, index_count);
+	module.get_global("triangles_position_edge_2").set_buffer(triangles_position_edge_2, index_count);
 
-	module.get_global("triangles_normal0")     .set_buffer(triangles_normal0,      index_count);
-	module.get_global("triangles_normal_edge1").set_buffer(triangles_normal_edge1, index_count);
-	module.get_global("triangles_normal_edge2").set_buffer(triangles_normal_edge2, index_count);
+	module.get_global("triangles_normal_0")     .set_buffer(triangles_normal_0,      index_count);
+	module.get_global("triangles_normal_edge_1").set_buffer(triangles_normal_edge_1, index_count);
+	module.get_global("triangles_normal_edge_2").set_buffer(triangles_normal_edge_2, index_count);
 
-	module.get_global("triangles_tex_coord0")     .set_buffer(triangles_tex_coord0,      index_count);
-	module.get_global("triangles_tex_coord_edge1").set_buffer(triangles_tex_coord_edge1, index_count);
-	module.get_global("triangles_tex_coord_edge2").set_buffer(triangles_tex_coord_edge2, index_count);
+	module.get_global("triangles_tex_coord_0")     .set_buffer(triangles_tex_coord_0,      index_count);
+	module.get_global("triangles_tex_coord_edge_1").set_buffer(triangles_tex_coord_edge_1, index_count);
+	module.get_global("triangles_tex_coord_edge_2").set_buffer(triangles_tex_coord_edge_2, index_count);
 
 	module.get_global("triangles_material_id").set_buffer(triangles_material_id, index_count);
 
@@ -338,8 +338,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 		if (mesh->materials[triangle.material_id].type == Material::Type::LIGHT) {
 			float area = 0.5f * Vector3::length(Vector3::cross(
-				triangles_position_edge1[i],
-				triangles_position_edge2[i]
+				triangles_position_edge_1[i],
+				triangles_position_edge_2[i]
 			));
 
 			lights.push_back({ reverse_indices[i], area });
@@ -376,15 +376,15 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	}
 	
 	// Clean up buffers on Host side
-	delete [] triangles_position0;  
-	delete [] triangles_position_edge1;
-	delete [] triangles_position_edge2;
-	delete [] triangles_normal0;
-	delete [] triangles_normal_edge1;
-	delete [] triangles_normal_edge2;
-	delete [] triangles_tex_coord0;  
-	delete [] triangles_tex_coord_edge1;
-	delete [] triangles_tex_coord_edge2;
+	delete [] triangles_position_0;  
+	delete [] triangles_position_edge_1;
+	delete [] triangles_position_edge_2;
+	delete [] triangles_normal_0;
+	delete [] triangles_normal_edge_1;
+	delete [] triangles_normal_edge_2;
+	delete [] triangles_tex_coord_0;  
+	delete [] triangles_tex_coord_edge_1;
+	delete [] triangles_tex_coord_edge_2;
 	delete [] triangles_material_id;
 
 	delete [] reverse_indices;
@@ -412,7 +412,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	ptr_direct_alt   = CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT);
 	ptr_indirect_alt = CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT);
 
-	module.get_global("frame_buffer_direct").set_value(ptr_direct.ptr);
+	module.get_global("frame_buffer_direct")  .set_value(ptr_direct.ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture

@@ -24,24 +24,24 @@ struct RayHit {
 };
 
 // Triangles in SoA layout
-__device__ float3 * triangles_position0;
-__device__ float3 * triangles_position_edge1;
-__device__ float3 * triangles_position_edge2;
+__device__ float3 * triangles_position_0;
+__device__ float3 * triangles_position_edge_1;
+__device__ float3 * triangles_position_edge_2;
 
-__device__ float3 * triangles_normal0;
-__device__ float3 * triangles_normal_edge1;
-__device__ float3 * triangles_normal_edge2; 
+__device__ float3 * triangles_normal_0;
+__device__ float3 * triangles_normal_edge_1;
+__device__ float3 * triangles_normal_edge_2; 
  
-__device__ float2 * triangles_tex_coord0;
-__device__ float2 * triangles_tex_coord_edge1;
-__device__ float2 * triangles_tex_coord_edge2;
+__device__ float2 * triangles_tex_coord_0;
+__device__ float2 * triangles_tex_coord_edge_1;
+__device__ float2 * triangles_tex_coord_edge_2;
 
 __device__ int * triangles_material_id;
 
 __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit & ray_hit) {
-	const float3 & position0      = triangles_position0     [triangle_id];
-	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
-	const float3 & position_edge2 = triangles_position_edge2[triangle_id];
+	const float3 & position0      = triangles_position_0     [triangle_id];
+	const float3 & position_edge1 = triangles_position_edge_1[triangle_id];
+	const float3 & position_edge2 = triangles_position_edge_2[triangle_id];
 
 	float3 h = cross(ray.direction, position_edge2);
 	float  a = dot(position_edge1, h);
@@ -68,9 +68,9 @@ __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit &
 }
 
 __device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, float max_distance) {
-	const float3 & position0      = triangles_position0     [triangle_id];
-	const float3 & position_edge1 = triangles_position_edge1[triangle_id];
-	const float3 & position_edge2 = triangles_position_edge2[triangle_id];
+	const float3 & position0      = triangles_position_0     [triangle_id];
+	const float3 & position_edge1 = triangles_position_edge_1[triangle_id];
+	const float3 & position_edge2 = triangles_position_edge_2[triangle_id];
 
 	float3 h = cross(ray.direction, position_edge2);
 	float  a = dot(position_edge1, h);
