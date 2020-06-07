@@ -32,8 +32,8 @@ struct Triangle {
 	float4 part_5; // tex_coord_edge_1 xy  and tex_coord_edge_2 xy
 };
 
-__device__ Triangle * triangles;
-__device__ int      * triangle_material_ids;
+__device__ const Triangle * triangles;
+__device__ const int      * triangle_material_ids;
 
 __device__ inline int triangle_get_material_id(int index) {
 	return triangle_material_ids[index];

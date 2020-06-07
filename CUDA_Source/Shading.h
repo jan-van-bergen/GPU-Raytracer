@@ -9,7 +9,7 @@
 // Glossy materials with roughness below the cutoff don't use direct Light sampling
 #define ROUGHNESS_CUTOFF 0.3f
 
-__device__ cudaTextureObject_t * textures;
+__device__ const cudaTextureObject_t * textures;
 
 struct Material {
 	enum class Type : char {
@@ -39,13 +39,13 @@ struct Material {
 	}
 };
 
-__device__ Material * materials;
+__device__ const Material * materials;
 
-__device__ int     light_count;
-__device__ int   * light_indices;
+__device__ const int     light_count;
+__device__ const int   * light_indices;
 
-__device__ float * light_areas_cumulative;
-__device__ float   light_area_total;
+__device__ const float * light_areas_cumulative;
+__device__ const float   light_area_total;
 
 // Assumes no Total Internal Reflection
 __device__ inline float fresnel_schlick(float n_1, float n_2, float cos_theta_i, float cos_theta_t) {
