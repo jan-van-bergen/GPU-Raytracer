@@ -23,39 +23,95 @@ struct RayHit {
 	int triangle_id = -1;
 };
 
-// Triangles in SoA layout
-__device__ float3 * triangles_position_0;
-__device__ float3 * triangles_position_edge_1;
-__device__ float3 * triangles_position_edge_2;
+struct Triangle {
+	float4 part_0; // position_0       xyz and position_edge_1  x
+	float4 part_1; // position_edge_1   yz and position_edge_2  xy
+	float4 part_2; // position_edge_2    z and normal_0         xyz
+	float4 part_3; // normal_edge_1    xyz and normal_edge_2    x
+	float4 part_4; // normal_edge_2     yz and tex_coord_0      xy
+	float4 part_5; // tex_coord_edge_1 xy  and tex_coord_edge_2 xy
+};
 
-__device__ float3 * triangles_normal_0;
-__device__ float3 * triangles_normal_edge_1;
-__device__ float3 * triangles_normal_edge_2; 
- 
-__device__ float2 * triangles_tex_coord_0;
-__device__ float2 * triangles_tex_coord_edge_1;
-__device__ float2 * triangles_tex_coord_edge_2;
+__device__ Triangle * triangles;
+__device__ int      * triangle_material_ids;
 
-__device__ int * triangles_material_id;
+__device__ inline int triangle_get_material_id(int index) {
+	return triangle_material_ids[index];
+}
+
+__device__ inline void triangle_get_positions(int index, float3 & position_0, float3 & position_edge_1, float3 & position_edge_2) {
+	float4 part_0 = triangles[index].part_0;
+	float4 part_1 = triangles[index].part_1;
+	float4 part_2 = triangles[index].part_2;
+
+	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
+	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
+	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
+}
+
+__device__ inline void triangle_get_positions_and_normals(int index, 
+	float3 & position_0, float3 & position_edge_1, float3 & position_edge_2,
+	float3 & normal_0,   float3 & normal_edge_1,   float3 & normal_edge_2
+) {
+	float4 part_0 = triangles[index].part_0;
+	float4 part_1 = triangles[index].part_1;
+	float4 part_2 = triangles[index].part_2;
+	float4 part_3 = triangles[index].part_3;
+	float4 part_4 = triangles[index].part_4;
+
+	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
+	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
+	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
+
+	normal_0      = make_float3(part_2.y, part_2.z, part_3.w);
+	normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
+	normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
+}
+
+__device__ inline void triangle_get_positions_normals_and_tex_coords(int index, 
+	float3 & position_0,  float3 & position_edge_1,  float3 & position_edge_2,
+	float3 & normal_0,    float3 & normal_edge_1,    float3 & normal_edge_2,
+	float2 & tex_coord_0, float2 & tex_coord_edge_1, float2 & tex_coord_edge_2
+) {
+	float4 part_0 = triangles[index].part_0;
+	float4 part_1 = triangles[index].part_1;
+	float4 part_2 = triangles[index].part_2;
+	float4 part_3 = triangles[index].part_3;
+	float4 part_4 = triangles[index].part_4;
+	float4 part_5 = triangles[index].part_5;
+
+	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
+	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
+	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
+
+	normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
+	normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
+	normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
+
+	tex_coord_0      = make_float2(part_4.z, part_4.w);
+	tex_coord_edge_1 = make_float2(part_5.x, part_5.y);
+	tex_coord_edge_2 = make_float2(part_5.z, part_5.w);
+}
 
 __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit & ray_hit) {
-	const float3 & position0      = triangles_position_0     [triangle_id];
-	const float3 & position_edge1 = triangles_position_edge_1[triangle_id];
-	const float3 & position_edge2 = triangles_position_edge_2[triangle_id];
+	float3 position_0;
+	float3 position_edge_1;
+	float3 position_edge_2;
+	triangle_get_positions(triangle_id, position_0, position_edge_1, position_edge_2);
 
-	float3 h = cross(ray.direction, position_edge2);
-	float  a = dot(position_edge1, h);
+	float3 h = cross(ray.direction, position_edge_2);
+	float  a = dot(position_edge_1, h);
 
 	float  f = 1.0f / a;
-	float3 s = ray.origin - position0;
+	float3 s = ray.origin - position_0;
 	float  u = f * dot(s, h);
 
 	if (u >= 0.0f && u <= 1.0f) {
-		float3 q = cross(s, position_edge1);
+		float3 q = cross(s, position_edge_1);
 		float  v = f * dot(ray.direction, q);
 
 		if (v >= 0.0f && u + v <= 1.0f) {
-			float t = f * dot(position_edge2, q);
+			float t = f * dot(position_edge_2, q);
 
 			if (t > EPSILON && t < ray_hit.t) {
 				ray_hit.t = t;
@@ -68,23 +124,24 @@ __device__ inline void triangle_trace(int triangle_id, const Ray & ray, RayHit &
 }
 
 __device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, float max_distance) {
-	const float3 & position0      = triangles_position_0     [triangle_id];
-	const float3 & position_edge1 = triangles_position_edge_1[triangle_id];
-	const float3 & position_edge2 = triangles_position_edge_2[triangle_id];
+	float3 position_0;
+	float3 position_edge_1;
+	float3 position_edge_2;
+	triangle_get_positions(triangle_id, position_0, position_edge_1, position_edge_2);
 
-	float3 h = cross(ray.direction, position_edge2);
-	float  a = dot(position_edge1, h);
+	float3 h = cross(ray.direction, position_edge_2);
+	float  a = dot(position_edge_1, h);
 
 	float  f = 1.0f / a;
-	float3 s = ray.origin - position0;
+	float3 s = ray.origin - position_0;
 	float  u = f * dot(s, h);
 
 	if (u >= 0.0f && u <= 1.0f) {
-		float3 q = cross(s, position_edge1);
+		float3 q = cross(s, position_edge_1);
 		float  v = f * dot(ray.direction, q);
 
 		if (v >= 0.0f && u + v <= 1.0f) {
-			float t = f * dot(position_edge2, q);
+			float t = f * dot(position_edge_2, q);
 
 			if (t > EPSILON && t < max_distance) return true;
 		}

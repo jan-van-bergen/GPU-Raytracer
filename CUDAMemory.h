@@ -20,7 +20,7 @@ namespace CUDAMemory {
 
 		return Ptr<T>(ptr);
 	}
-	
+
 	template<typename T>
 	inline void memcpy(Ptr<T> ptr, const T * data, int count = 1) {
 		assert(data);
