@@ -118,6 +118,8 @@ static struct BufferSizes {
 } buffer_sizes;
 
 void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
+	ScopedTimer timer("Pathtracer Initialization");
+
 	CUDAContext::init();
 
 	camera.init(DEG_TO_RAD(110.0f));
@@ -150,11 +152,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 			);
 		
 			// Copy Texture data over to GPU
-			CUDAMemory::copy_array(array, 
-				texture.width * texture.channels, 
-				texture.height,
-				texture.data
-			);
+			CUDAMemory::copy_array(array, texture.width * texture.channels, texture.height, texture.data);
 
 			// Describe the Array to read from
 			CUDA_RESOURCE_DESC res_desc = { };
@@ -217,17 +215,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	indices    = cwbvh.indices;
 	primitives = cwbvh.triangles;
 #endif
-	
-	// Flatten the Primitives array so that we don't need the indices array as an indirection to index it
-	// (This does mean more memory consumption)
-	Triangle * flat_triangles  = new Triangle[index_count];
-	int      * reverse_indices = new int     [index_count];
-
-	for (int i = 0; i < index_count; i++) {
-		flat_triangles[i] = primitives[indices[i]];
-
-		reverse_indices[indices[i]] = i;
-	}
 
 	struct CUDATriangle {
 		Vector3 position_0;
@@ -246,23 +233,27 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	CUDATriangle * triangles             = new CUDATriangle[index_count];
 	int          * triangle_material_ids = new int         [index_count];
 
+	int * reverse_indices = new int[index_count];
+
 	for (int i = 0; i < index_count; i++) {
-		triangles[i].position_0      = flat_triangles[i].position_0;
-		triangles[i].position_edge_1 = flat_triangles[i].position_1 - flat_triangles[i].position_0;
-		triangles[i].position_edge_2 = flat_triangles[i].position_2 - flat_triangles[i].position_0;
+		int index = indices[i];
 
-		triangles[i].normal_0      = flat_triangles[i].normal_0;
-		triangles[i].normal_edge_1 = flat_triangles[i].normal_1 - flat_triangles[i].normal_0;
-		triangles[i].normal_edge_2 = flat_triangles[i].normal_2 - flat_triangles[i].normal_0;
+		triangles[i].position_0      = primitives[index].position_0;
+		triangles[i].position_edge_1 = primitives[index].position_1 - primitives[index].position_0;
+		triangles[i].position_edge_2 = primitives[index].position_2 - primitives[index].position_0;
 
-		triangles[i].tex_coord_0      = flat_triangles[i].tex_coord_0;
-		triangles[i].tex_coord_edge_1 = flat_triangles[i].tex_coord_1 - flat_triangles[i].tex_coord_0;
-		triangles[i].tex_coord_edge_2 = flat_triangles[i].tex_coord_2 - flat_triangles[i].tex_coord_0;
+		triangles[i].normal_0      = primitives[index].normal_0;
+		triangles[i].normal_edge_1 = primitives[index].normal_1 - primitives[index].normal_0;
+		triangles[i].normal_edge_2 = primitives[index].normal_2 - primitives[index].normal_0;
 
-		triangle_material_ids[i] = flat_triangles[i].material_id;
+		triangles[i].tex_coord_0      = primitives[index].tex_coord_0;
+		triangles[i].tex_coord_edge_1 = primitives[index].tex_coord_1 - primitives[index].tex_coord_0;
+		triangles[i].tex_coord_edge_2 = primitives[index].tex_coord_2 - primitives[index].tex_coord_0;
+
+		triangle_material_ids[i] = primitives[index].material_id;
+
+		reverse_indices[index] = i;
 	}
-
-	delete [] flat_triangles;
 
 	module.get_global("triangles")            .set_buffer(triangles,             index_count);
 	module.get_global("triangle_material_ids").set_buffer(triangle_material_ids, index_count);
