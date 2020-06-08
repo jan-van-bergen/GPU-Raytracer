@@ -1,7 +1,15 @@
 #pragma once
 // This file contains things that are shared between the CUDA files and the C++ files
 
+
+// Constants
 #define WARP_SIZE 32
+
+#define PI          3.14159265359f
+#define ONE_OVER_PI 0.31830988618f
+
+#define TWO_PI          6.28318530718f
+#define ONE_OVER_TWO_PI 0.15915494309f
 
 
 // Screen related
@@ -32,12 +40,19 @@ static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 
 #define NUM_BOUNCES 5
 
-
 #define        TRACE_BLOCK_Y 8
 #define SHADOW_TRACE_BLOCK_Y 8
 
+
+// Lighting
 #define ENABLE_NEXT_EVENT_ESTIMATION true
 #define ENABLE_MULTIPLE_IMPORTANCE_SAMPLING true
+
+#define LIGHT_SELECT_UNIFORM 0
+#define LIGHT_SELECT_AREA    1
+
+#define LIGHT_SELECTION LIGHT_SELECT_AREA
+
 
 // SVGF
 #define MAX_ATROUS_ITERATIONS 10
@@ -52,14 +67,6 @@ static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 // If MICROFACET_SEPARATE_G_TERMS is set to true, two monodirectional Smith terms G1 are used,
 // otherwise a Height-Correlated Masking and Shadowing term G2 is used based on 2 lambda terms.
 #define MICROFACET_SEPARATE_G_TERMS false
-
-
-// Pi related
-#define PI          3.14159265359f
-#define ONE_OVER_PI 0.31830988618f
-
-#define TWO_PI          6.28318530718f
-#define ONE_OVER_TWO_PI 0.15915494309f
 
 
 // BVH related

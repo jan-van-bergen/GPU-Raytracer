@@ -382,9 +382,12 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		
 		float brdf_pdf = ray_buffer_trace.last_pdf[index];
 
+#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
 		float light_select_pdf = 1.0f / float(light_count);
-		// float light_select_pdf = light_area / light_area_total;
-		float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
+		float light_select_pdf = light_area / light_area_total;
+#endif
+		float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
 
 		float mis_pdf = brdf_pdf + light_pdf;
 
@@ -541,9 +544,12 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
+#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
 			float light_select_pdf = 1.0f / float(light_count);
-			// float light_select_pdf = light_area / light_area_total;
-			float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
+			float light_select_pdf = light_area / light_area_total;
+#endif
+			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
 
 #if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;
@@ -771,9 +777,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			
 			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
+#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
 			float light_select_pdf = 1.0f / float(light_count);
-			// float light_select_pdf = light_area / light_area_total;
-			float light_pdf        = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
+			float light_select_pdf = light_area / light_area_total;
+#endif
+			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
 
 #if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;

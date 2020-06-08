@@ -318,7 +318,10 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		const Triangle & triangle = mesh->triangles[i];
 
 		if (mesh->materials[triangle.material_id].type == Material::Type::LIGHT) {
-			float area = 0.5f * Vector3::length(Vector3::cross(triangles[i].position_edge_1, triangles[i].position_edge_2));
+			float area = 0.5f * Vector3::length(Vector3::cross(
+				mesh->triangles[i].position_1 - mesh->triangles[i].position_0,
+				mesh->triangles[i].position_2 - mesh->triangles[i].position_0
+			));
 
 			lights.push_back({ reverse_indices[i], area });
 		}

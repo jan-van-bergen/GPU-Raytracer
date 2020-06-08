@@ -72,7 +72,9 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 }
 
 __device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v) {
-#if false
+#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
+	int light_triangle_id = light_indices[random_xorshift(seed) % light_count];
+#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 	// Pick random value between 0 and light_area_total
 	float random_value = random_float_xorshift(seed) * light_area_total;
 
@@ -93,8 +95,6 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 			break;
 		}
 	}
-#else
-	int light_triangle_id = light_indices[random_xorshift(seed) % light_count];
 #endif
 
 	// Pick a random point on the triangle using random barycentric coordinates
