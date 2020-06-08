@@ -20,6 +20,7 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - Cosine weighted direction sampling for diffuse bounces.
   - Microfacet sampling as described in [Walter et al. 2007](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)
 - Blue Noise Sampling: The low discrepency sampler by [Heitz et al.](https://eheitzresearch.wordpress.com/762-2/) is used. This sampler distributes Monte Carlo errors as a blue noise in screen space.
+- Primary Ray Rasterization: For efficiency reasons primary rays are rasterized using OpenGL, before being propagated further as bounced rays in CUDA.
 - Multiple Material types
   - Diffuse
   - Dielectrics
