@@ -267,7 +267,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 						first  = node.left;
 					} else {
 						second = node.left;
-						first = node.left + 1;
+						first  = node.left + 1;
 					}
 
 					stack_push(shared_stack, stack, stack_size, second);
@@ -350,7 +350,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 						first  = node.left;
 					} else {
 						second = node.left;
-						first = node.left + 1;
+						first  = node.left + 1;
 					}
 
 					stack_push(shared_stack, stack, stack_size, second);

@@ -13,10 +13,10 @@ static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id
 Window::Window(const char * title) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
-	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
+	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE,   8);
+	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,    8);
+	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE,   8);
 	SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
@@ -33,12 +33,13 @@ Window::Window(const char * title) {
 		abort();
 	}
 	
-	printf("OpenGL Info:\n");
-	printf("Version:  %s\n",   glGetString(GL_VERSION));
-	printf("GLSL:     %s\n",   glGetString(GL_SHADING_LANGUAGE_VERSION));
-	printf("Vendor:   %s\n",   glGetString(GL_VENDOR));
-	printf("Renderer: %s\n\n", glGetString(GL_RENDERER));
-	
+	puts("OpenGL Info:");
+	printf("Version:  %s\n", glGetString(GL_VERSION));
+	printf("GLSL:     %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+	printf("Vendor:   %s\n", glGetString(GL_VENDOR));
+	printf("Renderer: %s\n", glGetString(GL_RENDERER));
+	puts("");
+
 #if false
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(gl_message_callback, nullptr);

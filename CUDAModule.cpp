@@ -94,6 +94,8 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		printf("CUDA Module %s did not need to recompile.\n", filename);
 	}
 
+	puts("");
+
 	CUDACALL(cuModuleLoad(&module, output_filename));
 }
 

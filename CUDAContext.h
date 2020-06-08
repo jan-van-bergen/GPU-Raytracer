@@ -14,11 +14,17 @@ namespace CUDAContext {
 		int device_count;
 		CUDACALL(cuDeviceGetCount(&device_count));
 
-		CUdevice * devices = new CUdevice[device_count];
-
+		CUdevice * devices = reinterpret_cast<CUdevice *>(alloca(device_count * sizeof(CUdevice)));
+		
 		unsigned gl_device_count;
 		CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
-	
+
+		if (gl_device_count == 0) {
+			puts("ERROR: No suitable Device found!");
+
+			abort();
+		}
+
 		CUdevice best_device;
 		int      best_compute_capability = 0;
 
@@ -29,17 +35,38 @@ namespace CUDAContext {
 
 			int	device_compute_capability = major * 10 + minor;
 			if (device_compute_capability > best_compute_capability) {
-				best_device = devices[i];
+				best_device             = devices[i];
 				best_compute_capability = device_compute_capability;
 			}
 		}
 
 		compute_capability = best_compute_capability;
 
-		delete [] devices;
-
 		CUcontext context;
 		CUDACALL(cuCtxCreate(&context, 0, best_device));
+		
+		CUfunc_cache   config_cache;
+		CUsharedconfig config_shared;
+		CUDACALL(cuCtxGetCacheConfig    (&config_cache));
+		CUDACALL(cuCtxGetSharedMemConfig(&config_shared));
+
+		puts("CUDA Info:");
+		printf("Compute Capability: %i\n", compute_capability);
+
+		switch (config_cache) {
+			case CU_FUNC_CACHE_PREFER_NONE:   puts("Cache Config: Prefer None");   break;
+			case CU_FUNC_CACHE_PREFER_SHARED: puts("Cache Config: Prefer Shared"); break;
+			case CU_FUNC_CACHE_PREFER_L1:     puts("Cache Config: Prefer L1");     break;
+			case CU_FUNC_CACHE_PREFER_EQUAL:  puts("Cache Config: Prefer Equal");  break;
+		}
+
+		switch (config_shared) {
+			case CU_SHARED_MEM_CONFIG_DEFAULT_BANK_SIZE:    puts("Shared Memory Config: Default"); break;
+			case CU_SHARED_MEM_CONFIG_FOUR_BYTE_BANK_SIZE:  puts("Shared Memory Config: 4 Bytes"); break;
+			case CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE: puts("Shared Memory Config: 8 Bytes"); break;
+		}
+
+		puts("");
 	}
 
 	// Creates a CUDA Array that is mapped to the given GL Texture handle

@@ -43,7 +43,7 @@ static float frame_times[FRAMETIME_HISTORY_LENGTH];
 static int current_frame = 0;
 
 // Index of frame to take screen capture on
-static constexpr int capture_frame_index = 0;
+static constexpr int capture_frame_index = -1;
 
 int main(int argument_count, char ** arguments) {
 	Window window("Pathtracer");

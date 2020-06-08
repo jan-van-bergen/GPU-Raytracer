@@ -432,6 +432,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	unsigned long long bytes_allocated = bytes_total - bytes_free;
 
+	puts("");
 	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n", bytes_allocated >> 10, bytes_allocated >> 20);
 	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n", bytes_free      >> 10, bytes_free      >> 20);
 
