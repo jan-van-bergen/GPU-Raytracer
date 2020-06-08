@@ -32,5 +32,4 @@ namespace Util {
 	}
 
 	void export_ppm(const char * file_path, int width, int height, const unsigned char * data);
-
 }

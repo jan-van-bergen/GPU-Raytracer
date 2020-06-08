@@ -461,12 +461,12 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_taa_finalize .occupancy_max_block_size_2d();
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
-	kernel_primary         .set_block_dim(WARP_SIZE, 1, 1);
-	kernel_generate        .set_block_dim(WARP_SIZE, 1, 1);
-	kernel_sort            .set_block_dim(WARP_SIZE, 1, 1);
-	kernel_shade_diffuse   .set_block_dim(WARP_SIZE, 1, 1);
-	kernel_shade_dielectric.set_block_dim(WARP_SIZE, 1, 1);
-	kernel_shade_glossy    .set_block_dim(WARP_SIZE, 1, 1);
+	kernel_primary         .set_block_dim(WARP_SIZE * 2, 1, 1);
+	kernel_generate        .set_block_dim(WARP_SIZE * 2, 1, 1);
+	kernel_sort            .set_block_dim(WARP_SIZE * 2, 1, 1);
+	kernel_shade_diffuse   .set_block_dim(WARP_SIZE * 2, 1, 1);
+	kernel_shade_dielectric.set_block_dim(WARP_SIZE * 2, 1, 1);
+	kernel_shade_glossy    .set_block_dim(WARP_SIZE * 2, 1, 1);
 	
 	kernel_trace       .set_block_dim(WARP_SIZE,        TRACE_BLOCK_Y, 1);
 	kernel_shadow_trace.set_block_dim(WARP_SIZE, SHADOW_TRACE_BLOCK_Y, 1);

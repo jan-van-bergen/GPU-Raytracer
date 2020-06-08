@@ -656,8 +656,8 @@ __device__ __inline__ inline unsigned cwbvh_node_intersect(
 	bool ray_negative_y,
 	bool ray_negative_z,
 	float max_distance,
-	const float4 & node_0, const float4 & node_1, const float4 & node_2, const float4 & node_3, const float4 & node_4) {
-
+	const float4 & node_0, const float4 & node_1, const float4 & node_2, const float4 & node_3, const float4 & node_4
+) {
 	float3 p = make_float3(node_0);
 
 	unsigned e_imask = float_as_uint(node_0.w);

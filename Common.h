@@ -33,8 +33,8 @@ static_assert(TILE_SIZE == WARP_SIZE, "Tile size should equal CUDA warp size!");
 #define NUM_BOUNCES 5
 
 
-#define        TRACE_BLOCK_Y 2
-#define SHADOW_TRACE_BLOCK_Y 2
+#define        TRACE_BLOCK_Y 8
+#define SHADOW_TRACE_BLOCK_Y 8
 
 #define ENABLE_NEXT_EVENT_ESTIMATION true
 #define ENABLE_MULTIPLE_IMPORTANCE_SAMPLING true
