@@ -135,6 +135,50 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		module.get_global("materials").set_buffer(mesh->materials, mesh->material_count);
 	}
 
+	// Set global Texture table
+	int texture_count = Texture::textures.size();
+	if (texture_count > 0) {
+		CUtexObject * tex_objects = new CUtexObject[texture_count];
+
+		for (int i = 0; i < texture_count; i++) {
+			const Texture & texture = Texture::textures[i];
+
+			// Create Array on GPU
+			CUarray array = CUDAMemory::create_array(
+				texture.width,
+				texture.height,
+				texture.channels,
+				texture.get_cuda_array_format()
+			);
+
+			// Copy Texture data over to GPU
+			CUDAMemory::copy_array(array, texture.get_width_in_bytes(), texture.height, texture.data);
+
+			// Describe the Array to read from
+			CUDA_RESOURCE_DESC res_desc = { };
+			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
+			res_desc.res.array.hArray = array;
+
+			// Describe how to sample the Texture
+			CUDA_TEXTURE_DESC tex_desc = { };
+			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
+
+			CUDA_RESOURCE_VIEW_DESC view_desc = { };
+			view_desc.format = texture.get_cuda_resource_view_format();
+			view_desc.width  = texture.get_cuda_resource_view_width();
+			view_desc.height = texture.get_cuda_resource_view_height();
+
+			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, &view_desc));
+		}
+
+		module.get_global("textures").set_buffer(tex_objects, texture_count);
+
+		delete [] tex_objects;
+	}
+	
 	// Construct BVH for the Triangle soup
 	BVH bvh;
 #if BVH_TYPE == BVH_BVH
@@ -390,81 +434,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	global_svgf_settings = module.get_global("svgf_settings");
 
-	// Set global Texture table
-	int texture_count = Texture::textures.size();
-	if (texture_count > 0) {
-		unsigned long long bytes_required = 0;
-
-		// Tally up how much memory is required to store all Textures
-		for (int i = 0; i < texture_count; i++) {
-			const Texture & texture = Texture::textures[i];
-
-			bytes_required += texture.width * texture.height * texture.channels;
-		}
-
-		unsigned long long bytes_available = CUDAContext::get_available_memory();
-
-		if (bytes_required > bytes_available) {
-			printf("Not enough memory to store all Textures, shrinking until it fits...\n");
-		}
-
-		// Quick and dirty way of ensuring that all Textures fit into memory: keep shrinking the largest Texture until it fits
-		while (bytes_required > bytes_available) {
-			int largest_texture_index = -1;
-			int largest_texture_size  = 0;
-
-			for (int i = 0; i < texture_count; i++) {
-				const Texture & texture = Texture::textures[i];
-
-				int texture_size = texture.width * texture.height * texture.channels;
-				if (texture_size > largest_texture_size) {
-					largest_texture_index = i;
-					largest_texture_size  = texture_size;
-				}
-			}
-
-			// Shrink Texture by a factor of 2, reducing 3/4 of its memory usage
-			Texture::textures[largest_texture_index].shrink();
-
-			bytes_required = bytes_required - largest_texture_size + (largest_texture_size >> 2);
-		}
-
-		CUtexObject * tex_objects = new CUtexObject[texture_count];
-
-		for (int i = 0; i < texture_count; i++) {
-			const Texture & texture = Texture::textures[i];
-
-			// Create Array on GPU
-			CUarray array = CUDAMemory::create_array(
-				texture.width,
-				texture.height,
-				texture.channels,
-				CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8
-			);
-		
-			// Copy Texture data over to GPU
-			CUDAMemory::copy_array(array, texture.width * texture.channels, texture.height, texture.data);
-
-			// Describe the Array to read from
-			CUDA_RESOURCE_DESC res_desc = { };
-			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
-			res_desc.res.array.hArray = array;
-		
-			// Describe how to sample the Texture
-			CUDA_TEXTURE_DESC tex_desc = { };
-			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
-			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
-			
-			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
-		}
-
-		module.get_global("textures").set_buffer(tex_objects, texture_count);
-
-		delete [] tex_objects;
-	}
-	
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
 
