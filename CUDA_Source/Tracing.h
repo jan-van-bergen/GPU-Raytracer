@@ -40,9 +40,9 @@ __device__ inline int triangle_get_material_id(int index) {
 }
 
 __device__ inline void triangle_get_positions(int index, float3 & position_0, float3 & position_edge_1, float3 & position_edge_2) {
-	float4 part_0 = triangles[index].part_0;
-	float4 part_1 = triangles[index].part_1;
-	float4 part_2 = triangles[index].part_2;
+	float4 part_0 = __ldg(&triangles[index].part_0);
+	float4 part_1 = __ldg(&triangles[index].part_1);
+	float4 part_2 = __ldg(&triangles[index].part_2);
 
 	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
 	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
@@ -53,11 +53,11 @@ __device__ inline void triangle_get_positions_and_normals(int index,
 	float3 & position_0, float3 & position_edge_1, float3 & position_edge_2,
 	float3 & normal_0,   float3 & normal_edge_1,   float3 & normal_edge_2
 ) {
-	float4 part_0 = triangles[index].part_0;
-	float4 part_1 = triangles[index].part_1;
-	float4 part_2 = triangles[index].part_2;
-	float4 part_3 = triangles[index].part_3;
-	float4 part_4 = triangles[index].part_4;
+	float4 part_0 = __ldg(&triangles[index].part_0);
+	float4 part_1 = __ldg(&triangles[index].part_1);
+	float4 part_2 = __ldg(&triangles[index].part_2);
+	float4 part_3 = __ldg(&triangles[index].part_3);
+	float4 part_4 = __ldg(&triangles[index].part_4);
 
 	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
 	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
@@ -73,12 +73,12 @@ __device__ inline void triangle_get_positions_normals_and_tex_coords(int index,
 	float3 & normal_0,    float3 & normal_edge_1,    float3 & normal_edge_2,
 	float2 & tex_coord_0, float2 & tex_coord_edge_1, float2 & tex_coord_edge_2
 ) {
-	float4 part_0 = triangles[index].part_0;
-	float4 part_1 = triangles[index].part_1;
-	float4 part_2 = triangles[index].part_2;
-	float4 part_3 = triangles[index].part_3;
-	float4 part_4 = triangles[index].part_4;
-	float4 part_5 = triangles[index].part_5;
+	float4 part_0 = __ldg(&triangles[index].part_0);
+	float4 part_1 = __ldg(&triangles[index].part_1);
+	float4 part_2 = __ldg(&triangles[index].part_2);
+	float4 part_3 = __ldg(&triangles[index].part_3);
+	float4 part_4 = __ldg(&triangles[index].part_4);
+	float4 part_5 = __ldg(&triangles[index].part_5);
 
 	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
 	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
@@ -401,12 +401,12 @@ struct AABBHits {
 __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray & ray, float max_distance) {
 	AABBHits result;
 
-	float4 tx0 = (node.aabb_min_x - ray.origin.x) * ray.direction_inv.x;
-	float4 tx1 = (node.aabb_max_x - ray.origin.x) * ray.direction_inv.x;
-	float4 ty0 = (node.aabb_min_y - ray.origin.y) * ray.direction_inv.y;
-	float4 ty1 = (node.aabb_max_y - ray.origin.y) * ray.direction_inv.y;
-	float4 tz0 = (node.aabb_min_z - ray.origin.z) * ray.direction_inv.z;
-	float4 tz1 = (node.aabb_max_z - ray.origin.z) * ray.direction_inv.z;
+	float4 tx0 = (__ldg(&node.aabb_min_x) - ray.origin.x) * ray.direction_inv.x;
+	float4 tx1 = (__ldg(&node.aabb_max_x) - ray.origin.x) * ray.direction_inv.x;
+	float4 ty0 = (__ldg(&node.aabb_min_y) - ray.origin.y) * ray.direction_inv.y;
+	float4 ty1 = (__ldg(&node.aabb_max_y) - ray.origin.y) * ray.direction_inv.y;
+	float4 tz0 = (__ldg(&node.aabb_min_z) - ray.origin.z) * ray.direction_inv.z;
+	float4 tz1 = (__ldg(&node.aabb_max_z) - ray.origin.z) * ray.direction_inv.z;
 
 	result.t_near = make_float4(
 		vmin_max(tx0.x, tx1.x, vmin_max(ty0.x, ty1.x, vmin_max(tz0.x, tz1.x, EPSILON))),
@@ -503,7 +503,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			int node_index, node_id;
 			unpack_qbvh_node(packed, node_index, node_id);
 
-			int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+			int2 index_and_count = __ldg(&qbvh_nodes[node_index].index_and_count[node_id]);
 
 			int index = index_and_count.x;
 			int count = index_and_count.y;
@@ -809,11 +809,11 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 				unsigned child_node_index = child_index_base + relative_index;
 
-				float4 node_0 = cwbvh_nodes[child_node_index].node_0;
-				float4 node_1 = cwbvh_nodes[child_node_index].node_1;
-				float4 node_2 = cwbvh_nodes[child_node_index].node_2;
-				float4 node_3 = cwbvh_nodes[child_node_index].node_3;
-				float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+				float4 node_0 = __ldg(&cwbvh_nodes[child_node_index].node_0);
+				float4 node_1 = __ldg(&cwbvh_nodes[child_node_index].node_1);
+				float4 node_2 = __ldg(&cwbvh_nodes[child_node_index].node_2);
+				float4 node_3 = __ldg(&cwbvh_nodes[child_node_index].node_3);
+				float4 node_4 = __ldg(&cwbvh_nodes[child_node_index].node_4);
 
 				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
 
