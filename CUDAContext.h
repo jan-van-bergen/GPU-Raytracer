@@ -56,7 +56,7 @@ namespace CUDAContext {
 		CUDACALL(cuMemGetInfo(&bytes_free, &total_memory));
 
 		puts("CUDA Info:");
-		printf("Memory available: %i MB\n", total_memory >> 20);
+		printf("Memory available: %llu MB\n", total_memory >> 20);
 		printf("Compute Capability: %i\n", compute_capability);
 
 		switch (config_cache) {
