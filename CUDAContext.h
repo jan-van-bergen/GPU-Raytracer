@@ -7,6 +7,8 @@
 namespace CUDAContext {
 	inline int compute_capability = -1;
 
+	inline unsigned long long total_memory;
+
 	// Creates a new CUDA Context
 	inline void init() {
 		CUDACALL(cuInit(0));
@@ -49,8 +51,12 @@ namespace CUDAContext {
 		CUsharedconfig config_shared;
 		CUDACALL(cuCtxGetCacheConfig    (&config_cache));
 		CUDACALL(cuCtxGetSharedMemConfig(&config_shared));
+		
+		unsigned long long bytes_free;
+		CUDACALL(cuMemGetInfo(&bytes_free, &total_memory));
 
 		puts("CUDA Info:");
+		printf("Memory available: %i MB\n", total_memory >> 20);
 		printf("Compute Capability: %i\n", compute_capability);
 
 		switch (config_cache) {
@@ -67,6 +73,15 @@ namespace CUDAContext {
 		}
 
 		puts("");
+	}
+
+	// Available memory on GPU in bytes
+	inline unsigned long long get_available_memory() {
+		unsigned long long bytes_available;
+		unsigned long long bytes_total;
+		CUDACALL(cuMemGetInfo(&bytes_available, &bytes_total));
+
+		return bytes_available;
 	}
 
 	// Creates a CUDA Array that is mapped to the given GL Texture handle

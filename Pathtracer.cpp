@@ -135,45 +135,6 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		module.get_global("materials").set_buffer(mesh->materials, mesh->material_count);
 	}
 
-	// Set global Texture table
-	int texture_count = Texture::textures.size();
-	if (texture_count > 0) {	
-		CUtexObject * tex_objects = new CUtexObject[texture_count];
-
-		for (int i = 0; i < texture_count; i++) {
-			const Texture & texture = Texture::textures[i];
-
-			// Create Array on GPU
-			CUarray array = CUDAMemory::create_array(
-				texture.width,
-				texture.height,
-				texture.channels,
-				CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8
-			);
-		
-			// Copy Texture data over to GPU
-			CUDAMemory::copy_array(array, texture.width * texture.channels, texture.height, texture.data);
-
-			// Describe the Array to read from
-			CUDA_RESOURCE_DESC res_desc = { };
-			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
-			res_desc.res.array.hArray = array;
-		
-			// Describe how to sample the Texture
-			CUDA_TEXTURE_DESC tex_desc = { };
-			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
-			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
-			
-			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
-		}
-
-		module.get_global("textures").set_buffer(tex_objects, texture_count);
-
-		delete [] tex_objects;
-	}
-
 	// Construct BVH for the Triangle soup
 	BVH bvh;
 #if BVH_TYPE == BVH_BVH
@@ -258,6 +219,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("triangles")            .set_buffer(triangles,             index_count);
 	module.get_global("triangle_material_ids").set_buffer(triangle_material_ids, index_count);
 
+	// Create Vertex Buffer for OpenGL containing all Triangles
 	vertex_count = primitive_count * 3;
 	Vertex * vertices = new Vertex[vertex_count];
 
@@ -292,12 +254,14 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	delete [] vertices;
 	
+	// Initialize OpenGL Shaders
 	shader = Shader::load(DATA_PATH("Shaders/primary_vertex.glsl"), DATA_PATH("Shaders/primary_fragment.glsl"));
 
 	shader.bind();
 	uniform_view_projection      = shader.get_uniform("view_projection");
 	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
 
+	// Initialize GBuffers
 	gbuffer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	module.set_texture("gbuffer_normal_and_depth",     CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
@@ -306,6 +270,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.set_texture("gbuffer_triangle_id",          CUDAContext::map_gl_texture(gbuffer.buffer_triangle_id,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
 	module.set_texture("gbuffer_screen_position_prev", CUDAContext::map_gl_texture(gbuffer.buffer_motion,           CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
 	module.set_texture("gbuffer_depth_gradient",       CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,       CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+
+	// Initialize Lights
 
 	struct LightDescription {
 		int   index;
@@ -333,6 +299,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		// Sort Lights on area
 		std::sort(lights.begin(), lights.end(), [](const LightDescription & a, const LightDescription & b) { return a.area < b.area; });
 
+		// Build cumulative table of each Light's area
 		int   * light_indices          = new int  [light_count];
 		float * light_areas_cumulative = new float[light_count + 1];
 
@@ -361,11 +328,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	module.get_global("light_count").set_value(light_count);
 
-	// Set Sky globals
+	// Initialize Sky
 	Sky sky;
 	sky.init(sky_name);
 
-	module.get_global("sky_size").set_value(sky.size);
+	module.get_global("sky_size").set_value (sky.size);
 	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
 	
 	// Set Blue Noise Sampler globals
@@ -388,16 +355,18 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	module.set_surface("accumulator", CUDAContext::map_gl_texture(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST));
 
-	// Create History Buffers 
+	// Create History Buffers for SVGF
 	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>   (SCREEN_PITCH * SCREEN_HEIGHT).ptr);
 	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
 	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
 	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
 	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT).ptr);
 	
+	// Create Frame Buffers for Temporal Anti-Aliasing
 	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT));
 	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float4>(SCREEN_PITCH * SCREEN_HEIGHT));
 
+	// Initialize buffers used by Wavefront kernels
 	TraceBuffer     ray_buffer_trace;
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric;
@@ -421,14 +390,87 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	global_svgf_settings = module.get_global("svgf_settings");
 
-	unsigned long long bytes_free, bytes_total;
-	CUDACALL(cuMemGetInfo(&bytes_free, &bytes_total));
+	// Set global Texture table
+	int texture_count = Texture::textures.size();
+	if (texture_count > 0) {
+		unsigned long long bytes_required = 0;
 
-	unsigned long long bytes_allocated = bytes_total - bytes_free;
+		// Tally up how much memory is required to store all Textures
+		for (int i = 0; i < texture_count; i++) {
+			const Texture & texture = Texture::textures[i];
+
+			bytes_required += texture.width * texture.height * texture.channels;
+		}
+
+		unsigned long long bytes_available = CUDAContext::get_available_memory();
+
+		if (bytes_required > bytes_available) {
+			printf("Not enough memory to store all Textures, shrinking until it fits...\n");
+		}
+
+		// Quick and dirty way of ensuring that all Textures fit into memory: keep shrinking the largest Texture until it fits
+		while (bytes_required > bytes_available) {
+			int largest_texture_index = -1;
+			int largest_texture_size  = 0;
+
+			for (int i = 0; i < texture_count; i++) {
+				const Texture & texture = Texture::textures[i];
+
+				int texture_size = texture.width * texture.height * texture.channels;
+				if (texture_size > largest_texture_size) {
+					largest_texture_index = i;
+					largest_texture_size  = texture_size;
+				}
+			}
+
+			// Shrink Texture by a factor of 2, reducing 3/4 of its memory usage
+			Texture::textures[largest_texture_index].shrink();
+
+			bytes_required = bytes_required - largest_texture_size + (largest_texture_size >> 2);
+		}
+
+		CUtexObject * tex_objects = new CUtexObject[texture_count];
+
+		for (int i = 0; i < texture_count; i++) {
+			const Texture & texture = Texture::textures[i];
+
+			// Create Array on GPU
+			CUarray array = CUDAMemory::create_array(
+				texture.width,
+				texture.height,
+				texture.channels,
+				CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8
+			);
+		
+			// Copy Texture data over to GPU
+			CUDAMemory::copy_array(array, texture.width * texture.channels, texture.height, texture.data);
+
+			// Describe the Array to read from
+			CUDA_RESOURCE_DESC res_desc = { };
+			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
+			res_desc.res.array.hArray = array;
+		
+			// Describe how to sample the Texture
+			CUDA_TEXTURE_DESC tex_desc = { };
+			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
+			
+			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, nullptr));
+		}
+
+		module.get_global("textures").set_buffer(tex_objects, texture_count);
+
+		delete [] tex_objects;
+	}
+	
+	unsigned long long bytes_available = CUDAContext::get_available_memory();
+	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
 
 	puts("");
 	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n", bytes_allocated >> 10, bytes_allocated >> 20);
-	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n", bytes_free      >> 10, bytes_free      >> 20);
+	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n", bytes_available >> 10, bytes_available >> 20);
 
 	kernel_primary         .init(&module, "kernel_primary");
 	kernel_generate        .init(&module, "kernel_generate");
@@ -515,7 +557,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	event_accumulate.init("Post", "Accumulate");
 
 	event_end.init("END", "END");
-	
+
 	scene_has_diffuse    = false;
 	scene_has_dielectric = false;
 	scene_has_glossy     = false;
