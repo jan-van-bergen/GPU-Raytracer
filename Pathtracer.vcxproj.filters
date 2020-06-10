@@ -66,6 +66,9 @@
     <ClCompile Include="CUDAMemory.cpp">
       <Filter>CUDA</Filter>
     </ClCompile>
+    <ClCompile Include="CUDAContext.cpp">
+      <Filter>CUDA</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">

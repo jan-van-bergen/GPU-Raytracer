@@ -102,7 +102,7 @@ private:
 		return fill_buffer(offset, parameters...);
 	}
 
-	inline void execute_internal(int parameter_buffer_size) const {
+	inline void execute_internal(size_t parameter_buffer_size) const {
 		void * params[] = { 
 			CU_LAUNCH_PARAM_BUFFER_POINTER, parameter_buffer, 
 			CU_LAUNCH_PARAM_BUFFER_SIZE,   &parameter_buffer_size, 
@@ -110,9 +110,9 @@ private:
 		};
 		
 		CUDACALL(cuLaunchKernel(kernel, 
-			grid_dim_x, grid_dim_y, grid_dim_z, 
+			grid_dim_x,  grid_dim_y,  grid_dim_z, 
 			block_dim_x, block_dim_y, block_dim_z, 
-			0, NULL, NULL, params)
-		);
+			0, nullptr, nullptr, params
+		));
 	}
 };

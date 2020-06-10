@@ -588,6 +588,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
 	}
+
+	_freea(scene_name_lower);
 }
 
 void Pathtracer::update(float delta, const unsigned char * keys) {
