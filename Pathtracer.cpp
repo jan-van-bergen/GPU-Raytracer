@@ -549,28 +549,41 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		scene_has_lights     ? "yes" : "no"
 	);
 
+	int    scene_name_length = strlen(scene_name);
+	char * scene_name_lower  = reinterpret_cast<char *>(_malloca(scene_name_length + 1));
+
+	for (int i = 0; i < scene_name_length + 1; i++) {
+		scene_name_lower[i] = tolower(scene_name[i]);
+	}
+
 	// Initialize Camera position/orientation based on the Scene name
-	if (strcmp(scene_name, DATA_PATH("pica/pica.obj")) == 0) {
+	if (strstr(scene_name_lower, "pica.obj")) {
 		camera.position = Vector3(-7.640668f, 16.404673f, 17.845022f);
 		camera.rotation = Quaternion(-0.256006f, -0.069205f, -0.018378f, 0.964019f);	
-	} else if (strcmp(scene_name, DATA_PATH("sponza/sponza.obj")) == 0) {
+	} else if (strstr(scene_name_lower, "sponza.obj")) {
 		camera.position = Vector3(116.927467f, 15.586369f, -2.997146f);
 		camera.rotation = Quaternion(0.000000f, 0.692966f, 0.000000f, 0.720969f);
-	} else if (strcmp(scene_name, DATA_PATH("scene.obj")) == 0) {
+	} else if (strstr(scene_name_lower, "scene.obj")) {
 		camera.position = Vector3(-0.126737f, 0.613379f, 3.716630f);
 		camera.rotation = Quaternion(-0.107255f, -0.002421f, 0.000262f, -0.994227f);
-	} else if (strcmp(scene_name, DATA_PATH("cornellbox.obj")) == 0) {
+	} else if (strstr(scene_name_lower, "cornellbox.obj")) {
 		camera.position = Vector3(0.528027f, 1.004323f, -0.774033f);
 		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
-	} else if (strcmp(scene_name, DATA_PATH("glossy.obj")) == 0) {
+	} else if (strstr(scene_name_lower, "glossy.obj")) {
 		camera.position = Vector3(-5.438800f, 5.910520f, -7.185338f);
 		camera.rotation = Quaternion(0.242396f, 0.716713f, 0.298666f, -0.581683f);
-	} else if (strcmp(scene_name, DATA_PATH("Bunny.obj")) == 0) {
+	} else if (strstr(scene_name_lower, "bunny.obj")) {
 		camera.position = Vector3(-27.662603f, 26.719784f, -15.835464f);
 		camera.rotation = Quaternion(0.076750f, 0.900785f, 0.177892f, -0.388638f);
-	} else if (strcmp(scene_name, DATA_PATH("Test.obj")) == 0) {
+	} else if (strstr(scene_name_lower, "test.obj")) {
 		camera.position = Vector3(4.157419f, 4.996608f, 8.337481f);
 		camera.rotation = Quaternion(0.000000f, 0.310172f, 0.000000f, 0.950679f);
+	} else if (strstr(scene_name_lower, "bistro.obj")) {
+		camera.position = Vector3(-13.665823f, 2.480730f, -2.920546f);
+		camera.rotation = Quaternion(0.000000f, -0.772662f, 0.000000f, 0.634818f);
+	} else if (strstr(scene_name_lower, "rungholt.obj")) {
+		camera.position = Vector3(-22.413084f, 18.681219f, -23.566196f);
+		camera.rotation = Quaternion(0.000000f, 0.716948f, 0.000000f, -0.697125f);
 	} else {
 		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);

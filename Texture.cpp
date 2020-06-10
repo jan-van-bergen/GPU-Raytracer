@@ -85,7 +85,7 @@ int Texture::load(const char * file_path) {
 	Texture & texture = textures.emplace_back();
 
 	int    file_path_length = strlen(file_path);
-	char * file_extension = nullptr;
+	char * file_extension   = nullptr;
 
 	// Extract file extension from path
 	for (int i = file_path_length - 1; i >= 0; i--) {

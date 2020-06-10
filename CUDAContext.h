@@ -16,7 +16,7 @@ namespace CUDAContext {
 		int device_count;
 		CUDACALL(cuDeviceGetCount(&device_count));
 
-		CUdevice * devices = reinterpret_cast<CUdevice *>(alloca(device_count * sizeof(CUdevice)));
+		CUdevice * devices = reinterpret_cast<CUdevice *>(_malloca(device_count * sizeof(CUdevice)));
 		
 		unsigned gl_device_count;
 		CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
