@@ -71,15 +71,9 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 		int delimiter_qt_index = delimiter_qt_ptr ? delimiter_qt_ptr - source : INT_MAX;
 
 		// Check whether < or " occurs first
-		char delimiter;
-		int include_filename_start_index;
-		if (delimiter_lt_index < delimiter_qt_index) {
-			delimiter = '<';
-			include_filename_start_index = delimiter_lt_index + 1;
-		} else {
-			delimiter = '\"';
-			include_filename_start_index = delimiter_qt_index + 1;
-		}	
+		int include_filename_start_index = delimiter_lt_index < delimiter_qt_index ?
+			delimiter_lt_index + 1 :
+			delimiter_qt_index + 1;
 
 		// Find the index of the next > or " char, depending on whether we previously saw a < or "
 		int include_filename_end_index = delimiter_lt_index < delimiter_qt_index ?
@@ -106,22 +100,13 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 
 		// If we haven't seen this include before, recurse
 		if (unseen_include) {
-			const char * dir = nullptr;
+			int directory_length = strlen(directory);
 
-			if (delimiter == '\"') {
-				dir = directory;
-			} else if (delimiter == '<') {
-				dir = "CUDA_Source/include/";
-			}
-
-			int dir_length = strlen(dir);
-
-			int    include_full_path_length = dir_length + include_filename_length + 1;
+			int    include_full_path_length = directory_length + include_filename_length + 1;
 			char * include_full_path = reinterpret_cast<char *>(_malloca(include_full_path_length));
 
-			memcpy_s(include_full_path,              include_full_path_length,              dir,              dir_length);
-			memcpy_s(include_full_path + dir_length, include_full_path_length - dir_length, include_filename, include_filename_length);
-
+			memcpy_s(include_full_path,                    include_full_path_length,                    directory,               directory_length);
+			memcpy_s(include_full_path + directory_length, include_full_path_length - directory_length, include_filename, include_filename_length);
 			include_full_path[include_full_path_length - 1] = NULL;
 
 			if (Util::file_exists(include_full_path)) {
@@ -131,11 +116,15 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 					printf("Recompilation required %s because included file %s changed.\n", filename, include_filename);
 				}
 
+				const char * path = Util::get_path(include_full_path);
+
 				int index = includes.size();
 
 				includes.emplace_back();
 				includes[index].filename = include_filename;
-				includes[index].source   = scan_includes_recursive(include_full_path, dir, includes, ptx_filename, should_recompile);
+				includes[index].source   = scan_includes_recursive(include_full_path, path, includes, ptx_filename, should_recompile);
+
+				delete [] path;
 			}
 
 			_freea(include_full_path);
@@ -169,8 +158,12 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		should_recompile = Util::file_is_newer(ptx_filename, filename);
 	}
 	
+	const char * path = Util::get_path(filename);
+
 	std::vector<Include> includes;
-	const char * source = scan_includes_recursive(filename, Util::get_path(filename), includes, ptx_filename, should_recompile);
+	const char * source = scan_includes_recursive(filename, path, includes, ptx_filename, should_recompile);
+
+	delete [] path;
 
 	if (should_recompile) {
 		ScopedTimer timer("Compilation");

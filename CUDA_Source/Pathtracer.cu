@@ -1,5 +1,5 @@
-#include <vector_types.h>
-#include <cuda_math.h>
+#include "cudart/vector_types.h"
+#include "cudart/cuda_math.h"
 
 #include "Common.h"
 
