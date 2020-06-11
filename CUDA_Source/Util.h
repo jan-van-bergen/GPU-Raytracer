@@ -1,7 +1,4 @@
 #pragma once
-#include <vector_types.h>
-
-#include "cuda_math.h"
 
 //#define ASSERT(proposition, fmt, ...) do { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); } while(false)
 #define ASSERT(proposition, fmt, ...) { }

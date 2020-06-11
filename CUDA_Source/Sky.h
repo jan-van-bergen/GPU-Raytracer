@@ -1,7 +1,4 @@
 #pragma once
-#include <vector_types.h>
-
-#include "../Common.h"
 
 __device__ int      sky_size;
 __device__ float3 * sky_data;

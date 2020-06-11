@@ -6,6 +6,8 @@
 
 #include <GL/glew.h>
 
+#include "Util.h"
+
 void GBuffer::init(int width, int height) {
 	// Create the FBO
 	glGenFramebuffers(1, &gbuffer);
@@ -76,7 +78,7 @@ void GBuffer::init(int width, int height) {
 		GL_COLOR_ATTACHMENT4, // Motion
 		GL_COLOR_ATTACHMENT5  // Depth Gradient  
 	};
-	glDrawBuffers(sizeof(draw_buffers) / sizeof(GLenum), draw_buffers);
+	glDrawBuffers(Util::array_element_count(draw_buffers), draw_buffers);
 
 	// Assert correctness of the FrameBuffer
 	GLuint frame_buffer_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);

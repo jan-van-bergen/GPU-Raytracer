@@ -15,7 +15,7 @@ const char * Util::get_path(const char * file_path) {
 		last_path_end = path_end;
 	}
 
-	if (last_path_end == nullptr) return nullptr;
+	if (last_path_end == nullptr) return new char[1] { NULL };
 
 	char * path = new char[strlen(file_path)];
 

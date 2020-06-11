@@ -1,10 +1,4 @@
 #pragma once
-#include <vector_types.h>
-
-#include "cuda_math.h"
-
-#include "../Common.h"
-#include "Util.h"
 
 // Glossy materials with roughness below the cutoff don't use direct Light sampling
 #define ROUGHNESS_CUTOFF 0.3f

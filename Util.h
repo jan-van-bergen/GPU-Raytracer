@@ -31,5 +31,10 @@ namespace Util {
 		b = temp;
 	}
 
+	template<typename T, int N>
+	constexpr int array_element_count(const T (& array)[N]) {
+		return N;
+	}
+
 	void export_ppm(const char * file_path, int width, int height, const unsigned char * data);
 }

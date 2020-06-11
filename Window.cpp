@@ -5,6 +5,7 @@
 #include <Imgui/imgui_impl_opengl3.h>
 
 #include "Util.h"
+#include "CUDA_Source/Common.h"
 
 static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * user_param) {
 	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", type, severity, message);

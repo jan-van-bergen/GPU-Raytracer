@@ -9,7 +9,10 @@ void Sky::init(const char * file_path) {
 	FILE * file; 
 	fopen_s(&file, file_path, "rb");
 
-	if (!file) abort();
+	if (file == nullptr) {
+		printf("ERROR: Failed to load Sky file %s!", file_path);
+		abort();
+	}
 
 	// Seek to the end to obtain the total pixel count
 	fseek(file, 0, SEEK_END);

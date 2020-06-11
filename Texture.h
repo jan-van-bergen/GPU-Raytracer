@@ -3,7 +3,7 @@
 
 #include <cuda.h>
 
-#include "Common.h"
+#include "CUDA_Source/Common.h"
 
 struct Texture {
 	enum class Format {

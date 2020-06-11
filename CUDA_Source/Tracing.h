@@ -1,12 +1,5 @@
 #pragma once
-#include <utility>
-
-#include <vector_types.h>
-#include <corecrt_math.h>
-
-#include "cuda_math.h"
-
-#include "../Common.h"
+#define INFINITY ((float)(1e+300 * 1e+300))
 
 #define TRIANGLE_POSTPONING false
 
@@ -152,7 +145,7 @@ __device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, f
 
 // Function that decides whether to push on the shared stack or thread local stack
 template<typename T, int N>
-__device__ __inline__ inline void stack_push(T shared_stack[WARP_SIZE][N][SHARED_STACK_SIZE], T stack[BVH_STACK_SIZE - N], int & stack_size, T item) {
+__device__ inline void stack_push(T shared_stack[WARP_SIZE][N][SHARED_STACK_SIZE], T stack[BVH_STACK_SIZE - N], int & stack_size, T item) {
 	// assert(stack_size < BVH_STACK_SIZE);
 
 	if (stack_size < SHARED_STACK_SIZE) {
@@ -165,7 +158,7 @@ __device__ __inline__ inline void stack_push(T shared_stack[WARP_SIZE][N][SHARED
 
 // Function that decides whether to pop from the shared stack or thread local stack
 template<typename T, int N>
-__device__ __inline__ inline T stack_pop(const T shared_stack[WARP_SIZE][N][SHARED_STACK_SIZE], const T stack[BVH_STACK_SIZE - N], int & stack_size) {
+__device__ inline T stack_pop(const T shared_stack[WARP_SIZE][N][SHARED_STACK_SIZE], const T stack[BVH_STACK_SIZE - N], int & stack_size) {
 	// assert(stack_size > 0);
 
 	stack_size--;
@@ -649,7 +642,7 @@ struct CWBVHNode {
 
 __device__ CWBVHNode * cwbvh_nodes;
 
-__device__ __inline__ inline unsigned cwbvh_node_intersect(
+__device__ inline unsigned cwbvh_node_intersect(
 	const Ray & ray,
 	unsigned oct_inv4,
 	bool ray_negative_x,

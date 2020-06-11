@@ -1,9 +1,7 @@
 #include <vector_types.h>
-#include <corecrt_math.h>
+#include <cuda_math.h>
 
-#include "cuda_math.h"
-
-#include "../Common.h"
+#include "Common.h"
 
 #include "Util.h"
 #include "Shading.h"
@@ -688,7 +686,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
-	float3 direction_in = -ray_buffer_shade_glossy.direction.to_float3(index);
+	float3 direction_in = -1.0f * ray_buffer_shade_glossy.direction.to_float3(index);
 
 	int   ray_triangle_id = ray_buffer_shade_glossy.triangle_id[index];
 	float ray_u = ray_buffer_shade_glossy.u[index];

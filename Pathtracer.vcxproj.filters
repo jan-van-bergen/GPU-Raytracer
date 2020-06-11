@@ -100,9 +100,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Common.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
     <ClInclude Include="CUDACall.h">
       <Filter>CUDA</Filter>
     </ClInclude>
@@ -211,6 +208,9 @@
     </ClInclude>
     <ClInclude Include="QBVH.h">
       <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="CUDA_Source\Common.h">
+      <Filter>CUDA</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

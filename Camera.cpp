@@ -4,7 +4,7 @@
 
 #include <SDL2/SDL.h>
 
-#include "Common.h"
+#include "CUDA_Source/Common.h"
 
 void Camera::resize(int width, int height) {
 	float half_width  = 0.5f * width;
