@@ -5,8 +5,10 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader/tiny_obj_loader.h>
 
+#include "Texture.h"
+
 #include "Util.h"
-#include "ScopedTimer.h"
+#include "ScopeTimer.h"
 
 static std::unordered_map<std::string, MeshData *> cache;
 

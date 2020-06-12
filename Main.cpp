@@ -1,20 +1,21 @@
 #include <cstdio>
 #include <cstdlib>
-#include <time.h> 
+#include <ctime> 
 
 #include <Imgui/imgui.h>
 
+#include "Pathtracer.h"
+
 #include "Window.h"
 
-#include "ScopedTimer.h"
-
-#include "Pathtracer.h"
+#include "Util.h"
+#include "ScopeTimer.h"
 
 // Forces NVIDIA driver to be used 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
 static void capture_screen(const Window & window, const char * file_name) {
-	ScopedTimer timer("Screenshot");
+	ScopeTimer timer("Screenshot");
 
 	unsigned char * data = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
 	unsigned char * temp = new unsigned char[SCREEN_WIDTH * 3];
@@ -56,7 +57,7 @@ int main(int argument_count, char ** arguments) {
 
 	float second = 0.0f;
 	int frames_this_second = 0;
-	int fps    = 0;
+	int fps = 0;
 	
 	const char * scene_filename = DATA_PATH("sponza/sponza_lit.obj");
 	const char * sky_filename   = DATA_PATH("Sky_Probes/rnl_probe.float");
@@ -75,7 +76,7 @@ int main(int argument_count, char ** arguments) {
 		pathtracer.update(delta_time, keys);
 		pathtracer.render();
 		
-		window.draw_quad();
+		window.render_framebuffer();
 		
 		if (keys[SDL_SCANCODE_P] || current_frame == capture_frame_index) {
 			char screenshot_name[32];

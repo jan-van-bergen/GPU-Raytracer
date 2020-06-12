@@ -134,9 +134,6 @@
     <ClInclude Include="Util.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="ScopedTimer.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="AABB.h">
       <Filter>BVH</Filter>
     </ClInclude>
@@ -211,6 +208,9 @@
     </ClInclude>
     <ClInclude Include="CUDA_Source\Common.h">
       <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="ScopeTimer.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,5 +1,4 @@
 #pragma once
-#include "Texture.h"
 
 struct Material {
 	enum class Type : char {

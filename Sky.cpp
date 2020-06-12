@@ -1,9 +1,6 @@
 #include "Sky.h"
 
 #include <cstdio>
-#include <stdlib.h>
-
-#include "Util.h"
 
 void Sky::init(const char * file_path) {
 	FILE * file; 

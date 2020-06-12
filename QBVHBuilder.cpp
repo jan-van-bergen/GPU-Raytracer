@@ -58,8 +58,8 @@ static void collapse(QBVHNode nodes[], int node_index) {
 			node.aabb_max_x[child_count + i - 1] = max_child.aabb_max_x[i];
 			node.aabb_max_y[child_count + i - 1] = max_child.aabb_max_y[i];
 			node.aabb_max_z[child_count + i - 1] = max_child.aabb_max_z[i];
-			node.get_index (child_count + i - 1) = max_child.get_index (i);
-			node.get_count (child_count + i - 1) = max_child.get_count (i);
+			node.get_index(child_count + i - 1) = max_child.get_index(i);
+			node.get_count(child_count + i - 1) = max_child.get_count(i);
 		}
 	};
 

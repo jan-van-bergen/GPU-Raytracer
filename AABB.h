@@ -1,5 +1,5 @@
 #pragma once
-#include "Matrix4.h"
+#include "Vector3.h"
 
 struct AABB {
 	Vector3 min;

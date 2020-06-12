@@ -79,7 +79,7 @@ Window::~Window() {
 	SDL_Quit();
 }
 
-void Window::draw_quad() const {
+void Window::render_framebuffer() const {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	shader.bind();

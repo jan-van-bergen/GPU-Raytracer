@@ -335,7 +335,7 @@ static void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 }
 
 CWBVH BVHBuilders::cwbvh_from_binary_bvh(const BVH & bvh) {
-	ScopedTimer timer("Compressed Wide BVH Collapse");
+	ScopeTimer timer("Compressed Wide BVH Collapse");
 
 	CWBVH cwbvh;
 

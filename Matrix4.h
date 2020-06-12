@@ -1,6 +1,5 @@
 #pragma once
-#include <cassert>
-#include <string.h>
+#include <cstring>
 
 #include "Vector3.h"
 #include "Quaternion.h"

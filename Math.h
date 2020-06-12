@@ -1,6 +1,4 @@
 #pragma once
-#include "Util.h"
-
 #include "Vector3.h"
 
 // Various math util functions

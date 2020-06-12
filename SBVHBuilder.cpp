@@ -4,7 +4,7 @@
 #include "BVH.h"
 
 #include "Util.h"
-#include "ScopedTimer.h"
+#include "ScopeTimer.h"
 
 #define SBVH_OVERALLOCATION 4 // SBVH requires more space
 
@@ -375,7 +375,7 @@ BVH BVHBuilders::sbvh(const char * filename, const MeshData * mesh) {
 		}
 
 		{
-			ScopedTimer timer("SBVH Construction");
+			ScopeTimer timer("SBVH Construction");
 
 			init_sbvh(sbvh);
 		}

@@ -247,7 +247,7 @@
     <ClInclude Include="MeshData.h" />
     <ClInclude Include="Pathtracer.h" />
     <ClInclude Include="Quaternion.h" />
-    <ClInclude Include="ScopedTimer.h" />
+    <ClInclude Include="ScopeTimer.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Sky.h" />
     <ClInclude Include="Texture.h" />

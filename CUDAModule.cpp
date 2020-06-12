@@ -3,15 +3,13 @@
 #include <cstdio>
 #include <cassert>
 #include <vector>
-#include <string>
-#include <fstream>
 
 #include <nvrtc.h>
 
 #include "CUDAMemory.h"
 
 #include "Util.h"
-#include "ScopedTimer.h"
+#include "ScopeTimer.h"
 
 #define NVRTC_CALL(result) check_nvrtc_call(result, __FILE__, __LINE__);
 
@@ -138,6 +136,8 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 }
 
 void CUDAModule::init(const char * filename, int compute_capability, int max_registers) {
+	ScopeTimer timer("CUDA Module Init");
+
 	if (!Util::file_exists(filename)) {
 		printf("ERROR: File %s does not exist!\n", filename);
 		abort();
@@ -166,8 +166,6 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	delete [] path;
 
 	if (should_recompile) {
-		ScopedTimer timer("Compilation");
-
 		int num_includes = includes.size();
 
 		const char ** include_names   = reinterpret_cast<const char **>(_malloca(num_includes * sizeof(const char *)));

@@ -1,5 +1,4 @@
 #pragma once
-#define INFINITY ((float)(1e+300 * 1e+300))
 
 #define TRIANGLE_POSTPONING false
 

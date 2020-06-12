@@ -1,6 +1,4 @@
 #pragma once
-#include <cassert>
-
 #include <cuda.h>
 
 #include "CUDACall.h"

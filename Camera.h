@@ -4,8 +4,6 @@
 #include "Quaternion.h"
 #include "Matrix4.h"
 
-#include "Util.h"
-
 struct Camera {
 	Vector3    position;	
 	Quaternion rotation;

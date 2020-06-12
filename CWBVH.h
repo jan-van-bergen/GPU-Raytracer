@@ -1,7 +1,7 @@
 #pragma once
 #include "BVH.h"
 
-#include "ScopedTimer.h"
+#include "ScopeTimer.h"
 
 typedef unsigned char byte;
 

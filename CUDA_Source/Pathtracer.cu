@@ -8,6 +8,8 @@
 #include "Sky.h"
 #include "Random.h"
 
+#define INFINITY ((float)(1e+300 * 1e+300))
+
 // Frame Buffers
 __device__ float4 * frame_buffer_albedo;
 __device__ float4 * frame_buffer_direct;

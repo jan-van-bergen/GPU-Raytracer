@@ -23,7 +23,7 @@ public:
 	Window(const char * title);
 	~Window();
 
-	void draw_quad() const;
+	void render_framebuffer() const;
 
 	void gui_begin() const;
 	void gui_end()   const;

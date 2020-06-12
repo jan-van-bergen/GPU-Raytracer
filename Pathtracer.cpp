@@ -13,7 +13,7 @@
 
 #include "BlueNoise.h"
 
-#include "ScopedTimer.h"
+#include "ScopeTimer.h"
 
 struct Vertex {
 	Vector3 position;
@@ -118,7 +118,7 @@ static struct BufferSizes {
 } buffer_sizes;
 
 void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
-	ScopedTimer timer("Pathtracer Initialization");
+	ScopeTimer timer("Pathtracer Initialization");
 
 	CUDAContext::init();
 

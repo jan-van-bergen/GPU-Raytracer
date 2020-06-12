@@ -3,7 +3,7 @@
 
 #include "BVH.h"
 
-#include "ScopedTimer.h"
+#include "ScopeTimer.h"
 
 static void build_bvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp) {
 	node.aabb = BVHPartitions::calculate_bounds(triangles, indices[0], first_index, first_index + index_count);
@@ -108,7 +108,7 @@ BVH BVHBuilders::bvh(const char * filename, const MeshData * mesh) {
 		}
 
 		{
-			ScopedTimer timer("BVH Construction");
+			ScopeTimer timer("BVH Construction");
 
 			init_bvh(bvh);
 		}

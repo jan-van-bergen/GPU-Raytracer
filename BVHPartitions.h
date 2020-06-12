@@ -2,6 +2,8 @@
 #include "AABB.h"
 #include "Math.h"
 
+#include "Util.h"
+
 // Contains various ways to parition space into "left" and "right" as well as helper methods
 namespace BVHPartitions {
 	const int SBVH_BIN_COUNT = 256;

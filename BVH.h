@@ -6,6 +6,8 @@
 #include "BVHBuilders.h"
 #include "BVHPartitions.h"
 
+#include "CUDA_Source/Common.h"
+
 struct BVHNode {
 	AABB aabb;
 	union {
