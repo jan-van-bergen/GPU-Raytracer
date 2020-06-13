@@ -1,7 +1,8 @@
-#pragma once
 #include "BVHBuilders.h"
 
-#include "BVH.h"
+#include <algorithm>
+
+#include "BVHPartitions.h"
 
 #include "Util.h"
 #include "ScopeTimer.h"
@@ -307,7 +308,11 @@ static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[
 	return number_of_leaves_left + number_of_leaves_right;
 }
 
-static void init_sbvh(BVH & sbvh) {
+void BVHBuilders::build_sbvh(BVH & sbvh) {
+	puts("Construcing SBVH, this may take a few seconds for large scenes...");
+
+	sbvh.nodes = new BVHNode[SBVH_OVERALLOCATION * sbvh.triangle_count];
+
 	int * indices_x = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
 	int * indices_y = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
 	int * indices_z = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
@@ -344,44 +349,4 @@ static void init_sbvh(BVH & sbvh) {
 	delete [] temp[0];
 	delete [] temp[1];
 	delete [] sah;
-
-}
-
-BVH BVHBuilders::sbvh(const char * filename, const MeshData * mesh) {
-	BVH sbvh;
-	
-	const char * file_extension = ".sbvh";
-	bool loaded = sbvh.try_to_load_from_disk(filename, file_extension);
-
-	if (!loaded) {
-		printf("Construcing SBVH, this may take a few seconds for large scenes...\n");
-
-		sbvh.triangle_count = mesh->triangle_count; 
-		sbvh.triangles      = new Triangle[sbvh.triangle_count];
-
-		// Construct Node pool
-		sbvh.nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(SBVH_OVERALLOCATION * sbvh.triangle_count * sizeof(BVHNode), 64));
-		assert((unsigned long long)sbvh.nodes % 64 == 0);
-	
-		memcpy(sbvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
-
-		for (int i = 0; i < sbvh.triangle_count; i++) {
-			Vector3 vertices[3] = { 
-				sbvh.triangles[i].position_0, 
-				sbvh.triangles[i].position_1, 
-				sbvh.triangles[i].position_2
-			};
-			sbvh.triangles[i].aabb = AABB::from_points(vertices, 3);
-		}
-
-		{
-			ScopeTimer timer("SBVH Construction");
-
-			init_sbvh(sbvh);
-		}
-
-		sbvh.save_to_disk(filename, file_extension);
-	}
-
-	return sbvh;
 }

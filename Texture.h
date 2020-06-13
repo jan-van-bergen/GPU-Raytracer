@@ -30,5 +30,5 @@ struct Texture {
 
 	static int load(const char * file_path);
 
-	static std::vector<Texture> textures;
+	inline static std::vector<Texture> textures;
 };

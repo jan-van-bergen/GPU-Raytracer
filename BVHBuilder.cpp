@@ -1,7 +1,9 @@
-#pragma once
 #include "BVHBuilders.h"
 
+#include <algorithm>
+
 #include "BVH.h"
+#include "BVHPartitions.h"
 
 #include "ScopeTimer.h"
 
@@ -44,7 +46,9 @@ static void build_bvh(BVHNode & node, const Triangle * triangles, int * indices[
 	build_bvh(nodes[node.left + 1], triangles, indices, nodes, node_index, first_index + n_left, n_right, sah, temp);
 }
 
-static void init_bvh(BVH & bvh) {
+void BVHBuilders::build_bvh(BVH & bvh) {
+	bvh.nodes = new BVHNode[2 * bvh.triangle_count];
+
 	// Construct index arrays for all three dimensions
 	int * indices_x = new int[bvh.triangle_count];
 	int * indices_y = new int[bvh.triangle_count];
@@ -80,41 +84,4 @@ static void init_bvh(BVH & bvh) {
 
 	delete [] temp;
 	delete [] sah;
-}
-
-BVH BVHBuilders::bvh(const char * filename, const MeshData * mesh) {
-	BVH bvh;
-	
-	const char * file_extension = ".bvh";
-	bool loaded = bvh.try_to_load_from_disk(filename, file_extension);
-
-	if (!loaded) {
-		bvh.triangle_count = mesh->triangle_count; 
-		bvh.triangles      = new Triangle[bvh.triangle_count];
-
-		// Construct Node pool
-		bvh.nodes = reinterpret_cast<BVHNode *>(ALLIGNED_MALLOC(2 * bvh.triangle_count * sizeof(BVHNode), 64));
-		assert((unsigned long long)bvh.nodes % 64 == 0);
-	
-		memcpy(bvh.triangles, mesh->triangles, mesh->triangle_count * sizeof(Triangle));
-
-		for (int i = 0; i < bvh.triangle_count; i++) {
-			Vector3 vertices[3] = { 
-				bvh.triangles[i].position_0, 
-				bvh.triangles[i].position_1, 
-				bvh.triangles[i].position_2
-			};
-			bvh.triangles[i].aabb = AABB::from_points(vertices, 3);
-		}
-
-		{
-			ScopeTimer timer("BVH Construction");
-
-			init_bvh(bvh);
-		}
-
-		bvh.save_to_disk(filename, file_extension);
-	}
-
-	return bvh;
 }

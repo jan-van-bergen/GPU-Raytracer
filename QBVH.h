@@ -1,6 +1,5 @@
 #pragma once
 #include "BVH.h"
-#include "BVHBuilders.h"
 
 struct QBVHNode {
 	float aabb_min_x[4] = { 0.0f };

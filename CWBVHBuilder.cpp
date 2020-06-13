@@ -1,7 +1,5 @@
 #include "BVHBuilders.h"
 
-#include "CWBVH.h"
-
 struct CWBVHDecision {
 	enum class Type : char {
 		LEAF,

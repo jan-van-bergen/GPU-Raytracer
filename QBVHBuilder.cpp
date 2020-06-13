@@ -1,7 +1,5 @@
 #include "BVHBuilders.h"
 
-#include "QBVH.h"
-
 static void collapse(QBVHNode nodes[], int node_index) {
 	QBVHNode & node = nodes[node_index];
 

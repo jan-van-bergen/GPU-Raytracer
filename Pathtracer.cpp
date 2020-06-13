@@ -1,18 +1,22 @@
 #include "Pathtracer.h"
 
+#include <ctype.h>
+#include <algorithm>
+
 #include <SDL2/SDL.h>
 
 #include "CUDAContext.h"
 
-#include "MeshData.h"
-#include "BVH.h"
-#include "QBVH.h"
-#include "CWBVH.h"
+#include "Mesh.h"
+#include "Material.h"
+
+#include "BVHBuilders.h"
 
 #include "Sky.h"
 
 #include "BlueNoise.h"
 
+#include "Util.h"
 #include "ScopeTimer.h"
 
 struct Vertex {
@@ -128,12 +132,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	// Init CUDA Module and its Kernel
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, 64);
 
-	const MeshData * mesh = MeshData::load(scene_name);
+	Material & default_material = Material::materials.emplace_back();
+	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
+
+	const Mesh * scene_mesh = Mesh::load(scene_name);
 
 	// Set global Material table
-	if (mesh->material_count > 0) {
-		module.get_global("materials").set_buffer(mesh->materials, mesh->material_count);
-	}
+	module.get_global("materials").set_buffer(Material::materials.data(), Material::materials.size());
 
 	// Set global Texture table
 	int texture_count = Texture::textures.size();
@@ -178,48 +183,27 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 		delete [] tex_objects;
 	}
-	
-	// Construct BVH for the Triangle soup
-	BVH bvh;
-#if BVH_TYPE == BVH_BVH
-	bvh = BVHBuilders::bvh(scene_name, mesh);
-#else // All other BVH's rely on SBVH
-	bvh = BVHBuilders::sbvh(scene_name, mesh);
-#endif
 
-	int index_count;
-	int primitive_count = bvh.triangle_count;
-
-	int      * indices;
-	Triangle * primitives;
 
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
+	const BVH & bvh = scene_mesh->bvh;
+
 	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
-
-	index_count = bvh.index_count;
-
-	indices    = bvh.indices;
-	primitives = bvh.triangles;
 #elif BVH_TYPE == BVH_QBVH
-	QBVH qbvh = BVHBuilders::qbvh_from_binary_bvh(bvh);
+	QBVH bvh = BVHBuilders::qbvh_from_binary_bvh(scene_mesh->bvh);
 	
-	// Set global QBVHNode buffer
-	module.get_global("qbvh_nodes").set_buffer(qbvh.nodes, qbvh.node_count);
-	
-	index_count = bvh.index_count;
-
-	indices    = qbvh.indices;
-	primitives = qbvh.triangles;
+	module.get_global("qbvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
 #elif BVH_TYPE == BVH_CWBVH
-	CWBVH cwbvh = BVHBuilders::cwbvh_from_binary_bvh(bvh);
+	CWBVH bvh = BVHBuilders::cwbvh_from_binary_bvh(scene_mesh->bvh);
 
-	module.get_global("cwbvh_nodes").set_buffer(cwbvh.nodes, cwbvh.node_count);
-	
-	index_count = cwbvh.index_count;
-
-	indices    = cwbvh.indices;
-	primitives = cwbvh.triangles;
+	module.get_global("cwbvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
 #endif
+	
+	int        primitive_count = bvh.triangle_count;
+	Triangle * primitives      = bvh.triangles;
+
+	int   index_count = bvh.index_count;
+	int * indices     = bvh.indices;
 
 	struct CUDATriangle {
 		Vector3 position_0;
@@ -255,7 +239,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		triangles[i].tex_coord_edge_1 = primitives[index].tex_coord_1 - primitives[index].tex_coord_0;
 		triangles[i].tex_coord_edge_2 = primitives[index].tex_coord_2 - primitives[index].tex_coord_0;
 
-		triangle_material_ids[i] = primitives[index].material_id;
+		triangle_material_ids[i] = scene_mesh->material_offset + primitives[index].material_id;
 
 		reverse_indices[index] = i;
 	}
@@ -324,13 +308,13 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	std::vector<LightDescription> lights;
 
 	// For every Triangle, check whether it is a Light based on its Material
-	for (int i = 0; i < mesh->triangle_count; i++) {
-		const Triangle & triangle = mesh->triangles[i];
+	for (int i = 0; i < primitive_count; i++) {
+		const Triangle & triangle = primitives[i];
 
-		if (mesh->materials[triangle.material_id].type == Material::Type::LIGHT) {
+		if (Material::materials[scene_mesh->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
 			float area = 0.5f * Vector3::length(Vector3::cross(
-				mesh->triangles[i].position_1 - mesh->triangles[i].position_0,
-				mesh->triangles[i].position_2 - mesh->triangles[i].position_0
+				triangle.position_1 - triangle.position_0,
+				triangle.position_2 - triangle.position_0
 			));
 
 			lights.push_back({ reverse_indices[i], area });
@@ -533,8 +517,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	scene_has_lights     = false;
 
 	// Check properties of the Scene, so we know which kernels are required
-	for (int i = 0; i < mesh->material_count; i++) {
-		switch (mesh->materials[i].type) {
+	for (int i = 0; i < Material::materials.size(); i++) {
+		switch (Material::materials[i].type) {
 			case Material::Type::DIFFUSE:    scene_has_diffuse    = true; break;
 			case Material::Type::DIELECTRIC: scene_has_dielectric = true; break;
 			case Material::Type::GLOSSY:     scene_has_glossy     = true; break;

@@ -21,9 +21,6 @@
     <ClCompile Include="Sky.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="MeshData.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
     <ClCompile Include="Texture.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
@@ -68,6 +65,12 @@
     </ClCompile>
     <ClCompile Include="CUDAContext.cpp">
       <Filter>CUDA</Filter>
+    </ClCompile>
+    <ClCompile Include="OBJLoader.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Assets</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -152,9 +155,6 @@
     <ClInclude Include="Material.h">
       <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="MeshData.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Texture.h">
       <Filter>Assets</Filter>
     </ClInclude>
@@ -211,6 +211,15 @@
     </ClInclude>
     <ClInclude Include="ScopeTimer.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="OBJLoader.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Triangle.h">
+      <Filter>Assets</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

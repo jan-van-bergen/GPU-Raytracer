@@ -10,8 +10,6 @@
 
 static std::unordered_map<std::string, int> cache;
 
-std::vector<Texture> Texture::textures;
-
 static bool load_dds(Texture & texture, const char * file_path) {
 	FILE * file;
 	fopen_s(&file, file_path, "rb");

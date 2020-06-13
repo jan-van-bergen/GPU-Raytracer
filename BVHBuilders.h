@@ -1,17 +1,11 @@
 #pragma once
-#include "MeshData.h"
-
-// Forward declarations
-struct BVH;
-struct BVHNode;
-
-struct QBVH;
-
-struct CWBVH;
+#include "BVH.h"
+#include "QBVH.h"
+#include "CWBVH.h"
 
 namespace BVHBuilders {
-	BVH  bvh(const char * filename, const MeshData * mesh); // SAH-based (object splits)
-	BVH sbvh(const char * filename, const MeshData * mesh); // SAH-based (object + spatial splits, Stich et al. 2009)
+	void build_bvh (BVH & bvh); // SAH-based (object splits)
+	void build_sbvh(BVH & bvh); // SAH-based (object + spatial splits, Stich et al. 2009)
 
 	QBVH   qbvh_from_binary_bvh(const BVH & bvh);
 	CWBVH cwbvh_from_binary_bvh(const BVH & bvh);

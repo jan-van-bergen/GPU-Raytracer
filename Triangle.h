@@ -4,8 +4,6 @@
 
 #include "AABB.h"
 
-#include "Material.h"
-
 struct Triangle {
 	AABB aabb;
 
@@ -26,14 +24,4 @@ struct Triangle {
 	inline Vector3 get_center() const {
 		return (position_0 + position_1 + position_2) / 3.0f;
 	}
-};
-
-struct MeshData {
-	int        triangle_count;
-	Triangle * triangles;
-
-	int        material_count;
-	Material * materials;
-
-	static const MeshData * load(const char * file_path);
 };

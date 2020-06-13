@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 
 struct Material {
 	enum class Type : char {
@@ -18,4 +19,6 @@ struct Material {
 	float index_of_refraction = 1.0f;
 
 	float roughness = 0.5f;
+
+	inline static std::vector<Material> materials;
 };
