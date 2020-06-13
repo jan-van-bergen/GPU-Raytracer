@@ -534,7 +534,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	);
 
 	int    scene_name_length = strlen(scene_name);
-	char * scene_name_lower  = reinterpret_cast<char *>(_malloca(scene_name_length + 1));
+	char * scene_name_lower  = MALLOCA(char, scene_name_length + 1);
 
 	for (int i = 0; i < scene_name_length + 1; i++) {
 		scene_name_lower[i] = tolower(scene_name[i]);
@@ -573,7 +573,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
 	}
 
-	_freea(scene_name_lower);
+	FREEA(scene_name_lower);
 }
 
 void Pathtracer::update(float delta, const unsigned char * keys) {

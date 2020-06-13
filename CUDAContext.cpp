@@ -5,6 +5,8 @@
 #include <GL/glew.h>
 #include <cudaGL.h>
 
+#include "Util.h"
+
 void CUDAContext::init() {
 	CUDACALL(cuInit(0));
 
@@ -17,7 +19,7 @@ void CUDAContext::init() {
 		abort();
 	}
 
-	CUdevice * devices = reinterpret_cast<CUdevice *>(_malloca(device_count * sizeof(CUdevice)));
+	CUdevice * devices = MALLOCA(CUdevice, device_count);
 		
 	unsigned gl_device_count;
 	CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
@@ -43,7 +45,7 @@ void CUDAContext::init() {
 		}
 	}
 
-	_freea(devices);
+	FREEA(devices);
 
 	compute_capability = best_compute_capability;
 

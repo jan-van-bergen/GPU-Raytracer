@@ -16,8 +16,11 @@
 #define ALLIGNED_MALLOC(size, align) _aligned_malloc(size, align)
 #define ALLIGNED_FREE(ptr)           _aligned_free(ptr)
 
+#define MALLOCA(type, count) reinterpret_cast<type *>(_malloca(count * sizeof(type)))
+#define FREEA(ptr) _freea(ptr)
+
 namespace Util {
-	const char * get_path(const char * file_path);
+	void get_path(const char * filename, char * path);
 	
 	bool file_exists(const char * filename);
 

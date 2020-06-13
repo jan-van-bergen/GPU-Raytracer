@@ -5,8 +5,8 @@
 
 #include <filesystem>
 
-const char * Util::get_path(const char * file_path) {
-	const char * path_end      = file_path;
+void Util::get_path(const char * filename, char * path) {
+	const char * path_end      = filename;
 	const char * last_path_end = nullptr;
 
 	// Keep advancing the path_end pointer until we run out of '/' characters in the string
@@ -15,16 +15,16 @@ const char * Util::get_path(const char * file_path) {
 		last_path_end = path_end;
 	}
 
-	if (last_path_end == nullptr) return new char[1] { NULL };
+	if (last_path_end == nullptr) {
+		path[0] = NULL;
 
-	char * path = new char[strlen(file_path)];
+		return;
+	}
 
 	// Copy the right amount over
-	int path_length = last_path_end - file_path;
-	memcpy(path, file_path, path_length);
+	int path_length = last_path_end - filename;
+	memcpy(path, filename, path_length);
 	path[path_length] = NULL;
-
-	return path;
 }
 
 bool Util::file_exists(const char * filename) {

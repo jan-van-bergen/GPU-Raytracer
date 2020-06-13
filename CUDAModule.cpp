@@ -101,8 +101,8 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 			int directory_length = strlen(directory);
 
 			int    include_full_path_length = directory_length + include_filename_length + 1;
-			char * include_full_path = reinterpret_cast<char *>(_malloca(include_full_path_length));
-
+			char * include_full_path = MALLOCA(char, include_full_path_length);
+			
 			memcpy_s(include_full_path,                    include_full_path_length,                    directory,               directory_length);
 			memcpy_s(include_full_path + directory_length, include_full_path_length - directory_length, include_filename, include_filename_length);
 			include_full_path[include_full_path_length - 1] = NULL;
@@ -114,7 +114,8 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 					printf("Recompilation required %s because included file %s changed.\n", filename, include_filename);
 				}
 
-				const char * path = Util::get_path(include_full_path);
+				char * path = MALLOCA(char, include_full_path_length);
+				Util::get_path(include_full_path, path);
 
 				int index = includes.size();
 
@@ -122,10 +123,10 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 				includes[index].filename = include_filename;
 				includes[index].source   = scan_includes_recursive(include_full_path, path, includes, ptx_filename, should_recompile);
 
-				delete [] path;
+				FREEA(path);
 			}
 
-			_freea(include_full_path);
+			FREEA(include_full_path);
 		}
 
 		// Look for next #include, after the end of the current include
@@ -143,11 +144,12 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		abort();
 	}
 
-	char ptx_filename[128];
+	int    ptx_filename_size = strlen(filename) + 16;
+	char * ptx_filename      = MALLOCA(char, ptx_filename_size);
 #ifdef _DEBUG
-	sprintf_s(ptx_filename, "%s.debug.ptx", filename);
+	sprintf_s(ptx_filename, ptx_filename_size, "%s.debug.ptx",   filename);
 #else
-	sprintf_s(ptx_filename, "%s.release.ptx", filename);
+	sprintf_s(ptx_filename, ptx_filename_size, "%s.release.ptx", filename);
 #endif
 	
 	bool should_recompile = true;
@@ -157,19 +159,20 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		// Recompile if the source file is newer than the binary
 		should_recompile = Util::file_is_newer(ptx_filename, filename);
 	}
-	
-	const char * path = Util::get_path(filename);
+
+	char * path = MALLOCA(char, strlen(filename) + 1);
+	Util::get_path(filename, path);
 
 	std::vector<Include> includes;
 	const char * source = scan_includes_recursive(filename, path, includes, ptx_filename, should_recompile);
 
-	delete [] path;
+	FREEA(path);
 
 	if (should_recompile) {
 		int num_includes = includes.size();
 
-		const char ** include_names   = reinterpret_cast<const char **>(_malloca(num_includes * sizeof(const char *)));
-		const char ** include_sources = reinterpret_cast<const char **>(_malloca(num_includes * sizeof(const char *)));
+		const char ** include_names   = MALLOCA(const char *, num_includes);
+		const char ** include_sources = MALLOCA(const char *, num_includes);
 		
 		for (int i = 0; i < num_includes; i++) {
 			include_names  [i] = includes[i].filename;
@@ -180,8 +183,8 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		nvrtcProgram program;
 		NVRTC_CALL(nvrtcCreateProgram(&program, source, "Pathtracer", num_includes, include_sources, include_names));
 
-		_freea(include_names);
-		_freea(include_sources);
+		FREEA(include_names);
+		FREEA(include_sources);
 
 		// Configure options
 		char compute    [64]; sprintf_s(compute,     "--gpu-architecture=compute_%i", compute_capability);
@@ -273,6 +276,8 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	
 	if (should_recompile) puts(log_buffer);
 	puts("");
+
+	FREEA(ptx_filename);
 }
 
 void CUDAModule::set_surface(const char * surface_name, CUarray array) const {

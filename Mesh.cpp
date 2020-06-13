@@ -14,7 +14,7 @@ static void bvh_save_to_disk(const BVH & bvh, const char * filename, const char 
 	assert(file_extension[0] == '.');
 
 	int    bvh_filename_length = strlen(filename) + strlen(file_extension) + 1;
-	char * bvh_filename        = reinterpret_cast<char *>(_malloca(bvh_filename_length));
+	char * bvh_filename        = MALLOCA(char, bvh_filename_length);
 
 	strcpy_s(bvh_filename, bvh_filename_length, filename);
 	strcat_s(bvh_filename, bvh_filename_length, file_extension);
@@ -25,7 +25,7 @@ static void bvh_save_to_disk(const BVH & bvh, const char * filename, const char 
 	if (file == nullptr) {
 		printf("WARNING: Unable to save BVH to file %s!\n", bvh_filename);
 
-		_freea(bvh_filename);
+		FREEA(bvh_filename);
 
 		return;
 	}
@@ -41,20 +41,20 @@ static void bvh_save_to_disk(const BVH & bvh, const char * filename, const char 
 
 	fclose(file);
 
-	_freea(bvh_filename);
+	FREEA(bvh_filename);
 }
 
 static bool bvh_try_to_load_from_disk(BVH & bvh, const char * filename, const char * file_extension) {
 	assert(file_extension[0] == '.');
 
 	int    bvh_filename_length = strlen(filename) + strlen(file_extension) + 1;
-	char * bvh_filename        = reinterpret_cast<char *>(_malloca(bvh_filename_length));
+	char * bvh_filename        = MALLOCA(char, bvh_filename_length);
 
 	strcpy_s(bvh_filename, bvh_filename_length, filename);
 	strcat_s(bvh_filename, bvh_filename_length, file_extension);
 
 	if (!Util::file_exists(bvh_filename) || !Util::file_is_newer(filename, bvh_filename)) {
-		_freea(bvh_filename);
+		FREEA(bvh_filename);
 
 		return false;
 	}
@@ -63,7 +63,7 @@ static bool bvh_try_to_load_from_disk(BVH & bvh, const char * filename, const ch
 	fopen_s(&file, bvh_filename, "rb");
 
 	if (!file) {
-		_freea(bvh_filename);
+		FREEA(bvh_filename);
 
 		return false;
 	}
@@ -87,7 +87,7 @@ static bool bvh_try_to_load_from_disk(BVH & bvh, const char * filename, const ch
 
 	printf("Loaded BVH  %s from disk\n", bvh_filename);
 
-	_freea(bvh_filename);
+	FREEA(bvh_filename);
 
 	return true;
 }
@@ -114,13 +114,13 @@ const Mesh * Mesh::load(const char * filename) {
 
 		// Replace ".obj" in the filename with ".mtl"
 		int filename_length = strlen(filename);
-		char * mtl_filename = reinterpret_cast<char *>(_malloca(filename_length + 1));
+		char * mtl_filename = MALLOCA(char, filename_length + 1);
 		strcpy_s(mtl_filename, filename_length + 1, filename);
 		memcpy(mtl_filename + filename_length - 4, ".mtl", 4);
 
 		OBJLoader::load_mtl(mtl_filename, mesh);
 
-		_freea(mtl_filename);
+		FREEA(mtl_filename);
 	} else {
 		OBJLoader::load_obj(filename, mesh);
 

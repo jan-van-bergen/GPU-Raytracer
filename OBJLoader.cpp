@@ -56,23 +56,24 @@ void OBJLoader::load_mtl(const char * filename, Mesh * mesh) {
 	std::string str(filename);
 
 	std::filebuf fb;
-	if (fb.open(str.substr(0, str.length() - 4) + ".mtl", std::ios::in)) {
+	if (fb.open(filename, std::ios::in)) {
 		std::istream is(&fb);
 
 		tinyobj::LoadMtl(&material_map, &materials, &is, &warning, &error);
 		
-		const char * path = Util::get_path(filename);
+		char * path = MALLOCA(char, strlen(filename) + 1);
+		Util::get_path(filename, path);
 
 		load_materials(materials, mesh, path);
 
-		delete [] path;
+		FREEA(path);
 	} else {
-		printf("ERROR: mtl file for %s not found! Make sure the .mtl file has the same name as the .obj file.\n", filename);
+		printf("ERROR: Cannot open mtl file %s! Make sure the .mtl file has the same name as the .obj file.\n", filename);
 		abort();
 	}
 }
 
-void OBJLoader::load_obj(const char * file_path, Mesh * mesh) {
+void OBJLoader::load_obj(const char * filename, Mesh * mesh) {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -80,14 +81,15 @@ void OBJLoader::load_obj(const char * file_path, Mesh * mesh) {
 	std::string warning;
 	std::string error;
 
-	const char * path = Util::get_path(file_path);
+	char * path = MALLOCA(char, strlen(filename) + 1);
+	Util::get_path(filename, path);
 
-	bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, file_path, path);
+	bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, filename, path);
 	if (!success) abort();
 
 	load_materials(materials, mesh, path);
 
-	delete [] path;
+	FREEA(path);
 	
 	// Load Meshes
 	int total_vertex_count = 0;
@@ -199,7 +201,7 @@ void OBJLoader::load_obj(const char * file_path, Mesh * mesh) {
 		mesh->bvh.triangles[i].aabb = AABB::from_points(vertices, 3);
 	}
 
-	printf("Loaded Mesh %s from disk, consisting of %u triangles.\n", file_path, mesh->bvh.triangle_count);
+	printf("Loaded Mesh %s from disk, consisting of %u triangles.\n", filename, mesh->bvh.triangle_count);
 	
 	delete [] positions;
 	delete [] tex_coords;
