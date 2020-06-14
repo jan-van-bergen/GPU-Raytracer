@@ -72,6 +72,7 @@
     <ClCompile Include="Mesh.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
+    <ClCompile Include="Input.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -221,5 +222,6 @@
     <ClInclude Include="Triangle.h">
       <Filter>Assets</Filter>
     </ClInclude>
+    <ClInclude Include="Input.h" />
   </ItemGroup>
 </Project>

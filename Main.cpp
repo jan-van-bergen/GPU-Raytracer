@@ -6,6 +6,7 @@
 
 #include "Pathtracer.h"
 
+#include "Input.h"
 #include "Window.h"
 
 #include "Util.h"
@@ -71,14 +72,12 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
-		const unsigned char * keys = SDL_GetKeyboardState(nullptr);
-
-		pathtracer.update(delta_time, keys);
+		pathtracer.update(delta_time);
 		pathtracer.render();
 		
 		window.render_framebuffer();
 		
-		if (keys[SDL_SCANCODE_P] || current_frame == capture_frame_index) {
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || current_frame == capture_frame_index) {
 			char screenshot_name[32];
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", current_frame);
 
@@ -196,6 +195,9 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		ImGui::End();
+
+		// Save Keyboard State of this frame before SDL_PumpEvents
+		Input::update();
 
 		window.gui_end();
 		window.swap();

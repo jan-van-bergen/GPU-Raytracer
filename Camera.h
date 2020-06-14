@@ -34,5 +34,5 @@ struct Camera {
 
 	void resize(int width, int height);
 
-	void update(float delta, const unsigned char * keys, bool apply_jitter);
+	void update(float delta, bool apply_jitter);
 };

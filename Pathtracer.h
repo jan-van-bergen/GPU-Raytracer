@@ -44,7 +44,7 @@ struct Pathtracer {
 
 	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
 
-	void update(float delta, const unsigned char * keys);
+	void update(float delta);
 	void render();
 
 private:

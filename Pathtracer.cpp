@@ -3,8 +3,6 @@
 #include <ctype.h>
 #include <algorithm>
 
-#include <SDL2/SDL.h>
-
 #include "CUDAContext.h"
 
 #include "Mesh.h"
@@ -576,9 +574,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	FREEA(scene_name_lower);
 }
 
-void Pathtracer::update(float delta, const unsigned char * keys) {
+void Pathtracer::update(float delta) {
 	bool jitter = enable_taa;
-	camera.update(delta, keys, jitter);
+	camera.update(delta, jitter);
 
 	if (settings_changed) {
 		frames_since_camera_moved = 0;

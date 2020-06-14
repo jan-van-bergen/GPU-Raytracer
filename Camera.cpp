@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include <SDL2/SDL.h>
+#include "Input.h"
 
 #include "CUDA_Source/Common.h"
 
@@ -21,7 +21,7 @@ void Camera::resize(int width, int height) {
 	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
 }
 
-void Camera::update(float delta, const unsigned char * keys, bool apply_jitter) {
+void Camera::update(float delta, bool apply_jitter) {
 	static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
 	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
 
@@ -57,21 +57,21 @@ void Camera::update(float delta, const unsigned char * keys, bool apply_jitter) 
 	Vector3 right   = rotation * Vector3(1.0f, 0.0f,  0.0f);
 	Vector3 forward = rotation * Vector3(0.0f, 0.0f, -1.0f);
 
-	if (keys[SDL_SCANCODE_W]) { position += forward * MOVEMENT_SPEED * delta; moved = true; }
-	if (keys[SDL_SCANCODE_A]) { position -= right   * MOVEMENT_SPEED * delta; moved = true; }
-	if (keys[SDL_SCANCODE_S]) { position -= forward * MOVEMENT_SPEED * delta; moved = true; }
-	if (keys[SDL_SCANCODE_D]) { position += right   * MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_W)) { position += forward * MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_A)) { position -= right   * MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_S)) { position -= forward * MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_D)) { position += right   * MOVEMENT_SPEED * delta; moved = true; }
 
-	if (keys[SDL_SCANCODE_LSHIFT]) { position.y -= MOVEMENT_SPEED * delta; moved = true; }
-	if (keys[SDL_SCANCODE_SPACE])  { position.y += MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_LSHIFT)) { position.y -= MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_SPACE))  { position.y += MOVEMENT_SPEED * delta; moved = true; }
 
-	if (keys[SDL_SCANCODE_UP])    { rotation = Quaternion::axis_angle(right,                     +ROTATION_SPEED * delta) * rotation; moved = true; }
-	if (keys[SDL_SCANCODE_DOWN])  { rotation = Quaternion::axis_angle(right,                     -ROTATION_SPEED * delta) * rotation; moved = true; }
-	if (keys[SDL_SCANCODE_LEFT])  { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), +ROTATION_SPEED * delta) * rotation; moved = true; }
-	if (keys[SDL_SCANCODE_RIGHT]) { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), -ROTATION_SPEED * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_UP))    { rotation = Quaternion::axis_angle(right,                     +ROTATION_SPEED * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_DOWN))  { rotation = Quaternion::axis_angle(right,                     -ROTATION_SPEED * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_LEFT))  { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), +ROTATION_SPEED * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_RIGHT)) { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), -ROTATION_SPEED * delta) * rotation; moved = true; }
 
 	// For debugging purposes
-	if (keys[SDL_SCANCODE_F]) {
+	if (Input::is_key_pressed(SDL_SCANCODE_F)) {
 		printf("camera.position = Vector3(%ff, %ff, %ff);\n",         position.x, position.y, position.z);
 		printf("camera.rotation = Quaternion(%ff, %ff, %ff, %ff);\n", rotation.x, rotation.y, rotation.z, rotation.w);
 	}
