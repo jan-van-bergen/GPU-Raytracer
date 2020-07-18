@@ -46,6 +46,11 @@ struct CUDAModule {
 		inline void set_buffer(const T (& buffer)[N]) const {
 			set_buffer(buffer, N);
 		}
+
+		template<typename T>
+		inline void set_buffer(const std::vector<T> & buffer) const {
+			set_buffer(buffer.data(), buffer.size());
+		}
 	};
 
 	void init(const char * filename, int compute_capability, int max_registers);

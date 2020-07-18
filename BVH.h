@@ -21,9 +21,6 @@ struct BVHNode {
 };
 
 struct BVH {
-	int        triangle_count;
-	Triangle * triangles;
-
 	int   index_count;
 	int * indices;
 

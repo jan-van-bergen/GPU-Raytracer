@@ -308,37 +308,38 @@ static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[
 	return number_of_leaves_left + number_of_leaves_right;
 }
 
-void BVHBuilders::build_sbvh(BVH & sbvh) {
+BVH BVHBuilders::build_sbvh(const Triangle * triangles, int triangle_count) {
 	puts("Construcing SBVH, this may take a few seconds for large scenes...");
 
-	sbvh.nodes = new BVHNode[SBVH_OVERALLOCATION * sbvh.triangle_count];
+	BVH sbvh;
+	sbvh.nodes = new BVHNode[SBVH_OVERALLOCATION * triangle_count];
 
-	int * indices_x = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
-	int * indices_y = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
-	int * indices_z = new int[SBVH_OVERALLOCATION * sbvh.triangle_count];
+	int * indices_x = new int[SBVH_OVERALLOCATION * triangle_count];
+	int * indices_y = new int[SBVH_OVERALLOCATION * triangle_count];
+	int * indices_z = new int[SBVH_OVERALLOCATION * triangle_count];
 
-	for (int i = 0; i < sbvh.triangle_count; i++) {
+	for (int i = 0; i < triangle_count; i++) {
 		indices_x[i] = i;
 		indices_y[i] = i;
 		indices_z[i] = i;
 	}
 
-	std::sort(indices_x, indices_x + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_center().x < sbvh.triangles[b].get_center().x; });
-	std::sort(indices_y, indices_y + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_center().y < sbvh.triangles[b].get_center().y; });
-	std::sort(indices_z, indices_z + sbvh.triangle_count, [&](int a, int b) { return sbvh.triangles[a].get_center().z < sbvh.triangles[b].get_center().z; });
+	std::sort(indices_x, indices_x + triangle_count, [&](int a, int b) { return triangles[a].get_center().x < triangles[b].get_center().x; });
+	std::sort(indices_y, indices_y + triangle_count, [&](int a, int b) { return triangles[a].get_center().y < triangles[b].get_center().y; });
+	std::sort(indices_z, indices_z + triangle_count, [&](int a, int b) { return triangles[a].get_center().z < triangles[b].get_center().z; });
 		
 	int * indices_3[3] = { indices_x, indices_y, indices_z };
 		
-	float * sah = new float[sbvh.triangle_count];
+	float * sah = new float[triangle_count];
 	
-	int * temp[2] = { new int[sbvh.triangle_count], new int[sbvh.triangle_count] };
+	int * temp[2] = { new int[triangle_count], new int[triangle_count] };
 
-	AABB root_aabb = BVHPartitions::calculate_bounds(sbvh.triangles, indices_3[0], 0, sbvh.triangle_count);
+	AABB root_aabb = BVHPartitions::calculate_bounds(triangles, indices_3[0], 0, triangle_count);
 
 	int node_index = 2;
-	sbvh.index_count = build_sbvh(sbvh.nodes[0], sbvh.triangles, indices_3, sbvh.nodes, node_index, 0, sbvh.triangle_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
+	sbvh.index_count = build_sbvh(sbvh.nodes[0], triangles, indices_3, sbvh.nodes, node_index, 0, triangle_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
 		
-	if (node_index > SBVH_OVERALLOCATION * sbvh.triangle_count) abort();
+	if (node_index > SBVH_OVERALLOCATION * triangle_count) abort();
 
 	sbvh.indices = indices_x;
 	delete [] indices_y;
@@ -349,4 +350,6 @@ void BVHBuilders::build_sbvh(BVH & sbvh) {
 	delete [] temp[0];
 	delete [] temp[1];
 	delete [] sah;
+
+	return sbvh;
 }

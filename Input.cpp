@@ -12,17 +12,17 @@ void Input::update() {
 }
 
 bool Input::is_key_down(SDL_Scancode key) {
-	return SDL_GetKeyboardState(nullptr)[int(key)];
+	return SDL_GetKeyboardState(nullptr)[key];
 }
 
 bool Input::is_key_up(SDL_Scancode key) {
-	return !SDL_GetKeyboardState(nullptr)[int(key)];
+	return !SDL_GetKeyboardState(nullptr)[key];
 }
 
 bool Input::is_key_pressed(SDL_Scancode key) {
-	return SDL_GetKeyboardState(nullptr)[int(key)] && !keyboard_state_previous_frame[int(key)];
+	return SDL_GetKeyboardState(nullptr)[key] && !keyboard_state_previous_frame[key];
 }
 
 bool Input::is_key_released(SDL_Scancode key) {
-	return !SDL_GetKeyboardState(nullptr)[int(key)] && keyboard_state_previous_frame[int(key)];
+	return !SDL_GetKeyboardState(nullptr)[key] && keyboard_state_previous_frame[key];
 }

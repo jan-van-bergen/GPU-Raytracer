@@ -1,28 +1,18 @@
 #include "Pathtracer.h"
 
-#include <ctype.h>
 #include <algorithm>
 
 #include "CUDAContext.h"
 
-#include "Mesh.h"
+#include "MeshData.h"
 #include "Material.h"
 
 #include "BVHBuilders.h"
-
-#include "Sky.h"
 
 #include "BlueNoise.h"
 
 #include "Util.h"
 #include "ScopeTimer.h"
-
-struct Vertex {
-	Vector3 position;
-	Vector3 normal;
-	Vector2 uv;
-	int     triangle_id;
-};
 
 struct CUDAVector3_SoA {
 	CUDAMemory::Ptr<float> x;
@@ -39,8 +29,9 @@ struct CUDAVector3_SoA {
 struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
-		
-	CUDAMemory::Ptr<int> triangle_id;
+
+	CUDAMemory::Ptr<int>   mesh_id;
+	CUDAMemory::Ptr<int>   triangle_id;
 	CUDAMemory::Ptr<float> u;
 	CUDAMemory::Ptr<float> v;
 
@@ -54,6 +45,7 @@ struct TraceBuffer {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
 		
+		mesh_id     = CUDAMemory::malloc<int>  (buffer_size);
 		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
 		u           = CUDAMemory::malloc<float>(buffer_size);
 		v           = CUDAMemory::malloc<float>(buffer_size);
@@ -68,7 +60,8 @@ struct TraceBuffer {
 
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
-	
+
+	CUDAMemory::Ptr<int> mesh_id;
 	CUDAMemory::Ptr<int> triangle_id;
 	CUDAMemory::Ptr<float> u;
 	CUDAMemory::Ptr<float> v;
@@ -79,6 +72,7 @@ struct MaterialBuffer {
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
 
+		mesh_id     = CUDAMemory::malloc<int>  (buffer_size);
 		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
 		u           = CUDAMemory::malloc<float>(buffer_size);
 		v           = CUDAMemory::malloc<float>(buffer_size);
@@ -119,24 +113,16 @@ static struct BufferSizes {
 	int rays_retired_shadow[NUM_BOUNCES] = { 0 };
 } buffer_sizes;
 
-void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
+void Pathtracer::init(unsigned frame_buffer_handle) {
 	ScopeTimer timer("Pathtracer Initialization");
 
 	CUDAContext::init();
 
-	camera.init(DEG_TO_RAD(110.0f));
-	camera.resize(SCREEN_WIDTH, SCREEN_HEIGHT);
-
 	// Init CUDA Module and its Kernel
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, 64);
 
-	Material & default_material = Material::materials.emplace_back();
-	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
-
-	const Mesh * scene_mesh = Mesh::load(scene_name);
-
 	// Set global Material table
-	module.get_global("materials").set_buffer(Material::materials.data(), Material::materials.size());
+	module.get_global("materials").set_buffer(Material::materials);
 
 	// Set global Texture table
 	int texture_count = Texture::textures.size();
@@ -182,26 +168,91 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		delete [] tex_objects;
 	}
 
+	int mesh_data_count = MeshData::mesh_datas.size();
+
+	mesh_data_bvh_offsets = new int[mesh_data_count];
+
+	int * mesh_data_index_offsets    = MALLOCA(int, mesh_data_count);
+	int * mesh_data_triangle_offsets = MALLOCA(int, mesh_data_count);
+
+	int global_bvh_node_count = 2 * scene.mesh_count; // Reserve 2 times Mesh count for TLAS
+	int global_index_count    = 0;
+	int global_triangle_count = 0;
+
+	for (int i = 0; i < mesh_data_count; i++) {
+		mesh_data_bvh_offsets     [i] = global_bvh_node_count;
+		mesh_data_index_offsets   [i] = global_index_count;
+		mesh_data_triangle_offsets[i] = global_triangle_count;
+
+		global_bvh_node_count += MeshData::mesh_datas[i]->bvh.node_count;
+		global_index_count    += MeshData::mesh_datas[i]->bvh.index_count;
+		global_triangle_count += MeshData::mesh_datas[i]->triangle_count;
+	}
+
+	BVHNodeType * global_bvh_nodes = new BVHNodeType[global_bvh_node_count];
+	int         * global_indices   = new int        [global_index_count];
+	Triangle    * global_triangles = new Triangle   [global_triangle_count];
+
+	for (int m = 0; m < mesh_data_count; m++) {
+		const MeshData * mesh_data = MeshData::mesh_datas[m];
+
+		for (int n = 0; n < mesh_data->bvh.node_count; n++) {
+			BVHNodeType & node = global_bvh_nodes[mesh_data_bvh_offsets[m] + n];
+
+			node = mesh_data->bvh.nodes[n];
 
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
-	const BVH & bvh = scene_mesh->bvh;
-
-	module.get_global("bvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+			if (node.is_leaf()) {
+				node.first += mesh_data_index_offsets[m];
+			} else {
+				node.left  += mesh_data_bvh_offsets[m];
+			}
 #elif BVH_TYPE == BVH_QBVH
-	QBVH bvh = BVHBuilders::qbvh_from_binary_bvh(scene_mesh->bvh);
-	
-	module.get_global("qbvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+			int child_count = node.get_child_count();
+			for (int c = 0; c < child_count; c++) {
+				if (node.is_leaf(c)) {
+					node.get_index(c) += mesh_data_index_offsets[m];
+				} else {
+					node.get_index(c) += mesh_data_bvh_offsets[m];
+				}
+			}
 #elif BVH_TYPE == BVH_CWBVH
-	CWBVH bvh = BVHBuilders::cwbvh_from_binary_bvh(scene_mesh->bvh);
-
-	module.get_global("cwbvh_nodes").set_buffer(bvh.nodes, bvh.node_count);
+			node.base_index_child    += mesh_data_bvh_offsets[m];
+			node.base_index_triangle += mesh_data_index_offsets[m];
 #endif
-	
-	int        primitive_count = bvh.triangle_count;
-	Triangle * primitives      = bvh.triangles;
+		}
 
-	int   index_count = bvh.index_count;
-	int * indices     = bvh.indices;
+		for (int i = 0; i < mesh_data->bvh.index_count; i++) {
+			global_indices[mesh_data_index_offsets[m] + i] = mesh_data->bvh.indices[i] + mesh_data_triangle_offsets[m];
+		}
+
+		for (int t = 0; t < mesh_data->triangle_count; t++) {
+			global_triangles[mesh_data_triangle_offsets[m] + t]              = mesh_data->triangles[t];
+			global_triangles[mesh_data_triangle_offsets[m] + t].material_id += mesh_data->material_offset;
+		}
+	}
+
+	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.mesh_count);
+	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
+	ptr_mesh_transforms_inv   = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
+
+	module.get_global("mesh_bvh_root_indices").set_value(ptr_mesh_bvh_root_indices);
+	module.get_global("mesh_transforms")      .set_value(ptr_mesh_transforms);
+	module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
+	
+	ptr_bvh_nodes = CUDAMemory::malloc<BVHNodeType>(global_bvh_node_count);
+	CUDAMemory::memcpy(ptr_bvh_nodes, global_bvh_nodes, global_bvh_node_count);
+
+#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
+	module.get_global("bvh_nodes").set_value(ptr_bvh_nodes);
+#elif BVH_TYPE == BVH_QBVH
+	module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes);
+#elif BVH_TYPE == BVH_CWBVH
+	module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes);
+#endif
+
+	scene.update(0.0f);
+	build_tlas();
 
 	struct CUDATriangle {
 		Vector3 position_0;
@@ -217,105 +268,89 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 		Vector2 tex_coord_edge_2;
 	};
 	
-	CUDATriangle * triangles             = new CUDATriangle[index_count];
-	int          * triangle_material_ids = new int         [index_count];
+	CUDATriangle * triangles             = new CUDATriangle[global_index_count];
+	int          * triangle_material_ids = new int         [global_index_count];
 
-	int * reverse_indices = new int[index_count];
+	int * reverse_indices = new int[global_index_count];
 
-	for (int i = 0; i < index_count; i++) {
-		int index = indices[i];
+	for (int i = 0; i < global_index_count; i++) {
+		int index = global_indices[i];
 
-		triangles[i].position_0      = primitives[index].position_0;
-		triangles[i].position_edge_1 = primitives[index].position_1 - primitives[index].position_0;
-		triangles[i].position_edge_2 = primitives[index].position_2 - primitives[index].position_0;
+		triangles[i].position_0      = global_triangles[index].position_0;
+		triangles[i].position_edge_1 = global_triangles[index].position_1 - global_triangles[index].position_0;
+		triangles[i].position_edge_2 = global_triangles[index].position_2 - global_triangles[index].position_0;
 
-		triangles[i].normal_0      = primitives[index].normal_0;
-		triangles[i].normal_edge_1 = primitives[index].normal_1 - primitives[index].normal_0;
-		triangles[i].normal_edge_2 = primitives[index].normal_2 - primitives[index].normal_0;
+		triangles[i].normal_0      = global_triangles[index].normal_0;
+		triangles[i].normal_edge_1 = global_triangles[index].normal_1 - global_triangles[index].normal_0;
+		triangles[i].normal_edge_2 = global_triangles[index].normal_2 - global_triangles[index].normal_0;
 
-		triangles[i].tex_coord_0      = primitives[index].tex_coord_0;
-		triangles[i].tex_coord_edge_1 = primitives[index].tex_coord_1 - primitives[index].tex_coord_0;
-		triangles[i].tex_coord_edge_2 = primitives[index].tex_coord_2 - primitives[index].tex_coord_0;
+		triangles[i].tex_coord_0      = global_triangles[index].tex_coord_0;
+		triangles[i].tex_coord_edge_1 = global_triangles[index].tex_coord_1 - global_triangles[index].tex_coord_0;
+		triangles[i].tex_coord_edge_2 = global_triangles[index].tex_coord_2 - global_triangles[index].tex_coord_0;
 
-		triangle_material_ids[i] = scene_mesh->material_offset + primitives[index].material_id;
+		triangle_material_ids[i] = global_triangles[index].material_id;
 
 		reverse_indices[index] = i;
 	}
 
-	module.get_global("triangles")            .set_buffer(triangles,             index_count);
-	module.get_global("triangle_material_ids").set_buffer(triangle_material_ids, index_count);
+	module.get_global("triangles")            .set_buffer(triangles,             global_index_count);
+	module.get_global("triangle_material_ids").set_buffer(triangle_material_ids, global_index_count);
 
-	// Create Vertex Buffer for OpenGL containing all Triangles
-	vertex_count = primitive_count * 3;
-	Vertex * vertices = new Vertex[vertex_count];
-
-	for (int i = 0; i < primitive_count; i++) {
-		int index_0 = 3 * i;
-		int index_1 = 3 * i + 1;
-		int index_2 = 3 * i + 2;
-
-		vertices[index_0].position = primitives[i].position_0;
-		vertices[index_1].position = primitives[i].position_1;
-		vertices[index_2].position = primitives[i].position_2;
-
-		vertices[index_0].normal = primitives[i].normal_0;
-		vertices[index_1].normal = primitives[i].normal_1;
-		vertices[index_2].normal = primitives[i].normal_2;
-
-		// Barycentric coordinates
-		vertices[index_0].uv = Vector2(0.0f, 0.0f);
-		vertices[index_1].uv = Vector2(1.0f, 0.0f);
-		vertices[index_2].uv = Vector2(0.0f, 1.0f);
-
-		vertices[index_0].triangle_id = reverse_indices[i];
-		vertices[index_1].triangle_id = reverse_indices[i];
-		vertices[index_2].triangle_id = reverse_indices[i];
+	// Init OpenGL MeshData for rasterization
+	for (int m = 0; m < mesh_data_count; m++) {
+		MeshData::mesh_datas[m]->init_gl(reverse_indices + mesh_data_triangle_offsets[m]);
 	}
 
-	GLuint vbo;
-	glGenBuffers(1, &vbo);
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
-
-	delete [] vertices;
-	
 	// Initialize OpenGL Shaders
-	shader = Shader::load(DATA_PATH("Shaders/primary_vertex.glsl"), DATA_PATH("Shaders/primary_fragment.glsl"));
-
+	shader = Shader::load(
+		DATA_PATH("Shaders/primary_vertex.glsl"),
+		DATA_PATH("Shaders/primary_fragment.glsl")
+	);
 	shader.bind();
+
 	uniform_view_projection      = shader.get_uniform("view_projection");
 	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
+
+	uniform_transform      = shader.get_uniform("transform");
+	uniform_transform_prev = shader.get_uniform("transform_prev");
+
+	uniform_mesh_id = shader.get_uniform("mesh_id");
 
 	// Initialize GBuffers
 	gbuffer.init(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-	module.set_texture("gbuffer_normal_and_depth",     CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_uv",                   CUDAContext::map_gl_texture(gbuffer.buffer_uv,               CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_uv_gradient",          CUDAContext::map_gl_texture(gbuffer.buffer_uv_gradient,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_triangle_id",          CUDAContext::map_gl_texture(gbuffer.buffer_triangle_id,      CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 1);
-	module.set_texture("gbuffer_screen_position_prev", CUDAContext::map_gl_texture(gbuffer.buffer_motion,           CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_depth_gradient",       CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,       CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	// Map GBuffers to CUDA textures
+	int flags = CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY;
+
+	module.set_texture("gbuffer_normal_and_depth",        CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth,        flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_uv",                      CUDAContext::map_gl_texture(gbuffer.buffer_uv,                      flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_uv_gradient",             CUDAContext::map_gl_texture(gbuffer.buffer_uv_gradient,             flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
+	module.set_texture("gbuffer_mesh_id_and_triangle_id", CUDAContext::map_gl_texture(gbuffer.buffer_mesh_id_and_triangle_id, flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 2);
+	module.set_texture("gbuffer_screen_position_prev",    CUDAContext::map_gl_texture(gbuffer.buffer_motion,                  flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_depth_gradient",          CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,              flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
 
 	// Initialize Lights
-
 	struct LightDescription {
 		int   index;
 		float area;
 	};
 	std::vector<LightDescription> lights;
 
-	// For every Triangle, check whether it is a Light based on its Material
-	for (int i = 0; i < primitive_count; i++) {
-		const Triangle & triangle = primitives[i];
+	for (int m = 0; m < mesh_data_count; m++) {
+		const MeshData * mesh_data = MeshData::mesh_datas[m];
 
-		if (Material::materials[scene_mesh->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
-			float area = 0.5f * Vector3::length(Vector3::cross(
-				triangle.position_1 - triangle.position_0,
-				triangle.position_2 - triangle.position_0
-			));
+		// For every Triangle, check whether it is a Light based on its Material
+		for (int t = 0; t < mesh_data->triangle_count; t++) {
+			const Triangle & triangle = mesh_data->triangles[t];
 
-			lights.push_back({ reverse_indices[i], area });
+			if (Material::materials[mesh_data->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
+				float area = 0.5f * Vector3::length(Vector3::cross(
+					triangle.position_1 - triangle.position_0,
+					triangle.position_2 - triangle.position_0
+				));
+
+				lights.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], area });
+			}
 		}
 	}
 	
@@ -354,12 +389,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	module.get_global("light_count").set_value(light_count);
 
-	// Initialize Sky
-	Sky sky;
-	sky.init(sky_name);
-
-	module.get_global("sky_size").set_value (sky.size);
-	module.get_global("sky_data").set_buffer(sky.data, sky.size * sky.size);
+	module.get_global("sky_size").set_value (scene.sky.size);
+	module.get_global("sky_data").set_buffer(scene.sky.data, scene.sky.size * scene.sky.size);
 	
 	// Set Blue Noise Sampler globals
 	module.get_global("sobol_256spp_256d").set_buffer(sobol_256spp_256d);
@@ -508,75 +539,151 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	event_accumulate.init("Post", "Accumulate");
 
 	event_end.init("END", "END");
+}
 
-	scene_has_diffuse    = false;
-	scene_has_dielectric = false;
-	scene_has_glossy     = false;
-	scene_has_lights     = false;
+static void cwbvh_convert_recurse(int node_index, CWBVH & cwbvh, const BVH & bvh) {
+	CWBVHNode     &     node = cwbvh.nodes[node_index];
+	const BVHNode & bvh_node =   bvh.nodes[node_index];
+	
+	node.p = bvh_node.aabb.min;
 
-	// Check properties of the Scene, so we know which kernels are required
-	for (int i = 0; i < Material::materials.size(); i++) {
-		switch (Material::materials[i].type) {
-			case Material::Type::DIFFUSE:    scene_has_diffuse    = true; break;
-			case Material::Type::DIELECTRIC: scene_has_dielectric = true; break;
-			case Material::Type::GLOSSY:     scene_has_glossy     = true; break;
-			case Material::Type::LIGHT:      scene_has_lights     = true; break;
-		}
-	}
+	const int Nq = 8;
+	const float denom = 1.0f / float((1 << Nq) - 1);
 
-	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
-		scene_has_diffuse    ? "yes" : "no",
-		scene_has_dielectric ? "yes" : "no",
-		scene_has_glossy     ? "yes" : "no",
-		scene_has_lights     ? "yes" : "no"
+	Vector3 e(
+		exp2f(ceilf(log2f((bvh_node.aabb.max.x - bvh_node.aabb.min.x) * denom))),
+		exp2f(ceilf(log2f((bvh_node.aabb.max.y - bvh_node.aabb.min.y) * denom))),
+		exp2f(ceilf(log2f((bvh_node.aabb.max.z - bvh_node.aabb.min.z) * denom)))
 	);
+	
+	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
+	
+	// Treat float as unsigned
+	unsigned u_ex, u_ey, u_ez;
+	memcpy(&u_ex, &e.x, 4);
+	memcpy(&u_ey, &e.y, 4);
+	memcpy(&u_ez, &e.z, 4);
 
-	int    scene_name_length = strlen(scene_name);
-	char * scene_name_lower  = MALLOCA(char, scene_name_length + 1);
+	// Only the exponent bits can be non-zero
+	assert((u_ex & 0b10000000011111111111111111111111) == 0);
+	assert((u_ey & 0b10000000011111111111111111111111) == 0);
+	assert((u_ez & 0b10000000011111111111111111111111) == 0);
 
-	for (int i = 0; i < scene_name_length + 1; i++) {
-		scene_name_lower[i] = tolower(scene_name[i]);
-	}
+	// Store only 8 bit exponent
+	node.e[0] = u_ex >> 23;
+	node.e[1] = u_ey >> 23;
+	node.e[2] = u_ez >> 23;
+	
+	node.imask = 0;
 
-	// Initialize Camera position/orientation based on the Scene name
-	if (strstr(scene_name_lower, "pica.obj")) {
-		camera.position = Vector3(-7.640668f, 16.404673f, 17.845022f);
-		camera.rotation = Quaternion(-0.256006f, -0.069205f, -0.018378f, 0.964019f);	
-	} else if (strstr(scene_name_lower, "sponza.obj")) {
-		camera.position = Vector3(116.927467f, 15.586369f, -2.997146f);
-		camera.rotation = Quaternion(0.000000f, 0.692966f, 0.000000f, 0.720969f);
-	} else if (strstr(scene_name_lower, "scene.obj")) {
-		camera.position = Vector3(-0.126737f, 0.613379f, 3.716630f);
-		camera.rotation = Quaternion(-0.107255f, -0.002421f, 0.000262f, -0.994227f);
-	} else if (strstr(scene_name_lower, "cornellbox.obj")) {
-		camera.position = Vector3(0.528027f, 1.004323f, -0.774033f);
-		camera.rotation = Quaternion(0.035059f, -0.963870f, 0.208413f, 0.162142f);
-	} else if (strstr(scene_name_lower, "glossy.obj")) {
-		camera.position = Vector3(-5.438800f, 5.910520f, -7.185338f);
-		camera.rotation = Quaternion(0.242396f, 0.716713f, 0.298666f, -0.581683f);
-	} else if (strstr(scene_name_lower, "bunny.obj")) {
-		camera.position = Vector3(-27.662603f, 26.719784f, -15.835464f);
-		camera.rotation = Quaternion(0.076750f, 0.900785f, 0.177892f, -0.388638f);
-	} else if (strstr(scene_name_lower, "test.obj")) {
-		camera.position = Vector3(4.157419f, 4.996608f, 8.337481f);
-		camera.rotation = Quaternion(0.000000f, 0.310172f, 0.000000f, 0.950679f);
-	} else if (strstr(scene_name_lower, "bistro.obj")) {
-		camera.position = Vector3(-13.665823f, 2.480730f, -2.920546f);
-		camera.rotation = Quaternion(0.000000f, -0.772662f, 0.000000f, 0.634818f);
-	} else if (strstr(scene_name_lower, "rungholt.obj")) {
-		camera.position = Vector3(-22.413084f, 18.681219f, -23.566196f);
-		camera.rotation = Quaternion(0.000000f, 0.716948f, 0.000000f, -0.697125f);
+	node.base_index_child    = -1;
+	node.base_index_triangle = -1;
+
+	if (bvh_node.is_leaf()) {
+		node.base_index_triangle = bvh_node.first;
+		
+		node.quantized_min_x[0] = byte(floorf((bvh_node.aabb.min.x - node.p.x) * one_over_e.x));
+		node.quantized_min_y[0] = byte(floorf((bvh_node.aabb.min.y - node.p.y) * one_over_e.y));
+		node.quantized_min_z[0] = byte(floorf((bvh_node.aabb.min.z - node.p.z) * one_over_e.z));
+
+		node.quantized_max_x[0] = byte(ceilf((bvh_node.aabb.max.x - node.p.x) * one_over_e.x));
+		node.quantized_max_y[0] = byte(ceilf((bvh_node.aabb.max.y - node.p.y) * one_over_e.y));
+		node.quantized_max_z[0] = byte(ceilf((bvh_node.aabb.max.z - node.p.z) * one_over_e.z));
+
+		int triangle_count = 1;
+
+		// Three highest bits contain unary representation of triangle count
+		for (int j = 0; j < triangle_count; j++) {
+			node.meta[0] |= (1 << (j + 5));
+		}
 	} else {
-		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
-		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
+		node.base_index_child = bvh_node.left;
+
+		for (int i = 0; i < 2; i++) {
+			node.quantized_min_x[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.x - node.p.x) * one_over_e.x));
+			node.quantized_min_y[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.y - node.p.y) * one_over_e.y));
+			node.quantized_min_z[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.z - node.p.z) * one_over_e.z));
+
+			node.quantized_max_x[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.x - node.p.x) * one_over_e.x));
+			node.quantized_max_y[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.y - node.p.y) * one_over_e.y));
+			node.quantized_max_z[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.z - node.p.z) * one_over_e.z));
+
+			node.meta[i] = (i + 24) | 0b00100000;
+
+			node.imask |= (1 << i);
+		}
+
+		cwbvh_convert_recurse(bvh_node.left,     cwbvh, bvh);
+		cwbvh_convert_recurse(bvh_node.left + 1, cwbvh, bvh);
+	}
+}
+
+static CWBVH cwbvh_convert(const BVH & bvh) {
+	CWBVH cwbvh;
+	cwbvh.index_count = bvh.index_count;
+	cwbvh.indices     = bvh.indices;
+	cwbvh.node_count  = bvh.node_count;
+	cwbvh.nodes       = new CWBVHNode[bvh.node_count];
+
+	cwbvh_convert_recurse(0, cwbvh, bvh);
+
+	return cwbvh;
+}
+
+void Pathtracer::build_tlas() const {
+	BVH tlas_raw = BVHBuilders::build_bvh(scene.meshes, scene.mesh_count);
+
+#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
+	BVH tlas = tlas_raw;
+#elif BVH_TYPE == BVH_QBVH
+	QBVH tlas = BVHBuilders::qbvh_from_binary_bvh(tlas_raw);
+#elif BVH_TYPE == BVH_CWBVH
+	CWBVH tlas = cwbvh_convert(tlas_raw); // BVHBuilders::cwbvh_from_binary_bvh(tlas_raw);
+#endif
+
+	CUDAMemory::memcpy<BVHNodeType>(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
+
+	assert(tlas.index_count == scene.mesh_count);
+
+	int       * mesh_bvh_root_indices = MALLOCA(int,       scene.mesh_count);
+	Matrix3x4 * mesh_transforms       = MALLOCA(Matrix3x4, scene.mesh_count);
+	Matrix3x4 * mesh_transforms_inv   = MALLOCA(Matrix3x4, scene.mesh_count);
+
+	for (int i = 0; i < scene.mesh_count; i++) {
+		int index = tlas.indices[i];
+
+		mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[scene.meshes[index].mesh_data_index];
+
+		memcpy(mesh_transforms    [i].cells, scene.meshes[index].transform    .cells, sizeof(Matrix3x4));
+		memcpy(mesh_transforms_inv[i].cells, scene.meshes[index].transform_inv.cells, sizeof(Matrix3x4));
 	}
 
-	FREEA(scene_name_lower);
+	CUDAMemory::memcpy<int>      (ptr_mesh_bvh_root_indices, mesh_bvh_root_indices, scene.mesh_count);
+	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms,       mesh_transforms,       scene.mesh_count);
+	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms_inv,   mesh_transforms_inv,   scene.mesh_count);
+	
+	FREEA(mesh_bvh_root_indices);
+	FREEA(mesh_transforms);
+	FREEA(mesh_transforms_inv);
+
+	delete [] tlas.indices;
+	delete [] tlas.nodes;
 }
 
 void Pathtracer::update(float delta) {
-	bool jitter = enable_taa;
-	camera.update(delta, jitter);
+	if (enable_scene_update) {
+		scene.update(delta);
+
+		build_tlas();
+
+		// If SVGF is enabled we can handle Scene updates using reprojection,
+		// otherwise 'frames_since_camera_moved' needs to be reset in order to avoid ghosting
+		if (!enable_svgf) {
+			frames_since_camera_moved = 0;
+		}
+	}
+
+	scene.camera.update(delta, enable_taa);
 
 	if (settings_changed) {
 		frames_since_camera_moved = 0;
@@ -584,14 +691,14 @@ void Pathtracer::update(float delta) {
 		global_svgf_settings.set_value(svgf_settings);
 	} else if (enable_svgf) {
 		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
-	} else if (camera.moved) {
+	} else if (scene.camera.moved) {
 		frames_since_camera_moved = 0;
 	} else {
 		frames_since_camera_moved++;
 	}
 }
 
-#define RECORD_EVENT(e) e.record(); events.push_back(&e);
+#define RECORD_EVENT(e) do { e.record(); events.push_back(&e); } while (false)
 
 void Pathtracer::render() {
 	events.clear();
@@ -603,20 +710,24 @@ void Pathtracer::render() {
 
 		shader.bind();
 
-		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
-		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection_prev));
+		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection));
+		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection_prev));
 
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);
 		glEnableVertexAttribArray(2);
 		glEnableVertexAttribArray(3);
+		
+		for (int m = 0; m < scene.mesh_count; m++) {
+			const Mesh & mesh = scene.meshes[m];
 
-		glVertexAttribPointer (0, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, position)));
-		glVertexAttribPointer (1, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, normal)));
-		glVertexAttribPointer (2, 2, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, uv)));
-		glVertexAttribIPointer(3, 1, GL_INT,          sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, triangle_id)));
+			glUniformMatrix4fv(uniform_transform,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform));
+			glUniformMatrix4fv(uniform_transform_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform_prev));
 
-		glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+			glUniform1i(uniform_mesh_id, m);
+
+			MeshData::mesh_datas[mesh.mesh_data_index]->render();
+		}
 
 		glDisableVertexAttribArray(3);
 		glDisableVertexAttribArray(2);
@@ -639,19 +750,17 @@ void Pathtracer::render() {
 		RECORD_EVENT(event_primary);
 
 		if (enable_rasterization) {
-			bool jitter = enable_taa;
-
 			// Convert rasterized GBuffers into primary Rays
 			kernel_primary.execute(
 				rand(),
 				frames_since_camera_moved,
 				pixel_offset,
 				pixel_count,
-				jitter,
-				camera.position,
-				camera.bottom_left_corner_rotated,
-				camera.x_axis_rotated,
-				camera.y_axis_rotated
+				enable_taa,
+				scene.camera.position,
+				scene.camera.bottom_left_corner_rotated,
+				scene.camera.x_axis_rotated,
+				scene.camera.y_axis_rotated
 			);
 		} else {
 			// Generate primary Rays from the current Camera orientation
@@ -660,10 +769,10 @@ void Pathtracer::render() {
 				frames_since_camera_moved,
 				pixel_offset,
 				pixel_count,
-				camera.position, 
-				camera.bottom_left_corner_rotated, 
-				camera.x_axis_rotated, 
-				camera.y_axis_rotated
+				scene.camera.position, 
+				scene.camera.bottom_left_corner_rotated, 
+				scene.camera.x_axis_rotated, 
+				scene.camera.y_axis_rotated
 			);
 		}
 
@@ -673,29 +782,29 @@ void Pathtracer::render() {
 				// Extend all Rays that are still alive to their next Triangle intersection
 				RECORD_EVENT(event_trace[bounce]);
 				kernel_trace.execute(bounce);
-
+			
 				RECORD_EVENT(event_sort[bounce]);
 				kernel_sort.execute(rand(), bounce);
 			}
 
 			// Process the various Material types in different Kernels
-			if (scene_has_diffuse) {
+			if (scene.has_diffuse) {
 				RECORD_EVENT(event_shade_diffuse[bounce]);
 				kernel_shade_diffuse.execute(rand(), bounce, frames_since_camera_moved);
 			}
 
-			if (scene_has_dielectric) {
+			if (scene.has_dielectric) {
 				RECORD_EVENT(event_shade_dielectric[bounce]);
 				kernel_shade_dielectric.execute(rand(), bounce);
 			}
 
-			if (scene_has_glossy) {
+			if (scene.has_glossy) {
 				RECORD_EVENT(event_shade_glossy[bounce]);
 				kernel_shade_glossy.execute(rand(), bounce, frames_since_camera_moved);
 			}
 
 			// Trace shadow Rays
-			if (scene_has_lights) {
+			if (scene.has_lights) {
 				RECORD_EVENT(event_shadow_trace[bounce]);
 				kernel_shadow_trace.execute(bounce);
 			}
@@ -714,10 +823,10 @@ void Pathtracer::render() {
 		// Integrate temporally
 		RECORD_EVENT(event_svgf_temporal);
 		kernel_svgf_temporal.execute();
-	
-		CUdeviceptr direct_in    = ptr_direct.ptr;
-		CUdeviceptr indirect_in  = ptr_indirect.ptr;
+
+		CUdeviceptr direct_in    = ptr_direct    .ptr;
 		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
+		CUdeviceptr indirect_in  = ptr_indirect    .ptr;
 		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
 		if (enable_spatial_variance) {

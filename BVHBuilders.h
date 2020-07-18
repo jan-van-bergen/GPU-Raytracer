@@ -1,11 +1,11 @@
 #pragma once
-#include "BVH.h"
-#include "QBVH.h"
-#include "CWBVH.h"
+#include "Mesh.h"
 
 namespace BVHBuilders {
-	void build_bvh (BVH & bvh); // SAH-based (object splits)
-	void build_sbvh(BVH & bvh); // SAH-based (object + spatial splits, Stich et al. 2009)
+	BVH build_bvh(const Triangle * triangles, int triangle_count); // SAH-based object splits (for BLAS)
+	BVH build_bvh(const Mesh     * meshes,    int mesh_count);     // SAH-based object splits (for TLAS)
+
+	BVH build_sbvh(const Triangle * triangles, int triangle_count); // SAH-based object + spatial splits, Stich et al. 2009 (Triangles only)
 
 	QBVH   qbvh_from_binary_bvh(const BVH & bvh);
 	CWBVH cwbvh_from_binary_bvh(const BVH & bvh);

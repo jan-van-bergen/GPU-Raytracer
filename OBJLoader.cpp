@@ -13,8 +13,8 @@
 
 // Converts 'tinyobj::material_t' to 'Material'
 // Returns offset into Material table to convert relative Material indices to global ones
-static void load_materials(const std::vector<tinyobj::material_t> & materials, Mesh * mesh, const char * path) {
-	mesh->material_offset = Material::materials.size();
+static void load_materials(const std::vector<tinyobj::material_t> & materials, MeshData * mesh_data, const char * path) {
+	mesh_data->material_offset = Material::materials.size();
 
 	for (int i = 0; i < materials.size(); i++) {
 		const tinyobj::material_t & material = materials[i];
@@ -45,7 +45,7 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 	}
 }
 
-void OBJLoader::load_mtl(const char * filename, Mesh * mesh) {
+void OBJLoader::load_mtl(const char * filename, MeshData * mesh_data) {
 	// Load only the mtl file
 	std::map<std::string, int> material_map;
 	std::vector<tinyobj::material_t> materials;
@@ -64,7 +64,7 @@ void OBJLoader::load_mtl(const char * filename, Mesh * mesh) {
 		char * path = MALLOCA(char, strlen(filename) + 1);
 		Util::get_path(filename, path);
 
-		load_materials(materials, mesh, path);
+		load_materials(materials, mesh_data, path);
 
 		FREEA(path);
 	} else {
@@ -73,7 +73,7 @@ void OBJLoader::load_mtl(const char * filename, Mesh * mesh) {
 	}
 }
 
-void OBJLoader::load_obj(const char * filename, Mesh * mesh) {
+void OBJLoader::load_obj(const char * filename, MeshData * mesh_data) {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -85,9 +85,12 @@ void OBJLoader::load_obj(const char * filename, Mesh * mesh) {
 	Util::get_path(filename, path);
 
 	bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, filename, path);
-	if (!success) abort();
+	if (!success) {
+		printf("ERROR: Unable to open obj file %s!\n", filename);
+		abort();
+	}
 
-	load_materials(materials, mesh, path);
+	load_materials(materials, mesh_data, path);
 
 	FREEA(path);
 	
@@ -105,8 +108,8 @@ void OBJLoader::load_obj(const char * filename, Mesh * mesh) {
 		}
 	}
 
-	mesh->bvh.triangle_count = total_vertex_count / 3;
-	mesh->bvh.triangles      = new Triangle[mesh->bvh.triangle_count];
+	mesh_data->triangle_count = total_vertex_count / 3;
+	mesh_data->triangles      = new Triangle[mesh_data->triangle_count];
 
 	Vector3 * positions  = new Vector3[max_vertex_count];
 	Vector2 * tex_coords = new Vector2[max_vertex_count];
@@ -148,9 +151,9 @@ void OBJLoader::load_obj(const char * filename, Mesh * mesh) {
 
 		// Iterate over faces
 		for (int v = 0; v < vertex_count / 3; v++) {
-			mesh->bvh.triangles[triangle_offset + v].position_0 = positions[3*v    ];
-			mesh->bvh.triangles[triangle_offset + v].position_1 = positions[3*v + 1];
-			mesh->bvh.triangles[triangle_offset + v].position_2 = positions[3*v + 2];
+			mesh_data->triangles[triangle_offset + v].position_0 = positions[3*v    ];
+			mesh_data->triangles[triangle_offset + v].position_1 = positions[3*v + 1];
+			mesh_data->triangles[triangle_offset + v].position_2 = positions[3*v + 2];
 
 			Vector3 normal_0 = normals[3*v    ];
 			Vector3 normal_1 = normals[3*v + 1];
@@ -163,8 +166,8 @@ void OBJLoader::load_obj(const char * filename, Mesh * mesh) {
 			// Replace zero normals with the geometric normal of defined by the Triangle
 			if (normal_0_invalid || normal_1_invalid || normal_2_invalid) {
 				Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
-					mesh->bvh.triangles[triangle_offset + v].position_1 - mesh->bvh.triangles[triangle_offset + v].position_0,
-					mesh->bvh.triangles[triangle_offset + v].position_2 - mesh->bvh.triangles[triangle_offset + v].position_0
+					mesh_data->triangles[triangle_offset + v].position_1 - mesh_data->triangles[triangle_offset + v].position_0,
+					mesh_data->triangles[triangle_offset + v].position_2 - mesh_data->triangles[triangle_offset + v].position_0
 				));
 
 				if (normal_0_invalid) normal_0 = geometric_normal;
@@ -172,36 +175,36 @@ void OBJLoader::load_obj(const char * filename, Mesh * mesh) {
 				if (normal_2_invalid) normal_2 = geometric_normal;
 			} 
 
-			mesh->bvh.triangles[triangle_offset + v].normal_0 = normal_0;
-			mesh->bvh.triangles[triangle_offset + v].normal_1 = normal_1;
-			mesh->bvh.triangles[triangle_offset + v].normal_2 = normal_2;
+			mesh_data->triangles[triangle_offset + v].normal_0 = normal_0;
+			mesh_data->triangles[triangle_offset + v].normal_1 = normal_1;
+			mesh_data->triangles[triangle_offset + v].normal_2 = normal_2;
 
-			mesh->bvh.triangles[triangle_offset + v].tex_coord_0 = tex_coords[3*v    ];
-			mesh->bvh.triangles[triangle_offset + v].tex_coord_1 = tex_coords[3*v + 1];
-			mesh->bvh.triangles[triangle_offset + v].tex_coord_2 = tex_coords[3*v + 2];
+			mesh_data->triangles[triangle_offset + v].tex_coord_0 = tex_coords[3*v    ];
+			mesh_data->triangles[triangle_offset + v].tex_coord_1 = tex_coords[3*v + 1];
+			mesh_data->triangles[triangle_offset + v].tex_coord_2 = tex_coords[3*v + 2];
 
 			int material_id = shapes[s].mesh.material_ids[v];
 			if (material_id == INVALID) material_id = 0;
 
-			mesh->bvh.triangles[triangle_offset + v].material_id = material_id;
+			mesh_data->triangles[triangle_offset + v].material_id = material_id;
 		}
 		
 		triangle_offset += vertex_count / 3;
 	}
 
-	assert(triangle_offset == mesh->bvh.triangle_count);
+	assert(triangle_offset == mesh_data->triangle_count);
 
 	// Calculate AABB for every Triangle
-	for (int i = 0; i < mesh->bvh.triangle_count; i++) {
+	for (int i = 0; i < mesh_data->triangle_count; i++) {
 		Vector3 vertices[3] = { 
-			mesh->bvh.triangles[i].position_0, 
-			mesh->bvh.triangles[i].position_1, 
-			mesh->bvh.triangles[i].position_2
+			mesh_data->triangles[i].position_0, 
+			mesh_data->triangles[i].position_1, 
+			mesh_data->triangles[i].position_2
 		};
-		mesh->bvh.triangles[i].aabb = AABB::from_points(vertices, 3);
+		mesh_data->triangles[i].aabb = AABB::from_points(vertices, 3);
 	}
 
-	printf("Loaded Mesh %s from disk, consisting of %u triangles.\n", filename, mesh->bvh.triangle_count);
+	printf("Loaded Mesh %s from disk, consisting of %u triangles.\n", filename, mesh_data->triangle_count);
 	
 	delete [] positions;
 	delete [] tex_coords;

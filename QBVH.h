@@ -19,6 +19,8 @@ struct QBVHNode {
 	inline       int & get_count(int i)       { return index_and_count[i].count; }
 	inline const int & get_count(int i) const { return index_and_count[i].count; }
 
+	inline bool is_leaf(int i) { return get_count(i) > 0; }
+
 	inline int get_child_count() const {
 		int result = 0;
 
@@ -36,9 +38,6 @@ struct QBVHNode {
 static_assert(sizeof(QBVHNode) == 128);
 
 struct QBVH {
-	int        triangle_count;
-	Triangle * triangles;
-
 	int   index_count;
 	int * indices;
 

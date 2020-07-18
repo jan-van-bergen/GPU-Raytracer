@@ -24,6 +24,8 @@ vec3 tonemap_aces(vec3 colour) {
 void main() {
 	vec3 colour = texture2D(screen, in_uv).rgb;
 
+	colour = max(vec3(0.0f), colour);
+
 	// Tone mapping
 	colour = tonemap_aces(colour);
 

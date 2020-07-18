@@ -6,12 +6,14 @@ layout (location = 2) in flat int  in_triangle_id;
 layout (location = 3) in      vec4 in_screen_position;
 layout (location = 4) in      vec4 in_screen_position_prev;
 
-layout (location = 0) out vec4 out_normal_and_depth;
-layout (location = 1) out vec2 out_uv;
-layout (location = 2) out vec4 out_uv_gradient;
-layout (location = 3) out int  out_triangle_id;
-layout (location = 4) out vec2 out_screen_position_prev;
-layout (location = 5) out vec2 out_depth_gradient;
+layout (location = 0) out  vec4 out_normal_and_depth;
+layout (location = 1) out  vec2 out_uv;
+layout (location = 2) out  vec4 out_uv_gradient;
+layout (location = 3) out ivec2 out_mesh_id_and_triangle_id;
+layout (location = 4) out  vec2 out_screen_position_prev;
+layout (location = 5) out  vec2 out_depth_gradient;
+
+uniform int mesh_id;
 
 // Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
 vec2 oct_wrap(vec2 v) {
@@ -38,7 +40,10 @@ void main() {
 	out_uv          = in_uv;
 	out_uv_gradient = vec4(dFdx(in_uv), dFdy(in_uv));
 
-	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
+	out_mesh_id_and_triangle_id = ivec2(
+		mesh_id,
+		in_triangle_id + 1 // Add one so 0 means no hit
+	);
 
 	// Perform perspective divide and add jitter
 	out_screen_position_prev = in_screen_position_prev.xy / in_screen_position_prev.w;

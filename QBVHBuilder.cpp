@@ -11,8 +11,7 @@ static void collapse(QBVHNode nodes[], int node_index) {
 		int   max_index = -1;
 
 		for (int i = 0; i < child_count; i++) {
-			// If child Node i is an internal node
-			if (node.get_count(i) == 0) {
+			if (!node.is_leaf(i)) {
 				int child_i_child_count = nodes[node.get_index(i)].get_child_count();
 
 				// Check if the current Node can adopt the children of child Node i
@@ -36,8 +35,6 @@ static void collapse(QBVHNode nodes[], int node_index) {
 
 		const QBVHNode & max_child = nodes[node.get_index(max_index)];
 
-		int max_child_child_count = max_child.get_child_count();
-
 		// Replace max child Node with its first child
 		node.aabb_min_x[max_index] = max_child.aabb_min_x[0];
 		node.aabb_min_y[max_index] = max_child.aabb_min_y[0];
@@ -47,6 +44,8 @@ static void collapse(QBVHNode nodes[], int node_index) {
 		node.aabb_max_z[max_index] = max_child.aabb_max_z[0];
 		node.get_index(max_index) = max_child.get_index(0);
 		node.get_count(max_index) = max_child.get_count(0);
+		
+		int max_child_child_count = max_child.get_child_count();
 
 		// Add the rest of max child Node's children after the current Node's own children
 		for (int i = 1; i < max_child_child_count; i++) {
@@ -73,16 +72,11 @@ static void collapse(QBVHNode nodes[], int node_index) {
 
 QBVH BVHBuilders::qbvh_from_binary_bvh(const BVH & bvh) {
 	QBVH qbvh;
-	
-	qbvh.triangle_count = bvh.triangle_count;
-	qbvh.triangles      = bvh.triangles;
-
 	qbvh.index_count = bvh.index_count;
 	qbvh.indices     = bvh.indices;
 
 	qbvh.node_count = bvh.node_count;
 	qbvh.nodes      = new QBVHNode[bvh.node_count];
-
 
 	for (int i = 0; i < qbvh.node_count; i++) {
 		// We use index 1 as a starting point, such that it points to the first child of the root

@@ -21,7 +21,7 @@ __device__ float4 * frame_buffer_moment;
 texture<float4, cudaTextureType2D> gbuffer_normal_and_depth;
 texture<float2, cudaTextureType2D> gbuffer_uv;
 texture<float4, cudaTextureType2D> gbuffer_uv_gradient;
-texture<int,    cudaTextureType2D> gbuffer_triangle_id;
+texture<int2,   cudaTextureType2D> gbuffer_mesh_id_and_triangle_id;
 texture<float2, cudaTextureType2D> gbuffer_screen_position_prev;
 texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
 
@@ -67,7 +67,8 @@ struct Vector3_SoA {
 struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
-	
+
+	int   * mesh_id;
 	int   * triangle_id;
 	float * u;
 	float * v;
@@ -83,6 +84,7 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	Vector3_SoA direction;	
 	
+	int   * mesh_id;
 	int   * triangle_id;
 	float * u;
 	float * v;
@@ -159,7 +161,9 @@ extern "C" __global__ void kernel_primary(
 	float2 uv          = tex2D(gbuffer_uv,          u, v);
 	float4 uv_gradient = tex2D(gbuffer_uv_gradient, u, v);
 
-	int triangle_id = tex2D(gbuffer_triangle_id, u, v) - 1;
+	int2 mesh_id_and_triangle_id = tex2D(gbuffer_mesh_id_and_triangle_id, u, v);
+	int  mesh_id     = mesh_id_and_triangle_id.x;
+	int  triangle_id = mesh_id_and_triangle_id.y - 1;
 
 	float dx = 0.0f;
 	float dy = 0.0f;
@@ -203,6 +207,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
+			ray_buffer_shade_diffuse.mesh_id    [index_out] = mesh_id;
 			ray_buffer_shade_diffuse.triangle_id[index_out] = triangle_id;
 			ray_buffer_shade_diffuse.u[index_out] = uv.x;
 			ray_buffer_shade_diffuse.v[index_out] = uv.y;
@@ -211,13 +216,14 @@ extern "C" __global__ void kernel_primary(
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
 
 			break;
-		} 
+		}
 
 		case Material::Type::DIELECTRIC: {
 			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[0]);
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
+			ray_buffer_shade_dielectric.mesh_id    [index_out] = mesh_id;
 			ray_buffer_shade_dielectric.triangle_id[index_out] = triangle_id;
 			ray_buffer_shade_dielectric.u[index_out] = uv.x;
 			ray_buffer_shade_dielectric.v[index_out] = uv.y;
@@ -226,13 +232,14 @@ extern "C" __global__ void kernel_primary(
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
 			
 			break;
-		} 
+		}
 
 		case Material::Type::GLOSSY: {
 			int index_out = atomic_agg_inc(&buffer_sizes.glossy[0]);
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
+			ray_buffer_shade_glossy.mesh_id    [index_out] = mesh_id;
 			ray_buffer_shade_glossy.triangle_id[index_out] = triangle_id;
 			ray_buffer_shade_glossy.u[index_out] = uv.x;
 			ray_buffer_shade_glossy.v[index_out] = uv.y;
@@ -303,6 +310,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	float3 ray_origin    = ray_buffer_trace.origin   .to_float3(index);
 	float3 ray_direction = ray_buffer_trace.direction.to_float3(index);
 
+	int   hit_mesh_id     = ray_buffer_trace.mesh_id    [index];
 	int   hit_triangle_id = ray_buffer_trace.triangle_id[index];
 	float hit_u           = ray_buffer_trace.u[index];
 	float hit_v           = ray_buffer_trace.v[index];
@@ -405,7 +413,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	unsigned seed = (index + rand_seed * 906313609) * 341828143;
 
-	// Russian Roulette termination
+	// Russian Roulette
 	float p_survive = saturate(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)));
 	if (random_float_xorshift(seed) > p_survive) {
 		return;
@@ -419,6 +427,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
+			ray_buffer_shade_diffuse.mesh_id    [index_out] = hit_mesh_id;
 			ray_buffer_shade_diffuse.triangle_id[index_out] = hit_triangle_id;
 			ray_buffer_shade_diffuse.u[index_out] = hit_u;
 			ray_buffer_shade_diffuse.v[index_out] = hit_v;
@@ -434,6 +443,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
+			ray_buffer_shade_dielectric.mesh_id    [index_out] = hit_mesh_id;
 			ray_buffer_shade_dielectric.triangle_id[index_out] = hit_triangle_id;
 			ray_buffer_shade_dielectric.u[index_out] = hit_u;
 			ray_buffer_shade_dielectric.v[index_out] = hit_v;
@@ -449,6 +459,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
+			ray_buffer_shade_glossy.mesh_id    [index_out] = hit_mesh_id;
 			ray_buffer_shade_glossy.triangle_id[index_out] = hit_triangle_id;
 			ray_buffer_shade_glossy.u[index_out] = hit_u;
 			ray_buffer_shade_glossy.v[index_out] = hit_v;
@@ -467,6 +478,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	float3 ray_direction = ray_buffer_shade_diffuse.direction.to_float3(index);
 
+	int   ray_mesh_id     = ray_buffer_shade_diffuse.mesh_id    [index];
 	int   ray_triangle_id = ray_buffer_shade_diffuse.triangle_id[index];
 	float ray_u = ray_buffer_shade_diffuse.u[index];
 	float ray_v = ray_buffer_shade_diffuse.v[index];
@@ -495,9 +507,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2
 	);
 
-	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
-	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
+	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
+	float2 hit_tex_coord    = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+
+	float3 hit_point;  // World space
+	float3 hit_normal; // World space
+	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
 	
 	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -595,6 +611,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
 
+	int   ray_mesh_id     = ray_buffer_shade_dielectric.mesh_id    [index];
 	int   ray_triangle_id = ray_buffer_shade_dielectric.triangle_id[index];
 	float ray_u = ray_buffer_shade_dielectric.u[index];
 	float ray_v = ray_buffer_shade_dielectric.v[index];
@@ -619,11 +636,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2
 	);
 
-	float3 hit_point  = barycentric(ray_u, ray_v, hit_triangle_position_0, hit_triangle_position_edge_1, hit_triangle_position_edge_2);
-	float3 hit_normal = barycentric(ray_u, ray_v, hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2);
+	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0, hit_triangle_position_edge_1, hit_triangle_position_edge_2);
+	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2);
 	
-	hit_normal = normalize(hit_normal);
-	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
+	hit_normal_model = normalize(hit_normal_model);
+
+	float3 hit_point;  // World space
+	float3 hit_normal; // World space
+	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -690,6 +710,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 direction_in = -1.0f * ray_buffer_shade_glossy.direction.to_float3(index);
 
+	int   ray_mesh_id     = ray_buffer_shade_glossy.mesh_id    [index];
 	int   ray_triangle_id = ray_buffer_shade_glossy.triangle_id[index];
 	float ray_u = ray_buffer_shade_glossy.u[index];
 	float ray_v = ray_buffer_shade_glossy.v[index];
@@ -718,9 +739,13 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2
 	);
 
-	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
-	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
+	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
+	float2 hit_tex_coord    = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+
+	float3 hit_point;  // World space
+	float3 hit_normal; // World space
+	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
 
 	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;

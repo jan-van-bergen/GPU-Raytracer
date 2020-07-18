@@ -1,8 +1,6 @@
 #pragma once
 #include <vector>
 
-#include "Camera.h"
-
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 #include "CUDAMemory.h"
@@ -11,19 +9,23 @@
 #include "GBuffer.h"
 #include "Shader.h"
 
+#include "Scene.h"
+
 // Mirror CUDA vector types
 struct alignas(8) float2 { float x, y;       };
 struct            float3 { float x, y, z;    };
 struct            float4 { float x, y, z, w; };
 
 struct Pathtracer {
-	Camera camera;
+	Scene scene;
+
 	int frames_since_camera_moved = -1;
-	
+
 	// Settings
 	bool settings_changed = true;
 
-	bool enable_rasterization    = true;
+	bool enable_rasterization    = false;
+	bool enable_scene_update     = false;
 	bool enable_svgf             = false;
 	bool enable_spatial_variance = true;
 	bool enable_taa              = true;
@@ -42,7 +44,7 @@ struct Pathtracer {
 	
 	std::vector<const CUDAEvent *> events;
 
-	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
+	void init(unsigned frame_buffer_handle);
 
 	void update(float delta);
 	void render();
@@ -75,12 +77,23 @@ private:
 	CUDAModule::Global global_buffer_sizes;
 
 	CUDAModule::Global global_svgf_settings;
+	
+	struct Matrix3x4 {
+		float cells[12];
+	};
 
-	int vertex_count;
+	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
+	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
+	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
+	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
+
 	Shader shader;
 
 	GLuint uniform_view_projection;
 	GLuint uniform_view_projection_prev;
+	GLuint uniform_transform;
+	GLuint uniform_transform_prev;
+	GLuint uniform_mesh_id;
 
 	CUDAMemory::Ptr<float4> ptr_direct;
 	CUDAMemory::Ptr<float4> ptr_indirect;
@@ -103,8 +116,7 @@ private:
 	CUDAEvent event_accumulate;
 	CUDAEvent event_end;
 
-	bool scene_has_diffuse;
-	bool scene_has_dielectric;
-	bool scene_has_glossy;
-	bool scene_has_lights;
+	int * mesh_data_bvh_offsets;
+
+	void build_tlas() const;
 };

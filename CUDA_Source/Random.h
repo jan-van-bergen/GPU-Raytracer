@@ -64,10 +64,6 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 	// Multiply the direction with the TBN matrix
 	direction = local_to_world(direction, tangent, binormal, normal);
 
-	ASSERT(dot(direction, normal) > -1e-5, "Invalid dot: dot = %f, direction = (%f, %f, %f), normal = (%f, %f, %f)\n", 
-		dot(direction, normal), direction.x, direction.y, direction.z, normal.x, normal.y, normal.z
-	);
-
 	return direction;
 }
 

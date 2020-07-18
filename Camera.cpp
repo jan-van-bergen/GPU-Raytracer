@@ -39,14 +39,14 @@ void Camera::update(float delta, bool apply_jitter) {
 	// Apply jitter in NDC (after perspective divide)
 	// Jitter is negative because we divide by negative z
 	Matrix4 projection_jittered = projection;
-	projection_jittered(2, 0) = -jitter.x;
-	projection_jittered(2, 1) = -jitter.y;
+	projection_jittered(0, 2) = -jitter.x;
+	projection_jittered(1, 2) = -jitter.y;
 
 	// Compute previous View Projection with the CURRENT jitter
 	view_projection_prev = 
-		Matrix4::create_translation(-position) * 
+		projection_jittered *
 		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
-		projection_jittered;
+		Matrix4::create_translation(-position);
 
 	// Move Camera around
 	moved = false;
@@ -82,7 +82,7 @@ void Camera::update(float delta, bool apply_jitter) {
 	y_axis_rotated             = rotation * y_axis;
 
 	view_projection = 
-		Matrix4::create_translation(-position) * 
-		Matrix4::create_rotation(Quaternion::conjugate(rotation)) * 
-		projection_jittered;
+		projection_jittered *
+		Matrix4::create_rotation(Quaternion::conjugate(rotation)) *
+		Matrix4::create_translation(-position);
 }

@@ -208,10 +208,12 @@
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="OBJLoader.cpp" />
     <ClCompile Include="Pathtracer.cpp" />
     <ClCompile Include="QBVHBuilder.cpp" />
     <ClCompile Include="SBVHBuilder.cpp" />
+    <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Sky.cpp" />
     <ClCompile Include="Texture.cpp" />
@@ -246,11 +248,13 @@
     <ClInclude Include="Material.h" />
     <ClInclude Include="Math.h" />
     <ClInclude Include="Matrix4.h" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="OBJLoader.h" />
     <ClInclude Include="QBVH.h" />
-    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="MeshData.h" />
     <ClInclude Include="Pathtracer.h" />
     <ClInclude Include="Quaternion.h" />
+    <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopeTimer.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Sky.h" />

@@ -60,12 +60,17 @@ int main(int argument_count, char ** arguments) {
 	int frames_this_second = 0;
 	int fps = 0;
 	
-	const char * scene_filename = DATA_PATH("sponza/sponza_lit.obj");
-	const char * sky_filename   = DATA_PATH("Sky_Probes/rnl_probe.float");
+	const char * mesh_names[] = {
+		DATA_PATH("sponza/sponza_lit.obj"),
+		"C:/Dev/Git/Advanced Graphics/dragon/dragon_simple.obj"
+		//DATA_PATH("Diamond.obj")
+	};
+	const char * sky_filename = DATA_PATH("Sky_Probes/rnl_probe.float");
 
 	Pathtracer pathtracer;
-	pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
-
+	pathtracer.scene.init(mesh_names, Util::array_element_count(mesh_names), sky_filename);
+	pathtracer.init(window.frame_buffer_handle);
+	
 	srand(1337);
 
 	last = SDL_GetPerformanceCounter();
@@ -77,7 +82,7 @@ int main(int argument_count, char ** arguments) {
 		
 		window.render_framebuffer();
 		
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || current_frame == capture_frame_index) {
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || current_frame == capture_frame_index ) {
 			char screenshot_name[32];
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", current_frame);
 
@@ -180,11 +185,12 @@ int main(int argument_count, char ** arguments) {
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			bool settings_changed = false;
 
-			settings_changed |= ImGui::Checkbox("Rasterize Primary Rays",  &pathtracer.enable_rasterization);
-			settings_changed |= ImGui::Checkbox("SVGF",                    &pathtracer.enable_svgf);
-			settings_changed |= ImGui::Checkbox("Spatial Variance",        &pathtracer.enable_spatial_variance);
-			settings_changed |= ImGui::Checkbox("TAA",                     &pathtracer.enable_taa);
-			settings_changed |= ImGui::Checkbox("Modulate Albedo",         &pathtracer.enable_albedo);
+			settings_changed |= ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
+			settings_changed |= ImGui::Checkbox("Update Scene",           &pathtracer.enable_scene_update);
+			settings_changed |= ImGui::Checkbox("SVGF",                   &pathtracer.enable_svgf);
+			settings_changed |= ImGui::Checkbox("Spatial Variance",       &pathtracer.enable_spatial_variance);
+			settings_changed |= ImGui::Checkbox("TAA",                    &pathtracer.enable_taa);
+			settings_changed |= ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
 
 			settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.svgf_settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 

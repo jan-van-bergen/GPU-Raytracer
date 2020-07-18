@@ -231,7 +231,9 @@ static void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 		exp2f(ceilf(log2f((aabb.max.y - aabb.min.y) * denom))),
 		exp2f(ceilf(log2f((aabb.max.z - aabb.min.z) * denom)))
 	);
-
+	
+	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
+	
 	// Treat float as unsigned
 	unsigned u_ex, u_ey, u_ez;
 	memcpy(&u_ex, &e.x, 4);
@@ -249,15 +251,13 @@ static void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 	node.e[2] = u_ez >> 23;
 	
 	int child_count = 0;
-	int children[8] = { -1 };
+	int children[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
 	get_children(nodes_sbvh, decisions, node_index_sbvh, 0, child_count, children);
 
 	assert(child_count <= 8);
 
-	order_children(nodes_sbvh, node_index_sbvh, children, child_count);
+	//order_children(nodes_sbvh, node_index_sbvh, children, child_count);
 
-	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
-	
 	for (int i = 0; i < 8; i++) {
 		node.meta[i] = 0;
 	}
@@ -333,13 +333,9 @@ static void collapse(int & node_count, CWBVHNode nodes_wbvh[], int & index_count
 }
 
 CWBVH BVHBuilders::cwbvh_from_binary_bvh(const BVH & bvh) {
-	ScopeTimer timer("Compressed Wide BVH Collapse");
+	//ScopeTimer timer("Compressed Wide BVH Collapse");
 
 	CWBVH cwbvh;
-
-	cwbvh.triangle_count = bvh.triangle_count;
-	cwbvh.triangles      = bvh.triangles;
-
 	cwbvh.index_count = 0;
 	cwbvh.indices     = new int[bvh.index_count];
 
@@ -355,7 +351,9 @@ CWBVH BVHBuilders::cwbvh_from_binary_bvh(const BVH & bvh) {
 	// Collapse SBVH into 8-way tree (top down)
 	collapse(cwbvh.node_count, cwbvh.nodes, cwbvh.index_count, cwbvh.indices, bvh.nodes, bvh.indices, decisions, 0, 0);
 
-	printf("CWBVH Node Collapse: %i -> %i\n", bvh.node_count, cwbvh.node_count);
+	assert(cwbvh.index_count == bvh.index_count);
+
+	//printf("CWBVH Node Collapse: %i -> %i\n", bvh.node_count, cwbvh.node_count);
 
 	delete [] decisions;
 	delete [] cost;

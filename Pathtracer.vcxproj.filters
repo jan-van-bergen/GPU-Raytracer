@@ -69,10 +69,16 @@
     <ClCompile Include="OBJLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Mesh.cpp">
+    <ClCompile Include="Input.cpp" />
+    <ClCompile Include="MeshData.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Input.cpp" />
+    <ClCompile Include="Scene.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -216,12 +222,18 @@
     <ClInclude Include="OBJLoader.h">
       <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="Mesh.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Triangle.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Input.h" />
+    <ClInclude Include="Triangle.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshData.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
