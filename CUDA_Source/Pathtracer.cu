@@ -17,13 +17,13 @@ __device__ float4 * frame_buffer_indirect;
 
 __device__ float4 * frame_buffer_moment;
 
-// GBuffers
-__device__ cudaTextureObject_t gbuffer_normal_and_depth;
-__device__ cudaTextureObject_t gbuffer_uv;
-__device__ cudaTextureObject_t gbuffer_uv_gradient;
-__device__ cudaTextureObject_t gbuffer_mesh_id_and_triangle_id;
-__device__ cudaTextureObject_t gbuffer_screen_position_prev;
-__device__ cudaTextureObject_t gbuffer_depth_gradient;
+// GBuffers (OpenGL resource-mapped textures)
+__device__ cudaTextureObject_t gbuffer_normal_and_depth;        // float4                       
+__device__ cudaTextureObject_t gbuffer_uv;                      // float2 
+__device__ cudaTextureObject_t gbuffer_uv_gradient;             // float4          
+__device__ cudaTextureObject_t gbuffer_mesh_id_and_triangle_id; // int2                      
+__device__ cudaTextureObject_t gbuffer_screen_position_prev;    // float2                   
+__device__ cudaTextureObject_t gbuffer_depth_gradient;          // float2             
 
 // SVGF History Buffers (Temporally Integrated)
 __device__ int    * history_length;
