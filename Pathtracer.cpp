@@ -308,6 +308,7 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	);
 	shader.bind();
 
+	uniform_jitter               = shader.get_uniform("jitter");
 	uniform_view_projection      = shader.get_uniform("view_projection");
 	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
 
@@ -322,12 +323,12 @@ void Pathtracer::init(unsigned frame_buffer_handle) {
 	// Map GBuffers to CUDA textures
 	int flags = CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY;
 
-	module.set_texture("gbuffer_normal_and_depth",        CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth,        flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_uv",                      CUDAContext::map_gl_texture(gbuffer.buffer_uv,                      flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_uv_gradient",             CUDAContext::map_gl_texture(gbuffer.buffer_uv_gradient,             flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        4);
-	module.set_texture("gbuffer_mesh_id_and_triangle_id", CUDAContext::map_gl_texture(gbuffer.buffer_mesh_id_and_triangle_id, flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_SIGNED_INT32, 2);
-	module.set_texture("gbuffer_screen_position_prev",    CUDAContext::map_gl_texture(gbuffer.buffer_motion,                  flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
-	module.set_texture("gbuffer_depth_gradient",          CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,              flags), CU_TR_FILTER_MODE_POINT, CU_AD_FORMAT_FLOAT,        2);
+	module.set_texture("gbuffer_normal_and_depth",        CUDAContext::map_gl_texture(gbuffer.buffer_normal_and_depth,        flags), CU_TR_FILTER_MODE_POINT);
+	module.set_texture("gbuffer_uv",                      CUDAContext::map_gl_texture(gbuffer.buffer_uv,                      flags), CU_TR_FILTER_MODE_POINT);
+	module.set_texture("gbuffer_uv_gradient",             CUDAContext::map_gl_texture(gbuffer.buffer_uv_gradient,             flags), CU_TR_FILTER_MODE_POINT);
+	module.set_texture("gbuffer_mesh_id_and_triangle_id", CUDAContext::map_gl_texture(gbuffer.buffer_mesh_id_and_triangle_id, flags), CU_TR_FILTER_MODE_POINT);
+	module.set_texture("gbuffer_screen_position_prev",    CUDAContext::map_gl_texture(gbuffer.buffer_motion,                  flags), CU_TR_FILTER_MODE_POINT);
+	module.set_texture("gbuffer_depth_gradient",          CUDAContext::map_gl_texture(gbuffer.buffer_z_gradient,              flags), CU_TR_FILTER_MODE_POINT);
 
 	// Initialize Lights
 	struct LightDescription {
@@ -709,6 +710,8 @@ void Pathtracer::render() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		shader.bind();
+
+		glUniform2f(uniform_jitter, scene.camera.jitter.x, scene.camera.jitter.y);
 
 		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection));
 		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection_prev));

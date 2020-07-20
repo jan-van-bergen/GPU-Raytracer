@@ -18,12 +18,12 @@ __device__ float4 * frame_buffer_indirect;
 __device__ float4 * frame_buffer_moment;
 
 // GBuffers
-texture<float4, cudaTextureType2D> gbuffer_normal_and_depth;
-texture<float2, cudaTextureType2D> gbuffer_uv;
-texture<float4, cudaTextureType2D> gbuffer_uv_gradient;
-texture<int2,   cudaTextureType2D> gbuffer_mesh_id_and_triangle_id;
-texture<float2, cudaTextureType2D> gbuffer_screen_position_prev;
-texture<float2, cudaTextureType2D> gbuffer_depth_gradient;
+__device__ cudaTextureObject_t gbuffer_normal_and_depth;
+__device__ cudaTextureObject_t gbuffer_uv;
+__device__ cudaTextureObject_t gbuffer_uv_gradient;
+__device__ cudaTextureObject_t gbuffer_mesh_id_and_triangle_id;
+__device__ cudaTextureObject_t gbuffer_screen_position_prev;
+__device__ cudaTextureObject_t gbuffer_depth_gradient;
 
 // SVGF History Buffers (Temporally Integrated)
 __device__ int    * history_length;
@@ -37,7 +37,7 @@ __device__ float4 * taa_frame_curr;
 __device__ float4 * taa_frame_prev;
 
 // Final Frame buffer, shared with OpenGL
-surface<void, 2> accumulator; 
+__device__ cudaSurfaceObject_t accumulator; 
 
 #include "SVGF.h"
 #include "TAA.h"
@@ -158,12 +158,12 @@ extern "C" __global__ void kernel_primary(
 	float u = u_screenspace / float(SCREEN_WIDTH);
 	float v = v_screenspace / float(SCREEN_HEIGHT);
 
-	float2 uv          = tex2D(gbuffer_uv,          u, v);
-	float4 uv_gradient = tex2D(gbuffer_uv_gradient, u, v);
+	float2 uv          = tex2D<float2>(gbuffer_uv,          u, v);
+	float4 uv_gradient = tex2D<float4>(gbuffer_uv_gradient, u, v);
 
-	int2 mesh_id_and_triangle_id = tex2D(gbuffer_mesh_id_and_triangle_id, u, v);
-	int  mesh_id     = mesh_id_and_triangle_id.x;
-	int  triangle_id = mesh_id_and_triangle_id.y - 1;
+	int2 mesh_id_and_triangle_id = tex2D<int2>(gbuffer_mesh_id_and_triangle_id, u, v);
+	int mesh_id     = mesh_id_and_triangle_id.x;
+	int triangle_id = mesh_id_and_triangle_id.y - 1;
 
 	float dx = 0.0f;
 	float dy = 0.0f;
