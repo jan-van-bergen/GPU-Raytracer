@@ -79,6 +79,7 @@ private:
 	int vertex_count;
 	Shader shader;
 
+	GLuint uniform_jitter;
 	GLuint uniform_view_projection;
 	GLuint uniform_view_projection_prev;
 

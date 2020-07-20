@@ -282,8 +282,9 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	
 	// Initialize OpenGL Shaders
 	shader = Shader::load(DATA_PATH("Shaders/primary_vertex.glsl"), DATA_PATH("Shaders/primary_fragment.glsl"));
-
 	shader.bind();
+
+	uniform_jitter               = shader.get_uniform("jitter");
 	uniform_view_projection      = shader.get_uniform("view_projection");
 	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
 
@@ -602,6 +603,8 @@ void Pathtracer::render() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		shader.bind();
+
+		glUniform2f(uniform_jitter, camera.jitter.x, camera.jitter.y);
 
 		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection));
 		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&camera.view_projection_prev));
