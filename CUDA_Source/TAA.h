@@ -12,7 +12,7 @@ extern "C" __global__ void kernel_taa() {
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float2 screen_position_prev = tex2D(gbuffer_screen_position_prev, u, v);
+	float2 screen_position_prev = tex2D<float2>(gbuffer_screen_position_prev, u, v);
 
 	// Convert from [-1, 1] to [0, 1]
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;

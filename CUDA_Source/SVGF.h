@@ -85,8 +85,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float4 normal_and_depth     = tex2D(gbuffer_normal_and_depth,     u, v);
-	float2 screen_position_prev = tex2D(gbuffer_screen_position_prev, u, v);
+	float4 normal_and_depth     = tex2D<float4>(gbuffer_normal_and_depth,     u, v);
+	float2 screen_position_prev = tex2D<float2>(gbuffer_screen_position_prev, u, v);
 
 	float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 	float depth      = normal_and_depth.z;
@@ -100,7 +100,7 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		return;
 	}
 
-	float2 depth_gradient = tex2D(gbuffer_depth_gradient, u, v);
+	float2 depth_gradient = tex2D<float2>(gbuffer_depth_gradient, u, v);
 	float  max_change_z   = fmaxf(fabsf(depth_gradient.x), fabsf(depth_gradient.y)) + epsilon;
 
 	// Convert from [-1, 1] to [0, 1]
@@ -265,8 +265,8 @@ extern "C" __global__ void kernel_svgf_variance(
 	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
 	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
 
-	float4 center_normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
-	float2 center_depth_gradient   = tex2D(gbuffer_depth_gradient,   u, v);
+	float4 center_normal_and_depth = tex2D<float4>(gbuffer_normal_and_depth, u, v);
+	float2 center_depth_gradient   = tex2D<float2>(gbuffer_depth_gradient,   u, v);
 
 	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
 	float center_depth = center_normal_and_depth.z;
@@ -313,7 +313,7 @@ extern "C" __global__ void kernel_svgf_variance(
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
 
-			float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, tap_u, tap_v);
+			float4 normal_and_depth = tex2D<float4>(gbuffer_normal_and_depth, tap_u, tap_v);
 
 			float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 			float depth = normal_and_depth.z;
@@ -422,8 +422,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
 	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
 
-	float4 center_normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
-	float2 center_depth_gradient   = tex2D(gbuffer_depth_gradient,   u, v);
+	float4 center_normal_and_depth = tex2D<float4>(gbuffer_normal_and_depth, u, v);
+	float2 center_depth_gradient   = tex2D<float2>(gbuffer_depth_gradient,   u, v);
 
 	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
 	float center_depth = center_normal_and_depth.z;
@@ -460,7 +460,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
 
-			float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, tap_u, tap_v);
+			float4 normal_and_depth = tex2D<float4>(gbuffer_normal_and_depth, tap_u, tap_v);
 
 			float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 			float depth = normal_and_depth.z;
@@ -553,7 +553,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float4 normal_and_depth = tex2D(gbuffer_normal_and_depth, u, v);
+	float4 normal_and_depth = tex2D<float4>(gbuffer_normal_and_depth, u, v);
 
 	if (svgf_settings.atrous_iterations <= feedback_iteration) {
 		// Normally the à-trous filter copies the illumination history,

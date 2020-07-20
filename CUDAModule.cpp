@@ -281,23 +281,31 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 }
 
 void CUDAModule::set_surface(const char * surface_name, CUarray array) const {
-	CUsurfref surface;
-	CUDACALL(cuModuleGetSurfRef(&surface, module, surface_name));
+	CUDA_RESOURCE_DESC resource_desc = { };
+	resource_desc.resType = CU_RESOURCE_TYPE_ARRAY;
+	resource_desc.res.array.hArray = array;
+	
+	CUsurfObject surface;
+	CUDACALL(cuSurfObjectCreate(&surface, &resource_desc));
 
-	CUDACALL(cuSurfRefSetArray(surface, array, 0));
+	get_global(surface_name).set_value(surface);
 }
 
-void CUDAModule::set_texture(const char * texture_name, CUarray array, CUfilter_mode filter, CUarray_format format, int channels) const {
-	CUtexref texture;
-	CUDACALL(cuModuleGetTexRef(&texture, module, texture_name));
-	CUDACALL(cuTexRefSetArray(texture, array, CU_TRSA_OVERRIDE_FORMAT));
+void CUDAModule::set_texture(const char * texture_name, CUarray array, CUfilter_mode filter) const {	
+	CUDA_RESOURCE_DESC res_desc = { };
+	res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
+	res_desc.res.array.hArray = array;
 
-	CUDACALL(cuTexRefSetAddressMode(texture, 0, CU_TR_ADDRESS_MODE_WRAP));
-	CUDACALL(cuTexRefSetAddressMode(texture, 1, CU_TR_ADDRESS_MODE_WRAP));
+	CUDA_TEXTURE_DESC tex_desc = { };
+	tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+	tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+	tex_desc.filterMode = filter;
+	tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
-	CUDACALL(cuTexRefSetFilterMode(texture, filter));
-	CUDACALL(cuTexRefSetFlags(texture, CU_TRSF_NORMALIZED_COORDINATES));
-	CUDACALL(cuTexRefSetFormat(texture, format, channels));
+	CUtexObject texture;
+	CUDACALL(cuTexObjectCreate(&texture, &res_desc, &tex_desc, nullptr));
+	
+	get_global(texture_name).set_value(texture);
 }
 
 void CUDAModule::set_texture(const char * texture_name, const Texture * texture) const {	
@@ -307,7 +315,7 @@ void CUDAModule::set_texture(const char * texture_name, const Texture * texture)
 	CUarray array = CUDAMemory::create_array(texture->width, texture->height, texture->channels, format);
 	CUDAMemory::copy_array(array, texture->channels * texture->width, texture->height, texture->data);
 
-	set_texture(texture_name, array, CU_TR_FILTER_MODE_LINEAR, format, texture->channels);
+	set_texture(texture_name, array, CU_TR_FILTER_MODE_LINEAR);
 }
 
 CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {
