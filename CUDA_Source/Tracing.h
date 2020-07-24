@@ -42,7 +42,7 @@ __device__ inline void mesh_transform_point_and_normal(int mesh_id, const float3
 		row_1.x * hit_point_in.x + row_1.y * hit_point_in.y + row_1.z * hit_point_in.z + row_1.w,
 		row_2.x * hit_point_in.x + row_2.y * hit_point_in.y + row_2.z * hit_point_in.z + row_2.w
 	);
-	hit_normal_out = make_float3( // Transform as direction (w = 1)
+	hit_normal_out = make_float3( // Transform as direction (w = 0)
 		row_0.x * hit_normal_in.x + row_0.y * hit_normal_in.y + row_0.z * hit_normal_in.z,
 		row_1.x * hit_normal_in.x + row_1.y * hit_normal_in.y + row_1.z * hit_normal_in.z,
 		row_2.x * hit_normal_in.x + row_2.y * hit_normal_in.y + row_2.z * hit_normal_in.z
@@ -59,7 +59,7 @@ __device__ inline void mesh_transform_inv_ray(int mesh_id, const Ray & ray_in, R
 		row_1.x * ray_in.origin.x + row_1.y * ray_in.origin.y + row_1.z * ray_in.origin.z + row_1.w,
 		row_2.x * ray_in.origin.x + row_2.y * ray_in.origin.y + row_2.z * ray_in.origin.z + row_2.w
 	);
-	ray_out.direction = make_float3( // Transform as direction (w = 1)
+	ray_out.direction = make_float3( // Transform as direction (w = 0)
 		row_0.x * ray_in.direction.x + row_0.y * ray_in.direction.y + row_0.z * ray_in.direction.z,
 		row_1.x * ray_in.direction.x + row_1.y * ray_in.direction.y + row_1.z * ray_in.direction.z,
 		row_2.x * ray_in.direction.x + row_2.y * ray_in.direction.y + row_2.z * ray_in.direction.z

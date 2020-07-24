@@ -62,8 +62,7 @@ int main(int argument_count, char ** arguments) {
 	
 	const char * mesh_names[] = {
 		DATA_PATH("sponza/sponza_lit.obj"),
-		"C:/Dev/Git/Advanced Graphics/dragon/dragon_simple.obj"
-		//DATA_PATH("Diamond.obj")
+		DATA_PATH("Diamond.obj")
 	};
 	const char * sky_filename = DATA_PATH("Sky_Probes/rnl_probe.float");
 

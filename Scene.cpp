@@ -92,17 +92,12 @@ void Scene::init(const char * mesh_names[], int mesh_count, const char * sky_nam
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);
 	}
 
-	//camera.position = Vector3(23.244606f, 1.007305f, 0.978476f);
-	//camera.rotation = Quaternion(-0.109851f, -0.454757f, -0.056640f, 0.881994f);
-
-	//camera.position = Vector3(24.923054f, 1.559265f, -0.216484f);
-	//camera.rotation = Quaternion(-0.498747f, -0.500471f, -0.480318f, 0.519675f);
-
 	FREEA(scene_name_lower);
 }
 
 void Scene::update(float delta) {
-	meshes[1].position.x = 100.0f;
+	meshes[1].position.x = 4.0f;
+	meshes[1].position.z = 2.0f;
 
 	//meshes[2].position.y  = 1.5f;
 	//meshes[2].position.x += 0.5f * delta;
