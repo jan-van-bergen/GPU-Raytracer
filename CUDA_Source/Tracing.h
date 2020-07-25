@@ -55,7 +55,7 @@ __device__ inline void triangle_get_positions_and_normals(int index,
 	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
 	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
 
-	normal_0      = make_float3(part_2.y, part_2.z, part_3.w);
+	normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
 	normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
 	normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
 }
