@@ -3,7 +3,7 @@
 // Glossy materials with roughness below the cutoff don't use direct Light sampling
 #define ROUGHNESS_CUTOFF 0.3f
 
-__device__ const cudaTextureObject_t * textures;
+__device__ const Texture<float4> * textures;
 
 struct Material {
 	enum class Type : char {
@@ -27,8 +27,7 @@ struct Material {
 	__device__ inline float3 albedo(float s, float t) const {
 		if (texture_id == -1) return diffuse;
 
-		float4 tex_colour = tex2D<float4>(textures[texture_id], s, t);
-
+		float4 tex_colour = textures[texture_id].get(s, t);
 		return diffuse * make_float3(tex_colour);
 	}
 };
