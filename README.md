@@ -41,6 +41,6 @@ Various configurable options are available in `Common.h`.
 
 ## Dependencies
 
-The project uses SDL and GLEW. Their dll's for both x86 and x64 targets are included in the repositories, as well as all required headers.
+The project uses SDL and GLEW. Their dll's for x64 are included in the repository, as well as all required headers.
 
-The project uses CUDA 11.0 and requires that the ```CUDA_PATH``` system variable is set to the path where CUDA 11.0 is installed.
+The project uses CUDA 11.0 and requires that the ```CUDA_PATH``` system variable is set to the path where the CUDA 11.0 SDK is installed.
