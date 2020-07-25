@@ -3,6 +3,30 @@
 
 #include "Common.h"
 
+template<typename T>
+struct Texture {
+	cudaTextureObject_t texture;
+
+	__device__ T get(float s, float t) const {
+		return tex2D<T>(texture, s, t);
+	}
+};
+
+template<typename T>
+struct Surface {
+	cudaTextureObject_t surface;
+
+	__device__ T get(int x, int y) const {
+		T value;
+		surf2Dread<T>(&value, surface, x * sizeof(T), y);
+		return value;
+	}
+
+	__device__ void set(int x, int y, const T & value) {
+		surf2Dwrite<T>(value, surface, x * sizeof(T), y);
+	}
+};
+
 #include "Util.h"
 #include "Shading.h"
 #include "Sky.h"
@@ -18,12 +42,12 @@ __device__ float4 * frame_buffer_indirect;
 __device__ float4 * frame_buffer_moment;
 
 // GBuffers (OpenGL resource-mapped textures)
-__device__ cudaTextureObject_t gbuffer_normal_and_depth;     // float4
-__device__ cudaTextureObject_t gbuffer_uv;                   // float2
-__device__ cudaTextureObject_t gbuffer_uv_gradient;          // float4
-__device__ cudaTextureObject_t gbuffer_triangle_id;          // int2
-__device__ cudaTextureObject_t gbuffer_screen_position_prev; // float2
-__device__ cudaTextureObject_t gbuffer_depth_gradient;       // float2
+__device__ Texture<float4> gbuffer_normal_and_depth;
+__device__ Texture<float2> gbuffer_uv;
+__device__ Texture<float4> gbuffer_uv_gradient;
+__device__ Texture<int>    gbuffer_triangle_id;
+__device__ Texture<float2> gbuffer_screen_position_prev;
+__device__ Texture<float2> gbuffer_depth_gradient;
 
 // SVGF History Buffers (Temporally Integrated)
 __device__ int    * history_length;
@@ -37,7 +61,7 @@ __device__ float4 * taa_frame_curr;
 __device__ float4 * taa_frame_prev;
 
 // Final Frame buffer, shared with OpenGL
-__device__ cudaSurfaceObject_t accumulator; 
+__device__ Surface<float4> accumulator; 
 
 #include "SVGF.h"
 #include "TAA.h"
@@ -156,10 +180,10 @@ extern "C" __global__ void kernel_primary(
 	float u = u_screenspace / float(SCREEN_WIDTH);
 	float v = v_screenspace / float(SCREEN_HEIGHT);
 
-	float2 uv          = tex2D<float2>(gbuffer_uv,          u, v);
-	float4 uv_gradient = tex2D<float4>(gbuffer_uv_gradient, u, v);
+	float2 uv          = gbuffer_uv         .get(u, v);
+	float4 uv_gradient = gbuffer_uv_gradient.get(u, v);
 
-	int triangle_id = tex2D<int>(gbuffer_triangle_id, u, v) - 1;
+	int triangle_id = gbuffer_triangle_id.get(u, v) - 1;
 
 	float dx = 0.0f;
 	float dy = 0.0f;
@@ -875,14 +899,13 @@ extern "C" __global__ void kernel_accumulate(bool demodulate_albedo, float frame
 	}
 
 	if (frames_since_camera_moved > 0.0f) {
-		float4 colour_prev;
-		surf2Dread<float4>(&colour_prev, accumulator, x * sizeof(float4), y);
+		float4 colour_prev = accumulator.get(x, y);
 
 		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
 		colour = (colour_prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
 	}
 
-	surf2Dwrite<float4>(colour, accumulator, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	accumulator.set(x, y, colour);
 
 	// @SPEED
 	// Clear frame buffers for next frame

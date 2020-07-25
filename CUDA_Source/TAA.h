@@ -12,7 +12,7 @@ extern "C" __global__ void kernel_taa() {
 	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
 	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
 
-	float2 screen_position_prev = tex2D<float2>(gbuffer_screen_position_prev, u, v);
+	float2 screen_position_prev = gbuffer_screen_position_prev.get(u, v);
 
 	// Convert from [-1, 1] to [0, 1]
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
@@ -134,7 +134,7 @@ extern "C" __global__ void kernel_taa() {
 		colour.z = integrated.z;
 	}
 
-	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
+	accumulator.set(x, y, colour);
 }
 
 extern "C" __global__ void kernel_taa_finalize() {
@@ -145,8 +145,7 @@ extern "C" __global__ void kernel_taa_finalize() {
 
 	int pixel_index = x + y * SCREEN_PITCH;
 
-	float4 colour;
-	surf2Dread(&colour, accumulator, x * sizeof(float4), y);
+	float4 colour = accumulator.get(x, y);
 
 	taa_frame_prev[pixel_index] = colour;
 
@@ -156,5 +155,5 @@ extern "C" __global__ void kernel_taa_finalize() {
 	// Inverse of "Pseudo" Reinhard
 	colour = colour / (1.0f - luminance(colour.x, colour.y, colour.z));
 
-	surf2Dwrite(colour, accumulator, x * sizeof(float4), y);
+	accumulator.set(x, y, colour);
 }
