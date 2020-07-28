@@ -388,7 +388,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("sobol_256spp_256d").set_buffer(sobol_256spp_256d);
 	module.get_global("scrambling_tile").set_buffer(scrambling_tile);
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
-	
+
 	// Initialize buffers used by Wavefront kernels
 	TraceBuffer     ray_buffer_trace;
 	MaterialBuffer  ray_buffer_shade_diffuse;
@@ -396,11 +396,11 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	MaterialBuffer  ray_buffer_shade_glossy;
 	ShadowRayBuffer ray_buffer_shadow;
 
-	ray_buffer_trace           .init(batch_size);
-	ray_buffer_shade_diffuse   .init(batch_size);
-	ray_buffer_shade_dielectric.init(batch_size);
-	ray_buffer_shade_glossy    .init(batch_size);
-	ray_buffer_shadow          .init(batch_size);
+	                          ray_buffer_trace           .init(batch_size);
+	if (scene.has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);
+	if (scene.has_dielectric) ray_buffer_shade_dielectric.init(batch_size);
+	if (scene.has_glossy)     ray_buffer_shade_glossy    .init(batch_size);
+	if (scene.has_lights)     ray_buffer_shadow          .init(batch_size);
 
 	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
