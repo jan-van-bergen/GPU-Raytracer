@@ -356,6 +356,28 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	module.get_global("scrambling_tile").set_buffer(scrambling_tile);
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 	
+	scene_has_diffuse    = false;
+	scene_has_dielectric = false;
+	scene_has_glossy     = false;
+	scene_has_lights     = false;
+
+	// Check properties of the Scene, so we know which kernels are required
+	for (int i = 0; i < Material::materials.size(); i++) {
+		switch (Material::materials[i].type) {
+			case Material::Type::DIFFUSE:    scene_has_diffuse    = true; break;
+			case Material::Type::DIELECTRIC: scene_has_dielectric = true; break;
+			case Material::Type::GLOSSY:     scene_has_glossy     = true; break;
+			case Material::Type::LIGHT:      scene_has_lights     = true; break;
+		}
+	}
+
+	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
+		scene_has_diffuse    ? "yes" : "no",
+		scene_has_dielectric ? "yes" : "no",
+		scene_has_glossy     ? "yes" : "no",
+		scene_has_lights     ? "yes" : "no"
+	);
+
 	// Initialize buffers used by Wavefront kernels
 	TraceBuffer     ray_buffer_trace;
 	MaterialBuffer  ray_buffer_shade_diffuse;
@@ -363,11 +385,11 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	MaterialBuffer  ray_buffer_shade_glossy;
 	ShadowRayBuffer ray_buffer_shadow;
 
-	ray_buffer_trace           .init(batch_size);
-	ray_buffer_shade_diffuse   .init(batch_size);
-	ray_buffer_shade_dielectric.init(batch_size);
-	ray_buffer_shade_glossy    .init(batch_size);
-	ray_buffer_shadow          .init(batch_size);
+	                          ray_buffer_trace           .init(batch_size);
+	if (scene_has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);
+	if (scene_has_dielectric) ray_buffer_shade_dielectric.init(batch_size);
+	if (scene_has_glossy)     ray_buffer_shade_glossy    .init(batch_size);
+	if (scene_has_lights)     ray_buffer_shadow          .init(batch_size);
 
 	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
@@ -459,30 +481,8 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 
 	event_end.init("END", "END");
 
-	scene_has_diffuse    = false;
-	scene_has_dielectric = false;
-	scene_has_glossy     = false;
-	scene_has_lights     = false;
-
 	resize_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-	// Check properties of the Scene, so we know which kernels are required
-	for (int i = 0; i < Material::materials.size(); i++) {
-		switch (Material::materials[i].type) {
-			case Material::Type::DIFFUSE:    scene_has_diffuse    = true; break;
-			case Material::Type::DIELECTRIC: scene_has_dielectric = true; break;
-			case Material::Type::GLOSSY:     scene_has_glossy     = true; break;
-			case Material::Type::LIGHT:      scene_has_lights     = true; break;
-		}
-	}
-
-	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
-		scene_has_diffuse    ? "yes" : "no",
-		scene_has_dielectric ? "yes" : "no",
-		scene_has_glossy     ? "yes" : "no",
-		scene_has_lights     ? "yes" : "no"
-	);
-
+	
 	int    scene_name_length = strlen(scene_name);
 	char * scene_name_lower  = MALLOCA(char, scene_name_length + 1);
 
