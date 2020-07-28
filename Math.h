@@ -12,6 +12,9 @@ namespace Math {
 		return value;
 	}
 
+	template<typename T> inline T min(T a, T b) { return a < b ? a : b;}
+	template<typename T> inline T max(T a, T b) { return a > b ? a : b;}
+
 	// Checks if n is a power of two
 	inline constexpr bool is_power_of_two(int n) {
 		if (n == 0) return false;

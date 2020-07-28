@@ -1,6 +1,5 @@
 #include "GBuffer.h"
 
-#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 
@@ -8,7 +7,21 @@
 
 #include "Util.h"
 
-void GBuffer::init(int width, int height) {
+void GBuffer::resize(int width, int height) {
+	// Clean up previous GBuffer if it exists
+	if (gbuffer) {
+		glDeleteFramebuffers(1, &gbuffer);
+
+		// Generate Textures
+		glDeleteTextures(1, &buffer_normal_and_depth);
+		glDeleteTextures(1, &buffer_uv);
+		glDeleteTextures(1, &buffer_uv_gradient);
+		glDeleteTextures(1, &buffer_triangle_id);
+		glDeleteTextures(1, &buffer_motion);
+		glDeleteTextures(1, &buffer_z_gradient);
+		glDeleteTextures(1, &buffer_depth);
+	}
+
 	// Create the FBO
 	glGenFramebuffers(1, &gbuffer);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gbuffer);

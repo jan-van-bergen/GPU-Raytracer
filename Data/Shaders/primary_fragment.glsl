@@ -40,7 +40,7 @@ void main() {
 
 	out_triangle_id = in_triangle_id + 1; // Add one so 0 means no hit
 
-	// Perform perspective divide and add jitter
+	// Perform perspective divide
 	out_screen_position_prev = in_screen_position_prev.xy / in_screen_position_prev.w;
 
 	out_depth_gradient = vec2(dFdx(linear_depth), dFdy(linear_depth));

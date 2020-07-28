@@ -7,8 +7,11 @@
 #include "CUDA_Source/Common.h"
 
 void Camera::resize(int width, int height) {
-	float half_width  = 0.5f * width;
-	float half_height = 0.5f * height;
+	inv_width  = 1.0f / float(width);
+	inv_height = 1.0f / float(height);
+
+	float half_width  = 0.5f * float(width);
+	float half_height = 0.5f * float(height);
 
 	// Distance to the viewing plane
 	float d = half_height / tanf(0.5f * fov);
@@ -27,8 +30,8 @@ void Camera::update(float delta, bool apply_jitter) {
 
 	if (apply_jitter) {
 		jitter = Vector2(
-			(halton_x[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_WIDTH)), 
-			(halton_y[jitter_index] * 2.0f - 1.0f) * (1.0f / float(SCREEN_HEIGHT))
+			(halton_x[jitter_index] * 2.0f - 1.0f) * inv_width, 
+			(halton_y[jitter_index] * 2.0f - 1.0f) * inv_height
 		);
 	} else {
 		jitter = Vector2(0.0f);

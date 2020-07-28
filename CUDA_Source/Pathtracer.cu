@@ -3,29 +3,9 @@
 
 #include "Common.h"
 
-template<typename T>
-struct Texture {
-	cudaTextureObject_t texture;
-
-	__device__ T get(float s, float t) const {
-		return tex2D<T>(texture, s, t);
-	}
-};
-
-template<typename T>
-struct Surface {
-	cudaTextureObject_t surface;
-
-	__device__ T get(int x, int y) const {
-		T value;
-		surf2Dread<T>(&value, surface, x * sizeof(T), y);
-		return value;
-	}
-
-	__device__ void set(int x, int y, const T & value) {
-		surf2Dwrite<T>(value, surface, x * sizeof(T), y);
-	}
-};
+__device__ __constant__ int screen_width;
+__device__ __constant__ int screen_pitch;
+__device__ __constant__ int screen_height;
 
 #include "Util.h"
 #include "Shading.h"
@@ -166,19 +146,18 @@ extern "C" __global__ void kernel_primary(
 	if (index >= pixel_count) return;
 
 	int index_offset = index + pixel_offset;
+	int x = index_offset % screen_width;
+	int y = index_offset / screen_width;
 
-	int x = index_offset % SCREEN_WIDTH;
-	int y = index_offset / SCREEN_WIDTH;
-
-	int pixel_index = x + y * SCREEN_PITCH;
+	int pixel_index = x + y * screen_pitch;
 
 	unsigned seed = (pixel_index + rand_seed * 199494991) * 949525949;
 
 	float u_screenspace = float(x) + 0.5f;
 	float v_screenspace = float(y) + 0.5f;
 
-	float u = u_screenspace / float(SCREEN_WIDTH);
-	float v = v_screenspace / float(SCREEN_HEIGHT);
+	float u = u_screenspace / float(screen_width);
+	float v = v_screenspace / float(screen_height);
 
 	float2 uv          = gbuffer_uv         .get(u, v);
 	float4 uv_gradient = gbuffer_uv_gradient.get(u, v);
@@ -283,26 +262,18 @@ extern "C" __global__ void kernel_generate(
 	if (index >= pixel_count) return;
 
 	int index_offset = index + pixel_offset;
+	int x = index_offset % screen_width;
+	int y = index_offset / screen_width;
 
 	unsigned seed = (index_offset + rand_seed * 199494991) * 949525949;
-	
-	int tile_index = index_offset / TILE_SIZE;
-	int i = (tile_index % (SCREEN_WIDTH / TILE_WIDTH)) * TILE_WIDTH;
-	int j = (tile_index / (SCREEN_WIDTH / TILE_WIDTH)) * TILE_HEIGHT;
 
-	int k = (index_offset % TILE_SIZE) % TILE_WIDTH;
-	int l = (index_offset % TILE_SIZE) / TILE_WIDTH;
-
-	int x = i + k;
-	int y = j + l;
-
-	int pixel_index = x + y * SCREEN_PITCH;
-	ASSERT(pixel_index < SCREEN_PITCH * SCREEN_HEIGHT, "Pixel should fit inide the buffer");
+	int pixel_index = x + y * screen_pitch;
+	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
 
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
 	float u = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
 	float v = float(y) + random_float_heitz(x, y, sample_index, 0, 1, seed);
-	
+
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
 	ray_buffer_trace.origin   .from_float3(index, camera_position);
 	ray_buffer_trace.direction.from_float3(index, normalize(camera_bottom_left_corner
@@ -331,9 +302,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	float hit_u           = ray_buffer_trace.u[index];
 	float hit_v           = ray_buffer_trace.v[index];
 
-	int ray_pixel_index = ray_buffer_trace.pixel_index[index];
-
-	float3 ray_throughput = ray_buffer_trace.throughput.to_float3(index);
+	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
+	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
 
 	// If we didn't hit anything, sample the Sky
 	if (hit_triangle_id == -1) {
@@ -496,8 +466,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float ray_v = ray_buffer_shade_diffuse.v[index];
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
-	int x = ray_pixel_index % SCREEN_PITCH;
-	int y = ray_pixel_index / SCREEN_PITCH;
+	int x = ray_pixel_index % screen_pitch;
+	int y = ray_pixel_index / screen_pitch;
 
 	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.to_float3(index);
 
@@ -719,8 +689,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float ray_v = ray_buffer_shade_glossy.v[index];
 
 	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
-	int x = ray_pixel_index % SCREEN_PITCH;
-	int y = ray_pixel_index / SCREEN_PITCH; 
+	int x = ray_pixel_index % screen_pitch;
+	int y = ray_pixel_index / screen_pitch; 
 
 	float3 ray_throughput = ray_buffer_shade_glossy.throughput.to_float3(index);
 
@@ -885,13 +855,13 @@ extern "C" __global__ void kernel_accumulate(bool demodulate_albedo, float frame
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+	if (x >= screen_width || y >= screen_height) return;
 
-	int pixel_index = x + y * SCREEN_PITCH;
+	int pixel_index = x + y * screen_pitch;
 
 	float4 direct   = frame_buffer_direct  [pixel_index];
 	float4 indirect = frame_buffer_indirect[pixel_index];
-	
+
 	float4 colour = direct + indirect;
 
 	if (demodulate_albedo) {

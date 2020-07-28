@@ -3,14 +3,14 @@ extern "C" __global__ void kernel_taa() {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+	if (x >= screen_width || y >= screen_height) return;
 
-	int pixel_index = x + y * SCREEN_PITCH;
+	int pixel_index = x + y * screen_pitch;
 
 	float4 colour = taa_frame_curr[pixel_index];
 
-	float u = (float(x) + 0.5f) / float(SCREEN_WIDTH);
-	float v = (float(y) + 0.5f) / float(SCREEN_HEIGHT);
+	float u = (float(x) + 0.5f) / float(screen_width);
+	float v = (float(y) + 0.5f) / float(screen_height);
 
 	float2 screen_position_prev = gbuffer_screen_position_prev.get(u, v);
 
@@ -18,8 +18,8 @@ extern "C" __global__ void kernel_taa() {
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
 	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
 
-	float s_prev = u_prev * float(SCREEN_WIDTH) ;
-	float t_prev = v_prev * float(SCREEN_HEIGHT);
+	float s_prev = u_prev * float(screen_width) ;
+	float t_prev = v_prev * float(screen_height);
 
 	int x1 = int(s_prev + 0.5f) - 2;
 	int y1 = int(t_prev + 0.5f) - 2;
@@ -28,17 +28,17 @@ extern "C" __global__ void kernel_taa() {
 	float4 sum        = make_float4(0.0f);
 
 	for (int j = y1; j < y1 + 4; j++) {
-		if (j < 0 || j >= SCREEN_HEIGHT) continue;
+		if (j < 0 || j >= screen_height) continue;
 
 		for (int i = x1; i < x1 + 4; i++) {
-			if (i < 0 || i >= SCREEN_WIDTH) continue;
+			if (i < 0 || i >= screen_width) continue;
 
 			float weight = 
 				mitchell_netravali(float(i) + 0.5f - s_prev) * 
 				mitchell_netravali(float(j) + 0.5f - t_prev);
 
 			sum_weight += weight;
-			sum        += weight * taa_frame_prev[i + j * SCREEN_PITCH];
+			sum        += weight * taa_frame_prev[i + j * screen_pitch];
 		}
 	}
 
@@ -53,7 +53,7 @@ extern "C" __global__ void kernel_taa() {
 
 		if (x >= 1) {
 			if (y >= 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_PITCH - 1]));
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - screen_pitch - 1]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -64,8 +64,8 @@ extern "C" __global__ void kernel_taa() {
 			colour_avg += f;
 			colour_var += f * f;
 
-			if (y < SCREEN_HEIGHT - 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_PITCH - 1]));
+			if (y < screen_height - 1) {
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + screen_pitch - 1]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -73,22 +73,22 @@ extern "C" __global__ void kernel_taa() {
 		}
 		
 		if (y >= 1) {
-			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - SCREEN_PITCH]));
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - screen_pitch]));
 
 			colour_avg += f;
 			colour_var += f * f;
 		}
 
-		if (y < SCREEN_HEIGHT - 1) {
-			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + SCREEN_PITCH]));
+		if (y < screen_height - 1) {
+			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + screen_pitch]));
 
 			colour_avg += f;
 			colour_var += f * f;
 		}
 
-		if (x < SCREEN_WIDTH - 1) {
+		if (x < screen_width - 1) {
 			if (y >= 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 - SCREEN_PITCH]));
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 - screen_pitch]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -99,8 +99,8 @@ extern "C" __global__ void kernel_taa() {
 			colour_avg += f;
 			colour_var += f * f;
 
-			if (y < SCREEN_HEIGHT - 1) {
-				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 + SCREEN_PITCH]));
+			if (y < screen_height - 1) {
+				float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index + 1 + screen_pitch]));
 
 				colour_avg += f;
 				colour_var += f * f;
@@ -141,9 +141,9 @@ extern "C" __global__ void kernel_taa_finalize() {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if (x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+	if (x >= screen_width || y >= screen_height) return;
 
-	int pixel_index = x + y * SCREEN_PITCH;
+	int pixel_index = x + y * screen_pitch;
 
 	float4 colour = accumulator.get(x, y);
 

@@ -4,6 +4,8 @@
 
 #include <Imgui/imgui.h>
 
+#include "CUDAContext.h"
+
 #include "Pathtracer.h"
 
 #include "Input.h"
@@ -18,22 +20,22 @@ extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 static void capture_screen(const Window & window, const char * file_name) {
 	ScopeTimer timer("Screenshot");
 
-	unsigned char * data = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
-	unsigned char * temp = new unsigned char[SCREEN_WIDTH * 3];
+	unsigned char * data = new unsigned char[window.width * window.height * 3];
+	unsigned char * temp = new unsigned char[window.width * 3];
 			
 	window.read_frame_buffer(data);
 
 	// Flip image vertically
-	for (int j = 0; j < SCREEN_HEIGHT / 2; j++) {
-		unsigned char * row_top    = data +                  j      * SCREEN_WIDTH * 3;
-		unsigned char * row_bottom = data + (SCREEN_HEIGHT - j - 1) * SCREEN_WIDTH * 3;
+	for (int j = 0; j < window.height / 2; j++) {
+		unsigned char * row_top    = data +                  j      * window.width * 3;
+		unsigned char * row_bottom = data + (window.height - j - 1) * window.width * 3;
 
-		memcpy(temp,       row_top,    SCREEN_WIDTH * 3);
-		memcpy(row_top,    row_bottom, SCREEN_WIDTH * 3);
-		memcpy(row_bottom, temp,       SCREEN_WIDTH * 3);
+		memcpy(temp,       row_top,    window.width * 3);
+		memcpy(row_top,    row_bottom, window.width * 3);
+		memcpy(row_bottom, temp,       window.width * 3);
 	}
 
-	Util::export_ppm(file_name, SCREEN_WIDTH, SCREEN_HEIGHT, data);
+	Util::export_ppm(file_name, window.width, window.height, data);
 
 	delete [] temp;
 	delete [] data;
@@ -46,6 +48,13 @@ static int current_frame = 0;
 
 // Index of frame to take screen capture on
 static constexpr int capture_frame_index = -1;
+
+Pathtracer pathtracer;
+
+void window_resize(unsigned frame_buffer_handle, int width, int height) {
+	pathtracer.resize_free();
+	pathtracer.resize_init(frame_buffer_handle, width, height);
+};
 
 int main(int argument_count, char ** arguments) {
 	Window window("Pathtracer");
@@ -63,8 +72,9 @@ int main(int argument_count, char ** arguments) {
 	const char * scene_filename = DATA_PATH("sponza/sponza_lit.obj");
 	const char * sky_filename   = DATA_PATH("Sky_Probes/rnl_probe.float");
 
-	Pathtracer pathtracer;
 	pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
+
+	window.resize_handler = &window_resize;
 
 	srand(1337);
 
@@ -202,6 +212,8 @@ int main(int argument_count, char ** arguments) {
 		window.gui_end();
 		window.swap();
 	}
+
+	CUDAContext::destroy();
 
 	return EXIT_SUCCESS;
 }

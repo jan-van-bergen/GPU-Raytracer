@@ -7,6 +7,9 @@
 
 #include "Util.h"
 
+static CUdevice  device;
+static CUcontext context;
+
 void CUDAContext::init() {
 	CUDACALL(cuInit(0));
 
@@ -49,8 +52,9 @@ void CUDAContext::init() {
 
 	compute_capability = best_compute_capability;
 
-	CUcontext context;
-	CUDACALL(cuCtxCreate(&context, 0, best_device));
+	device = best_device;
+
+	CUDACALL(cuCtxCreate(&context, 0, device));
 		
 	CUfunc_cache   config_cache;
 	CUsharedconfig config_shared;
@@ -80,24 +84,15 @@ void CUDAContext::init() {
 	puts("");
 }
 
+void CUDAContext::destroy() {
+	CUDACALL(cuCtxDestroy(context));
+	CUDACALL(cuDevicePrimaryCtxReset(device));
+}
+
 unsigned long long CUDAContext::get_available_memory() {
 	unsigned long long bytes_available;
 	unsigned long long bytes_total;
 	CUDACALL(cuMemGetInfo(&bytes_available, &bytes_total));
 
 	return bytes_available;
-}
-
-CUarray CUDAContext::map_gl_texture(unsigned gl_texture, unsigned flags) {
-	CUarray result;
-
-	CUgraphicsResource cuda_resource; 
-	CUDACALL(cuGraphicsGLRegisterImage(&cuda_resource, gl_texture, GL_TEXTURE_2D, flags));
-	CUDACALL(cuGraphicsMapResources(1, &cuda_resource, 0));
-
-	CUDACALL(cuGraphicsSubResourceGetMappedArray(&result, cuda_resource, 0, 0));
-                
-	CUDACALL(cuGraphicsUnmapResources(1, &cuda_resource, 0));
-
-	return result;
 }
