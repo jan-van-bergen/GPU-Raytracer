@@ -24,8 +24,8 @@ struct Triangle {
 	float4 part_5; // tex_coord_edge_1 xy  and tex_coord_edge_2 xy
 };
 
-__device__ const Triangle * triangles;
-__device__ const int      * triangle_material_ids;
+__device__ __constant__ const Triangle * triangles;
+__device__ __constant__ const int      * triangle_material_ids;
 
 __device__ inline int triangle_get_material_id(int index) {
 	return triangle_material_ids[index];
@@ -205,7 +205,7 @@ struct BVHNode {
 	}
 };
 
-__device__ BVHNode * bvh_nodes;
+__device__ __constant__ BVHNode * bvh_nodes;
 
 __device__ void bvh_trace(int ray_count, int * rays_retired) {
 	__shared__ int shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
@@ -378,7 +378,7 @@ struct QBVHNode {
 	int2 index_and_count[4];
 };
 
-__device__ QBVHNode * qbvh_nodes;
+__device__ __constant__ QBVHNode * qbvh_nodes;
 
 struct AABBHits {
 	union {
@@ -639,7 +639,7 @@ struct CWBVHNode {
 	float4 node_4; // Node is stored as 5 float4's so we can load the entire 80 bytes in 5 global memory accesses
 };
 
-__device__ CWBVHNode * cwbvh_nodes;
+__device__ __constant__ CWBVHNode * cwbvh_nodes;
 
 __device__ inline unsigned cwbvh_node_intersect(
 	const Ray & ray,
