@@ -1,5 +1,8 @@
 #include "CUDAMemory.h"
 
+#include <GL/glew.h>
+#include <cudaGL.h>
+
 CUarray CUDAMemory::create_array(int width, int height, int channels, CUarray_format format) {
 	CUDA_ARRAY_DESCRIPTOR desc;
 	desc.Width  = width;
@@ -40,4 +43,26 @@ void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, const
 	copy.Height       = height;
 
 	CUDACALL(cuMemcpy2D(&copy));
+}
+
+CUgraphicsResource CUDAMemory::resource_register(unsigned gl_texture, unsigned flags) {
+	CUgraphicsResource resource; 
+	CUDACALL(cuGraphicsGLRegisterImage(&resource, gl_texture, GL_TEXTURE_2D, flags));
+
+	return resource;
+}
+
+void CUDAMemory::resource_unregister(CUgraphicsResource resource) {
+	CUDACALL(cuGraphicsUnregisterResource(resource));
+}
+
+CUarray CUDAMemory::resource_get_array(CUgraphicsResource resource) {
+	CUDACALL(cuGraphicsMapResources(1, &resource, 0));
+
+	CUarray result;
+	CUDACALL(cuGraphicsSubResourceGetMappedArray(&result, resource, 0, 0));
+                
+	CUDACALL(cuGraphicsUnmapResources(1, &resource, 0));
+
+	return result;
 }

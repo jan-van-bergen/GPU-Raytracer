@@ -22,7 +22,14 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
+	inline void free(Ptr<T> ptr) {
+		assert(ptr.ptr);
+		CUDACALL(cuMemFree(ptr.ptr));
+	}
+
+	template<typename T>
 	inline void memcpy(Ptr<T> ptr, const T * data, int count = 1) {
+		assert(ptr.ptr);
 		assert(data);
 		assert(count > 0);
 
@@ -34,4 +41,10 @@ namespace CUDAMemory {
 
 	// Copies data from the Host Texture to the Device Array
 	void copy_array(CUarray array, int width_in_bytes, int height, const void * data);
+	
+	// Graphics Resource management (for OpenGL interop)
+	CUgraphicsResource resource_register(unsigned gl_texture, unsigned flags);
+	void               resource_unregister(CUgraphicsResource resource);
+
+	CUarray resource_get_array(CUgraphicsResource resource);
 }

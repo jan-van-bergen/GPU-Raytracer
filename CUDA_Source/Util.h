@@ -1,7 +1,40 @@
 #pragma once
 
-//#define ASSERT(proposition, fmt, ...) do { if (!(proposition)) printf(fmt, __VA_ARGS__); assert(proposition); } while(false)
-#define ASSERT(proposition, fmt, ...) { }
+#if false
+	#define ASSERT(proposition, fmt, ...) do { /*if (!(proposition)) printf(fmt, __VA_ARGS__);*/ assert(proposition); } while (false)
+#else
+	#define ASSERT(proposition, fmt, ...) do { } while (false)
+#endif
+
+template<typename T>
+struct Texture {
+	cudaTextureObject_t texture;
+
+	__device__ inline T get(float s, float t) const {
+		return tex2D<T>(texture, s, t);
+	}
+};
+
+template<typename T>
+struct Surface {
+	cudaSurfaceObject_t surface;
+
+	__device__ inline T get(int x, int y) const {
+		assert(x >= 0 && x < screen_width);
+		assert(y >= 0 && y < screen_height);
+		
+		T value;
+		surf2Dread<T>(&value, surface, x * sizeof(T), y);
+		return value;
+	}
+
+	__device__ inline void set(int x, int y, const T & value) {
+		assert(x >= 0 && x < screen_width);
+		assert(y >= 0 && y < screen_height);
+
+		surf2Dwrite<T>(value, surface, x * sizeof(T), y);
+	}
+};
 
 __device__ inline float luminance(float r, float g, float b) {
 	return 0.299f * r + 0.587f * g + 0.114f * b;

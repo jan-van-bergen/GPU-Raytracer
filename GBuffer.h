@@ -1,7 +1,8 @@
 #pragma once
 
 struct GBuffer {
-	unsigned gbuffer;
+	unsigned gbuffer = 0;
+
 	unsigned buffer_normal_and_depth;
 	unsigned buffer_uv;
 	unsigned buffer_uv_gradient;
@@ -10,7 +11,7 @@ struct GBuffer {
 	unsigned buffer_z_gradient;
 	unsigned buffer_depth;
 
-	void init(int width, int height);
+	void resize(int width, int height);
 
 	void bind();
 	void unbind();

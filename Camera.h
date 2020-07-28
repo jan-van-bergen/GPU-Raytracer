@@ -10,6 +10,9 @@ struct Camera {
 
 	float fov; // Field of View in radians
 
+	float inv_width;
+	float inv_height;
+
 	float near;
 	float far;
 

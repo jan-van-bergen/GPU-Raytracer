@@ -6,14 +6,13 @@
 
 #include "Util.h"
 
-void Scene::init(const char * mesh_names[], int mesh_count, const char * sky_name) {
+void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_name) {
 	if (mesh_count == 0) {
 		puts("ERROR: No Meshes provided!");
 		abort();
 	}
 
 	camera.init(DEG_TO_RAD(110.0f));
-	camera.resize(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	// Set default Material before loading Meshes
 	Material & default_material = Material::materials.emplace_back();

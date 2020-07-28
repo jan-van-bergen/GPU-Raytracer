@@ -195,6 +195,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 			compute,
 			maxregcount,
 			"--use_fast_math",
+			//"--device-debug",
 			"-lineinfo",
 			"-restrict"
 		};
@@ -204,11 +205,8 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 
 		if (result != NVRTC_SUCCESS) {
 			// Display message if compilation failed
-			size_t log_size;
-			nvrtcGetProgramLogSize(program, &log_size);
-
-			char * log = new char[log_size];
-			nvrtcGetProgramLog(program, log);
+			size_t log_size;                 NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
+			char * log = new char[log_size]; NVRTC_CALL(nvrtcGetProgramLog    (program, log));
 
 			puts(log);
 
@@ -218,11 +216,8 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		}
 
 		// Obtain PTX from NVRTC
-		size_t ptx_size;
-		NVRTC_CALL(nvrtcGetPTXSize(program, &ptx_size));
-
-		char * ptx = new char[ptx_size];
-		NVRTC_CALL(nvrtcGetPTX(program, ptx));
+		size_t ptx_size;                 NVRTC_CALL(nvrtcGetPTXSize(program, &ptx_size));
+		char * ptx = new char[ptx_size]; NVRTC_CALL(nvrtcGetPTX    (program, ptx));
 
 		NVRTC_CALL(nvrtcDestroyProgram(&program));
 
@@ -263,7 +258,6 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 
 	CUlinkState link_state;
 	CUDACALL(cuLinkCreate(Util::array_element_count(options), options, values, &link_state));
-
 	CUDACALL(cuLinkAddFile(link_state, CU_JIT_INPUT_PTX, ptx_filename, 0, nullptr, nullptr));
 
 	void * cubin;
@@ -282,7 +276,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 
 void CUDAModule::set_surface(const char * surface_name, CUarray array) const {
 	CUDA_RESOURCE_DESC resource_desc = { };
-	resource_desc.resType = CU_RESOURCE_TYPE_ARRAY;
+	resource_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
 	resource_desc.res.array.hArray = array;
 	
 	CUsurfObject surface;
@@ -304,7 +298,7 @@ void CUDAModule::set_texture(const char * texture_name, CUarray array, CUfilter_
 
 	CUtexObject texture;
 	CUDACALL(cuTexObjectCreate(&texture, &res_desc, &tex_desc, nullptr));
-	
+
 	get_global(texture_name).set_value(texture);
 }
 
@@ -315,7 +309,7 @@ void CUDAModule::set_texture(const char * texture_name, const Texture * texture)
 	CUarray array = CUDAMemory::create_array(texture->width, texture->height, texture->channels, format);
 	CUDAMemory::copy_array(array, texture->channels * texture->width, texture->height, texture->data);
 
-	set_texture(texture_name, array, CU_TR_FILTER_MODE_LINEAR);
+	set_texture(texture_name, array, CUfilter_mode_enum::CU_TR_FILTER_MODE_LINEAR);
 }
 
 CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {

@@ -27,6 +27,8 @@ Window::Window(const char * title) {
 
 	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
 	context = SDL_GL_CreateContext(window);
+	
+	SDL_SetWindowResizable(window, SDL_TRUE);
 
 	SDL_GL_SetSwapInterval(0);
 
@@ -53,12 +55,15 @@ Window::Window(const char * title) {
 	//glEnable(GL_CULL_FACE);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
+	width  = SCREEN_WIDTH;
+	height = SCREEN_HEIGHT;
+
 	glGenTextures(1, &frame_buffer_handle);
 
 	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
 	shader = Shader::load(DATA_PATH("Shaders/screen_vertex.glsl"), DATA_PATH("Shaders/screen_fragment.glsl"));
 	shader.bind();
@@ -113,13 +118,34 @@ void Window::swap() {
 	while (SDL_PollEvent(&event)) {
 		ImGui_ImplSDL2_ProcessEvent(&event);
 
-		if (event.type == SDL_QUIT) {
-			is_closed = true;
+		switch (event.type) {
+			case SDL_WINDOWEVENT: {
+				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+					width  = event.window.data1;
+					height = event.window.data2;
+					
+					glDeleteTextures(1, &frame_buffer_handle);
+					glGenTextures   (1, &frame_buffer_handle);
+
+					glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+					glViewport(0, 0, width, height);
+
+					if (resize_handler) resize_handler(frame_buffer_handle, width, height);
+				}
+				
+				break;
+			}
+
+			case SDL_QUIT: is_closed = true; break;
 		}
 	}
 }
 
 void Window::read_frame_buffer(unsigned char * data) const {
 	glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
-	glReadPixels(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
 }

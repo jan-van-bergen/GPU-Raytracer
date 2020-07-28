@@ -4,6 +4,8 @@
 
 #include "Shader.h"
 
+typedef void (*ResizeHandler)(unsigned frame_buffer_handle, int width, int height);
+
 struct Window {
 private:
 	SDL_Window *  window;
@@ -13,6 +15,9 @@ private:
 
 public:
 	GLuint frame_buffer_handle;
+
+	int width;
+	int height;
 
 	bool is_closed = false;
 
@@ -27,4 +32,6 @@ public:
 	void swap();
 
 	void read_frame_buffer(unsigned char * data) const;
+
+	ResizeHandler resize_handler = nullptr;
 };

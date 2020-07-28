@@ -1,6 +1,5 @@
 #include "GBuffer.h"
 
-#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 
@@ -8,7 +7,21 @@
 
 #include "Util.h"
 
-void GBuffer::init(int width, int height) {
+void GBuffer::resize(int width, int height) {
+	// Clean up previous GBuffer if it exists
+	if (gbuffer) {
+		glDeleteFramebuffers(1, &gbuffer);
+
+		// Generate Textures
+		glDeleteTextures(1, &buffer_normal_and_depth);
+		glDeleteTextures(1, &buffer_uv);
+		glDeleteTextures(1, &buffer_uv_gradient);
+		glDeleteTextures(1, &buffer_mesh_id_and_triangle_id);
+		glDeleteTextures(1, &buffer_motion);
+		glDeleteTextures(1, &buffer_z_gradient);
+		glDeleteTextures(1, &buffer_depth);
+	}
+
 	// Create the FBO
 	glGenFramebuffers(1, &gbuffer);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gbuffer);
@@ -24,48 +37,50 @@ void GBuffer::init(int width, int height) {
 
 	// Initialize Normal Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_normal_and_depth);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, buffer_normal_and_depth, 0);
 	
 	// Initialize UV Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_uv);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, nullptr);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, buffer_uv, 0);
 	
 	// Initialize UV Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_uv_gradient);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, buffer_uv_gradient, 0);
 
 	// Initialize Triangle ID Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_mesh_id_and_triangle_id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32I, width, height, 0, GL_RG_INTEGER, GL_INT, nullptr);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32I, width, height, 0, GL_RG_INTEGER, GL_INT, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, buffer_mesh_id_and_triangle_id, 0);
 	
 	// Initialize Motion Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_motion);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, nullptr);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, buffer_motion, 0);
 
 	// Initialize Z Gradient Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_z_gradient);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, nullptr);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, buffer_z_gradient, 0);
 
 	// Depth Buffer
 	glBindTexture(GL_TEXTURE_2D, buffer_depth);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, buffer_depth, 0);
 

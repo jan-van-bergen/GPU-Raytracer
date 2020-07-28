@@ -44,12 +44,18 @@ struct Pathtracer {
 	
 	std::vector<const CUDAEvent *> events;
 
-	void init(unsigned frame_buffer_handle);
+	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
+
+	void resize_init(unsigned frame_buffer_handle, int width, int height); // Part of resize that initializes new size
+	void resize_free();                                                    // Part of resize that cleans up old size
 
 	void update(float delta);
 	void render();
 
 private:
+	int pixel_count;
+	int batch_size;
+
 	GBuffer gbuffer;
 
 	CUDAModule module;
@@ -73,6 +79,16 @@ private:
 	CUDAKernel kernel_taa_finalize;
 
 	CUDAKernel kernel_accumulate;
+
+	CUgraphicsResource resource_gbuffer_normal_and_depth;
+	CUgraphicsResource resource_gbuffer_uv;
+	CUgraphicsResource resource_gbuffer_uv_gradient;
+	CUgraphicsResource resource_gbuffer_triangle_id;
+	CUgraphicsResource resource_gbuffer_motion;
+	CUgraphicsResource resource_gbuffer_z_gradient;
+	CUgraphicsResource resource_gbuffer_depth;
+
+	CUgraphicsResource resource_accumulator;
 
 	CUDAModule::Global global_buffer_sizes;
 

@@ -16,7 +16,7 @@ struct Scene {
 	bool has_glossy;
 	bool has_lights;
 
-	void init(const char * mesh_names[], int mesh_count, const char * sky_name);
+	void init(int mesh_count, const char * mesh_names[], const char * sky_name);
 
 	void update(float delta);
 };
