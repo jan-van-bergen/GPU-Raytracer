@@ -49,23 +49,23 @@ __device__ inline void mesh_transform_point_and_normal(int mesh_id, const float3
 	);
 }
 
-__device__ inline void mesh_transform_inv_ray(int mesh_id, const Ray & ray_in, Ray & ray_out) {
+__device__ inline void mesh_transform_inv_ray(int mesh_id, Ray & ray) {
 	float4 row_0 = __ldg(&mesh_transforms_inv[mesh_id].row_0);
 	float4 row_1 = __ldg(&mesh_transforms_inv[mesh_id].row_1);
 	float4 row_2 = __ldg(&mesh_transforms_inv[mesh_id].row_2);
 
-	ray_out.origin = make_float3( // Transform as position (w = 1)
-		row_0.x * ray_in.origin.x + row_0.y * ray_in.origin.y + row_0.z * ray_in.origin.z + row_0.w,
-		row_1.x * ray_in.origin.x + row_1.y * ray_in.origin.y + row_1.z * ray_in.origin.z + row_1.w,
-		row_2.x * ray_in.origin.x + row_2.y * ray_in.origin.y + row_2.z * ray_in.origin.z + row_2.w
+	ray.origin = make_float3( // Transform as position (w = 1)
+		row_0.x * ray.origin.x + row_0.y * ray.origin.y + row_0.z * ray.origin.z + row_0.w,
+		row_1.x * ray.origin.x + row_1.y * ray.origin.y + row_1.z * ray.origin.z + row_1.w,
+		row_2.x * ray.origin.x + row_2.y * ray.origin.y + row_2.z * ray.origin.z + row_2.w
 	);
-	ray_out.direction = make_float3( // Transform as direction (w = 0)
-		row_0.x * ray_in.direction.x + row_0.y * ray_in.direction.y + row_0.z * ray_in.direction.z,
-		row_1.x * ray_in.direction.x + row_1.y * ray_in.direction.y + row_1.z * ray_in.direction.z,
-		row_2.x * ray_in.direction.x + row_2.y * ray_in.direction.y + row_2.z * ray_in.direction.z
+	ray.direction = make_float3( // Transform as direction (w = 0)
+		row_0.x * ray.direction.x + row_0.y * ray.direction.y + row_0.z * ray.direction.z,
+		row_1.x * ray.direction.x + row_1.y * ray.direction.y + row_1.z * ray.direction.z,
+		row_2.x * ray.direction.x + row_2.y * ray.direction.y + row_2.z * ray.direction.z
 	);
 
-	ray_out.calc_direction_inv();
+	ray.calc_direction_inv();
 }
 
 struct Triangle {
@@ -786,9 +786,6 @@ __device__ __constant__ CWBVHNode * cwbvh_nodes;
 __device__ inline unsigned cwbvh_node_intersect(
 	const Ray & ray,
 	unsigned oct_inv4,
-	bool ray_negative_x,
-	bool ray_negative_y,
-	bool ray_negative_z,
 	float max_distance,
 	const float4 & node_0, const float4 & node_1, const float4 & node_2, const float4 & node_3, const float4 & node_4
 ) {
@@ -827,14 +824,14 @@ __device__ inline unsigned cwbvh_node_intersect(
 		unsigned q_lo_z = float_as_uint(i == 0 ? node_4.x : node_4.y);
 		unsigned q_hi_z = float_as_uint(i == 0 ? node_4.z : node_4.w);
 
-		unsigned x_min = ray_negative_x ? q_hi_x : q_lo_x;
-		unsigned x_max = ray_negative_x ? q_lo_x : q_hi_x;
+		unsigned x_min = ray.direction.x < 0.0f ? q_hi_x : q_lo_x;
+		unsigned x_max = ray.direction.x < 0.0f ? q_lo_x : q_hi_x;
 
-		unsigned y_min = ray_negative_y ? q_hi_y : q_lo_y;
-		unsigned y_max = ray_negative_y ? q_lo_y : q_hi_y;
+		unsigned y_min = ray.direction.y < 0.0f ? q_hi_y : q_lo_y;
+		unsigned y_max = ray.direction.y < 0.0f ? q_lo_y : q_hi_y;
 
-		unsigned z_min = ray_negative_z ? q_hi_z : q_lo_z;
-		unsigned z_max = ray_negative_z ? q_lo_z : q_hi_z;
+		unsigned z_min = ray.direction.z < 0.0f ? q_hi_z : q_lo_z;
+		unsigned z_max = ray.direction.z < 0.0f ? q_lo_z : q_hi_z;
 
 		#pragma unroll
 		for (int j = 0; j < 4; j++) {
@@ -875,12 +872,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	uint2 current_group = make_uint2(0, 0);
 
 	int ray_index;
-	Ray ray_untransformed;
 	Ray ray;
 
-	bool ray_negative_x, ray_negative_y, ray_negative_z;
-
-	unsigned oct_inv;
 	unsigned oct_inv4;
 	
 	RayHit ray_hit;
@@ -895,23 +888,17 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray_untransformed.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-			ray_untransformed.direction = ray_buffer_trace.direction.to_float3(ray_index);
-			ray_untransformed.calc_direction_inv();
+			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.calc_direction_inv();
 
-			ray = ray_untransformed;
-
-			ray_negative_x = ray.direction.x < 0.0f;
-			ray_negative_y = ray.direction.y < 0.0f;
-			ray_negative_z = ray.direction.z < 0.0f;
-
+			// Ray octant, encoded in 3 bits
 			unsigned oct = 
-				(ray_negative_x ? 0b100 : 0) |
-				(ray_negative_y ? 0b010 : 0) |
-				(ray_negative_z ? 0b001 : 0);
+				(ray.direction.x < 0.0f ? 0b100 : 0) |
+				(ray.direction.y < 0.0f ? 0b010 : 0) |
+				(ray.direction.z < 0.0f ? 0b001 : 0);
 
-			oct_inv  = 7 - oct;
-			oct_inv4 = oct_inv * 0x01010101;
+			oct_inv4 = (7 - oct) * 0x01010101;
 
 			current_group = make_uint2(0, 0x80000000);
 
@@ -942,7 +929,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 					stack_push(shared_stack, stack, stack_size, current_group);
 				}
 
-				unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
+				unsigned slot_index     = (child_index_offset - 24) ^ (oct_inv4 & 0xff);
 				unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
 
 				unsigned child_node_index = child_index_base + relative_index;
@@ -953,7 +940,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				float4 node_3 = __ldg(&cwbvh_nodes[child_node_index].node_3);
 				float4 node_4 = __ldg(&cwbvh_nodes[child_node_index].node_4);
 
-				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
+				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
 
 				byte imask = extract_byte(float_as_uint(node_0.w), 3);
 				
@@ -975,19 +962,15 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 						mesh_id = triangle_group.x + mesh_offset;
 
-						mesh_transform_inv_ray(mesh_id, ray_untransformed, ray);
+						mesh_transform_inv_ray(mesh_id, ray);
 
-						ray_negative_x = ray.direction.x < 0.0f;
-						ray_negative_y = ray.direction.y < 0.0f;
-						ray_negative_z = ray.direction.z < 0.0f;
-
+						// Ray octant, encoded in 3 bits
 						unsigned oct = 
-							(ray_negative_x ? 0b100 : 0) |
-							(ray_negative_y ? 0b010 : 0) |
-							(ray_negative_z ? 0b001 : 0);
+							(ray.direction.x < 0.0f ? 0b100 : 0) |
+							(ray.direction.y < 0.0f ? 0b010 : 0) |
+							(ray.direction.z < 0.0f ? 0b001 : 0);
 
-						oct_inv  = 7 - oct;
-						oct_inv4 = oct_inv * 0x01010101;
+						oct_inv4 = (7 - oct) * 0x01010101;
 
 						if (triangle_group.y != 0) {
 							stack_push(shared_stack, stack, stack_size, triangle_group);
@@ -1020,19 +1003,17 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				if (stack_size == tlas_stack_size) {
 					tlas_stack_size = -1;
 
-					ray = ray_untransformed;
+					ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+					ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+					ray.calc_direction_inv();
 
-					ray_negative_x = ray.direction.x < 0.0f;
-					ray_negative_y = ray.direction.y < 0.0f;
-					ray_negative_z = ray.direction.z < 0.0f;
-
+					// Ray octant, encoded in 3 bits
 					unsigned oct = 
-						(ray_negative_x ? 0b100 : 0) |
-						(ray_negative_y ? 0b010 : 0) |
-						(ray_negative_z ? 0b001 : 0);
+						(ray.direction.x < 0.0f ? 0b100 : 0) |
+						(ray.direction.y < 0.0f ? 0b010 : 0) |
+						(ray.direction.z < 0.0f ? 0b001 : 0);
 
-					oct_inv  = 7 - oct;
-					oct_inv4 = oct_inv * 0x01010101;
+					oct_inv4 = (7 - oct) * 0x01010101;
 				}
 
 				current_group = stack_pop(shared_stack, stack, stack_size);
@@ -1052,12 +1033,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 	uint2 current_group = make_uint2(0, 0);
 
 	int ray_index;
-	Ray ray_untransformed;
 	Ray ray;
 
-	bool ray_negative_x, ray_negative_y, ray_negative_z;
-
-	unsigned oct_inv;
 	unsigned oct_inv4;
 
 	float max_distance;
@@ -1072,23 +1049,17 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray_untransformed.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-			ray_untransformed.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
-			ray_untransformed.calc_direction_inv();
+			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+			ray.calc_direction_inv();
 
-			ray = ray_untransformed;
-
-			ray_negative_x = ray.direction.x < 0.0f;
-			ray_negative_y = ray.direction.y < 0.0f;
-			ray_negative_z = ray.direction.z < 0.0f;
-
+			// Ray octant, encoded in 3 bits
 			unsigned oct = 
-				(ray_negative_x ? 0b100 : 0) |
-				(ray_negative_y ? 0b010 : 0) |
-				(ray_negative_z ? 0b001 : 0);
+				(ray.direction.x < 0.0f ? 0b100 : 0) |
+				(ray.direction.y < 0.0f ? 0b010 : 0) |
+				(ray.direction.z < 0.0f ? 0b001 : 0);
 
-			oct_inv  = 7 - oct;
-			oct_inv4 = oct_inv * 0x01010101;
+			oct_inv4 = (7 - oct) * 0x01010101;
 
 			current_group = make_uint2(0, 0x80000000);
 
@@ -1118,7 +1089,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 					stack_push(shared_stack, stack, stack_size, current_group);
 				}
 
-				unsigned slot_index     = (child_index_offset - 24) ^ oct_inv;
+				unsigned slot_index     = (child_index_offset - 24) ^ (oct_inv4 & 0xff);
 				unsigned relative_index = __popc(hits_imask & ~(0xffffffff << slot_index));
 
 				unsigned child_node_index = child_index_base + relative_index;
@@ -1129,7 +1100,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				float4 node_3 = cwbvh_nodes[child_node_index].node_3;
 				float4 node_4 = cwbvh_nodes[child_node_index].node_4;
 
-				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_negative_x, ray_negative_y, ray_negative_z, max_distance, node_0, node_1, node_2, node_3, node_4);
+				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, max_distance, node_0, node_1, node_2, node_3, node_4);
 
 				byte imask = extract_byte(float_as_uint(node_0.w), 3);
 				
@@ -1153,19 +1124,15 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 						mesh_id = triangle_group.x + mesh_offset;
 
-						mesh_transform_inv_ray(mesh_id, ray_untransformed, ray);
+						mesh_transform_inv_ray(mesh_id, ray);
 
-						ray_negative_x = ray.direction.x < 0.0f;
-						ray_negative_y = ray.direction.y < 0.0f;
-						ray_negative_z = ray.direction.z < 0.0f;
-
+						// Ray octant, encoded in 3 bits
 						unsigned oct = 
-							(ray_negative_x ? 0b100 : 0) |
-							(ray_negative_y ? 0b010 : 0) |
-							(ray_negative_z ? 0b001 : 0);
+							(ray.direction.x < 0.0f ? 0b100 : 0) |
+							(ray.direction.y < 0.0f ? 0b010 : 0) |
+							(ray.direction.z < 0.0f ? 0b001 : 0);
 
-						oct_inv  = 7 - oct;
-						oct_inv4 = oct_inv * 0x01010101;
+						oct_inv4 = (7 - oct) * 0x01010101;
 
 						if (triangle_group.y != 0) {
 							stack_push(shared_stack, stack, stack_size, triangle_group);
@@ -1215,19 +1182,17 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				if (stack_size == tlas_stack_size) {
 					tlas_stack_size = -1;
 
-					ray = ray_untransformed;
+					ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+					ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+					ray.calc_direction_inv();
 
-					ray_negative_x = ray.direction.x < 0.0f;
-					ray_negative_y = ray.direction.y < 0.0f;
-					ray_negative_z = ray.direction.z < 0.0f;
-
+					// Ray octant, encoded in 3 bits
 					unsigned oct = 
-						(ray_negative_x ? 0b100 : 0) |
-						(ray_negative_y ? 0b010 : 0) |
-						(ray_negative_z ? 0b001 : 0);
+						(ray.direction.x < 0.0f ? 0b100 : 0) |
+						(ray.direction.y < 0.0f ? 0b010 : 0) |
+						(ray.direction.z < 0.0f ? 0b001 : 0);
 
-					oct_inv  = 7 - oct;
-					oct_inv4 = oct_inv * 0x01010101;
+					oct_inv4 = (7 - oct) * 0x01010101;
 				}
 
 				current_group = stack_pop(shared_stack, stack, stack_size);
