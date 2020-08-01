@@ -992,10 +992,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 			if (current_group.y <= 0x00ffffff) {
 				if (stack_size == 0) {
-					ray_buffer_trace.mesh_id    [ray_index] = ray_hit.mesh_id;
-					ray_buffer_trace.triangle_id[ray_index] = ray_hit.triangle_id;
-					ray_buffer_trace.u[ray_index] = ray_hit.u;
-					ray_buffer_trace.v[ray_index] = ray_hit.v;
+					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
 
 					break;
 				}

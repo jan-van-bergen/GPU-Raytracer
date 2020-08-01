@@ -30,10 +30,7 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
-	CUDAMemory::Ptr<int>   mesh_id;
-	CUDAMemory::Ptr<int>   triangle_id;
-	CUDAMemory::Ptr<float> u;
-	CUDAMemory::Ptr<float> v;
+	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
 	CUDAVector3_SoA      throughput;
@@ -45,10 +42,7 @@ struct TraceBuffer {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
 
-		mesh_id     = CUDAMemory::malloc<int>  (buffer_size);
-		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
-		u           = CUDAMemory::malloc<float>(buffer_size);
-		v           = CUDAMemory::malloc<float>(buffer_size);
+		hits = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -61,10 +55,7 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 
-	CUDAMemory::Ptr<int> mesh_id;
-	CUDAMemory::Ptr<int> triangle_id;
-	CUDAMemory::Ptr<float> u;
-	CUDAMemory::Ptr<float> v;
+	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
 	CUDAVector3_SoA      throughput;
@@ -72,10 +63,7 @@ struct MaterialBuffer {
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
 
-		mesh_id     = CUDAMemory::malloc<int>  (buffer_size);
-		triangle_id = CUDAMemory::malloc<int>  (buffer_size);
-		u           = CUDAMemory::malloc<float>(buffer_size);
-		v           = CUDAMemory::malloc<float>(buffer_size);
+		hits = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);

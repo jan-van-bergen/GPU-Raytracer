@@ -67,15 +67,29 @@ struct Vector3_SoA {
 	}
 };
 
+struct HitBuffer {
+	float4 * hits;
+
+	__device__ void set(int index, int mesh_id, int triangle_id, float u, float v) {
+		hits[index] = make_float4(uint_as_float(mesh_id), uint_as_float(triangle_id), u, v);
+	}
+
+	__device__ void get(int index, int & mesh_id, int & triangle_id, float & u, float & v) const {
+		float4 hit = __ldg(&hits[index]);
+
+		mesh_id     = float_as_uint(hit.x);
+		triangle_id = float_as_uint(hit.y);
+		u = hit.z;
+		v = hit.w;
+	}
+};
+
 // Input to the Trace and Sort Kernels in SoA layout
 struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
-
-	int   * mesh_id;
-	int   * triangle_id;
-	float * u;
-	float * v;
+	
+	HitBuffer hits;
 
 	int       * pixel_index;
 	Vector3_SoA throughput;
@@ -88,10 +102,7 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	Vector3_SoA direction;	
 	
-	int   * mesh_id;
-	int   * triangle_id;
-	float * u;
-	float * v;
+	HitBuffer hits;
 
 	int       * pixel_index;
 	Vector3_SoA throughput;
@@ -210,10 +221,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.mesh_id    [index_out] = mesh_id;
-			ray_buffer_shade_diffuse.triangle_id[index_out] = triangle_id;
-			ray_buffer_shade_diffuse.u[index_out] = uv.x;
-			ray_buffer_shade_diffuse.v[index_out] = uv.y;
+			ray_buffer_shade_diffuse.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
@@ -226,10 +234,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.mesh_id    [index_out] = mesh_id;
-			ray_buffer_shade_dielectric.triangle_id[index_out] = triangle_id;
-			ray_buffer_shade_dielectric.u[index_out] = uv.x;
-			ray_buffer_shade_dielectric.v[index_out] = uv.y;
+			ray_buffer_shade_dielectric.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
@@ -242,10 +247,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.mesh_id    [index_out] = mesh_id;
-			ray_buffer_shade_glossy.triangle_id[index_out] = triangle_id;
-			ray_buffer_shade_glossy.u[index_out] = uv.x;
-			ray_buffer_shade_glossy.v[index_out] = uv.y;
+			ray_buffer_shade_glossy.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
@@ -305,10 +307,11 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	float3 ray_origin    = ray_buffer_trace.origin   .to_float3(index);
 	float3 ray_direction = ray_buffer_trace.direction.to_float3(index);
 
-	int   hit_mesh_id     = ray_buffer_trace.mesh_id    [index];
-	int   hit_triangle_id = ray_buffer_trace.triangle_id[index];
-	float hit_u           = ray_buffer_trace.u[index];
-	float hit_v           = ray_buffer_trace.v[index];
+	int   hit_mesh_id;
+	int   hit_triangle_id;
+	float hit_u;
+	float hit_v;
+	ray_buffer_trace.hits.get(index, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
@@ -421,10 +424,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.mesh_id    [index_out] = hit_mesh_id;
-			ray_buffer_shade_diffuse.triangle_id[index_out] = hit_triangle_id;
-			ray_buffer_shade_diffuse.u[index_out] = hit_u;
-			ray_buffer_shade_diffuse.v[index_out] = hit_v;
+			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
@@ -437,10 +437,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.mesh_id    [index_out] = hit_mesh_id;
-			ray_buffer_shade_dielectric.triangle_id[index_out] = hit_triangle_id;
-			ray_buffer_shade_dielectric.u[index_out] = hit_u;
-			ray_buffer_shade_dielectric.v[index_out] = hit_v;
+			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
@@ -453,10 +450,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.mesh_id    [index_out] = hit_mesh_id;
-			ray_buffer_shade_glossy.triangle_id[index_out] = hit_triangle_id;
-			ray_buffer_shade_glossy.u[index_out] = hit_u;
-			ray_buffer_shade_glossy.v[index_out] = hit_v;
+			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
@@ -472,10 +466,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	float3 ray_direction = ray_buffer_shade_diffuse.direction.to_float3(index);
 
-	int   ray_mesh_id     = ray_buffer_shade_diffuse.mesh_id    [index];
-	int   ray_triangle_id = ray_buffer_shade_diffuse.triangle_id[index];
-	float ray_u = ray_buffer_shade_diffuse.u[index];
-	float ray_v = ray_buffer_shade_diffuse.v[index];
+	int   ray_mesh_id;
+	int   ray_triangle_id;
+	float ray_u;
+	float ray_v;
+	ray_buffer_shade_diffuse.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -605,10 +600,11 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
 
-	int   ray_mesh_id     = ray_buffer_shade_dielectric.mesh_id    [index];
-	int   ray_triangle_id = ray_buffer_shade_dielectric.triangle_id[index];
-	float ray_u = ray_buffer_shade_dielectric.u[index];
-	float ray_v = ray_buffer_shade_dielectric.v[index];
+	int   ray_mesh_id;
+	int   ray_triangle_id;
+	float ray_u;
+	float ray_v;
+	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 
@@ -704,10 +700,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 direction_in = -1.0f * ray_buffer_shade_glossy.direction.to_float3(index);
 
-	int   ray_mesh_id     = ray_buffer_shade_glossy.mesh_id    [index];
-	int   ray_triangle_id = ray_buffer_shade_glossy.triangle_id[index];
-	float ray_u = ray_buffer_shade_glossy.u[index];
-	float ray_v = ray_buffer_shade_glossy.v[index];
+	int   ray_mesh_id;
+	int   ray_triangle_id;
+	float ray_u;
+	float ray_v;
+	ray_buffer_shade_glossy.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
