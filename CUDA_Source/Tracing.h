@@ -269,7 +269,6 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 	int stack_size = 0;
 
 	int    ray_index;
-	Ray    ray_untransformed;
 	Ray    ray;
 	RayHit ray_hit;
 
@@ -283,11 +282,9 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray_untransformed.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-			ray_untransformed.direction = ray_buffer_trace.direction.to_float3(ray_index);
-			ray_untransformed.calc_direction_inv();
-
-			ray = ray_untransformed;
+			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
 			ray_hit.triangle_id = -1;
@@ -303,7 +300,10 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			if (stack_size == tlas_stack_size) {
 				tlas_stack_size = -1;
 
-				ray = ray_untransformed;
+				// Reset Ray to untransformed version
+				ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+				ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+				ray.calc_direction_inv();
 			}
 
 			// Pop Node of the stack
@@ -318,7 +318,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 
 						mesh_id = node.first;
 
-						mesh_transform_inv_ray(mesh_id, ray_untransformed, ray);
+						mesh_transform_inv_ray(mesh_id, ray);
 
 						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -344,10 +344,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.mesh_id    [ray_index] = ray_hit.mesh_id;
-				ray_buffer_trace.triangle_id[ray_index] = ray_hit.triangle_id;
-				ray_buffer_trace.u[ray_index] = ray_hit.u;
-				ray_buffer_trace.v[ray_index] = ray_hit.v;
+				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
 
 				break;
 			}
@@ -362,7 +359,6 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 	int stack_size = 0;
 
 	int ray_index;
-	Ray ray_untransformed;
 	Ray ray;
 	
 	float max_distance;
@@ -377,11 +373,9 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray_untransformed.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-			ray_untransformed.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
-			ray_untransformed.calc_direction_inv();
-
-			ray = ray_untransformed;
+			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+			ray.calc_direction_inv();
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
@@ -396,7 +390,10 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 			if (stack_size == tlas_stack_size) {
 				tlas_stack_size = -1;
 
-				ray = ray_untransformed;
+				// Reset Ray to untransformed version
+				ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+				ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+				ray.calc_direction_inv();
 			}
 
 			// Pop Node of the stack
@@ -411,7 +408,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 
 						mesh_id = node.first;
 
-						mesh_transform_inv_ray(mesh_id, ray_untransformed, ray);
+						mesh_transform_inv_ray(mesh_id, ray);
 
 						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -560,7 +557,6 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	int stack_size = 0;
 
 	int    ray_index;
-	Ray    ray_untransformed;
 	Ray    ray;
 	RayHit ray_hit;
 
@@ -574,11 +570,9 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray_untransformed.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-			ray_untransformed.direction = ray_buffer_trace.direction.to_float3(ray_index);
-			ray_untransformed.calc_direction_inv();
-
-			ray = ray_untransformed;
+			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
 			ray_hit.triangle_id = -1;
@@ -594,7 +588,10 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			if (stack_size == tlas_stack_size) {
 				tlas_stack_size = -1;
 
-				ray = ray_untransformed;
+				// Reset Ray to untransformed version
+				ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
+				ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+				ray.calc_direction_inv();
 			}
 
 			//assert(stack_size <= BVH_STACK_SIZE);
@@ -618,7 +615,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 						mesh_id = index;
 
-						mesh_transform_inv_ray(mesh_id, ray_untransformed, ray);
+						mesh_transform_inv_ray(mesh_id, ray);
 
 						unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -643,10 +640,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.mesh_id    [ray_index] = ray_hit.mesh_id;
-				ray_buffer_trace.triangle_id[ray_index] = ray_hit.triangle_id;
-				ray_buffer_trace.u[ray_index] = ray_hit.u;
-				ray_buffer_trace.v[ray_index] = ray_hit.v;
+				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
 
 				break;
 			}
@@ -661,7 +655,6 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 	int stack_size = 0;
 
 	int ray_index;
-	Ray ray_untransformed;
 	Ray ray;
 	
 	float max_distance;
@@ -676,11 +669,9 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray_untransformed.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-			ray_untransformed.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
-			ray_untransformed.calc_direction_inv();
-
-			ray = ray_untransformed;
+			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+			ray.calc_direction_inv();
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
@@ -695,7 +686,10 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			if (stack_size == tlas_stack_size) {
 				tlas_stack_size = -1;
 
-				ray = ray_untransformed;
+				// Reset Ray to untransformed version
+				ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
+				ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+				ray.calc_direction_inv();
 			}
 
 			// Pop Node of the stack
@@ -718,7 +712,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 						mesh_id = index;
 
-						mesh_transform_inv_ray(mesh_id, ray_untransformed, ray);
+						mesh_transform_inv_ray(mesh_id, ray);
 
 						unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -1000,6 +994,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				if (stack_size == tlas_stack_size) {
 					tlas_stack_size = -1;
 
+					// Reset Ray to untransformed version
 					ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
 					ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
 					ray.calc_direction_inv();
@@ -1179,6 +1174,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				if (stack_size == tlas_stack_size) {
 					tlas_stack_size = -1;
 
+					// Reset Ray to untransformed version
 					ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
 					ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
 					ray.calc_direction_inv();
