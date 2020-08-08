@@ -1,4 +1,4 @@
-#include "BVHBuilders.h"
+#include "SBVHBuilder.h"
 
 #include <algorithm>
 
@@ -6,8 +6,6 @@
 
 #include "Util.h"
 #include "ScopeTimer.h"
-
-#define SBVH_OVERALLOCATION 4 // SBVH requires more space
 
 static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], BVHNode nodes[], int & node_index, int first_index, int index_count, float * sah, int * temp[2], float inv_root_surface_area, AABB node_aabb) {
 	node.aabb = node_aabb;
@@ -308,48 +306,21 @@ static int build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[
 	return number_of_leaves_left + number_of_leaves_right;
 }
 
-BVH BVHBuilders::build_sbvh(const Triangle * triangles, int triangle_count) {
+void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 	puts("Construcing SBVH, this may take a few seconds for large scenes...");
-
-	BVH sbvh;
-	sbvh.nodes = new BVHNode[SBVH_OVERALLOCATION * triangle_count];
-
-	int * indices_x = new int[SBVH_OVERALLOCATION * triangle_count];
-	int * indices_y = new int[SBVH_OVERALLOCATION * triangle_count];
-	int * indices_z = new int[SBVH_OVERALLOCATION * triangle_count];
-
-	for (int i = 0; i < triangle_count; i++) {
-		indices_x[i] = i;
-		indices_y[i] = i;
-		indices_z[i] = i;
-	}
 
 	std::sort(indices_x, indices_x + triangle_count, [&](int a, int b) { return triangles[a].get_center().x < triangles[b].get_center().x; });
 	std::sort(indices_y, indices_y + triangle_count, [&](int a, int b) { return triangles[a].get_center().y < triangles[b].get_center().y; });
 	std::sort(indices_z, indices_z + triangle_count, [&](int a, int b) { return triangles[a].get_center().z < triangles[b].get_center().z; });
 		
-	int * indices_3[3] = { indices_x, indices_y, indices_z };
-		
-	float * sah = new float[triangle_count];
-	
-	int * temp[2] = { new int[triangle_count], new int[triangle_count] };
+	int * indices[3] = { indices_x, indices_y, indices_z };
 
-	AABB root_aabb = BVHPartitions::calculate_bounds(triangles, indices_3[0], 0, triangle_count);
+	AABB root_aabb = BVHPartitions::calculate_bounds(triangles, indices[0], 0, triangle_count);
 
 	int node_index = 2;
-	sbvh.index_count = build_sbvh(sbvh.nodes[0], triangles, indices_3, sbvh.nodes, node_index, 0, triangle_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
+	sbvh->index_count = build_sbvh(sbvh->nodes[0], triangles, indices, sbvh->nodes, node_index, 0, triangle_count, sah, temp, 1.0f / root_aabb.surface_area(), root_aabb);
 		
 	if (node_index > SBVH_OVERALLOCATION * triangle_count) abort();
 
-	sbvh.indices = indices_x;
-	delete [] indices_y;
-	delete [] indices_z;
-
-	sbvh.node_count = node_index;
-
-	delete [] temp[0];
-	delete [] temp[1];
-	delete [] sah;
-
-	return sbvh;
+	sbvh->node_count = node_index;
 }

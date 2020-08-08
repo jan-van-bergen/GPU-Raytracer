@@ -192,7 +192,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AABB.cpp" />
-    <ClCompile Include="BVHBuilder.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CUDAContext.cpp" />
     <ClCompile Include="CUDAMemory.cpp" />
@@ -224,7 +223,7 @@
     <ClInclude Include="AABB.h" />
     <ClInclude Include="BlueNoise.h" />
     <ClInclude Include="BVH.h" />
-    <ClInclude Include="BVHBuilders.h" />
+    <ClInclude Include="BVHBuilder.h" />
     <ClInclude Include="BVHPartitions.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CUDACall.h" />
@@ -234,7 +233,7 @@
     <ClInclude Include="CUDAMemory.h" />
     <ClInclude Include="CUDAModule.h" />
     <ClInclude Include="CUDA_Source\Common.h" />
-    <ClInclude Include="CWBVH.h" />
+    <ClInclude Include="CWBVHBuilder.h" />
     <ClInclude Include="GBuffer.h" />
     <ClInclude Include="Imgui\imconfig.h" />
     <ClInclude Include="Imgui\imgui.h" />
@@ -250,10 +249,11 @@
     <ClInclude Include="Matrix4.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="OBJLoader.h" />
-    <ClInclude Include="QBVH.h" />
     <ClInclude Include="MeshData.h" />
     <ClInclude Include="Pathtracer.h" />
+    <ClInclude Include="QBVHBuilder.h" />
     <ClInclude Include="Quaternion.h" />
+    <ClInclude Include="SBVHBuilder.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopeTimer.h" />
     <ClInclude Include="Shader.h" />

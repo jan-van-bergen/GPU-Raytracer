@@ -5,7 +5,11 @@
 #include <unordered_map>
 
 #include "OBJLoader.h"
-#include "BVHBuilders.h"
+
+#include "BVHBuilder.h"
+#include "SBVHBuilder.h"
+#include "QBVHBuilder.h"
+#include "CWBVHBuilder.h"
 
 #include "Util.h"
 #include "ScopeTimer.h"
@@ -140,14 +144,20 @@ int MeshData::load(const char * filename) {
 #if BVH_TYPE == BVH_BVH
 		{
 			ScopeTimer timer("BVH Construction");
-
-			bvh = BVHBuilders::build_bvh(mesh_data->triangles, mesh_data->triangle_count);
+			
+			BVHBuilder bvh_builder;
+			bvh_builder.init(&bvh, mesh_data->triangle_count);
+			bvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
+			bvh_builder.free();
 		}
-#else
+#else // All other BVH types use SBVH as a starting point
 		{
 			ScopeTimer timer("SBVH Construction");
 
-			bvh = BVHBuilders::build_sbvh(mesh_data->triangles, mesh_data->triangle_count);
+			SBVHBuilder sbvh_builder;
+			sbvh_builder.init(&bvh, mesh_data->triangle_count);
+			sbvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
+			sbvh_builder.free();
 		}
 #endif
 
@@ -157,15 +167,20 @@ int MeshData::load(const char * filename) {
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
 	mesh_data->bvh = bvh;
 #elif BVH_TYPE == BVH_QBVH
-	mesh_data->bvh = BVHBuilders::qbvh_from_binary_bvh(bvh);
+	QBVHBuilder qbvh_builder;
+	qbvh_builder.init(&mesh_data->bvh, bvh);
+	qbvh_builder.build(bvh);
 #elif BVH_TYPE == BVH_CWBVH
-	mesh_data->bvh = BVHBuilders::cwbvh_from_binary_bvh(bvh);
+	CWBVHBuilder cwbvh_builder;
+	cwbvh_builder.init(&mesh_data->bvh, bvh);
+	cwbvh_builder.build(bvh);
+	cwbvh_builder.free();
 #endif
 
 	return mesh_data_index;
 }
 
-void MeshData::init_gl(int reverse_indices[]) const {
+void MeshData::gl_init(int reverse_indices[]) const {
 	int      vertex_count = triangle_count * 3;
 	Vertex * vertices = new Vertex[vertex_count];
 
@@ -200,7 +215,7 @@ void MeshData::init_gl(int reverse_indices[]) const {
 	delete [] vertices;
 }
 
-void MeshData::render() const {
+void MeshData::gl_render() const {
 	glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
 
 	glVertexAttribPointer (0, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, position)));

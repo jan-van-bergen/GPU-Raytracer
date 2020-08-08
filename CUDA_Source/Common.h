@@ -2,9 +2,12 @@
 // This file contains things that are shared between the CUDA files and the C++ files
 
 
-// Constants
+// CUDA
 #define WARP_SIZE 32
 
+#define MAX_REGISTERS 64
+
+// Constants
 #define PI          3.14159265359f
 #define ONE_OVER_PI 0.31830988618f
 

@@ -9,6 +9,11 @@
 #include "GBuffer.h"
 #include "Shader.h"
 
+#include "BVHBuilder.h"
+#include "SBVHBuilder.h"
+#include "QBVHBuilder.h"
+#include "CWBVHBuilder.h"
+
 #include "Scene.h"
 
 // Mirror CUDA vector types
@@ -135,5 +140,15 @@ private:
 
 	int * mesh_data_bvh_offsets;
 
-	void build_tlas() const;
+	BVH        tlas_raw;
+	BVHBuilder tlas_bvh_builder;
+	BVHType    tlas;
+
+#if BVH_TYPE == BVH_QBVH
+	QBVHBuilder tlas_converter;
+#elif BVH_TYPE == BVH_CWBVH
+	CWBVHBuilder tlas_converter;
+#endif
+
+	void build_tlas();
 };

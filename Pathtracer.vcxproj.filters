@@ -48,9 +48,6 @@
     <ClCompile Include="Imgui\imgui_widgets.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
-    <ClCompile Include="BVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
     <ClCompile Include="SBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
@@ -201,17 +198,8 @@
     <ClInclude Include="Imgui\imstb_truetype.h">
       <Filter>Imgui</Filter>
     </ClInclude>
-    <ClInclude Include="BVHBuilders.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
     <ClInclude Include="BVHPartitions.h">
       <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="CWBVH.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
-    <ClInclude Include="QBVH.h">
-      <Filter>BVH</Filter>
     </ClInclude>
     <ClInclude Include="CUDA_Source\Common.h">
       <Filter>CUDA</Filter>
@@ -234,6 +222,18 @@
     </ClInclude>
     <ClInclude Include="Scene.h">
       <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="BVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="SBVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="QBVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="CWBVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

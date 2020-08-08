@@ -7,8 +7,6 @@
 #include "MeshData.h"
 #include "Material.h"
 
-#include "BVHBuilders.h"
-
 #include "BlueNoise.h"
 
 #include "Util.h"
@@ -112,7 +110,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	scene.init(mesh_count, mesh_names, sky_name);
 
 	// Init CUDA Module and its Kernel
-	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, 64);
+	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
 
 	// Set global Material table
 	module.get_global("materials").set_buffer(Material::materials);
@@ -198,7 +196,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			if (node.is_leaf()) {
 				node.first += mesh_data_index_offsets[m];
 			} else {
-				node.left  += mesh_data_bvh_offsets[m];
+				node.left += mesh_data_bvh_offsets[m];
 			}
 #elif BVH_TYPE == BVH_QBVH
 			int child_count = node.get_child_count();
@@ -242,6 +240,13 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes);
 #elif BVH_TYPE == BVH_CWBVH
 	module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes);
+#endif
+
+	tlas_bvh_builder.init(&tlas_raw, mesh_count);
+
+	tlas_raw.node_count = mesh_count * 2;
+#if BVH_TYPE == BVH_QBVH || BVH_TYPE == BVH_CWBVH
+	tlas_converter.init(&tlas, tlas_raw);
 #endif
 
 	scene.update(0.0f);
@@ -291,7 +296,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	// Init OpenGL MeshData for rasterization
 	for (int m = 0; m < mesh_data_count; m++) {
-		MeshData::mesh_datas[m]->init_gl(reverse_indices + mesh_data_triangle_offsets[m]);
+		MeshData::mesh_datas[m]->gl_init(reverse_indices + mesh_data_triangle_offsets[m]);
 	}
 
 	// Initialize OpenGL Shaders
@@ -483,135 +488,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	resize_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
 }
 
-static void cwbvh_convert_recurse(int node_index, CWBVH & cwbvh, const BVH & bvh) {
-	CWBVHNode     &     node = cwbvh.nodes[node_index];
-	const BVHNode & bvh_node =   bvh.nodes[node_index];
-	
-	node.p = bvh_node.aabb.min;
-
-	const int Nq = 8;
-	const float denom = 1.0f / float((1 << Nq) - 1);
-
-	Vector3 e(
-		exp2f(ceilf(log2f((bvh_node.aabb.max.x - bvh_node.aabb.min.x) * denom))),
-		exp2f(ceilf(log2f((bvh_node.aabb.max.y - bvh_node.aabb.min.y) * denom))),
-		exp2f(ceilf(log2f((bvh_node.aabb.max.z - bvh_node.aabb.min.z) * denom)))
-	);
-	
-	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
-	
-	// Treat float as unsigned
-	unsigned u_ex, u_ey, u_ez;
-	memcpy(&u_ex, &e.x, 4);
-	memcpy(&u_ey, &e.y, 4);
-	memcpy(&u_ez, &e.z, 4);
-
-	// Only the exponent bits can be non-zero
-	assert((u_ex & 0b10000000011111111111111111111111) == 0);
-	assert((u_ey & 0b10000000011111111111111111111111) == 0);
-	assert((u_ez & 0b10000000011111111111111111111111) == 0);
-
-	// Store only 8 bit exponent
-	node.e[0] = u_ex >> 23;
-	node.e[1] = u_ey >> 23;
-	node.e[2] = u_ez >> 23;
-	
-	node.imask = 0;
-
-	node.base_index_child    = -1;
-	node.base_index_triangle = -1;
-
-	if (bvh_node.is_leaf()) {
-		node.base_index_triangle = bvh_node.first;
-		
-		node.quantized_min_x[0] = byte(floorf((bvh_node.aabb.min.x - node.p.x) * one_over_e.x));
-		node.quantized_min_y[0] = byte(floorf((bvh_node.aabb.min.y - node.p.y) * one_over_e.y));
-		node.quantized_min_z[0] = byte(floorf((bvh_node.aabb.min.z - node.p.z) * one_over_e.z));
-
-		node.quantized_max_x[0] = byte(ceilf((bvh_node.aabb.max.x - node.p.x) * one_over_e.x));
-		node.quantized_max_y[0] = byte(ceilf((bvh_node.aabb.max.y - node.p.y) * one_over_e.y));
-		node.quantized_max_z[0] = byte(ceilf((bvh_node.aabb.max.z - node.p.z) * one_over_e.z));
-
-		int triangle_count = 1;
-
-		// Three highest bits contain unary representation of triangle count
-		for (int j = 0; j < triangle_count; j++) {
-			node.meta[0] |= (1 << (j + 5));
-		}
-	} else {
-		node.base_index_child = bvh_node.left;
-
-		for (int i = 0; i < 2; i++) {
-			node.quantized_min_x[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.x - node.p.x) * one_over_e.x));
-			node.quantized_min_y[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.y - node.p.y) * one_over_e.y));
-			node.quantized_min_z[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.z - node.p.z) * one_over_e.z));
-
-			node.quantized_max_x[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.x - node.p.x) * one_over_e.x));
-			node.quantized_max_y[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.y - node.p.y) * one_over_e.y));
-			node.quantized_max_z[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.z - node.p.z) * one_over_e.z));
-
-			node.meta[i] = (i + 24) | 0b00100000;
-
-			node.imask |= (1 << i);
-		}
-
-		cwbvh_convert_recurse(bvh_node.left,     cwbvh, bvh);
-		cwbvh_convert_recurse(bvh_node.left + 1, cwbvh, bvh);
-	}
-}
-
-static CWBVH cwbvh_convert(const BVH & bvh) {
-	CWBVH cwbvh;
-	cwbvh.index_count = bvh.index_count;
-	cwbvh.indices     = bvh.indices;
-	cwbvh.node_count  = bvh.node_count;
-	cwbvh.nodes       = new CWBVHNode[bvh.node_count];
-
-	cwbvh_convert_recurse(0, cwbvh, bvh);
-
-	return cwbvh;
-}
-
-void Pathtracer::build_tlas() const {
-	BVH tlas_raw = BVHBuilders::build_bvh(scene.meshes, scene.mesh_count);
-
-#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
-	BVH tlas = tlas_raw;
-#elif BVH_TYPE == BVH_QBVH
-	QBVH tlas = BVHBuilders::qbvh_from_binary_bvh(tlas_raw);
-#elif BVH_TYPE == BVH_CWBVH
-	CWBVH tlas = cwbvh_convert(tlas_raw); // BVHBuilders::cwbvh_from_binary_bvh(tlas_raw);
-#endif
-
-	CUDAMemory::memcpy<BVHNodeType>(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
-
-	assert(tlas.index_count == scene.mesh_count);
-
-	int       * mesh_bvh_root_indices = MALLOCA(int,       scene.mesh_count);
-	Matrix3x4 * mesh_transforms       = MALLOCA(Matrix3x4, scene.mesh_count);
-	Matrix3x4 * mesh_transforms_inv   = MALLOCA(Matrix3x4, scene.mesh_count);
-
-	for (int i = 0; i < scene.mesh_count; i++) {
-		int index = tlas.indices[i];
-
-		mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[scene.meshes[index].mesh_data_index];
-
-		memcpy(mesh_transforms    [i].cells, scene.meshes[index].transform    .cells, sizeof(Matrix3x4));
-		memcpy(mesh_transforms_inv[i].cells, scene.meshes[index].transform_inv.cells, sizeof(Matrix3x4));
-	}
-
-	CUDAMemory::memcpy<int>      (ptr_mesh_bvh_root_indices, mesh_bvh_root_indices, scene.mesh_count);
-	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms,       mesh_transforms,       scene.mesh_count);
-	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms_inv,   mesh_transforms_inv,   scene.mesh_count);
-	
-	FREEA(mesh_bvh_root_indices);
-	FREEA(mesh_transforms);
-	FREEA(mesh_transforms_inv);
-
-	delete [] tlas.indices;
-	delete [] tlas.nodes;
-}
-
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {
 	pixel_count = width * height;
 	batch_size  = Math::min(BATCH_SIZE, pixel_count);
@@ -722,6 +598,124 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free(module.get_global("taa_frame_curr").get_value<CUDAMemory::Ptr<float4>>());
 }
 
+static void cwbvh_convert_recurse(int node_index, CWBVH & cwbvh, const BVH & bvh) {
+	CWBVHNode     &     node = cwbvh.nodes[node_index];
+	const BVHNode & bvh_node =   bvh.nodes[node_index];
+	
+	node.p = bvh_node.aabb.min;
+
+	const int Nq = 8;
+	const float denom = 1.0f / float((1 << Nq) - 1);
+
+	Vector3 e(
+		exp2f(ceilf(log2f((bvh_node.aabb.max.x - bvh_node.aabb.min.x) * denom))),
+		exp2f(ceilf(log2f((bvh_node.aabb.max.y - bvh_node.aabb.min.y) * denom))),
+		exp2f(ceilf(log2f((bvh_node.aabb.max.z - bvh_node.aabb.min.z) * denom)))
+	);
+	
+	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
+	
+	// Treat float as unsigned
+	unsigned u_ex, u_ey, u_ez;
+	memcpy(&u_ex, &e.x, 4);
+	memcpy(&u_ey, &e.y, 4);
+	memcpy(&u_ez, &e.z, 4);
+
+	// Only the exponent bits can be non-zero
+	assert((u_ex & 0b10000000011111111111111111111111) == 0);
+	assert((u_ey & 0b10000000011111111111111111111111) == 0);
+	assert((u_ez & 0b10000000011111111111111111111111) == 0);
+
+	// Store only 8 bit exponent
+	node.e[0] = u_ex >> 23;
+	node.e[1] = u_ey >> 23;
+	node.e[2] = u_ez >> 23;
+	
+	node.imask = 0;
+
+	node.base_index_child    = -1;
+	node.base_index_triangle = -1;
+
+	if (bvh_node.is_leaf()) {
+		node.base_index_triangle = bvh_node.first;
+		
+		node.quantized_min_x[0] = byte(floorf((bvh_node.aabb.min.x - node.p.x) * one_over_e.x));
+		node.quantized_min_y[0] = byte(floorf((bvh_node.aabb.min.y - node.p.y) * one_over_e.y));
+		node.quantized_min_z[0] = byte(floorf((bvh_node.aabb.min.z - node.p.z) * one_over_e.z));
+
+		node.quantized_max_x[0] = byte(ceilf((bvh_node.aabb.max.x - node.p.x) * one_over_e.x));
+		node.quantized_max_y[0] = byte(ceilf((bvh_node.aabb.max.y - node.p.y) * one_over_e.y));
+		node.quantized_max_z[0] = byte(ceilf((bvh_node.aabb.max.z - node.p.z) * one_over_e.z));
+
+		int triangle_count = 1;
+
+		// Three highest bits contain unary representation of triangle count
+		for (int j = 0; j < triangle_count; j++) {
+			node.meta[0] |= (1 << (j + 5));
+		}
+	} else {
+		node.base_index_child = bvh_node.left;
+
+		for (int i = 0; i < 2; i++) {
+			node.quantized_min_x[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.x - node.p.x) * one_over_e.x));
+			node.quantized_min_y[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.y - node.p.y) * one_over_e.y));
+			node.quantized_min_z[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.z - node.p.z) * one_over_e.z));
+
+			node.quantized_max_x[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.x - node.p.x) * one_over_e.x));
+			node.quantized_max_y[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.y - node.p.y) * one_over_e.y));
+			node.quantized_max_z[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.z - node.p.z) * one_over_e.z));
+
+			node.meta[i] = (i + 24) | 0b00100000;
+
+			node.imask |= (1 << i);
+		}
+
+		cwbvh_convert_recurse(bvh_node.left,     cwbvh, bvh);
+		cwbvh_convert_recurse(bvh_node.left + 1, cwbvh, bvh);
+	}
+}
+
+void Pathtracer::build_tlas() {
+	tlas_bvh_builder.build(scene.meshes, scene.mesh_count);
+
+	tlas.index_count = tlas_raw.index_count;
+	tlas.indices     = tlas_raw.indices;
+	tlas.node_count  = tlas_raw.node_count;
+
+#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
+	const BVH & tlas = tlas_raw;
+#elif BVH_TYPE == BVH_QBVH
+	tlas_converter.build(tlas_raw);
+#elif BVH_TYPE == BVH_CWBVH
+	cwbvh_convert_recurse(0, tlas, tlas_raw);
+#endif
+
+	CUDAMemory::memcpy<BVHNodeType>(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
+
+	assert(tlas.index_count == scene.mesh_count);
+
+	int       * mesh_bvh_root_indices = MALLOCA(int,       scene.mesh_count);
+	Matrix3x4 * mesh_transforms       = MALLOCA(Matrix3x4, scene.mesh_count);
+	Matrix3x4 * mesh_transforms_inv   = MALLOCA(Matrix3x4, scene.mesh_count);
+
+	for (int i = 0; i < scene.mesh_count; i++) {
+		int index = tlas.indices[i];
+
+		mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[scene.meshes[index].mesh_data_index];
+
+		memcpy(mesh_transforms    [i].cells, scene.meshes[index].transform    .cells, sizeof(Matrix3x4));
+		memcpy(mesh_transforms_inv[i].cells, scene.meshes[index].transform_inv.cells, sizeof(Matrix3x4));
+	}
+
+	CUDAMemory::memcpy<int>      (ptr_mesh_bvh_root_indices, mesh_bvh_root_indices, scene.mesh_count);
+	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms,       mesh_transforms,       scene.mesh_count);
+	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms_inv,   mesh_transforms_inv,   scene.mesh_count);
+	
+	FREEA(mesh_bvh_root_indices);
+	FREEA(mesh_transforms);
+	FREEA(mesh_transforms_inv);
+}
+
 void Pathtracer::update(float delta) {
 	if (enable_scene_update) {
 		scene.update(delta);
@@ -774,13 +768,13 @@ void Pathtracer::render() {
 		
 		for (int m = 0; m < scene.mesh_count; m++) {
 			const Mesh & mesh = scene.meshes[m];
-
+			
 			glUniformMatrix4fv(uniform_transform,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform));
 			glUniformMatrix4fv(uniform_transform_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform_prev));
 
-			glUniform1i(uniform_mesh_id, m);
+			glUniform1i(uniform_mesh_id, tlas.indices[m]);
 
-			MeshData::mesh_datas[mesh.mesh_data_index]->render();
+			MeshData::mesh_datas[mesh.mesh_data_index]->gl_render();
 		}
 
 		glDisableVertexAttribArray(3);
