@@ -10,6 +10,10 @@ namespace CUDAContext {
 	void init();
 	void destroy();
 
-	// Available memory on GPU in bytes
-	unsigned long long get_available_memory();
+	
+	unsigned long long get_available_memory(); // Available memory on GPU in bytes
+
+	unsigned get_shared_memory(); // Available shared memory in bytes (per Block)
+
+	unsigned get_sm_count(); // Number of Streaming Multiprocessors on the current Device
 }

@@ -66,7 +66,7 @@ private:
 	CUDAKernel kernel_shade_diffuse;
 	CUDAKernel kernel_shade_dielectric;
 	CUDAKernel kernel_shade_glossy;
-	CUDAKernel kernel_shadow_trace;
+	CUDAKernel kernel_trace_shadow;
 
 	CUDAKernel kernel_svgf_temporal;
 	CUDAKernel kernel_svgf_variance;

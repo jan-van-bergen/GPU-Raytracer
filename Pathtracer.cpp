@@ -126,7 +126,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	batch_size  = BATCH_SIZE;
 
 	CUDAContext::init();
-
+	
 	camera.init(DEG_TO_RAD(110.0f));
 	
 	// Init CUDA Module and its Kernel
@@ -418,7 +418,7 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_diffuse   .init(&module, "kernel_shade_diffuse");
 	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
 	kernel_shade_glossy    .init(&module, "kernel_shade_glossy");
-	kernel_shadow_trace    .init(&module, "kernel_shadow_trace");
+	kernel_trace_shadow    .init(&module, "kernel_trace_shadow");
 	kernel_svgf_temporal   .init(&module, "kernel_svgf_temporal");
 	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
 	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
@@ -443,11 +443,32 @@ void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned f
 	kernel_shade_dielectric.set_block_dim(WARP_SIZE * 2, 1, 1);
 	kernel_shade_glossy    .set_block_dim(WARP_SIZE * 2, 1, 1);
 	
-	kernel_trace       .set_block_dim(WARP_SIZE,        TRACE_BLOCK_Y, 1);
-	kernel_shadow_trace.set_block_dim(WARP_SIZE, SHADOW_TRACE_BLOCK_Y, 1);
+#if BVH_TYPE == BVH_CWBVH
+	static constexpr int bvh_stack_element_size = 8; // CWBVH uses a stack of int2's (8 bytes)
+#else
+	static constexpr int bvh_stack_element_size = 4; // Other BVH's use a stack of ints (4 bytes)
+#endif
 
-	kernel_trace       .set_grid_dim(32, 32, 1);
-	kernel_shadow_trace.set_grid_dim(32, 32, 1);
+	CUoccupancyB2DSize block_size_to_shared_memory = [](int block_size) {
+		return size_t(block_size) * SHARED_STACK_SIZE * bvh_stack_element_size;
+	};
+
+	int grid, block;
+	CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel_trace.kernel, block_size_to_shared_memory, 0, 0)); 
+	
+	int block_x = WARP_SIZE;
+	int block_y = block / WARP_SIZE;
+
+	kernel_trace       .set_block_dim(block_x, block_y, 1);
+	kernel_trace_shadow.set_block_dim(block_x, block_y, 1);
+
+	kernel_trace       .set_grid_dim(1, grid, 1);
+	kernel_trace_shadow.set_grid_dim(1, grid, 1);
+	
+	kernel_trace       .set_shared_memory(block_size_to_shared_memory(block));
+	kernel_trace_shadow.set_shared_memory(block_size_to_shared_memory(block));
+
+	printf("\nConfiguration picked for Tracing kernels:\n    Block Size: %i x %i\n    Grid Size:  %i\n\n", block_x, block_y, grid);
 
 	// Initialize timers
 	event_primary.init("Primary", "Primary");
@@ -759,7 +780,7 @@ void Pathtracer::render() {
 			// Trace shadow Rays
 			if (scene_has_lights) {
 				RECORD_EVENT(event_shadow_trace[bounce]);
-				kernel_shadow_trace.execute(bounce);
+				kernel_trace_shadow.execute(bounce);
 			}
 		}
 

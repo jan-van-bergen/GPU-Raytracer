@@ -10,6 +10,13 @@
 static CUdevice  device;
 static CUcontext context;
 
+static int device_get_attribute(CUdevice_attribute attribute, CUdevice cuda_device = device) {
+	int result;
+	CUDACALL(cuDeviceGetAttribute(&result, attribute, cuda_device));
+
+	return result;
+}
+
 void CUDAContext::init() {
 	CUDACALL(cuInit(0));
 
@@ -37,9 +44,8 @@ void CUDAContext::init() {
 	int      best_compute_capability = 0;
 
 	for (int i = 0; i < gl_device_count; i++) {
-		int major, minor;
-		CUDACALL(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, devices[i]));
-		CUDACALL(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, devices[i]));
+		int major = device_get_attribute(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, devices[i]);
+		int minor = device_get_attribute(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, devices[i]);
 
 		int	device_compute_capability = major * 10 + minor;
 		if (device_compute_capability > best_compute_capability) {
@@ -60,7 +66,7 @@ void CUDAContext::init() {
 	CUsharedconfig config_shared;
 	CUDACALL(cuCtxGetCacheConfig    (&config_cache));
 	CUDACALL(cuCtxGetSharedMemConfig(&config_shared));
-		
+
 	unsigned long long bytes_free;
 	CUDACALL(cuMemGetInfo(&bytes_free, &total_memory));
 
@@ -96,3 +102,6 @@ unsigned long long CUDAContext::get_available_memory() {
 
 	return bytes_available;
 }
+
+unsigned CUDAContext::get_shared_memory() { return device_get_attribute(CU_DEVICE_ATTRIBUTE_SHARED_MEMORY_PER_BLOCK); }
+unsigned CUDAContext::get_sm_count()      { return device_get_attribute(CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT); }
