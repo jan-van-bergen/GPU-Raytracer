@@ -8,17 +8,16 @@
 struct CUDAKernel {
 	static const int PARAMETER_BUFFER_SIZE = 32 * 64; // In bytes
 
-	const CUDAModule * module;
 	CUfunction kernel;
 
 	unsigned char * parameter_buffer;
 	
 	int  grid_dim_x = 64,  grid_dim_y = 1,  grid_dim_z = 1;
 	int block_dim_x = 64, block_dim_y = 1, block_dim_z = 1;
+
+	unsigned shared_memory_bytes = 0;
 	
 	inline void init(const CUDAModule * module, const char * kernel_name) {
-		this->module = module;
-
 		CUDACALL(cuModuleGetFunction(&kernel, module->module, kernel_name));
 		
 		CUDACALL(cuFuncSetCacheConfig    (kernel, CU_FUNC_CACHE_PREFER_L1));
@@ -78,6 +77,10 @@ struct CUDAKernel {
 		set_block_dim(block_x, block_y, 1);
 	}
 
+	inline void set_shared_memory(unsigned bytes) {
+		shared_memory_bytes = bytes;
+	}
+
 private:
 	template<typename T>
 	inline int fill_buffer(int buffer_offset, const T & parameter) {
@@ -111,7 +114,7 @@ private:
 		CUDACALL(cuLaunchKernel(kernel, 
 			grid_dim_x,  grid_dim_y,  grid_dim_z, 
 			block_dim_x, block_dim_y, block_dim_z, 
-			0, nullptr, nullptr, params
+			shared_memory_bytes, nullptr, nullptr, params
 		));
 	}
 };

@@ -196,13 +196,15 @@ __device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, f
 	return false;
 }
 
+#define SHARED_STACK_INDEX(offset) ((threadIdx.y * SHARED_STACK_SIZE + offset) * WARP_SIZE + threadIdx.x)
+
 // Function that decides whether to push on the shared stack or thread local stack
-template<typename T, int N>
-__device__ inline void stack_push(T shared_stack[WARP_SIZE][N][SHARED_STACK_SIZE], T stack[BVH_STACK_SIZE - N], int & stack_size, T item) {
+template<typename T>
+__device__ inline void stack_push(T shared_stack[], T stack[], int & stack_size, T item) {
 	// assert(stack_size < BVH_STACK_SIZE);
 
 	if (stack_size < SHARED_STACK_SIZE) {
-		shared_stack[threadIdx.x][threadIdx.y][stack_size] = item;
+		shared_stack[SHARED_STACK_INDEX(stack_size)] = item;
 	} else {
 		stack[stack_size - SHARED_STACK_SIZE] = item;
 	}
@@ -210,13 +212,13 @@ __device__ inline void stack_push(T shared_stack[WARP_SIZE][N][SHARED_STACK_SIZE
 }
 
 // Function that decides whether to pop from the shared stack or thread local stack
-template<typename T, int N>
-__device__ inline T stack_pop(const T shared_stack[WARP_SIZE][N][SHARED_STACK_SIZE], const T stack[BVH_STACK_SIZE - N], int & stack_size) {
+template<typename T>
+__device__ inline T stack_pop(const T shared_stack[], const T stack[], int & stack_size) {
 	// assert(stack_size > 0);
 
 	stack_size--;
 	if (stack_size < SHARED_STACK_SIZE) {
-		return shared_stack[threadIdx.x][threadIdx.y][stack_size];
+		return shared_stack[SHARED_STACK_INDEX(stack_size)];
 	} else {
 		return stack[stack_size - SHARED_STACK_SIZE];
 	}
@@ -263,7 +265,7 @@ struct BVHNode {
 __device__ __constant__ BVHNode * bvh_nodes;
 
 __device__ void bvh_trace(int ray_count, int * rays_retired) {
-	__shared__ int shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
+	extern __shared__ int shared_stack[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -292,8 +294,8 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			tlas_stack_size = -1;
 
 			// Push root on stack
-			stack_size                                = 1;
-			shared_stack[threadIdx.x][threadIdx.y][0] = 0;
+			stack_size                          = 1;
+			shared_stack[SHARED_STACK_INDEX(0)] = 0;
 		}
 
 		while (true) {
@@ -353,7 +355,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 }
 
 __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
-	__shared__ int shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
+	extern __shared__ int shared_stack[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -382,8 +384,8 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 			tlas_stack_size = -1;
 
 			// Push root on stack
-			stack_size                                = 1;
-			shared_stack[threadIdx.x][threadIdx.y][0] = 0;
+			stack_size                          = 1;
+			shared_stack[SHARED_STACK_INDEX(0)] = 0;
 		}
 
 		while (true) {
@@ -551,7 +553,7 @@ __device__ inline void unpack_qbvh_node(unsigned packed, int & index, int & id) 
 }
 
 __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
-	__shared__ unsigned shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
+	extern __shared__ unsigned shared_stack[];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -580,8 +582,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			tlas_stack_size = -1;
 
 			// Push root on stack
-			stack_size                                = 1;
-			shared_stack[threadIdx.x][threadIdx.y][0] = 1;
+			stack_size                          = 1;
+			shared_stack[SHARED_STACK_INDEX(0)] = 1;
 		}
 
 		while (true) {
@@ -649,7 +651,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 }
 
 __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
-	__shared__ unsigned shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
+	extern __shared__ unsigned shared_stack[];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -678,8 +680,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			tlas_stack_size = -1;
 
 			// Push root on stack
-			stack_size                                = 1;
-			shared_stack[threadIdx.x][threadIdx.y][0] = 1;
+			stack_size                          = 1;
+			shared_stack[SHARED_STACK_INDEX(0)] = 1;
 		}
 
 		while (true) {
@@ -858,7 +860,7 @@ __device__ inline unsigned cwbvh_node_intersect(
 #define N_w 16
 
 __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
-	__shared__ uint2 shared_stack[WARP_SIZE][TRACE_BLOCK_Y][SHARED_STACK_SIZE];
+	extern __shared__ uint2 shared_stack[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int   stack_size = 0;
@@ -1017,7 +1019,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 }
 
 __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
-	__shared__ uint2 shared_stack[WARP_SIZE][SHADOW_TRACE_BLOCK_Y][SHARED_STACK_SIZE];
+	extern __shared__ uint2 shared_stack[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int   stack_size = 0;

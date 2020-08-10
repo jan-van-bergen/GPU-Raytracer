@@ -28,9 +28,6 @@
 
 #define NUM_BOUNCES 5
 
-#define        TRACE_BLOCK_Y 8
-#define SHADOW_TRACE_BLOCK_Y 8
-
 
 // Lighting
 #define ENABLE_NEXT_EVENT_ESTIMATION true

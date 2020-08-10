@@ -869,7 +869,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_trace.last_pdf[index_out] = D * fabsf(m_dot_n) / (4.0f * fabsf(o_dot_m));
 }
 
-extern "C" __global__ void kernel_shadow_trace(int bounce) {
+extern "C" __global__ void kernel_trace_shadow(int bounce) {
 	bvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
 }
 
