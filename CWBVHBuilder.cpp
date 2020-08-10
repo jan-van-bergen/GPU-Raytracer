@@ -100,10 +100,16 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 
 void CWBVHBuilder::get_children(int node_index, const BVHNode nodes[], int i, int & child_count, int children[8]) {
 	const BVHNode & node = nodes[node_index];
+	
+	if (node.is_leaf()) {
+		children[child_count++] = node_index;
+
+		return;
+	}
 
 	int distribute_0 = decisions[node_index * 7 + i].distribute_0;
 	int distribute_1 = decisions[node_index * 7 + i].distribute_1;
-	
+
 	assert(distribute_0 >= 0 && distribute_0 < 7);
 	assert(distribute_1 >= 0 && distribute_1 < 7);
 	
