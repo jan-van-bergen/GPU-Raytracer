@@ -14,6 +14,8 @@ struct Mesh {
 	Matrix4 transform_inv;
 	Matrix4 transform_prev;
 
+	int light_index;
+
 	void init(int mesh_data_index);
 
 	void update();

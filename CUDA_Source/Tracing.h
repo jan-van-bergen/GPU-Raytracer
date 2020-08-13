@@ -32,20 +32,20 @@ __device__ int       * mesh_bvh_root_indices;
 __device__ Matrix3x4 * mesh_transforms;
 __device__ Matrix3x4 * mesh_transforms_inv;
 
-__device__ inline void mesh_transform_point_and_normal(int mesh_id, const float3 & hit_point_in, const float3 & hit_normal_in, float3 & hit_point_out, float3 & hit_normal_out) {
+__device__ inline void mesh_transform_point_and_normal(int mesh_id, const float3 & point_in, const float3 & normal_in, float3 & point_out, float3 & normal_out) {
 	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
 	float4 row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
 	float4 row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
 
-	hit_point_out = make_float3( // Transform as position (w = 1)
-		row_0.x * hit_point_in.x + row_0.y * hit_point_in.y + row_0.z * hit_point_in.z + row_0.w,
-		row_1.x * hit_point_in.x + row_1.y * hit_point_in.y + row_1.z * hit_point_in.z + row_1.w,
-		row_2.x * hit_point_in.x + row_2.y * hit_point_in.y + row_2.z * hit_point_in.z + row_2.w
+	point_out = make_float3( // Transform as position (w = 1)
+		row_0.x * point_in.x + row_0.y * point_in.y + row_0.z * point_in.z + row_0.w,
+		row_1.x * point_in.x + row_1.y * point_in.y + row_1.z * point_in.z + row_1.w,
+		row_2.x * point_in.x + row_2.y * point_in.y + row_2.z * point_in.z + row_2.w
 	);
-	hit_normal_out = make_float3( // Transform as direction (w = 0)
-		row_0.x * hit_normal_in.x + row_0.y * hit_normal_in.y + row_0.z * hit_normal_in.z,
-		row_1.x * hit_normal_in.x + row_1.y * hit_normal_in.y + row_1.z * hit_normal_in.z,
-		row_2.x * hit_normal_in.x + row_2.y * hit_normal_in.y + row_2.z * hit_normal_in.z
+	normal_out = make_float3( // Transform as direction (w = 0)
+		row_0.x * normal_in.x + row_0.y * normal_in.y + row_0.z * normal_in.z,
+		row_1.x * normal_in.x + row_1.y * normal_in.y + row_1.z * normal_in.z,
+		row_2.x * normal_in.x + row_2.y * normal_in.y + row_2.z * normal_in.z
 	);
 }
 

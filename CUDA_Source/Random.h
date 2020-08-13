@@ -67,9 +67,18 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 	return direction;
 }
 
-__device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v) {
+__device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v, int & transform_id) {
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-	int light_triangle_id = light_indices[random_xorshift(seed) % light_count];
+	// Pick random light emitting Mesh
+	unsigned light_mesh_id = random_xorshift(seed) % light_mesh_count;
+
+	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
+	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
+
+	transform_id = light_mesh_transform_indices[light_mesh_id];
+
+	// Pick random light emitting Triangle on the Mesh
+	int light_triangle_id = light_indices[triangle_first_index + random_xorshift(seed) % triangle_count];
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 	// Pick random value between 0 and light_area_total
 	float random_value = random_float_xorshift(seed) * light_area_total;

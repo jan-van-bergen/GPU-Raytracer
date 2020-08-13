@@ -108,6 +108,8 @@ private:
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
 
+	CUDAMemory::Ptr<int> ptr_light_mesh_transform_indices;
+
 	Shader shader;
 
 	GLuint uniform_jitter;

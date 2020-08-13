@@ -95,17 +95,20 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 }
 
 void Scene::update(float delta) {
-	meshes[1].position.x = 4.0f;
-	meshes[1].position.z = 2.0f;
+	static float time = 0.0f;
+	time += delta;
 
-	//meshes[2].position.y  = 1.5f;
-	//meshes[2].position.x += 0.5f * delta;
-	//
-	//meshes[3].position.y += delta;
+	if (mesh_count > 0) {
+		meshes[1].position.z = 2.0f;
+		meshes[1].position.x = 5.0f * sinf(time * 0.2f);
 
-	static float angle = 0.0f;
-	angle += 0.5f * delta;
-	meshes[1].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), angle);
+		meshes[1].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), 0.5f * time);
+
+		if (mesh_count > 1) {
+			meshes[2].position.z = 5.0f * sinf(time * 0.2f);
+			meshes[2].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), PI);
+		}
+	}
 
 	for (int i = 0; i < mesh_count; i++) {
 		meshes[i].update();

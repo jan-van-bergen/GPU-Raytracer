@@ -249,9 +249,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	tlas_converter.init(&tlas, tlas_raw);
 #endif
 
-	scene.update(0.0f);
-	build_tlas();
-
 	struct CUDATriangle {
 		Vector3 position_0;
 		Vector3 position_edge_1;
@@ -315,64 +312,138 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	uniform_mesh_id = shader.get_uniform("mesh_id");
 
-	// Initialize Lights
-	struct LightDescription {
-		int   index;
-		float area;
-	};
-	std::vector<LightDescription> lights;
+	if (scene.has_lights) {
+		// Initialize Lights
+		struct LightTriangle {
+			int   index;
+			float area;
+		};
+		std::vector<LightTriangle> light_triangles;
 
-	for (int m = 0; m < mesh_data_count; m++) {
-		const MeshData * mesh_data = MeshData::mesh_datas[m];
+		struct LightMesh {
+			int triangle_first_index;
+			int triangle_count;
 
-		// For every Triangle, check whether it is a Light based on its Material
-		for (int t = 0; t < mesh_data->triangle_count; t++) {
-			const Triangle & triangle = mesh_data->triangles[t];
+			float area;
+		};
+		std::vector<LightMesh> light_meshes;
 
-			if (Material::materials[mesh_data->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
-				float area = 0.5f * Vector3::length(Vector3::cross(
-					triangle.position_1 - triangle.position_0,
-					triangle.position_2 - triangle.position_0
-				));
+		int * light_mesh_data_indices = MALLOCA(int, mesh_data_count);
+		memset(light_mesh_data_indices, -1, mesh_data_count * sizeof(int));
 
-				lights.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], area });
+		// Loop over every MeshData and check whether it has at least 1 Triangle that is a Light
+		for (int m = 0; m < mesh_data_count; m++) {
+			const MeshData * mesh_data = MeshData::mesh_datas[m];
+
+			LightMesh * light_mesh = nullptr;
+
+			// For every Triangle, check whether it is a Light based on its Material
+			for (int t = 0; t < mesh_data->triangle_count; t++) {
+				const Triangle & triangle = mesh_data->triangles[t];
+
+				if (Material::materials[mesh_data->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
+					float area = 0.5f * Vector3::length(Vector3::cross(
+						triangle.position_1 - triangle.position_0,
+						triangle.position_2 - triangle.position_0
+					));
+
+					if (light_mesh == nullptr) {
+						light_mesh_data_indices[m] = light_meshes.size();
+
+						light_mesh = &light_meshes.emplace_back();
+						light_mesh->triangle_first_index = light_triangles.size();
+						light_mesh->triangle_count = 0;
+					}
+
+					light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], area });
+
+					light_mesh->triangle_count++;
+				}
+			}
+
+			if (light_mesh) {		
+				// Sort Lights on area within each Mesh
+				LightTriangle * triangles_begin = light_triangles.data() + light_mesh->triangle_first_index;
+				LightTriangle * triangles_end   = triangles_begin        + light_mesh->triangle_count;
+
+				assert(triangles_end > triangles_begin);
+
+				std::sort(triangles_begin, triangles_end, [](const LightTriangle & a, const LightTriangle & b) { return a.area < b.area; });
 			}
 		}
-	}
-	
-	int light_count = lights.size();
-	if (light_count > 0) {
-		// Sort Lights on area
-		std::sort(lights.begin(), lights.end(), [](const LightDescription & a, const LightDescription & b) { return a.area < b.area; });
 
-		// Build cumulative table of each Light's area
+		int light_count = light_triangles.size();
+
 		int   * light_indices          = new int  [light_count];
 		float * light_areas_cumulative = new float[light_count + 1];
 
-		float light_area_total = 0.0f;
+		for (int m = 0; m < light_meshes.size(); m++) {
+			LightMesh & light_mesh = light_meshes[m];
 
-		for (int i = 0; i < light_count; i++) {
-			light_indices         [i] = lights[i].index;
-			light_areas_cumulative[i] = light_area_total;
+			float cumulative_area = 0.0f;
 
-			light_area_total += lights[i].area;
-		} 
+			for (int i = light_mesh.triangle_first_index; i < light_mesh.triangle_first_index + light_mesh.triangle_count; i++) {
+				light_indices[i] = light_triangles[i].index;
 
-		light_areas_cumulative[light_count] = light_area_total;
+				light_areas_cumulative[i] = cumulative_area;
+				cumulative_area += light_triangles[i].area;
+			}
+
+			light_mesh.area = cumulative_area;
+		}
+
+		module.get_global("light_count").set_value(light_count);
 
 		module.get_global("light_indices")         .set_buffer(light_indices,          light_count);
 		module.get_global("light_areas_cumulative").set_buffer(light_areas_cumulative, light_count + 1);
 
-		module.get_global("light_area_total").set_value(light_area_total);
-
 		delete [] light_indices;
 		delete [] light_areas_cumulative;
+
+		int   * light_mesh_triangle_count            = MALLOCA(int,   mesh_count);
+		int   * light_mesh_triangle_first_index      = MALLOCA(int,   mesh_count);
+		float * light_mesh_triangle_areas_cumulative = MALLOCA(float, mesh_count);
+		
+		int light_mesh_count = 0;
+		int light_mesh_area_cumulative = 0.0f;
+
+		for (int m = 0; m < mesh_count; m++) {
+			int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_index];
+
+			if (light_mesh_data_index == -1) {
+				scene.meshes[m].light_index = -1;
+			} else {
+				const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
+
+				scene.meshes[m].light_index = light_mesh_count;
+				int mesh_index = light_mesh_count++;
+				
+				light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
+				light_mesh_triangle_count      [mesh_index] = light_mesh.triangle_count;
+
+				light_mesh_triangle_areas_cumulative[mesh_index] = light_mesh_area_cumulative;
+				light_mesh_area_cumulative += light_mesh.area;
+			}
+		}
+
+		module.get_global("light_mesh_triangle_count")			 .set_buffer(light_mesh_triangle_count,            light_mesh_count);
+		module.get_global("light_mesh_triangle_first_index")     .set_buffer(light_mesh_triangle_first_index,      light_mesh_count);
+		module.get_global("light_mesh_triangle_areas_cumulative").set_buffer(light_mesh_triangle_areas_cumulative, light_mesh_count);
+
+		ptr_light_mesh_transform_indices = CUDAMemory::malloc<int>(light_mesh_count);
+		module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
+
+		module.get_global("light_mesh_count").set_value(light_mesh_count);
+
+		FREEA(light_mesh_triangle_count);
+		FREEA(light_mesh_triangle_first_index);
+		FREEA(light_mesh_triangle_areas_cumulative);
+		
+		FREEA(light_mesh_data_indices);
 	}
 	
 	delete [] triangles;
 	delete [] reverse_indices;
-
-	module.get_global("light_count").set_value(light_count);
 
 	module.get_global("sky_size").set_value (scene.sky.size);
 	module.get_global("sky_data").set_buffer(scene.sky.data, scene.sky.size * scene.sky.size);
@@ -507,6 +578,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	event_end.init("END", "END");
 
 	resize_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
+	
+	scene.update(0.0f);
+	build_tlas();
 }
 
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {
@@ -719,6 +793,9 @@ void Pathtracer::build_tlas() {
 	Matrix3x4 * mesh_transforms       = MALLOCA(Matrix3x4, scene.mesh_count);
 	Matrix3x4 * mesh_transforms_inv   = MALLOCA(Matrix3x4, scene.mesh_count);
 
+	int * light_mesh_transform_indices = MALLOCA(int, scene.mesh_count);
+	int   light_mesh_count = 0;
+
 	for (int i = 0; i < scene.mesh_count; i++) {
 		int index = tlas.indices[i];
 
@@ -726,12 +803,23 @@ void Pathtracer::build_tlas() {
 
 		memcpy(mesh_transforms    [i].cells, scene.meshes[index].transform    .cells, sizeof(Matrix3x4));
 		memcpy(mesh_transforms_inv[i].cells, scene.meshes[index].transform_inv.cells, sizeof(Matrix3x4));
+
+		if (scene.meshes[index].light_index != -1) {
+			light_mesh_transform_indices[scene.meshes[index].light_index] = i;
+			light_mesh_count++;
+		}
 	}
 
 	CUDAMemory::memcpy<int>      (ptr_mesh_bvh_root_indices, mesh_bvh_root_indices, scene.mesh_count);
 	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms,       mesh_transforms,       scene.mesh_count);
 	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms_inv,   mesh_transforms_inv,   scene.mesh_count);
 	
+	if (scene.has_lights) {
+		CUDAMemory::memcpy<int>(ptr_light_mesh_transform_indices, light_mesh_transform_indices, light_mesh_count);
+	}
+
+	FREEA(light_mesh_transform_indices);
+
 	FREEA(mesh_bvh_root_indices);
 	FREEA(mesh_transforms);
 	FREEA(mesh_transforms_inv);
@@ -788,12 +876,12 @@ void Pathtracer::render() {
 		glEnableVertexAttribArray(3);
 		
 		for (int m = 0; m < scene.mesh_count; m++) {
-			const Mesh & mesh = scene.meshes[m];
+			const Mesh & mesh = scene.meshes[tlas.indices[m]];
 			
 			glUniformMatrix4fv(uniform_transform,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform));
 			glUniformMatrix4fv(uniform_transform_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform_prev));
 
-			glUniform1i(uniform_mesh_id, tlas.indices[m]);
+			glUniform1i(uniform_mesh_id, m);
 
 			MeshData::mesh_datas[mesh.mesh_data_index]->gl_render();
 		}

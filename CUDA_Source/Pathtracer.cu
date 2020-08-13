@@ -518,7 +518,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	if (light_count > 0) {
 		// Trace Shadow Ray
 		float light_u, light_v;
-		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v);
+		int   light_transform_id;
+		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
 		float3 light_position_0, light_position_edge_1, light_position_edge_2;
 		float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
@@ -528,9 +529,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			light_normal_0,   light_normal_edge_1,   light_normal_edge_2
 		);
 
-		float3 light_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-		float3 light_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
-	
+		float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+		float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+
+		float3 light_point;
+		float3 light_normal;
+		mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
+
 		float3 to_light = light_point - hit_point;
 		float distance_to_light_squared = dot(to_light, to_light);
 		float distance_to_light         = sqrtf(distance_to_light_squared);
@@ -753,7 +758,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		// Trace Shadow Ray
 		float light_u;
 		float light_v;
-		int light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v);
+		int   light_transform_id;
+		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
 		float3 light_position_0, light_position_edge_1, light_position_edge_2;
 		float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
@@ -763,8 +769,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			light_normal_0,   light_normal_edge_1,   light_normal_edge_2
 		);
 
-		float3 light_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-		float3 light_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+		float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+		float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+
+		float3 light_point;
+		float3 light_normal;
+		mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
 
 		float3 to_light = light_point - hit_point;
 		float distance_to_light_squared = dot(to_light, to_light);
