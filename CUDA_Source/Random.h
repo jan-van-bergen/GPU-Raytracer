@@ -89,7 +89,7 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 	int light_triangle_id = light_indices[triangle_first_index + random_xorshift(seed) % triangle_count];
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 	// Pick random light emitting Mesh based on area
-	float random_value = random_float_xorshift(seed) * light_area_total;
+	float random_value = random_float_xorshift(seed) * light_total_area;
 
 	int   light_mesh_id = 0;
 	float light_area_cumulative = light_mesh_area[0];

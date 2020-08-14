@@ -400,8 +400,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		int   * light_mesh_triangle_first_index = MALLOCA(int,   mesh_count);
 		float * light_mesh_area                 = MALLOCA(float, mesh_count);
 		
-		int   light_count = 0;
-		float light_area_total = 0.0f;
+		int   light_total_count = 0;
+		float light_total_area  = 0.0f;
 
 		int light_mesh_count = 0;
 		int light_mesh_area_cumulative = 0.0f;
@@ -417,18 +417,22 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 				scene.meshes[m].light_index = light_mesh_count;
 				int mesh_index = light_mesh_count++;
 				
+				assert(mesh_index < mesh_count);
+
 				light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
 				light_mesh_triangle_count      [mesh_index] = light_mesh.triangle_count;
 
 				light_mesh_area[mesh_index] = light_mesh.area;
 
-				light_count      += light_mesh.triangle_count;
-				light_area_total += light_mesh.area;
+				light_total_count += light_mesh.triangle_count;
+				light_total_area  += light_mesh.area;
 			}
 		}
 		
-		module.get_global("light_count")     .set_value(light_count);
-		module.get_global("light_area_total").set_value(light_area_total);
+		module.get_global("light_total_count_inv").set_value(1.0f / float(light_total_count));
+		module.get_global("light_total_area")     .set_value(light_total_area);
+		
+		module.get_global("light_mesh_count").set_value(light_mesh_count);
 
 		module.get_global("light_mesh_triangle_count")      .set_buffer(light_mesh_triangle_count,       light_mesh_count);
 		module.get_global("light_mesh_triangle_first_index").set_buffer(light_mesh_triangle_first_index, light_mesh_count);
@@ -436,8 +440,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 		ptr_light_mesh_transform_indices = CUDAMemory::malloc<int>(light_mesh_count);
 		module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
-
-		module.get_global("light_mesh_count").set_value(light_mesh_count);
 
 		FREEA(light_mesh_triangle_count);
 		FREEA(light_mesh_triangle_first_index);

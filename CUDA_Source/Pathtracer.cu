@@ -388,9 +388,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		float brdf_pdf = ray_buffer_trace.last_pdf[index];
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-		float light_select_pdf = 1.0f / float(light_count);
+		float light_select_pdf = light_total_count_inv;
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-		float light_select_pdf = light_area / light_area_total;
+		float light_select_pdf = light_area / light_total_area;
 #endif
 		float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
@@ -515,11 +515,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 #if ENABLE_NEXT_EVENT_ESTIMATION
-	if (light_count > 0) {
-// 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
-// 		frame_buffer_direct[ray_pixel_index] = (random_xorshift(seed) & 1) ? make_float4(1,0,0,1) : make_float4(0,0,0,0);
-// return;
-
+	if (light_total_count_inv < INFINITY) {
 		// Trace Shadow Ray
 		float light_u, light_v;
 		int   light_transform_id;
@@ -559,9 +555,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-			float light_select_pdf = 1.0f / float(light_count);
+			float light_select_pdf = light_total_count_inv; 
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-			float light_select_pdf = light_area / light_area_total;
+			float light_select_pdf = light_area / light_total_area;
 #endif
 			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
@@ -758,7 +754,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
 	
 #if ENABLE_NEXT_EVENT_ESTIMATION
-	if (light_count > 0 && material.roughness >= ROUGHNESS_CUTOFF) {
+	if (light_total_count_inv < INFINITY && material.roughness >= ROUGHNESS_CUTOFF) {
 		// Trace Shadow Ray
 		float light_u;
 		float light_v;
@@ -808,9 +804,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-			float light_select_pdf = 1.0f / float(light_count);
+			float light_select_pdf = light_total_count_inv;
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-			float light_select_pdf = light_area / light_area_total;
+			float light_select_pdf = light_area / light_total_area;
 #endif
 			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
