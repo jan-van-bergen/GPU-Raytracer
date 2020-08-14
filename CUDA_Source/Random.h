@@ -22,6 +22,16 @@ __device__ float random_heitz(int x, int y, int sample_index, int sample_dimensi
 	return (value + 0.5f) * (1.0f / 256.0f);
 }
 
+__device__ unsigned wang_hash(unsigned seed) {
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+
+    return seed;
+}
+
 // Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 __device__ unsigned random_xorshift(unsigned & seed) {
 	seed ^= (seed << 13);

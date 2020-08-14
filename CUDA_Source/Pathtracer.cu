@@ -164,7 +164,7 @@ extern "C" __global__ void kernel_primary(
 
 	int pixel_index = x + y * screen_pitch;
 
-	unsigned seed = (pixel_index + rand_seed * 199494991) * 949525949;
+	unsigned seed = wang_hash(pixel_index ^ rand_seed);
 
 	float u_screenspace = float(x) + 0.5f;
 	float v_screenspace = float(y) + 0.5f;
@@ -274,7 +274,7 @@ extern "C" __global__ void kernel_generate(
 	int x = index_offset % screen_width;
 	int y = index_offset / screen_width;
 
-	unsigned seed = (index_offset + rand_seed * 199494991) * 949525949;
+	unsigned seed = wang_hash(index_offset ^ rand_seed);
 
 	int pixel_index = x + y * screen_pitch;
 	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
@@ -408,7 +408,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		return;
 	}
 
-	unsigned seed = (index + rand_seed * 906313609) * 341828143;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
 	// Russian Roulette
 	float p_survive = saturate(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)));
@@ -480,7 +480,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (index + rand_seed * 794454497) * 781939187;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
 	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
 
@@ -516,6 +516,10 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 #if ENABLE_NEXT_EVENT_ESTIMATION
 	if (light_count > 0) {
+// 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+// 		frame_buffer_direct[ray_pixel_index] = (random_xorshift(seed) & 1) ? make_float4(1,0,0,1) : make_float4(0,0,0,0);
+// return;
+
 		// Trace Shadow Ray
 		float light_u, light_v;
 		int   light_transform_id;
@@ -617,7 +621,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (index + rand_seed * 758505857) * 364686463;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
 	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
 
@@ -719,7 +723,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (index + rand_seed * 354767453) * 346434643;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
 	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
 
