@@ -699,83 +699,6 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free(module.get_global("taa_frame_curr").get_value<CUDAMemory::Ptr<float4>>());
 }
 
-static void cwbvh_convert_recurse(int node_index, CWBVH & cwbvh, const BVH & bvh) {
-	CWBVHNode     &     node = cwbvh.nodes[node_index];
-	const BVHNode & bvh_node =   bvh.nodes[node_index];
-	
-	node.p = bvh_node.aabb.min;
-
-	const int Nq = 8;
-	const float denom = 1.0f / float((1 << Nq) - 1);
-
-	Vector3 e(
-		exp2f(ceilf(log2f((bvh_node.aabb.max.x - bvh_node.aabb.min.x) * denom))),
-		exp2f(ceilf(log2f((bvh_node.aabb.max.y - bvh_node.aabb.min.y) * denom))),
-		exp2f(ceilf(log2f((bvh_node.aabb.max.z - bvh_node.aabb.min.z) * denom)))
-	);
-	
-	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
-	
-	// Treat float as unsigned
-	unsigned u_ex, u_ey, u_ez;
-	memcpy(&u_ex, &e.x, 4);
-	memcpy(&u_ey, &e.y, 4);
-	memcpy(&u_ez, &e.z, 4);
-
-	// Only the exponent bits can be non-zero
-	assert((u_ex & 0b10000000011111111111111111111111) == 0);
-	assert((u_ey & 0b10000000011111111111111111111111) == 0);
-	assert((u_ez & 0b10000000011111111111111111111111) == 0);
-
-	// Store only 8 bit exponent
-	node.e[0] = u_ex >> 23;
-	node.e[1] = u_ey >> 23;
-	node.e[2] = u_ez >> 23;
-	
-	node.imask = 0;
-
-	node.base_index_child    = -1;
-	node.base_index_triangle = -1;
-
-	if (bvh_node.is_leaf()) {
-		node.base_index_triangle = bvh_node.first;
-		
-		node.quantized_min_x[0] = byte(floorf((bvh_node.aabb.min.x - node.p.x) * one_over_e.x));
-		node.quantized_min_y[0] = byte(floorf((bvh_node.aabb.min.y - node.p.y) * one_over_e.y));
-		node.quantized_min_z[0] = byte(floorf((bvh_node.aabb.min.z - node.p.z) * one_over_e.z));
-
-		node.quantized_max_x[0] = byte(ceilf((bvh_node.aabb.max.x - node.p.x) * one_over_e.x));
-		node.quantized_max_y[0] = byte(ceilf((bvh_node.aabb.max.y - node.p.y) * one_over_e.y));
-		node.quantized_max_z[0] = byte(ceilf((bvh_node.aabb.max.z - node.p.z) * one_over_e.z));
-
-		int triangle_count = 1;
-
-		// Three highest bits contain unary representation of triangle count
-		for (int j = 0; j < triangle_count; j++) {
-			node.meta[0] |= (1 << (j + 5));
-		}
-	} else {
-		node.base_index_child = bvh_node.left;
-
-		for (int i = 0; i < 2; i++) {
-			node.quantized_min_x[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.x - node.p.x) * one_over_e.x));
-			node.quantized_min_y[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.y - node.p.y) * one_over_e.y));
-			node.quantized_min_z[i] = byte(floorf((bvh.nodes[bvh_node.left + i].aabb.min.z - node.p.z) * one_over_e.z));
-
-			node.quantized_max_x[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.x - node.p.x) * one_over_e.x));
-			node.quantized_max_y[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.y - node.p.y) * one_over_e.y));
-			node.quantized_max_z[i] = byte(ceilf((bvh.nodes[bvh_node.left + i].aabb.max.z - node.p.z) * one_over_e.z));
-
-			node.meta[i] = (i + 24) | 0b00100000;
-
-			node.imask |= (1 << i);
-		}
-
-		cwbvh_convert_recurse(bvh_node.left,     cwbvh, bvh);
-		cwbvh_convert_recurse(bvh_node.left + 1, cwbvh, bvh);
-	}
-}
-
 void Pathtracer::build_tlas() {
 	tlas_bvh_builder.build(scene.meshes, scene.mesh_count);
 
@@ -785,10 +708,8 @@ void Pathtracer::build_tlas() {
 
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
 	const BVH & tlas = tlas_raw;
-#elif BVH_TYPE == BVH_QBVH
+#else
 	tlas_converter.build(tlas_raw);
-#elif BVH_TYPE == BVH_CWBVH
-	cwbvh_convert_recurse(0, tlas, tlas_raw);
 #endif
 
 	CUDAMemory::memcpy<BVHNodeType>(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
