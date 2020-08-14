@@ -372,10 +372,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			}
 		}
 
-		int light_count = light_triangles.size();
-
-		int   * light_indices          = new int  [light_count];
-		float * light_areas_cumulative = new float[light_count + 1];
+		int   * light_indices          = new int  [light_triangles.size()];
+		float * light_areas_cumulative = new float[light_triangles.size()];
 
 		for (int m = 0; m < light_meshes.size(); m++) {
 			LightMesh & light_mesh = light_meshes[m];
@@ -385,25 +383,26 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			for (int i = light_mesh.triangle_first_index; i < light_mesh.triangle_first_index + light_mesh.triangle_count; i++) {
 				light_indices[i] = light_triangles[i].index;
 
-				light_areas_cumulative[i] = cumulative_area;
 				cumulative_area += light_triangles[i].area;
+				light_areas_cumulative[i] = cumulative_area;
 			}
 
 			light_mesh.area = cumulative_area;
 		}
 
-		module.get_global("light_count").set_value(light_count);
-
-		module.get_global("light_indices")         .set_buffer(light_indices,          light_count);
-		module.get_global("light_areas_cumulative").set_buffer(light_areas_cumulative, light_count + 1);
+		module.get_global("light_indices")         .set_buffer(light_indices,          light_triangles.size());
+		module.get_global("light_areas_cumulative").set_buffer(light_areas_cumulative, light_triangles.size());
 
 		delete [] light_indices;
 		delete [] light_areas_cumulative;
 
-		int   * light_mesh_triangle_count            = MALLOCA(int,   mesh_count);
-		int   * light_mesh_triangle_first_index      = MALLOCA(int,   mesh_count);
-		float * light_mesh_triangle_areas_cumulative = MALLOCA(float, mesh_count);
+		int   * light_mesh_triangle_count       = MALLOCA(int,   mesh_count);
+		int   * light_mesh_triangle_first_index = MALLOCA(int,   mesh_count);
+		float * light_mesh_area                 = MALLOCA(float, mesh_count);
 		
+		int   light_count = 0;
+		float light_area_total = 0.0f;
+
 		int light_mesh_count = 0;
 		int light_mesh_area_cumulative = 0.0f;
 
@@ -421,14 +420,19 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 				light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
 				light_mesh_triangle_count      [mesh_index] = light_mesh.triangle_count;
 
-				light_mesh_triangle_areas_cumulative[mesh_index] = light_mesh_area_cumulative;
-				light_mesh_area_cumulative += light_mesh.area;
+				light_mesh_area[mesh_index] = light_mesh.area;
+
+				light_count      += light_mesh.triangle_count;
+				light_area_total += light_mesh.area;
 			}
 		}
+		
+		module.get_global("light_count")     .set_value(light_count);
+		module.get_global("light_area_total").set_value(light_area_total);
 
-		module.get_global("light_mesh_triangle_count")			 .set_buffer(light_mesh_triangle_count,            light_mesh_count);
-		module.get_global("light_mesh_triangle_first_index")     .set_buffer(light_mesh_triangle_first_index,      light_mesh_count);
-		module.get_global("light_mesh_triangle_areas_cumulative").set_buffer(light_mesh_triangle_areas_cumulative, light_mesh_count);
+		module.get_global("light_mesh_triangle_count")      .set_buffer(light_mesh_triangle_count,       light_mesh_count);
+		module.get_global("light_mesh_triangle_first_index").set_buffer(light_mesh_triangle_first_index, light_mesh_count);
+		module.get_global("light_mesh_area")                .set_buffer(light_mesh_area,                 light_mesh_count);
 
 		ptr_light_mesh_transform_indices = CUDAMemory::malloc<int>(light_mesh_count);
 		module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
@@ -437,7 +441,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 		FREEA(light_mesh_triangle_count);
 		FREEA(light_mesh_triangle_first_index);
-		FREEA(light_mesh_triangle_areas_cumulative);
+		FREEA(light_mesh_area);
 		
 		FREEA(light_mesh_data_indices);
 	}

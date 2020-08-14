@@ -392,7 +392,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 		float light_select_pdf = light_area / light_area_total;
 #endif
-		float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+		float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 		float mis_pdf = brdf_pdf + light_pdf;
 
@@ -559,7 +559,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 			float light_select_pdf = light_area / light_area_total;
 #endif
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 #if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;
@@ -808,7 +808,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 			float light_select_pdf = light_area / light_area_total;
 #endif
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 #if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;
