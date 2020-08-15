@@ -878,7 +878,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	int mesh_id;
 
 	while (true) {
-		bool inactive = stack_size == 0 && current_group.y <= 0x00ffffff;
+		bool inactive = stack_size == 0 && current_group.y == 0;
 
 		if (inactive) {
 			ray_index = atomic_agg_inc(rays_retired);
@@ -909,7 +909,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 		do {
 			uint2 triangle_group;
 
-			if (current_group.y > 0x00ffffff) {
+			if (current_group.y & 0xff000000) {
 				unsigned hits_imask = current_group.y;
 
 				unsigned child_index_offset = msb(hits_imask);
@@ -919,8 +919,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				current_group.y &= ~(1 << child_index_offset);
 
 				// If the node group is not yet empty, push it on the stack
-				if (current_group.y > 0x00ffffff) {
-					assert(stack_size < BVH_STACK_SIZE);
+				if (current_group.y & 0xff000000) {
+					// assert(stack_size < BVH_STACK_SIZE);
 
 					stack_push(shared_stack, stack, stack_size, current_group);
 				}
@@ -986,9 +986,11 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				}
 			}
 
-			if (current_group.y <= 0x00ffffff) {
+			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
 					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
+
+					current_group.y = 0;
 
 					break;
 				}
@@ -1037,7 +1039,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 	int mesh_id;
 
 	while (true) {
-		bool inactive = stack_size == 0 && current_group.y <= 0x00ffffff;
+		bool inactive = stack_size == 0 && current_group.y == 0;
 
 		if (inactive) {
 			ray_index = atomic_agg_inc(rays_retired);
@@ -1067,7 +1069,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 		do {
 			uint2 triangle_group;
 
-			if (current_group.y > 0x00ffffff) {
+			if (current_group.y & 0xff000000) {
 				unsigned hits_imask = current_group.y;
 
 				unsigned child_index_offset = msb(hits_imask);
@@ -1077,8 +1079,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				current_group.y &= ~(1 << child_index_offset);
 
 				// If the node group is not yet empty, push it on the stack
-				if (current_group.y > 0x00ffffff) {
-					assert(stack_size < BVH_STACK_SIZE);
+				if (current_group.y & 0xff000000) {
+					// assert(stack_size < BVH_STACK_SIZE);
 
 					stack_push(shared_stack, stack, stack_size, current_group);
 				}
@@ -1158,7 +1160,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				break;
 			}
 
-			if (current_group.y <= 0x00ffffff) {
+			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
 					// We didn't hit anything, apply illumination
 					int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
@@ -1169,6 +1171,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 					} else {
 						frame_buffer_indirect[pixel_index] += make_float4(illumination);
 					}
+
+					current_group.y = 0;
 
 					break;
 				}
