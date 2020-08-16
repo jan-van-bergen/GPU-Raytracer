@@ -592,6 +592,10 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	resize_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
 	
+	// Realloc as pinned memory
+	delete [] tlas.nodes;
+	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&tlas.nodes), 2 * mesh_count * sizeof(BVHNodeType)));
+
 	scene.update(0.0f);
 	build_tlas();
 }
