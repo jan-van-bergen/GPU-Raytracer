@@ -203,17 +203,20 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		// Compile to PTX
 		nvrtcResult result = nvrtcCompileProgram(program, Util::array_element_count(options), options);
 
-		if (result != NVRTC_SUCCESS) {
-			// Display message if compilation failed
-			size_t log_size;                 NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
-			char * log = new char[log_size]; NVRTC_CALL(nvrtcGetProgramLog    (program, log));
+		size_t log_size;
+		NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
 
+		if (log_size > 1) {
+			char * log = new char[log_size];
+			NVRTC_CALL(nvrtcGetProgramLog(program, log));
+
+			puts("NVRTC output:");
 			puts(log);
 
 			delete [] log;
-
-			abort();
 		}
+
+		if (result != NVRTC_SUCCESS) abort();
 
 		// Obtain PTX from NVRTC
 		size_t ptx_size;                 NVRTC_CALL(nvrtcGetPTXSize(program, &ptx_size));
