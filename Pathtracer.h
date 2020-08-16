@@ -103,6 +103,11 @@ private:
 		float cells[12];
 	};
 
+	int       * pinned_mesh_bvh_root_indices;
+	Matrix3x4 * pinned_mesh_transforms;
+	Matrix3x4 * pinned_mesh_transforms_inv;
+	int       * pinned_light_mesh_transform_indices;
+
 	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;

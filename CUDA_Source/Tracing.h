@@ -28,9 +28,9 @@ struct Matrix3x4 {
 	float4 row_2;
 };
 
-__device__ int       * mesh_bvh_root_indices;
-__device__ Matrix3x4 * mesh_transforms;
-__device__ Matrix3x4 * mesh_transforms_inv;
+__device__ __constant__ int       * mesh_bvh_root_indices;
+__device__ __constant__ Matrix3x4 * mesh_transforms;
+__device__ __constant__ Matrix3x4 * mesh_transforms_inv;
 
 __device__ inline void mesh_transform_point_and_normal(int mesh_id, const float3 & point_in, const float3 & normal_in, float3 & point_out, float3 & normal_out) {
 	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);

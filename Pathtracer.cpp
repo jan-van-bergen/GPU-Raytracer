@@ -88,7 +88,7 @@ struct ShadowRayBuffer {
 	}
 };
 
-static struct BufferSizes {
+struct BufferSizes {
 	int trace     [NUM_BOUNCES] = { 0 };
 	int diffuse   [NUM_BOUNCES] = { 0 };
 	int dielectric[NUM_BOUNCES] = { 0 };
@@ -97,7 +97,8 @@ static struct BufferSizes {
 
 	int rays_retired       [NUM_BOUNCES] = { 0 };
 	int rays_retired_shadow[NUM_BOUNCES] = { 0 };
-} buffer_sizes;
+};
+static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)
 
 void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle) {
 	ScopeTimer timer("Pathtracer Initialization");
@@ -222,6 +223,11 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			global_triangles[mesh_data_triangle_offsets[m] + t].material_id += mesh_data->material_offset;
 		}
 	}
+
+	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_mesh_bvh_root_indices),        scene.mesh_count * sizeof(int)));
+	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_mesh_transforms),              scene.mesh_count * sizeof(Matrix3x4)));
+	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_mesh_transforms_inv),          scene.mesh_count * sizeof(Matrix3x4)));
+	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_light_mesh_transform_indices), scene.mesh_count * sizeof(int)));
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.mesh_count);
 	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
@@ -478,7 +484,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("ray_buffer_shade_glossy")    .set_value(ray_buffer_shade_glossy);
 	module.get_global("ray_buffer_shadow")          .set_value(ray_buffer_shadow);
 
-	buffer_sizes.trace[0] = batch_size;
+	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&buffer_sizes), sizeof(BufferSizes)));
+	buffer_sizes->trace[0] = batch_size;
 
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(buffer_sizes);
@@ -716,40 +723,29 @@ void Pathtracer::build_tlas() {
 
 	assert(tlas.index_count == scene.mesh_count);
 
-	int       * mesh_bvh_root_indices = MALLOCA(int,       scene.mesh_count);
-	Matrix3x4 * mesh_transforms       = MALLOCA(Matrix3x4, scene.mesh_count);
-	Matrix3x4 * mesh_transforms_inv   = MALLOCA(Matrix3x4, scene.mesh_count);
-
-	int * light_mesh_transform_indices = MALLOCA(int, scene.mesh_count);
-	int   light_mesh_count = 0;
+	int light_mesh_count = 0;
 
 	for (int i = 0; i < scene.mesh_count; i++) {
 		int index = tlas.indices[i];
 
-		mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[scene.meshes[index].mesh_data_index];
+		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[scene.meshes[index].mesh_data_index];
 
-		memcpy(mesh_transforms    [i].cells, scene.meshes[index].transform    .cells, sizeof(Matrix3x4));
-		memcpy(mesh_transforms_inv[i].cells, scene.meshes[index].transform_inv.cells, sizeof(Matrix3x4));
+		memcpy(pinned_mesh_transforms    [i].cells, scene.meshes[index].transform    .cells, sizeof(Matrix3x4));
+		memcpy(pinned_mesh_transforms_inv[i].cells, scene.meshes[index].transform_inv.cells, sizeof(Matrix3x4));
 
 		if (scene.meshes[index].light_index != -1) {
-			light_mesh_transform_indices[scene.meshes[index].light_index] = i;
+			pinned_light_mesh_transform_indices[scene.meshes[index].light_index] = i;
 			light_mesh_count++;
 		}
 	}
 
-	CUDAMemory::memcpy<int>      (ptr_mesh_bvh_root_indices, mesh_bvh_root_indices, scene.mesh_count);
-	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms,       mesh_transforms,       scene.mesh_count);
-	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms_inv,   mesh_transforms_inv,   scene.mesh_count);
+	CUDAMemory::memcpy<int>      (ptr_mesh_bvh_root_indices, pinned_mesh_bvh_root_indices, scene.mesh_count);
+	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms,       pinned_mesh_transforms,       scene.mesh_count);
+	CUDAMemory::memcpy<Matrix3x4>(ptr_mesh_transforms_inv,   pinned_mesh_transforms_inv,   scene.mesh_count);
 	
 	if (scene.has_lights) {
-		CUDAMemory::memcpy<int>(ptr_light_mesh_transform_indices, light_mesh_transform_indices, light_mesh_count);
+		CUDAMemory::memcpy<int>(ptr_light_mesh_transform_indices, pinned_light_mesh_transform_indices, light_mesh_count);
 	}
-
-	FREEA(light_mesh_transform_indices);
-
-	FREEA(mesh_bvh_root_indices);
-	FREEA(mesh_transforms);
-	FREEA(mesh_transforms_inv);
 }
 
 void Pathtracer::update(float delta) {
@@ -898,8 +894,8 @@ void Pathtracer::render() {
 
 		if (pixels_left > 0) {
 			// Set buffer sizes to appropriate pixel count for next Batch
-			buffer_sizes.trace[0] = pixels_left > batch_size ? batch_size : pixels_left;
-			global_buffer_sizes.set_value(buffer_sizes);
+			buffer_sizes->trace[0] = pixels_left > batch_size ? batch_size : pixels_left;
+			global_buffer_sizes.set_value(*buffer_sizes);
 		}
 	}
 
@@ -951,6 +947,6 @@ void Pathtracer::render() {
 	RECORD_EVENT(event_end);
 	
 	// Reset buffer sizes to default for next frame
-	buffer_sizes.trace[0] = batch_size;
-	global_buffer_sizes.set_value(buffer_sizes);
+	buffer_sizes->trace[0] = batch_size;
+	global_buffer_sizes.set_value(*buffer_sizes);
 }
