@@ -1,10 +1,24 @@
 #pragma once
-#include "BVH.h"
+#include "MeshData.h"
 
 struct Mesh {
-	BVH bvh;
+	AABB aabb_untransformed;
+	AABB aabb;
 
-	int material_offset;
+	int mesh_data_index;
+	
+	Vector3    position;
+	Quaternion rotation;
 
-	static const Mesh * load(const char * filename);
+	Matrix4 transform;
+	Matrix4 transform_inv;
+	Matrix4 transform_prev;
+
+	int light_index;
+
+	void init(int mesh_data_index);
+
+	void update();
+
+	inline Vector3 get_center() const { return aabb.get_center(); }
 };

@@ -16,7 +16,7 @@ inline void check_cuda_call(CUresult result, const char * file, int line) {
 		cuGetErrorName  (result, &error_name);
 		cuGetErrorString(result, &error_string);
 
-		printf("CUDA call at %s line %i failed with error %s!\n%s", file, line, error_name, error_string);
+		printf("CUDA call at %s line %i failed with error %s!\n%s\n", file, line, error_name, error_string);
       
 		__debugbreak();
 	}

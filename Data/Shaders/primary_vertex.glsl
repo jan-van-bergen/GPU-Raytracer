@@ -16,13 +16,16 @@ uniform vec2 jitter;
 uniform mat4 view_projection;
 uniform mat4 view_projection_prev;
 
+uniform mat4 transform;
+uniform mat4 transform_prev;
+
 void main() {
-	out_normal      = in_normal;
+	out_normal      = (transform * vec4(in_normal, 0.0f)).xyz;
 	out_uv          = in_uv;
 	out_triangle_id = in_triangle_id;
 
-	out_screen_position      = view_projection      * vec4(in_position, 1.0f);
-	out_screen_position_prev = view_projection_prev * vec4(in_position, 1.0f);
+	out_screen_position      = view_projection      * transform      * vec4(in_position, 1.0f);
+	out_screen_position_prev = view_projection_prev * transform_prev * vec4(in_position, 1.0f);
 
 	gl_Position = out_screen_position + vec4(jitter, 0.0f, 0.0f);
 }

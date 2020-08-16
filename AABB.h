@@ -1,5 +1,5 @@
 #pragma once
-#include "Vector3.h"
+#include "Matrix4.h"
 
 struct AABB {
 	Vector3 min;
@@ -51,4 +51,6 @@ struct AABB {
 	}
 
 	static AABB overlap(const AABB & b1, const AABB & b2);
+	
+	static AABB transform(const AABB & aabb, const Matrix4 & transformation);
 };

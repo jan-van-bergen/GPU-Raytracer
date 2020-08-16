@@ -22,6 +22,16 @@ __device__ float random_heitz(int x, int y, int sample_index, int sample_dimensi
 	return (value + 0.5f) * (1.0f / 256.0f);
 }
 
+__device__ unsigned wang_hash(unsigned seed) {
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+
+    return seed;
+}
+
 // Based on: http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
 __device__ unsigned random_xorshift(unsigned & seed) {
 	seed ^= (seed << 13);
@@ -64,30 +74,47 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 	// Multiply the direction with the TBN matrix
 	direction = local_to_world(direction, tangent, binormal, normal);
 
-	ASSERT(dot(direction, normal) > -1e-5, "Invalid dot: dot = %f, direction = (%f, %f, %f), normal = (%f, %f, %f)\n", 
-		dot(direction, normal), direction.x, direction.y, direction.z, normal.x, normal.y, normal.z
-	);
-
 	return direction;
 }
 
-__device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v) {
+__device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v, int & transform_id) {
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-	int light_triangle_id = light_indices[random_xorshift(seed) % light_count];
+	// Pick random light emitting Mesh uniformly
+	unsigned light_mesh_id = random_xorshift(seed) % light_mesh_count;
+
+	// Pick random light emitting Triangle on the Mesh uniformly
+	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
+	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
+
+	int light_triangle_id = light_indices[triangle_first_index + random_xorshift(seed) % triangle_count];
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-	// Pick random value between 0 and light_area_total
-	float random_value = random_float_xorshift(seed) * light_area_total;
+	// Pick random light emitting Mesh based on area
+	float random_value = random_float_xorshift(seed) * light_total_area;
 
-	int index_left  = 0;
-	int index_right = light_count - 1;
+	int   light_mesh_id = 0;
+	float light_area_cumulative = light_mesh_area[0];
 
+	while (random_value > light_area_cumulative) {
+		light_area_cumulative += light_mesh_area[++light_mesh_id];
+	}
+
+	// Pick random light emitting Triangle on the Mesh based on area
+	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
+	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
+
+	int index_left  = triangle_first_index;
+	int index_right = triangle_first_index + triangle_count - 1;
+
+	random_value = random_float_xorshift(seed) * light_mesh_area[light_mesh_id];
+
+	// Binary search
 	int light_triangle_id;
 	while (true) {
-		int index_middle = (index_left + index_right) >> 1;
+		int index_middle = (index_left + index_right) / 2;
 
-		if (random_value < light_areas_cumulative[index_middle]) {
+		if (index_middle > triangle_first_index && random_value < light_areas_cumulative[index_middle - 1]) {
 			index_right = index_middle - 1;
-		} else if (random_value > light_areas_cumulative[index_middle + 1]) {
+		} else if (random_value > light_areas_cumulative[index_middle]) {
 			index_left = index_middle + 1;
 		} else {
 			light_triangle_id = light_indices[index_middle];
@@ -96,7 +123,6 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 		}
 	}
 #endif
-
 	// Pick a random point on the triangle using random barycentric coordinates
 	u = random_float_heitz(x, y, sample_index, bounce, 6, seed);
 	v = random_float_heitz(x, y, sample_index, bounce, 7, seed);
@@ -105,6 +131,8 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 		u = 1.0f - u;
 		v = 1.0f - v;
 	}
+
+	transform_id = light_mesh_transform_indices[light_mesh_id];
 
 	return light_triangle_id;
 }

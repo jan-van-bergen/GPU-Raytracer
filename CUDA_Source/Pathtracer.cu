@@ -25,7 +25,7 @@ __device__ float4 * frame_buffer_moment;
 __device__ Texture<float4> gbuffer_normal_and_depth;
 __device__ Texture<float2> gbuffer_uv;
 __device__ Texture<float4> gbuffer_uv_gradient;
-__device__ Texture<int>    gbuffer_triangle_id;
+__device__ Texture<int2>   gbuffer_mesh_id_and_triangle_id;
 __device__ Texture<float2> gbuffer_screen_position_prev;
 __device__ Texture<float2> gbuffer_depth_gradient;
 
@@ -67,14 +67,29 @@ struct Vector3_SoA {
 	}
 };
 
+struct HitBuffer {
+	float4 * hits;
+
+	__device__ void set(int index, int mesh_id, int triangle_id, float u, float v) {
+		hits[index] = make_float4(uint_as_float(mesh_id), uint_as_float(triangle_id), u, v);
+	}
+
+	__device__ void get(int index, int & mesh_id, int & triangle_id, float & u, float & v) const {
+		float4 hit = __ldg(&hits[index]);
+
+		mesh_id     = float_as_uint(hit.x);
+		triangle_id = float_as_uint(hit.y);
+		u = hit.z;
+		v = hit.w;
+	}
+};
+
 // Input to the Trace and Sort Kernels in SoA layout
 struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
 	
-	int   * triangle_id;
-	float * u;
-	float * v;
+	HitBuffer hits;
 
 	int       * pixel_index;
 	Vector3_SoA throughput;
@@ -87,9 +102,7 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	Vector3_SoA direction;	
 	
-	int   * triangle_id;
-	float * u;
-	float * v;
+	HitBuffer hits;
 
 	int       * pixel_index;
 	Vector3_SoA throughput;
@@ -151,7 +164,7 @@ extern "C" __global__ void kernel_primary(
 
 	int pixel_index = x + y * screen_pitch;
 
-	unsigned seed = (pixel_index + rand_seed * 199494991) * 949525949;
+	unsigned seed = wang_hash(pixel_index ^ rand_seed);
 
 	float u_screenspace = float(x) + 0.5f;
 	float v_screenspace = float(y) + 0.5f;
@@ -162,7 +175,9 @@ extern "C" __global__ void kernel_primary(
 	float2 uv          = gbuffer_uv         .get(u, v);
 	float4 uv_gradient = gbuffer_uv_gradient.get(u, v);
 
-	int triangle_id = gbuffer_triangle_id.get(u, v) - 1;
+	int2 mesh_id_and_triangle_id = gbuffer_mesh_id_and_triangle_id.get(u, v);
+	int mesh_id     = mesh_id_and_triangle_id.x;
+	int triangle_id = mesh_id_and_triangle_id.y - 1;
 
 	float dx = 0.0f;
 	float dy = 0.0f;
@@ -206,39 +221,33 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.triangle_id[index_out] = triangle_id;
-			ray_buffer_shade_diffuse.u[index_out] = uv.x;
-			ray_buffer_shade_diffuse.v[index_out] = uv.y;
+			ray_buffer_shade_diffuse.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
 
 			break;
-		} 
+		}
 
 		case Material::Type::DIELECTRIC: {
 			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[0]);
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.triangle_id[index_out] = triangle_id;
-			ray_buffer_shade_dielectric.u[index_out] = uv.x;
-			ray_buffer_shade_dielectric.v[index_out] = uv.y;
+			ray_buffer_shade_dielectric.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
 			
 			break;
-		} 
+		}
 
 		case Material::Type::GLOSSY: {
 			int index_out = atomic_agg_inc(&buffer_sizes.glossy[0]);
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.triangle_id[index_out] = triangle_id;
-			ray_buffer_shade_glossy.u[index_out] = uv.x;
-			ray_buffer_shade_glossy.v[index_out] = uv.y;
+			ray_buffer_shade_glossy.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
@@ -265,7 +274,7 @@ extern "C" __global__ void kernel_generate(
 	int x = index_offset % screen_width;
 	int y = index_offset / screen_width;
 
-	unsigned seed = (index_offset + rand_seed * 199494991) * 949525949;
+	unsigned seed = wang_hash(index_offset ^ rand_seed);
 
 	int pixel_index = x + y * screen_pitch;
 	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
@@ -298,9 +307,11 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	float3 ray_origin    = ray_buffer_trace.origin   .to_float3(index);
 	float3 ray_direction = ray_buffer_trace.direction.to_float3(index);
 
-	int   hit_triangle_id = ray_buffer_trace.triangle_id[index];
-	float hit_u           = ray_buffer_trace.u[index];
-	float hit_v           = ray_buffer_trace.v[index];
+	int   hit_mesh_id;
+	int   hit_triangle_id;
+	float hit_u;
+	float hit_v;
+	ray_buffer_trace.hits.get(index, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
@@ -377,11 +388,11 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		float brdf_pdf = ray_buffer_trace.last_pdf[index];
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-		float light_select_pdf = 1.0f / float(light_count);
+		float light_select_pdf = light_total_count_inv;
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-		float light_select_pdf = light_area / light_area_total;
+		float light_select_pdf = light_area / light_total_area;
 #endif
-		float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+		float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 		float mis_pdf = brdf_pdf + light_pdf;
 
@@ -397,9 +408,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		return;
 	}
 
-	unsigned seed = (index + rand_seed * 906313609) * 341828143;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
-	// Russian Roulette termination
+	// Russian Roulette
 	float p_survive = saturate(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)));
 	if (random_float_xorshift(seed) > p_survive) {
 		return;
@@ -413,9 +424,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.triangle_id[index_out] = hit_triangle_id;
-			ray_buffer_shade_diffuse.u[index_out] = hit_u;
-			ray_buffer_shade_diffuse.v[index_out] = hit_v;
+			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
@@ -428,9 +437,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.triangle_id[index_out] = hit_triangle_id;
-			ray_buffer_shade_dielectric.u[index_out] = hit_u;
-			ray_buffer_shade_dielectric.v[index_out] = hit_v;
+			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
@@ -443,9 +450,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.triangle_id[index_out] = hit_triangle_id;
-			ray_buffer_shade_glossy.u[index_out] = hit_u;
-			ray_buffer_shade_glossy.v[index_out] = hit_v;
+			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
@@ -461,9 +466,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	float3 ray_direction = ray_buffer_shade_diffuse.direction.to_float3(index);
 
-	int   ray_triangle_id = ray_buffer_shade_diffuse.triangle_id[index];
-	float ray_u = ray_buffer_shade_diffuse.u[index];
-	float ray_v = ray_buffer_shade_diffuse.v[index];
+	int   ray_mesh_id;
+	int   ray_triangle_id;
+	float ray_u;
+	float ray_v;
+	ray_buffer_shade_diffuse.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -473,7 +480,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (index + rand_seed * 794454497) * 781939187;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
 	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
 
@@ -489,9 +496,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2
 	);
 
-	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
-	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
+	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
+	float2 hit_tex_coord    = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+
+	float3 hit_point;  // World space
+	float3 hit_normal; // World space
+	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
 	
 	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -504,10 +515,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 #if ENABLE_NEXT_EVENT_ESTIMATION
-	if (light_count > 0) {
+	if (light_total_count_inv < INFINITY) {
 		// Trace Shadow Ray
 		float light_u, light_v;
-		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v);
+		int   light_transform_id;
+		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
 		float3 light_position_0, light_position_edge_1, light_position_edge_2;
 		float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
@@ -517,9 +529,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			light_normal_0,   light_normal_edge_1,   light_normal_edge_2
 		);
 
-		float3 light_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-		float3 light_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
-	
+		float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+		float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+
+		float3 light_point;
+		float3 light_normal;
+		mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
+
 		float3 to_light = light_point - hit_point;
 		float distance_to_light_squared = dot(to_light, to_light);
 		float distance_to_light         = sqrtf(distance_to_light_squared);
@@ -539,11 +555,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-			float light_select_pdf = 1.0f / float(light_count);
+			float light_select_pdf = light_total_count_inv; 
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-			float light_select_pdf = light_area / light_area_total;
+			float light_select_pdf = light_area / light_total_area;
 #endif
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 #if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;
@@ -589,9 +605,11 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
 
-	int   ray_triangle_id = ray_buffer_shade_dielectric.triangle_id[index];
-	float ray_u = ray_buffer_shade_dielectric.u[index];
-	float ray_v = ray_buffer_shade_dielectric.v[index];
+	int   ray_mesh_id;
+	int   ray_triangle_id;
+	float ray_u;
+	float ray_v;
+	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 
@@ -599,7 +617,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (index + rand_seed * 758505857) * 364686463;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
 	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
 
@@ -613,11 +631,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2
 	);
 
-	float3 hit_point  = barycentric(ray_u, ray_v, hit_triangle_position_0, hit_triangle_position_edge_1, hit_triangle_position_edge_2);
-	float3 hit_normal = barycentric(ray_u, ray_v, hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2);
+	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0, hit_triangle_position_edge_1, hit_triangle_position_edge_2);
+	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2);
 	
-	hit_normal = normalize(hit_normal);
-	// if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
+	hit_normal_model = normalize(hit_normal_model);
+
+	float3 hit_point;  // World space
+	float3 hit_normal; // World space
+	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -684,9 +705,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 direction_in = -1.0f * ray_buffer_shade_glossy.direction.to_float3(index);
 
-	int   ray_triangle_id = ray_buffer_shade_glossy.triangle_id[index];
-	float ray_u = ray_buffer_shade_glossy.u[index];
-	float ray_v = ray_buffer_shade_glossy.v[index];
+	int   ray_mesh_id;
+	int   ray_triangle_id;
+	float ray_u;
+	float ray_v;
+	ray_buffer_shade_glossy.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -696,7 +719,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
-	unsigned seed = (index + rand_seed * 354767453) * 346434643;
+	unsigned seed = wang_hash(index ^ rand_seed);
 
 	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
 
@@ -712,9 +735,13 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2
 	);
 
-	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
-	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
+	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
+	float2 hit_tex_coord    = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+
+	float3 hit_point;  // World space
+	float3 hit_normal; // World space
+	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
 
 	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
@@ -727,11 +754,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
 	
 #if ENABLE_NEXT_EVENT_ESTIMATION
-	if (light_count > 0 && material.roughness >= ROUGHNESS_CUTOFF) {
+	if (light_total_count_inv < INFINITY && material.roughness >= ROUGHNESS_CUTOFF) {
 		// Trace Shadow Ray
 		float light_u;
 		float light_v;
-		int light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v);
+		int   light_transform_id;
+		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
 		float3 light_position_0, light_position_edge_1, light_position_edge_2;
 		float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
@@ -741,8 +769,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			light_normal_0,   light_normal_edge_1,   light_normal_edge_2
 		);
 
-		float3 light_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-		float3 light_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+		float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+		float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+
+		float3 light_point;
+		float3 light_normal;
+		mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
 
 		float3 to_light = light_point - hit_point;
 		float distance_to_light_squared = dot(to_light, to_light);
@@ -772,11 +804,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-			float light_select_pdf = 1.0f / float(light_count);
+			float light_select_pdf = light_total_count_inv;
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-			float light_select_pdf = light_area / light_area_total;
+			float light_select_pdf = light_area / light_total_area;
 #endif
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // 1 / solid angle
+			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 #if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
 			float mis_pdf = brdf_pdf + light_pdf;

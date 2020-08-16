@@ -33,3 +33,18 @@ AABB AABB::overlap(const AABB & b1, const AABB & b2) {
 
 	return aabb;
 }
+
+// Based on: https://zeux.io/2010/10/17/aabb-from-obb-with-component-wise-abs/
+AABB AABB::transform(const AABB & aabb, const Matrix4 & transformation) {
+	Vector3 center = 0.5f * (aabb.min + aabb.max);
+	Vector3 extent = 0.5f * (aabb.max - aabb.min);
+
+	Vector3 new_center = Matrix4::transform_position (             transformation,  center);
+	Vector3 new_extent = Matrix4::transform_direction(Matrix4::abs(transformation), extent);
+
+	AABB result;
+	result.min = new_center - new_extent;
+	result.max = new_center + new_extent;
+
+	return result;
+}

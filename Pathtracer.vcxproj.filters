@@ -48,9 +48,6 @@
     <ClCompile Include="Imgui\imgui_widgets.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
-    <ClCompile Include="BVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
     <ClCompile Include="SBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
@@ -69,10 +66,16 @@
     <ClCompile Include="OBJLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Mesh.cpp">
+    <ClCompile Include="Input.cpp" />
+    <ClCompile Include="MeshData.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Input.cpp" />
+    <ClCompile Include="Scene.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -195,17 +198,8 @@
     <ClInclude Include="Imgui\imstb_truetype.h">
       <Filter>Imgui</Filter>
     </ClInclude>
-    <ClInclude Include="BVHBuilders.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
     <ClInclude Include="BVHPartitions.h">
       <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="CWBVH.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
-    <ClInclude Include="QBVH.h">
-      <Filter>BVH</Filter>
     </ClInclude>
     <ClInclude Include="CUDA_Source\Common.h">
       <Filter>CUDA</Filter>
@@ -216,12 +210,30 @@
     <ClInclude Include="OBJLoader.h">
       <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="Mesh.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Triangle.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Input.h" />
+    <ClInclude Include="Triangle.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshData.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="BVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="SBVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="QBVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="CWBVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

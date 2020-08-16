@@ -1,8 +1,6 @@
 #pragma once
 #include <vector>
 
-#include "Camera.h"
-
 #include "CUDAModule.h"
 #include "CUDAKernel.h"
 #include "CUDAMemory.h"
@@ -11,19 +9,28 @@
 #include "GBuffer.h"
 #include "Shader.h"
 
+#include "BVHBuilder.h"
+#include "SBVHBuilder.h"
+#include "QBVHBuilder.h"
+#include "CWBVHBuilder.h"
+
+#include "Scene.h"
+
 // Mirror CUDA vector types
 struct alignas(8) float2 { float x, y;       };
 struct            float3 { float x, y, z;    };
 struct            float4 { float x, y, z, w; };
 
 struct Pathtracer {
-	Camera camera;
+	Scene scene;
+
 	int frames_since_camera_moved = -1;
-	
+
 	// Settings
 	bool settings_changed = true;
 
 	bool enable_rasterization    = true;
+	bool enable_scene_update     = false;
 	bool enable_svgf             = false;
 	bool enable_spatial_variance = true;
 	bool enable_taa              = true;
@@ -42,7 +49,7 @@ struct Pathtracer {
 	
 	std::vector<const CUDAEvent *> events;
 
-	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
+	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
 
 	void resize_init(unsigned frame_buffer_handle, int width, int height); // Part of resize that initializes new size
 	void resize_free();                                                    // Part of resize that cleans up old size
@@ -91,13 +98,26 @@ private:
 	CUDAModule::Global global_buffer_sizes;
 
 	CUDAModule::Global global_svgf_settings;
+	
+	struct Matrix3x4 {
+		float cells[12];
+	};
 
-	int vertex_count;
+	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
+	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
+	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
+	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
+
+	CUDAMemory::Ptr<int> ptr_light_mesh_transform_indices;
+
 	Shader shader;
 
 	GLuint uniform_jitter;
 	GLuint uniform_view_projection;
 	GLuint uniform_view_projection_prev;
+	GLuint uniform_transform;
+	GLuint uniform_transform_prev;
+	GLuint uniform_mesh_id;
 
 	CUDAMemory::Ptr<float4> ptr_direct;
 	CUDAMemory::Ptr<float4> ptr_indirect;
@@ -120,8 +140,17 @@ private:
 	CUDAEvent event_accumulate;
 	CUDAEvent event_end;
 
-	bool scene_has_diffuse;
-	bool scene_has_dielectric;
-	bool scene_has_glossy;
-	bool scene_has_lights;
+	int * mesh_data_bvh_offsets;
+
+	BVH        tlas_raw;
+	BVHBuilder tlas_bvh_builder;
+	BVHType    tlas;
+
+#if BVH_TYPE == BVH_QBVH
+	QBVHBuilder tlas_converter;
+#elif BVH_TYPE == BVH_CWBVH
+	CWBVHBuilder tlas_converter;
+#endif
+
+	void build_tlas();
 };

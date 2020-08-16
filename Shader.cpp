@@ -3,7 +3,14 @@
 #include <fstream>
 #include <iostream>
 
+#include "Util.h"
+
 static GLuint load_shader(const char * filename, GLuint shader_type) {
+	if (!Util::file_exists(filename)) {
+		printf("ERROR: unable to load Shader file %s!\n", filename);
+		abort();
+	}
+
 	// @SPEED
 	std::ifstream t(filename);
 	std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());

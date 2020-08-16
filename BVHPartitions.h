@@ -8,8 +8,8 @@ namespace BVHPartitions {
 	const int SBVH_BIN_COUNT = 256;
 		
 	// Calculates the smallest enclosing AABB over the union of all AABB's of the primitives in the range defined by [first, last>
-	template<typename PrimitiveType>
-	inline AABB calculate_bounds(const PrimitiveType * primitives, const int * indices, int first, int last) {
+	template<typename Primitive>
+	inline AABB calculate_bounds(const Primitive * primitives, const int * indices, int first, int last) {
 		AABB aabb = AABB::create_empty();
 
 		// Iterate over relevant Primitives
@@ -24,44 +24,18 @@ namespace BVHPartitions {
 		return aabb;
 	} 
 
-	// Used for debugging
-	inline bool is_sorted(const Triangle * triangles, int * indices[3], int first, int last) {
-		for (int dimension = 0; dimension < 3; dimension++) {
-			for (int i = first + 1; i < last; i++) {
-				float prev = triangles[indices[dimension][i-1]].get_center()[dimension];
-				float curr = triangles[indices[dimension][i  ]].get_center()[dimension];
-
-				if (prev > curr) return false;
-			}
-		}
-
-		return true;
-	}
-
-	// Used for debugging
-	inline bool is_unique(const Triangle * triangles, int * indices[3], int first_index, int index_count) {
-		for (int dimension = 0; dimension < 3; dimension++) {
-			for (int i = first_index; i < first_index + index_count; i++) {
-				for (int j = first_index; j < i; j++) {
-					if (indices[dimension][j] == indices[dimension][i]) return false;
-				}
-			}
-		}
-
-		return true;
-	}
-
 	// Reorders indices arrays such that indices on the left side of the splitting dimension end up on the left partition in the other dimensions as well
-	inline void split_indices(const Triangle * triangles, int * indices[3], int first_index, int index_count, int * temp, int split_dimension, int split_index, float split) {
+	template<typename Primitive>
+	inline void split_indices(const Primitive * primitives, int * indices[3], int first_index, int index_count, int * temp, int split_dimension, int split_index, float split) {
 		for (int dimension = 0; dimension < 3; dimension++) {
 			if (dimension != split_dimension) {
 				int left  = 0;
 				int right = split_index - first_index;
 
 				for (int i = first_index; i < first_index + index_count; i++) {
-					bool goes_left = triangles[indices[dimension][i]].get_center()[split_dimension] < split;
+					bool goes_left = primitives[indices[dimension][i]].get_center()[split_dimension] < split;
 
-					if (triangles[indices[dimension][i]].get_center()[split_dimension] == split) {
+					if (primitives[indices[dimension][i]].get_center()[split_dimension] == split) {
 						// In case the current primitive has the same coordianate as the one we split on along the split dimension,
 						// We don't know whether the primitive should go left or right.
 						// In this case check all primitive indices on the left side of the split that 
@@ -69,7 +43,7 @@ namespace BVHPartitions {
 
 						int j = split_index - 1;
 						// While we can go left and the left primitive has the same coordinate along the split dimension as the split itself
-						while (j >= first_index && triangles[indices[split_dimension][j]].get_center()[split_dimension] == split) {
+						while (j >= first_index && primitives[indices[split_dimension][j]].get_center()[split_dimension] == split) {
 							if (indices[split_dimension][j] == indices[dimension][i]) {
 								goes_left = true;
 
@@ -92,36 +66,32 @@ namespace BVHPartitions {
 				assert(right == index_count);
 
 				memcpy(indices[dimension] + first_index, temp, index_count * sizeof(int));
-
-				assert(is_sorted(triangles, indices, first_index,        left ));
-				assert(is_sorted(triangles, indices, first_index + left, right));
 			}
 		}
 	}
 
 	// Evaluates SAH for every object for every dimension to determine splitting candidate
-	inline int partition_sah(const Triangle * triangles, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost) {
+	template<typename Primitive>
+	inline int partition_sah(const Primitive * primitives, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost) {
 		float min_split_cost = INFINITY;
 		int   min_split_index     = -1;
 		int   min_split_dimension = -1;
 
 		// Check splits along all 3 dimensions
 		for (int dimension = 0; dimension < 3; dimension++) {
-			assert(is_sorted(triangles, indices, first_index, index_count));
-
 			AABB aabb_left  = AABB::create_empty();
 			AABB aabb_right = AABB::create_empty();
 
 			// First traverse left to right along the current dimension to evaluate first half of the SAH
 			for (int i = 0; i < index_count - 1; i++) {
-				aabb_left.expand(triangles[indices[dimension][first_index + i]].aabb);
+				aabb_left.expand(primitives[indices[dimension][first_index + i]].aabb);
 				
 				sah[i] = aabb_left.surface_area() * float(i + 1);
 			}
 
 			// Then traverse right to left along the current dimension to evaluate second half of the SAH
 			for (int i = index_count - 1; i > 0; i--) {
-				aabb_right.expand(triangles[indices[dimension][first_index + i]].aabb);
+				aabb_right.expand(primitives[indices[dimension][first_index + i]].aabb);
 
 				sah[i - 1] += aabb_right.surface_area() * float(index_count - i);
 			}
@@ -136,6 +106,8 @@ namespace BVHPartitions {
 				}
 			}
 		}
+
+		assert(min_split_dimension != -1);
 		
 		split_cost      = min_split_cost;
 		split_dimension = min_split_dimension;
@@ -155,8 +127,6 @@ namespace BVHPartitions {
 		
 		// Check splits along all 3 dimensions
 		for (int dimension = 0; dimension < 3; dimension++) {
-			assert(is_sorted(primitives, indices, first_index, index_count));
-
 			bounds_left [0]           = AABB::create_empty();
 			bounds_right[index_count] = AABB::create_empty();
 
