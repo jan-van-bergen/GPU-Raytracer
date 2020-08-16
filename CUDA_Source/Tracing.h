@@ -950,6 +950,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				current_group  = make_uint2(0);
 			}
 
+			int postpone_threshold = __popc(active_thread_mask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
+
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
 				if (tlas_stack_size == -1) {
@@ -979,6 +981,14 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 						break;
 				} else {
+					int thread_count = __popc(active_thread_mask());
+					if (thread_count < postpone_threshold) {
+						// Not enough threads currently active that want to check triangle intersection, postpone by pushing on the stack
+						stack_push(shared_stack, stack, stack_size, triangle_group);
+
+						break;
+					}
+
 					int triangle_index = msb(triangle_group.y);
 					triangle_group.y &= ~(1 << triangle_index);
 
@@ -1110,6 +1120,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				current_group  = make_uint2(0);
 			}
 
+			int postpone_threshold = __popc(active_thread_mask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
+
 			bool hit = false;
 
 			// While the triangle group is not empty
@@ -1141,8 +1153,15 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 						break;
 				} else {
-					int triangle_index = msb(triangle_group.y);
+					int thread_count = __popc(active_thread_mask());
+					if (thread_count < postpone_threshold) {
+						// Not enough threads currently active that want to check triangle intersection, postpone by pushing on the stack
+						stack_push(shared_stack, stack, stack_size, triangle_group);
 
+						break;
+					}
+
+					int triangle_index = msb(triangle_group.y);
 					triangle_group.y &= ~(1 << triangle_index);
 
 					if (triangle_trace_shadow(triangle_group.x + triangle_index, ray, max_distance)) {
