@@ -13,6 +13,8 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - QBVH (Quaternary BVH). The QBVH is constructed by iteratively collapsing the Nodes of the SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
   - CWBVH (Compressed Wide BVH), see [Ylitie et al. 2017](https://research.nvidia.com/sites/default/files/publications/ylitie2017hpg-paper.pdf). The CWBVH outperforms both the QBVH and SBVH.
   - All BVH types use Dynamic Ray Fetching, see [Aila et al. 2009](https://www.nvidia.com/docs/IO/76976/HPG2009-Trace-Efficiency.pdf)
+- Two Level Acceleration Structures
+  - BVH's are split into two parts, at the world level (TLAS) and at the model level (BLAS). This allows dynamic scenes with moving Meshes as well as Mesh instancing where multiple meshes with different transforms share the same underlying triangle/BVH data.
 - SVGF (Spatio-Temporal Variance Guided Filter), see [Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). Denoising filter that allows for noise-free images at interactive framerates. Also includes a TAA pass.
 - Importance Sampling
   - Next Event Estimation (NEE)
