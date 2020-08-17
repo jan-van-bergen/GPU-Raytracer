@@ -1,6 +1,6 @@
 # CUDA Pathtracer
 
-![Sponza](Screenshots/Sponza.png "Sponza")
+![Scene](Screenshots/Scene.png "Example Scene")
 
 Interactive CUDA pathtracer that implements a variety of rendering techniques. 
 
