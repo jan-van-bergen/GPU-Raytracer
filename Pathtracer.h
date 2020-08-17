@@ -99,22 +99,6 @@ private:
 
 	CUDAModule::Global global_svgf_settings;
 	
-	struct Matrix3x4 {
-		float cells[12];
-	};
-
-	int       * pinned_mesh_bvh_root_indices;
-	Matrix3x4 * pinned_mesh_transforms;
-	Matrix3x4 * pinned_mesh_transforms_inv;
-	int       * pinned_light_mesh_transform_indices;
-
-	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
-	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
-
-	CUDAMemory::Ptr<int> ptr_light_mesh_transform_indices;
-
 	Shader shader;
 
 	GLuint uniform_jitter;
@@ -145,8 +129,6 @@ private:
 	CUDAEvent event_accumulate;
 	CUDAEvent event_end;
 
-	int * mesh_data_bvh_offsets;
-
 	BVH        tlas_raw;
 	BVHBuilder tlas_bvh_builder;
 	BVHType    tlas;
@@ -156,6 +138,24 @@ private:
 #elif BVH_TYPE == BVH_CWBVH
 	CWBVHBuilder tlas_converter;
 #endif
+	
+	int * mesh_data_bvh_offsets;
+
+	struct Matrix3x4 {
+		float cells[12];
+	};
+
+	int       * pinned_mesh_bvh_root_indices;
+	Matrix3x4 * pinned_mesh_transforms;
+	Matrix3x4 * pinned_mesh_transforms_inv;
+	int       * pinned_light_mesh_transform_indices;
+
+	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
+	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
+	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
+	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
+
+	CUDAMemory::Ptr<int> ptr_light_mesh_transform_indices;
 
 	void build_tlas();
 };

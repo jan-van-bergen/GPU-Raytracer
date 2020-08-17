@@ -12,6 +12,16 @@ namespace CUDAMemory {
 	};
 
 	template<typename T>
+	inline T * malloc_pinned(int count = 1) {
+		assert(count > 0);
+
+		T * ptr;
+		CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&ptr), count * sizeof(T)));
+
+		return ptr;
+	}
+
+	template<typename T>
 	inline Ptr<T> malloc(int count = 1) {
 		assert(count > 0);
 

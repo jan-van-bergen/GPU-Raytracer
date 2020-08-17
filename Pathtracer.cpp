@@ -89,14 +89,14 @@ struct ShadowRayBuffer {
 };
 
 struct BufferSizes {
-	int trace     [NUM_BOUNCES] = { 0 };
-	int diffuse   [NUM_BOUNCES] = { 0 };
-	int dielectric[NUM_BOUNCES] = { 0 };
-	int glossy    [NUM_BOUNCES] = { 0 };
-	int shadow    [NUM_BOUNCES] = { 0 };
+	int trace     [NUM_BOUNCES];
+	int diffuse   [NUM_BOUNCES];
+	int dielectric[NUM_BOUNCES];
+	int glossy    [NUM_BOUNCES];
+	int shadow    [NUM_BOUNCES];
 
-	int rays_retired       [NUM_BOUNCES] = { 0 };
-	int rays_retired_shadow[NUM_BOUNCES] = { 0 };
+	int rays_retired       [NUM_BOUNCES];
+	int rays_retired_shadow[NUM_BOUNCES];
 };
 static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)
 
@@ -224,10 +224,10 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		}
 	}
 
-	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_mesh_bvh_root_indices),        scene.mesh_count * sizeof(int)));
-	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_mesh_transforms),              scene.mesh_count * sizeof(Matrix3x4)));
-	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_mesh_transforms_inv),          scene.mesh_count * sizeof(Matrix3x4)));
-	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&pinned_light_mesh_transform_indices), scene.mesh_count * sizeof(int)));
+	pinned_mesh_bvh_root_indices        = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
+	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
+	pinned_mesh_transforms_inv          = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
+	pinned_light_mesh_transform_indices = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.mesh_count);
 	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
@@ -484,7 +484,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("ray_buffer_shade_glossy")    .set_value(ray_buffer_shade_glossy);
 	module.get_global("ray_buffer_shadow")          .set_value(ray_buffer_shadow);
 
-	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&buffer_sizes), sizeof(BufferSizes)));
+	buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
+	memset(buffer_sizes, 0, sizeof(BufferSizes));
 	buffer_sizes->trace[0] = batch_size;
 
 	global_buffer_sizes = module.get_global("buffer_sizes");
@@ -594,7 +595,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	
 	// Realloc as pinned memory
 	delete [] tlas.nodes;
-	CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&tlas.nodes), 2 * mesh_count * sizeof(BVHNodeType)));
+	tlas.nodes = CUDAMemory::malloc_pinned<BVHNodeType>(2 * mesh_count);
 
 	scene.update(0.0f);
 	build_tlas();
