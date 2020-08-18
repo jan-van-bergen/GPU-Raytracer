@@ -7,6 +7,7 @@
 #include "MeshData.h"
 #include "Material.h"
 
+#include "Random.h"
 #include "BlueNoise.h"
 
 #include "Util.h"
@@ -766,7 +767,7 @@ void Pathtracer::update(float delta) {
 		}
 	}
 
-	scene.camera.update(delta, enable_taa);
+	scene.camera.update(delta, enable_rasterization);
 
 	if (settings_changed) {
 		frames_since_camera_moved = 0;
@@ -837,7 +838,7 @@ void Pathtracer::render() {
 		if (enable_rasterization) {
 			// Convert rasterized GBuffers into primary Rays
 			kernel_primary.execute(
-				rand(),
+				Random::get_value(),
 				frames_since_camera_moved,
 				pixel_offset,
 				pixel_count,
@@ -850,7 +851,7 @@ void Pathtracer::render() {
 		} else {
 			// Generate primary Rays from the current Camera orientation
 			kernel_generate.execute(
-				rand(),
+				Random::get_value(),
 				frames_since_camera_moved,
 				pixel_offset,
 				pixel_count,
@@ -869,23 +870,23 @@ void Pathtracer::render() {
 				kernel_trace.execute(bounce);
 			
 				RECORD_EVENT(event_sort[bounce]);
-				kernel_sort.execute(rand(), bounce);
+				kernel_sort.execute(Random::get_value(), bounce);
 			}
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
 				RECORD_EVENT(event_shade_diffuse[bounce]);
-				kernel_shade_diffuse.execute(rand(), bounce, frames_since_camera_moved);
+				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_since_camera_moved);
 			}
 
 			if (scene.has_dielectric) {
 				RECORD_EVENT(event_shade_dielectric[bounce]);
-				kernel_shade_dielectric.execute(rand(), bounce);
+				kernel_shade_dielectric.execute(Random::get_value(), bounce);
 			}
 
 			if (scene.has_glossy) {
 				RECORD_EVENT(event_shade_glossy[bounce]);
-				kernel_shade_glossy.execute(rand(), bounce, frames_since_camera_moved);
+				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_since_camera_moved);
 			}
 
 			// Trace shadow Rays

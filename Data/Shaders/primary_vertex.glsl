@@ -27,5 +27,5 @@ void main() {
 	out_screen_position      = view_projection      * transform      * vec4(in_position, 1.0f);
 	out_screen_position_prev = view_projection_prev * transform_prev * vec4(in_position, 1.0f);
 
-	gl_Position = out_screen_position + vec4(jitter, 0.0f, 0.0f);
+	gl_Position = out_screen_position + vec4(jitter * out_screen_position.w, 0.0f, 0.0f);
 }

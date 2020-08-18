@@ -211,6 +211,7 @@
     <ClCompile Include="OBJLoader.cpp" />
     <ClCompile Include="Pathtracer.cpp" />
     <ClCompile Include="QBVHBuilder.cpp" />
+    <ClCompile Include="Random.cpp" />
     <ClCompile Include="SBVHBuilder.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Shader.cpp" />
@@ -253,6 +254,7 @@
     <ClInclude Include="Pathtracer.h" />
     <ClInclude Include="QBVHBuilder.h" />
     <ClInclude Include="Quaternion.h" />
+    <ClInclude Include="Random.h" />
     <ClInclude Include="SBVHBuilder.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="ScopeTimer.h" />

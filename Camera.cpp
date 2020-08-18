@@ -1,10 +1,11 @@
 #include "Camera.h"
 
 #include <cstdio>
+#include <cstdint>
 
 #include "Input.h"
 
-#include "CUDA_Source/Common.h"
+#include "Random.h"
 
 void Camera::resize(int width, int height) {
 	inv_width  = 1.0f / float(width);
@@ -25,20 +26,15 @@ void Camera::resize(int width, int height) {
 }
 
 void Camera::update(float delta, bool apply_jitter) {
-	static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
-	static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
-
 	if (apply_jitter) {
 		jitter = Vector2(
-			(halton_x[jitter_index] * 2.0f - 1.0f) * inv_width, 
-			(halton_y[jitter_index] * 2.0f - 1.0f) * inv_height
+			(float(Random::get_value()) * (1.0f / UINT32_MAX) - 0.5f) * inv_width, 
+			(float(Random::get_value()) * (1.0f / UINT32_MAX) - 0.5f) * inv_height
 		);
 	} else {
 		jitter = Vector2(0.0f);
 	}
 
-	jitter_index = (jitter_index + 1) & 3;
-	
 	// Move Camera around
 	moved = false;
 

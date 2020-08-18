@@ -76,6 +76,9 @@
     <ClCompile Include="Mesh.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
+    <ClCompile Include="Random.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -162,9 +165,6 @@
     <ClInclude Include="Texture.h">
       <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="BlueNoise.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
     <ClInclude Include="Shader.h">
       <Filter>Rasterization</Filter>
     </ClInclude>
@@ -234,6 +234,12 @@
     </ClInclude>
     <ClInclude Include="CWBVHBuilder.h">
       <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="BlueNoise.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Random.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

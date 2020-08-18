@@ -1,6 +1,4 @@
 #include <cstdio>
-#include <cstdlib>
-#include <ctime> 
 
 #include <Imgui/imgui.h>
 
@@ -10,6 +8,8 @@
 
 #include "Input.h"
 #include "Window.h"
+
+#include "Random.h"
 
 #include "Util.h"
 #include "ScopeTimer.h"
@@ -80,7 +80,7 @@ int main(int argument_count, char ** arguments) {
 
 	window.resize_handler = &window_resize;
 
-	srand(1337);
+	Random::init(1337);
 
 	last = SDL_GetPerformanceCounter();
 
