@@ -8,25 +8,25 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 
 - Wavefront rendering, see [Laine et al. 2013](https://research.nvidia.com/sites/default/files/pubs/2013-07_Megakernels-Considered-Harmful/laine2013hpg_paper.pdf)
 - Multiple BVH types
-  - Standard binary SAH-based BVH
-  - SBVH (Spatial BVH), see [Stich et al. 2009](https://www.nvidia.in/docs/IO/77714/sbvh.pdf). This BVH is able to split across triangles.
-  - QBVH (Quaternary BVH). The QBVH is a four-way BVH that is constructed by iteratively collapsing the Nodes of the SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
-  - CWBVH (Compressed Wide BVH), see [Ylitie et al. 2017](https://research.nvidia.com/sites/default/files/publications/ylitie2017hpg-paper.pdf). Eight-way BVH that is constructed by collapsing the SBVH. Each BVH Node is compressed so that it takes up only 80 bytes per node. The implementation incudes the Dynamic Fetch Heurisic as well as Triangle Postponing (see paper). The CWBVH outperforms all other BVH types.
+  - Standard binary *SAH-based BVH*
+  - *SBVH* (Spatial BVH), see [Stich et al. 2009](https://www.nvidia.in/docs/IO/77714/sbvh.pdf). This BVH is able to split across triangles.
+  - *QBVH* (Quaternary BVH). The QBVH is a four-way BVH that is constructed by iteratively collapsing the Nodes of the SBVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
+  - *CWBVH* (Compressed Wide BVH), see [Ylitie et al. 2017](https://research.nvidia.com/sites/default/files/publications/ylitie2017hpg-paper.pdf). Eight-way BVH that is constructed by collapsing the SBVH. Each BVH Node is compressed so that it takes up only 80 bytes per node. The implementation incudes the Dynamic Fetch Heurisic as well as Triangle Postponing (see paper). The CWBVH outperforms all other BVH types.
   - All BVH types use Dynamic Ray Fetching to reduce divergence among threads, see [Aila et al. 2009](https://www.nvidia.com/docs/IO/76976/HPG2009-Trace-Efficiency.pdf)
 - Two Level Acceleration Structures
   - BVH's are split into two parts, at the world level (TLAS) and at the model level (BLAS). This allows dynamic scenes with moving Meshes as well as Mesh instancing where multiple meshes with different transforms share the same underlying triangle/BVH data.
-- SVGF (Spatio-Temporal Variance Guided Filter), see [Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). Denoising filter that allows for noise-free images at interactive framerates. Also includes a TAA pass.
+- *SVGF* (Spatio-Temporal Variance Guided Filter), see [Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). Denoising filter that allows for noise-free images at interactive framerates. Also includes a TAA pass.
 - Importance Sampling
-  - Next Event Estimation (NEE): Shadow rays are explicitly aimed at light sources to reduce variance.
-  - Multiple Importance Sampling (MIS): Explicit light sampling (NEE) is combined with standard BRDF sampling using MIS to get the best of both.
+  - *Next Event Estimation* (NEE): Shadow rays are explicitly aimed at light sources to reduce variance.
+  - *Multiple Importance Sampling* (MIS): Explicit light sampling (NEE) is combined with standard BRDF sampling using MIS to get the best of both.
   - Cosine weighted direction sampling for diffuse bounces.
   - Microfacet sampling as described in [Walter et al. 2007](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)
-- Blue Noise Sampling: The low discrepency sampler by [Heitz et al. 2019](https://eheitzresearch.wordpress.com/762-2/) is used. This sampler distributes Monte Carlo errors as a blue noise in screen space.
-- Primary Ray Rasterization: For efficiency reasons primary rays are rasterized using OpenGL, before being propagated further as bounced rays in CUDA.
+- *Blue Noise Sampling*: The low discrepency sampler by [Heitz et al. 2019](https://eheitzresearch.wordpress.com/762-2/) is used. This sampler distributes Monte Carlo errors as a blue noise in screen space.
+- Primary Ray Rasterization: Optionally, primary rays can be rasterized using OpenGL, before being propagated further as bounced rays in CUDA.
 - Multiple Material types
-  - Diffuse
-  - Dielectrics
-  - Microfacets (Beckmann and GGX, configurable)
+  - *Diffuse*
+  - *Dielectrics*
+  - *Microfacets* (Beckmann and GGX models)
 
 ## Screenshots
 
