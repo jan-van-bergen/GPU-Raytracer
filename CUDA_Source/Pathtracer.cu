@@ -515,7 +515,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 #if ENABLE_NEXT_EVENT_ESTIMATION
-	if (light_total_count_inv < INFINITY) {
+	bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+	if (scene_has_lights) {
 		// Trace Shadow Ray
 		float light_u, light_v;
 		int   light_transform_id;
@@ -754,7 +755,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
 	
 #if ENABLE_NEXT_EVENT_ESTIMATION
-	if (light_total_count_inv < INFINITY && material.roughness >= ROUGHNESS_CUTOFF) {
+	bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+	if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
 		// Trace Shadow Ray
 		float light_u;
 		float light_v;

@@ -777,7 +777,7 @@ struct CWBVHNode {
 	float4 node_4; // Node is stored as 5 float4's so we can load the entire 80 bytes in 5 global memory accesses
 };
 
-__device__ __constant__ CWBVHNode * cwbvh_nodes;
+__device__ __constant__ const CWBVHNode * cwbvh_nodes;
 
 __device__ inline unsigned cwbvh_node_intersect(
 	const Ray & ray,

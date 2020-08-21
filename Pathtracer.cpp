@@ -416,9 +416,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		for (int m = 0; m < mesh_count; m++) {
 			int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_index];
 
-			if (light_mesh_data_index == -1) {
-				scene.meshes[m].light_index = -1;
-			} else {
+			if (light_mesh_data_index != -1) {
 				const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
 
 				scene.meshes[m].light_index = light_mesh_count;
@@ -453,6 +451,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		FREEA(light_mesh_area);
 		
 		FREEA(light_mesh_data_indices);
+	} else {
+		module.get_global("light_total_count_inv").set_value(INFINITY); // 1 / 0
 	}
 	
 	delete [] triangles;
