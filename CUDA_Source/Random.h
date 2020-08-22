@@ -92,7 +92,7 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 	float random_value = random_float_xorshift(seed) * light_total_area;
 
 	int   light_mesh_id = 0;
-	float light_area_cumulative = light_mesh_area[0];
+	float light_area_cumulative = light_mesh_area[light_mesh_id];
 
 	while (random_value > light_area_cumulative) {
 		light_area_cumulative += light_mesh_area[++light_mesh_id];
@@ -105,7 +105,7 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 	int index_left  = triangle_first_index;
 	int index_right = triangle_first_index + triangle_count - 1;
 
-	random_value = random_float_xorshift(seed) * light_mesh_area[light_mesh_id];
+	random_value = random_float_xorshift(seed);
 
 	// Binary search
 	int light_triangle_id;

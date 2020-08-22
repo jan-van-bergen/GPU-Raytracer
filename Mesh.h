@@ -9,12 +9,14 @@ struct Mesh {
 	
 	Vector3    position;
 	Quaternion rotation;
+	float      scale = 1.0f;
 
 	Matrix4 transform;
 	Matrix4 transform_inv;
 	Matrix4 transform_prev;
 
-	int light_index = -1;
+	int   light_index = -1;
+	float light_area = 0.0f;
 
 	void init(int mesh_data_index);
 

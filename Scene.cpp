@@ -101,12 +101,12 @@ void Scene::update(float delta) {
 	if (mesh_count > 0) {
 		meshes[1].position.z = 2.0f;
 		meshes[1].position.x = 5.0f * sinf(time * 0.2f);
-
 		meshes[1].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), 0.5f * time);
 
 		if (mesh_count > 1) {
 			meshes[2].position.z = 5.0f * sinf(time * 0.2f);
 			meshes[2].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), PI);
+			meshes[2].scale = 1.0f + 0.5f * sinf(time);
 		}
 	}
 

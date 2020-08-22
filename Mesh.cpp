@@ -15,9 +15,16 @@ void Mesh::update() {
 	// Update Transform
 	transform_prev = transform;
 
-	transform     = Matrix4::create_translation(position)                     * Matrix4::create_rotation(rotation);
-	transform_inv = Matrix4::create_rotation(Quaternion::conjugate(rotation)) * Matrix4::create_translation(-position);
+	transform =
+		Matrix4::create_translation(position) *
+		Matrix4::create_rotation(rotation) *
+		Matrix4::create_scale(scale);
+	transform_inv =
+		Matrix4::create_scale(1.0f / scale) *
+		Matrix4::create_rotation(Quaternion::conjugate(rotation)) *
+		Matrix4::create_translation(-position);
 
 	// Update AABB from Transform
 	aabb = AABB::transform(aabb_untransformed, transform);
+	assert(aabb.is_valid());
 }
