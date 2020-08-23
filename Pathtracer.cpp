@@ -485,7 +485,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	buffer_sizes->trace[0] = batch_size;
 
 	global_buffer_sizes = module.get_global("buffer_sizes");
-	global_buffer_sizes.set_value(buffer_sizes);
+	global_buffer_sizes.set_value(*buffer_sizes);
 
 	global_svgf_settings = module.get_global("svgf_settings");
 
