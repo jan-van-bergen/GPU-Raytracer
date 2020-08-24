@@ -1,0 +1,33 @@
+OpenGL Info:
+Version:  4.6.0 NVIDIA 451.48
+GLSL:     4.60 NVIDIA
+Vendor:   NVIDIA Corporation
+Renderer: GeForce 845M/PCIe/SSE2
+
+CUDA Info:
+Memory available: 2048 MB
+Compute Capability: 50
+Cache Config: Prefer None
+Shared Memory Config: 4 Bytes
+
+Loaded BVH  ./Data/sponza/sponza_lit.obj.sbvh from disk
+Loaded BVH  ./Data/Diamond.obj.sbvh from disk
+Loaded BVH  ./Data/Lantern.obj.sbvh from disk
+
+Scene info:
+diffuse:    yes
+dielectric: no
+glossy:     no
+lights:     yes
+
+
+CUDA Module Init took: 787306 us (787 ms)
+
+CUDA Memory allocated:   645597 KB (   630 MB)
+CUDA Memory free:       1451554 KB (  1417 MB)
+
+Configuration picked for Tracing kernels:
+    Block Size: 32 x 16
+    Grid Size:  8
+
+Pathtracer Initialization took: 2954446 us (2 s)

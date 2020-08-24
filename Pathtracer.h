@@ -27,7 +27,8 @@ struct Pathtracer {
 	int frames_since_camera_moved = -1;
 
 	// Settings
-	bool settings_changed = true;
+	Settings settings;
+	bool     settings_changed = true;
 
 	bool enable_rasterization    = true;
 	bool enable_scene_update     = false;
@@ -36,17 +37,6 @@ struct Pathtracer {
 	bool enable_taa              = true;
 	bool enable_albedo           = true;
 
-	struct SVGFSettings {
-		float alpha_colour = 0.2f;
-		float alpha_moment = 0.2f;
-
-		int atrous_iterations = 5;
-
-		float sigma_z =  4.0f;
-		float sigma_n = 16.0f;
-		float sigma_l = 10.0f;
-	} svgf_settings;
-	
 	std::vector<const CUDAEvent *> events;
 
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
@@ -83,6 +73,7 @@ private:
 	CUDAKernel kernel_taa;
 	CUDAKernel kernel_taa_finalize;
 
+	CUDAKernel kernel_reconstruct;
 	CUDAKernel kernel_accumulate;
 
 	CUgraphicsResource resource_gbuffer_normal_and_depth;
@@ -97,7 +88,7 @@ private:
 
 	CUDAModule::Global global_buffer_sizes;
 
-	CUDAModule::Global global_svgf_settings;
+	CUDAModule::Global global_settings;
 	
 	Shader shader;
 
@@ -126,6 +117,7 @@ private:
 	CUDAEvent event_svgf_atrous[MAX_ATROUS_ITERATIONS];
 	CUDAEvent event_svgf_finalize;
 	CUDAEvent event_taa;
+	CUDAEvent event_reconstruct;
 	CUDAEvent event_accumulate;
 	CUDAEvent event_end;
 

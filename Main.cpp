@@ -201,10 +201,12 @@ int main(int argument_count, char ** arguments) {
 			settings_changed |= ImGui::Checkbox("TAA",                    &pathtracer.enable_taa);
 			settings_changed |= ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
 
-			settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.svgf_settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+			settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Mitchel-Netravali\0Gaussian");
 
-			settings_changed |= ImGui::SliderFloat("Alpha colour", &pathtracer.svgf_settings.alpha_colour, 0.0f, 1.0f);
-			settings_changed |= ImGui::SliderFloat("Alpha moment", &pathtracer.svgf_settings.alpha_moment, 0.0f, 1.0f);
+			settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+
+			settings_changed |= ImGui::SliderFloat("Alpha colour", &pathtracer.settings.alpha_colour, 0.0f, 1.0f);
+			settings_changed |= ImGui::SliderFloat("Alpha moment", &pathtracer.settings.alpha_moment, 0.0f, 1.0f);
 
 			pathtracer.settings_changed = settings_changed;
 		}

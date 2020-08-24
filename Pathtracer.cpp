@@ -487,7 +487,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(*buffer_sizes);
 
-	global_svgf_settings = module.get_global("svgf_settings");
+	global_settings = module.get_global("settings");
 
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
@@ -510,6 +510,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
 	kernel_taa             .init(&module, "kernel_taa");
 	kernel_taa_finalize    .init(&module, "kernel_taa_finalize");
+	kernel_reconstruct     .init(&module, "kernel_reconstruct");
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
 	// Set Block dimensions for all Kernels
@@ -519,6 +520,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	kernel_svgf_finalize.occupancy_max_block_size_2d();
 	kernel_taa          .occupancy_max_block_size_2d();
 	kernel_taa_finalize .occupancy_max_block_size_2d();
+	kernel_reconstruct  .occupancy_max_block_size_2d();
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
 	kernel_primary         .set_block_dim(WARP_SIZE * 2, 1, 1);
@@ -582,8 +584,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	}
 	event_svgf_finalize.init("SVGF", "Finalize");
 
-	event_taa       .init("Post", "TAA");
-	event_accumulate.init("Post", "Accumulate");
+	event_taa        .init("Post", "TAA");
+	event_reconstruct.init("Post", "Reconstruct");
+	event_accumulate .init("Post", "Accumulate");
 
 	event_end.init("END", "END");
 
@@ -636,6 +639,9 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	module.get_global("frame_buffer_direct")  .set_value(ptr_direct  .ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
 
+	module.get_global("sample_xy")     .set_value(CUDAMemory::malloc<float2>(pitch * height).ptr);
+	module.get_global("reconstruction").set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
+
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
 	module.set_surface("accumulator", CUDAMemory::resource_get_array(resource_accumulator));
@@ -658,6 +664,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_svgf_finalize.set_grid_dim(pitch / kernel_svgf_finalize.block_dim_x, (height + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y, 1);
 	kernel_taa          .set_grid_dim(pitch / kernel_taa          .block_dim_x, (height + kernel_taa          .block_dim_y - 1) / kernel_taa          .block_dim_y, 1);
 	kernel_taa_finalize .set_grid_dim(pitch / kernel_taa_finalize .block_dim_x, (height + kernel_taa_finalize .block_dim_y - 1) / kernel_taa_finalize .block_dim_y, 1);
+	kernel_reconstruct  .set_grid_dim(pitch / kernel_reconstruct  .block_dim_x, (height + kernel_reconstruct  .block_dim_y - 1) / kernel_reconstruct  .block_dim_y, 1);
 	kernel_accumulate   .set_grid_dim(pitch / kernel_accumulate   .block_dim_x, (height + kernel_accumulate   .block_dim_y - 1) / kernel_accumulate   .block_dim_y, 1);
 
 	kernel_primary         .set_grid_dim(batch_size / kernel_primary         .block_dim_x, 1, 1);
@@ -688,6 +695,9 @@ void Pathtracer::resize_free() {
 	
 	CUDAMemory::free(module.get_global("frame_buffer_albedo").get_value<CUDAMemory::Ptr<float4>>());
 	CUDAMemory::free(module.get_global("frame_buffer_moment").get_value<CUDAMemory::Ptr<float4>>());
+
+	CUDAMemory::free(module.get_global("sample_xy")     .get_value<CUDAMemory::Ptr<float2>>());
+	CUDAMemory::free(module.get_global("reconstruction").get_value<CUDAMemory::Ptr<float4>>());
 	
 	CUDAMemory::resource_unregister(resource_accumulator);
 	CUDACALL(cuSurfObjectDestroy(module.get_global("accumulator").get_value<CUsurfObject>()));
@@ -778,7 +788,7 @@ void Pathtracer::update(float delta) {
 	if (settings_changed) {
 		frames_since_camera_moved = 0;
 
-		global_svgf_settings.set_value(svgf_settings);
+		global_settings.set_value(settings);
 	} else if (enable_svgf) {
 		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
 	} else if (scene.camera.moved) {
@@ -931,7 +941,7 @@ void Pathtracer::render() {
 		}
 
 		// À-Trous Filter
-		for (int i = 0; i < svgf_settings.atrous_iterations; i++) {
+		for (int i = 0; i < settings.atrous_iterations; i++) {
 			int step_size = 1 << i;
 				
 			// Ping-Pong the Frame Buffers
@@ -952,8 +962,13 @@ void Pathtracer::render() {
 			kernel_taa_finalize.execute();
 		}
 	} else {
+		if (settings.reconstruction_filter != ReconstructionFilter::BOX) {
+			RECORD_EVENT(event_reconstruct);
+			kernel_reconstruct.execute();
+		}
+
 		RECORD_EVENT(event_accumulate);
-		kernel_accumulate.execute(!enable_albedo, float(frames_since_camera_moved));
+		kernel_accumulate.execute(float(frames_since_camera_moved));
 	}
 
 	RECORD_EVENT(event_end);

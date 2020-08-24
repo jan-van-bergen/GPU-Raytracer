@@ -1,18 +1,5 @@
 #define epsilon 1e-8f // To avoid division by 0
 
-struct SVGFSettings {
-	float alpha_colour;
-	float alpha_moment;
-
-	int atrous_iterations;
-
-	float sigma_z;
-	float sigma_n;
-	float sigma_l;
-};
-
-__device__ __constant__ SVGFSettings svgf_settings;
-
 __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth, float max_change_z) {
 	if (x < 0 || x >= screen_width)  return false;
 	if (y < 0 || y >= screen_height) return false;
@@ -51,9 +38,9 @@ __device__ inline float2 edge_stopping_weights(
 		center_depth_gradient.x * float(delta_x) + 
 		center_depth_gradient.y * float(delta_y); 
 
-	float ln_w_z = fabsf(center_depth - depth) / (svgf_settings.sigma_z * fabsf(d) + epsilon);
+	float ln_w_z = fabsf(center_depth - depth) / (settings.sigma_z * fabsf(d) + epsilon);
 
-	float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), svgf_settings.sigma_n);
+	float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), settings.sigma_n);
 
 	float w_l_direct   = w_n * expf(-fabsf(center_luminance_direct   - luminance_direct)   * luminance_denom_direct   - ln_w_z);
 	float w_l_indirect = w_n * expf(-fabsf(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect - ln_w_z);
@@ -202,8 +189,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 		int history = ++history_length[pixel_index]; // Increase History Length by 1 step
 
 		float inv_history = 1.0f / float(history);
-		float alpha_colour = fmaxf(svgf_settings.alpha_colour, inv_history);
-		float alpha_moment = fmaxf(svgf_settings.alpha_moment, inv_history);
+		float alpha_colour = fmaxf(settings.alpha_colour, inv_history);
+		float alpha_moment = fmaxf(settings.alpha_moment, inv_history);
 
 		// Integrate using exponential moving average
 		direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
@@ -256,8 +243,8 @@ extern "C" __global__ void kernel_svgf_variance(
 		return;
 	}
 
-	float luminance_denom_direct   = 1.0f / svgf_settings.sigma_l;
-	float luminance_denom_indirect = 1.0f / svgf_settings.sigma_l;
+	float luminance_denom_direct   = 1.0f / settings.sigma_l;
+	float luminance_denom_indirect = 1.0f / settings.sigma_l;
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -413,8 +400,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = rsqrtf(svgf_settings.sigma_l * svgf_settings.sigma_l * fmaxf(0.0f, variance_blurred_direct)   + epsilon);
-	float luminance_denom_indirect = rsqrtf(svgf_settings.sigma_l * svgf_settings.sigma_l * fmaxf(0.0f, variance_blurred_indirect) + epsilon);
+	float luminance_denom_direct   = rsqrtf(settings.sigma_l * settings.sigma_l * fmaxf(0.0f, variance_blurred_direct)   + epsilon);
+	float luminance_denom_indirect = rsqrtf(settings.sigma_l * settings.sigma_l * fmaxf(0.0f, variance_blurred_indirect) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -555,7 +542,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 normal_and_depth = gbuffer_normal_and_depth.get(u, v);
 
-	if (svgf_settings.atrous_iterations <= feedback_iteration) {
+	if (settings.atrous_iterations <= feedback_iteration) {
 		// Normally the à-trous filter copies the illumination history,
 		// but in case the filter was skipped we need to do this here
 		history_direct  [pixel_index] = direct;

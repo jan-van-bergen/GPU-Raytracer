@@ -2,11 +2,6 @@
 // This file contains things that are shared between the CUDA files and the C++ files
 
 
-// CUDA
-#define WARP_SIZE 32
-
-#define MAX_REGISTERS 64
-
 // Constants
 #define PI          3.14159265359f
 #define ONE_OVER_PI 0.31830988618f
@@ -15,9 +10,40 @@
 #define ONE_OVER_TWO_PI 0.15915494309f
 
 
+// CUDA
+#define WARP_SIZE 32
+
+#define MAX_REGISTERS 64
+
+
+// Settings
+enum class ReconstructionFilter {
+	BOX,
+	MITCHELL_NETRAVALI,
+	GAUSSIAN
+};
+
+struct Settings {
+	bool demodulate_albedo = false;
+
+	ReconstructionFilter reconstruction_filter = ReconstructionFilter::BOX;
+
+	// SVGF Settings
+	float alpha_colour = 0.2f;
+	float alpha_moment = 0.2f;
+
+	int atrous_iterations = 5;
+
+	float sigma_z =  4.0f;
+	float sigma_n = 16.0f;
+	float sigma_l = 10.0f;
+};
+
+
 // Screen related
 #define SCREEN_WIDTH  900
 #define SCREEN_HEIGHT 600
+
 
 // Rendering is performance in batches of BATCH_SIZE pixels
 // Larger batches are more efficient, but also require more GPU memory

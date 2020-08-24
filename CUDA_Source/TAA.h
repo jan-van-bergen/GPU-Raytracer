@@ -18,7 +18,7 @@ extern "C" __global__ void kernel_taa() {
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
 	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
 
-	float s_prev = u_prev * float(screen_width) ;
+	float s_prev = u_prev * float(screen_width);
 	float t_prev = v_prev * float(screen_height);
 
 	int x1 = int(s_prev + 0.5f) - 2;
