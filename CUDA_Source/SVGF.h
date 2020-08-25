@@ -503,7 +503,6 @@ extern "C" __global__ void kernel_svgf_atrous(
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
 extern "C" __global__ void kernel_svgf_finalize(
-	bool enable_albedo,
 	const float4 * colour_direct,
 	const float4 * colour_indirect
 ) {
@@ -519,7 +518,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 colour = direct + indirect;
 
-	if (enable_albedo) {
+	if (!settings.demodulate_albedo) {
 		colour *= frame_buffer_albedo[pixel_index];
 	}
 

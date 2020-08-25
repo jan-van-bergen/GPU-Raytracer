@@ -35,8 +35,7 @@ struct Pathtracer {
 	bool enable_svgf             = false;
 	bool enable_spatial_variance = true;
 	bool enable_taa              = true;
-	bool enable_albedo           = true;
-
+	
 	std::vector<const CUDAEvent *> events;
 
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);

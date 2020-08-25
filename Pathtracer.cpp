@@ -953,7 +953,7 @@ void Pathtracer::render() {
 		}
 
 		RECORD_EVENT(event_svgf_finalize);
-		kernel_svgf_finalize.execute(enable_albedo, direct_out, indirect_out);
+		kernel_svgf_finalize.execute(direct_out, indirect_out);
 
 		if (enable_taa) {
 			RECORD_EVENT(event_taa);

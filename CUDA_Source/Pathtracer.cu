@@ -7,7 +7,7 @@ __device__ __constant__ int screen_width;
 __device__ __constant__ int screen_pitch;
 __device__ __constant__ int screen_height;
 
-__device__ __constant__ const Settings settings;
+__device__ __constant__ Settings settings;
 
 #include "Util.h"
 #include "Shading.h"

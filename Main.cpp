@@ -199,7 +199,7 @@ int main(int argument_count, char ** arguments) {
 			settings_changed |= ImGui::Checkbox("SVGF",                   &pathtracer.enable_svgf);
 			settings_changed |= ImGui::Checkbox("Spatial Variance",       &pathtracer.enable_spatial_variance);
 			settings_changed |= ImGui::Checkbox("TAA",                    &pathtracer.enable_taa);
-			settings_changed |= ImGui::Checkbox("Modulate Albedo",        &pathtracer.enable_albedo);
+			settings_changed |= ImGui::Checkbox("Demodulate Albedo",      &pathtracer.settings.demodulate_albedo);
 
 			settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Mitchel-Netravali\0Gaussian");
 
