@@ -705,7 +705,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		}
 	}
 
-	if (settings.demodulate_albedo && bounce == 0) {
+	if ((settings.demodulate_albedo || settings.enable_svgf) && bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
@@ -765,7 +765,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
 
-	if (settings.demodulate_albedo && bounce == 0) {
+	if ((settings.demodulate_albedo || settings.enable_svgf) && bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
