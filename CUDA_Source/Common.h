@@ -24,9 +24,14 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
+	bool enable_rasterization                = true;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
-
+	bool enable_scene_update                 = false;
+	bool enable_svgf                         = false;
+	bool enable_spatial_variance             = true;
+	bool enable_taa                          = true;
+	
 	bool demodulate_albedo = false;
 
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::BOX;

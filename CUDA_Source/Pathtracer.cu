@@ -209,7 +209,7 @@ extern "C" __global__ void kernel_primary(
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
-		if (settings.demodulate_albedo) {
+		if (settings.demodulate_albedo || settings.enable_svgf) {
 			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 		}
 		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
@@ -223,7 +223,7 @@ extern "C" __global__ void kernel_primary(
 	switch (material.type) {
 		case Material::Type::LIGHT: {
 			// Terminate Path
-			if (settings.demodulate_albedo) {
+			if (settings.demodulate_albedo || settings.enable_svgf) {
 				frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 			}
 			frame_buffer_direct[pixel_index] = make_float4(material.emission);
@@ -338,7 +338,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
 
 		if (bounce == 0) {
-			if (settings.demodulate_albedo) {
+			if (settings.demodulate_albedo || settings.enable_svgf) {
 				frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 			}
 			frame_buffer_direct[ray_pixel_index] = make_float4(illumination);
@@ -368,7 +368,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float3 illumination = ray_throughput * material.emission;
 
 			if (bounce == 0) {
-				if (settings.demodulate_albedo) {
+				if (settings.demodulate_albedo || settings.enable_svgf) {
 					frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 				}
 				frame_buffer_direct[ray_pixel_index] = make_float4(material.emission);
@@ -532,7 +532,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 albedo     = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
 
-	if (settings.demodulate_albedo && bounce == 0) {
+	if ((settings.demodulate_albedo  || settings.enable_svgf) && bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 

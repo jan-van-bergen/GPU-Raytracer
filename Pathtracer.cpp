@@ -771,27 +771,27 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
-	if (enable_scene_update) {
+	if (settings.enable_scene_update) {
 		scene.update(delta);
 
 		build_tlas();
 
 		// If SVGF is enabled we can handle Scene updates using reprojection,
 		// otherwise 'frames_since_camera_moved' needs to be reset in order to avoid ghosting
-		if (!enable_svgf) {
+		if (!settings.enable_svgf) {
 			frames_since_camera_moved = 0;
 		}
 	} else {
 		scene.update(0.0f); // Update with 0 delta to make sure previous Transforms match current Transforms
 	}
 
-	scene.camera.update(delta, enable_rasterization);
+	scene.camera.update(delta, settings.enable_rasterization);
 
 	if (settings_changed) {
 		frames_since_camera_moved = 0;
 
 		global_settings.set_value(settings);
-	} else if (enable_svgf) {
+	} else if (settings.enable_svgf) {
 		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
 	} else if (scene.camera.moved) {
 		frames_since_camera_moved = 0;
@@ -805,7 +805,7 @@ void Pathtracer::update(float delta) {
 void Pathtracer::render() {
 	events.clear();
 
-	if (enable_rasterization) {
+	if (settings.enable_rasterization) {
 		gbuffer.bind();
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -853,14 +853,14 @@ void Pathtracer::render() {
 
 		RECORD_EVENT(event_primary);
 
-		if (enable_rasterization) {
+		if (settings.enable_rasterization) {
 			// Convert rasterized GBuffers into primary Rays
 			kernel_primary.execute(
 				Random::get_value(),
 				frames_since_camera_moved,
 				pixel_offset,
 				pixel_count,
-				enable_taa,
+				settings.enable_taa,
 				scene.camera.position,
 				scene.camera.bottom_left_corner_rotated,
 				scene.camera.x_axis_rotated,
@@ -882,7 +882,7 @@ void Pathtracer::render() {
 
 		for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
 			// When rasterizing primary rays we can skip tracing rays on bounce 0
-			if (!(bounce == 0 && enable_rasterization)) {
+			if (!(bounce == 0 && settings.enable_rasterization)) {
 				// Extend all Rays that are still alive to their next Triangle intersection
 				RECORD_EVENT(event_trace[bounce]);
 				kernel_trace.execute(bounce);
@@ -923,7 +923,7 @@ void Pathtracer::render() {
 		}
 	}
 
-	if (enable_svgf) {
+	if (settings.enable_svgf) {
 		// Integrate temporally
 		RECORD_EVENT(event_svgf_temporal);
 		kernel_svgf_temporal.execute();
@@ -933,7 +933,7 @@ void Pathtracer::render() {
 		CUdeviceptr indirect_in  = ptr_indirect    .ptr;
 		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
 
-		if (enable_spatial_variance) {
+		if (settings.enable_spatial_variance) {
 			// Estimate Variance spatially
 			RECORD_EVENT(event_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
@@ -957,7 +957,7 @@ void Pathtracer::render() {
 		RECORD_EVENT(event_svgf_finalize);
 		kernel_svgf_finalize.execute(direct_out, indirect_out);
 
-		if (enable_taa) {
+		if (settings.enable_taa) {
 			RECORD_EVENT(event_taa);
 
 			kernel_taa         .execute();

@@ -13,6 +13,10 @@ struct Texture {
 	__device__ inline T get(float s, float t) const {
 		return tex2D<T>(texture, s, t);
 	}
+
+	__device__ inline T get_lod(float s, float t, float lod) const {
+		return tex2DLod<T>(texture, s, t, lod);
+	}
 };
 
 template<typename T>

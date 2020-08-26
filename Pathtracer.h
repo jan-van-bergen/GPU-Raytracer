@@ -17,25 +17,18 @@
 #include "Scene.h"
 
 // Mirror CUDA vector types
-struct alignas(8) float2 { float x, y;       };
-struct            float3 { float x, y, z;    };
-struct            float4 { float x, y, z, w; };
+struct alignas(8)  float2 { float x, y; };
+struct             float3 { float x, y, z; };
+struct alignas(16) float4 { float x, y, z, w; };
 
 struct Pathtracer {
 	Scene scene;
 
 	int frames_since_camera_moved = -1;
 
-	// Settings
 	Settings settings;
 	bool     settings_changed = true;
 
-	bool enable_rasterization    = true;
-	bool enable_scene_update     = false;
-	bool enable_svgf             = false;
-	bool enable_spatial_variance = true;
-	bool enable_taa              = true;
-	
 	std::vector<const CUDAEvent *> events;
 
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
