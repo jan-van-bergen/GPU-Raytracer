@@ -24,6 +24,9 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
+	bool enable_next_event_estimation        = true;
+	bool enable_multiple_importance_sampling = true;
+
 	bool demodulate_albedo = false;
 
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::BOX;
@@ -56,9 +59,6 @@ struct Settings {
 
 
 // Lighting
-#define ENABLE_NEXT_EVENT_ESTIMATION true
-#define ENABLE_MULTIPLE_IMPORTANCE_SAMPLING true
-
 #define LIGHT_SELECT_UNIFORM 0
 #define LIGHT_SELECT_AREA    1
 

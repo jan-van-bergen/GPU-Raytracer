@@ -209,7 +209,9 @@ extern "C" __global__ void kernel_primary(
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
-		frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+		if (settings.demodulate_albedo) {
+			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+		}
 		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
 
 		return;
@@ -221,7 +223,9 @@ extern "C" __global__ void kernel_primary(
 	switch (material.type) {
 		case Material::Type::LIGHT: {
 			// Terminate Path
-			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+			if (settings.demodulate_albedo) {
+				frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+			}
 			frame_buffer_direct[pixel_index] = make_float4(material.emission);
 
 			break;
@@ -334,7 +338,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
 
 		if (bounce == 0) {
-			frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+			if (settings.demodulate_albedo) {
+				frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+			}
 			frame_buffer_direct[ray_pixel_index] = make_float4(illumination);
 		} else if (bounce == 1) {
 			frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
@@ -349,18 +355,22 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	const Material & material = materials[triangle_get_material_id(hit_triangle_id)];
 
 	if (material.type == Material::Type::LIGHT) {
-#if ENABLE_NEXT_EVENT_ESTIMATION
-		bool no_mis = 
-			(ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
-			(ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF);
-#else
-		bool no_mis = true;
-#endif
+		bool no_mis;
+		if (settings.enable_next_event_estimation) {
+			no_mis = 
+				(ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
+				(ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF);
+		} else {
+			no_mis = true;
+		}
+
 		if (no_mis) {
 			float3 illumination = ray_throughput * material.emission;
 
 			if (bounce == 0) {
-				frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+				if (settings.demodulate_albedo) {
+					frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+				}
 				frame_buffer_direct[ray_pixel_index] = make_float4(material.emission);
 			} else if (bounce == 1) {
 				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
@@ -371,52 +381,51 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			return;
 		}
 
-#if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
-		float3 light_position_0, light_position_edge_1, light_position_edge_2;
-		float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
+		if (settings.enable_multiple_importance_sampling) {
+			float3 light_position_0, light_position_edge_1, light_position_edge_2;
+			float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
 
-		triangle_get_positions_and_normals(hit_triangle_id,
-			light_position_0, light_position_edge_1, light_position_edge_2,
-			light_normal_0,   light_normal_edge_1,   light_normal_edge_2
-		);
+			triangle_get_positions_and_normals(hit_triangle_id,
+				light_position_0, light_position_edge_1, light_position_edge_2,
+				light_normal_0,   light_normal_edge_1,   light_normal_edge_2
+			);
 
-		float3 light_point  = barycentric(hit_u, hit_v, light_position_0, light_position_edge_1, light_position_edge_2);
-		float3 light_normal = barycentric(hit_u, hit_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
-	
-		light_normal = normalize(light_normal);
-	
-		float3 to_light = light_point - ray_origin;;
-		float distance_to_light_squared = dot(to_light, to_light);
-		float distance_to_light         = sqrtf(distance_to_light_squared);
-	
-		// ray_direction is the same direction as light is same direction as to_light, but normalized
-		to_light = ray_direction;
-
-		float cos_o = fabsf(dot(to_light, light_normal));
-
-		// if (cos_o <= 0.0f) return;
-
-		float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
+			float3 light_point  = barycentric(hit_u, hit_v, light_position_0, light_position_edge_1, light_position_edge_2);
+			float3 light_normal = barycentric(hit_u, hit_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
 		
-		float brdf_pdf = ray_buffer_trace.last_pdf[index];
+			light_normal = normalize(light_normal);
+		
+			float3 to_light = light_point - ray_origin;;
+			float distance_to_light_squared = dot(to_light, to_light);
+			float distance_to_light         = sqrtf(distance_to_light_squared);
+		
+			// ray_direction is the same direction as light is same direction as to_light, but normalized
+			to_light = ray_direction;
+
+			float cos_o = fabsf(dot(to_light, light_normal));
+			// if (cos_o <= 0.0f) return;
+
+			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
+			
+			float brdf_pdf = ray_buffer_trace.last_pdf[index];
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-		float light_select_pdf = light_total_count_inv;
+			float light_select_pdf = light_total_count_inv;
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-		float light_select_pdf = light_area / light_total_area;
+			float light_select_pdf = light_area / light_total_area;
 #endif
-		float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
+			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
-		float mis_pdf = brdf_pdf + light_pdf;
+			float mis_pdf = brdf_pdf + light_pdf;
 
-		float3 illumination = ray_throughput * material.emission * brdf_pdf / mis_pdf;
+			float3 illumination = ray_throughput * material.emission * brdf_pdf / mis_pdf;
 
-		if (bounce == 1) {
-			frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
-		} else {
-			frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
+			if (bounce == 1) {
+				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
+			} else {
+				frame_buffer_indirect[ray_pixel_index] += make_float4(illumination);
+			}
 		}
-#endif
 
 		return;
 	}
@@ -523,79 +532,75 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 albedo     = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
 
-	if (bounce == 0) {
+	if (settings.demodulate_albedo && bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
-#if ENABLE_NEXT_EVENT_ESTIMATION
-	bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
-	if (scene_has_lights) {
-		// Trace Shadow Ray
-		float light_u, light_v;
-		int   light_transform_id;
-		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
+	if (settings.enable_next_event_estimation) {
+		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+		if (scene_has_lights) {
+			// Trace Shadow Ray
+			float light_u, light_v;
+			int   light_transform_id;
+			int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
-		float3 light_position_0, light_position_edge_1, light_position_edge_2;
-		float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
+			float3 light_position_0, light_position_edge_1, light_position_edge_2;
+			float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
 
-		triangle_get_positions_and_normals(light_id,
-			light_position_0, light_position_edge_1, light_position_edge_2,
-			light_normal_0,   light_normal_edge_1,   light_normal_edge_2
-		);
+			triangle_get_positions_and_normals(light_id,
+				light_position_0, light_position_edge_1, light_position_edge_2,
+				light_normal_0,   light_normal_edge_1,   light_normal_edge_2
+			);
 
-		float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-		float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+			float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+			float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
 
-		float3 light_point;
-		float3 light_normal;
-		mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
+			float3 light_point;
+			float3 light_normal;
+			mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
 
-		float3 to_light = light_point - hit_point;
-		float distance_to_light_squared = dot(to_light, to_light);
-		float distance_to_light         = sqrtf(distance_to_light_squared);
+			float3 to_light = light_point - hit_point;
+			float distance_to_light_squared = dot(to_light, to_light);
+			float distance_to_light         = sqrtf(distance_to_light_squared);
 
-		// Normalize the vector to the light
-		to_light /= distance_to_light;
+			// Normalize the vector to the light
+			to_light /= distance_to_light;
 
-		float cos_o = -dot(to_light, light_normal);
-		float cos_i =  dot(to_light,   hit_normal);
-	
-		// Only trace Shadow Ray if light transport is possible given the normals
-		if (cos_o > 0.0f && cos_i > 0.0f) {
-			// NOTE: N dot L is included here
-			float brdf     = cos_i * ONE_OVER_PI;
-			float brdf_pdf = cos_i * ONE_OVER_PI;
+			float cos_o = -dot(to_light, light_normal);
+			float cos_i =  dot(to_light,   hit_normal);
+		
+			// Only trace Shadow Ray if light transport is possible given the normals
+			if (cos_o > 0.0f && cos_i > 0.0f) {
+				// NOTE: N dot L is included here
+				float brdf     = cos_i * ONE_OVER_PI;
+				float brdf_pdf = cos_i * ONE_OVER_PI;
 
-			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
+				float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-			float light_select_pdf = light_total_count_inv; 
+				float light_select_pdf = light_total_count_inv; 
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-			float light_select_pdf = light_area / light_total_area;
+				float light_select_pdf = light_area / light_total_area;
 #endif
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
+				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
-#if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
-			float mis_pdf = brdf_pdf + light_pdf;
-#else
-			float mis_pdf = light_pdf;
-#endif
+				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
 
-			float3 emission     = materials[triangle_get_material_id(light_id)].emission;
-			float3 illumination = throughput * brdf * emission / mis_pdf;
+				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
+				float3 illumination = throughput * brdf * emission / mis_pdf;
 
-			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
+				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
-			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
-			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
+				ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
+				ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
 
-			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
-			ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-			ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
+				ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
+				ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
+			}
 		}
 	}
-#endif
 
 	if (bounce == NUM_BOUNCES - 1) return;
 
@@ -700,7 +705,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		}
 	}
 
-	if (bounce == 0) {
+	if (settings.demodulate_albedo && bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
@@ -760,91 +765,88 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
 
-	if (bounce == 0) {
+	if (settings.demodulate_albedo && bounce == 0) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
 	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
 	
-#if ENABLE_NEXT_EVENT_ESTIMATION
-	bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
-	if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
-		// Trace Shadow Ray
-		float light_u;
-		float light_v;
-		int   light_transform_id;
-		int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
+	if (settings.enable_next_event_estimation) {
+		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+		if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
+			// Trace Shadow Ray
+			float light_u;
+			float light_v;
+			int   light_transform_id;
+			int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
-		float3 light_position_0, light_position_edge_1, light_position_edge_2;
-		float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
+			float3 light_position_0, light_position_edge_1, light_position_edge_2;
+			float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
 
-		triangle_get_positions_and_normals(light_id,
-			light_position_0, light_position_edge_1, light_position_edge_2,
-			light_normal_0,   light_normal_edge_1,   light_normal_edge_2
-		);
+			triangle_get_positions_and_normals(light_id,
+				light_position_0, light_position_edge_1, light_position_edge_2,
+				light_normal_0,   light_normal_edge_1,   light_normal_edge_2
+			);
 
-		float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-		float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+			float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+			float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
 
-		float3 light_point;
-		float3 light_normal;
-		mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
+			float3 light_point;
+			float3 light_normal;
+			mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
 
-		float3 to_light = light_point - hit_point;
-		float distance_to_light_squared = dot(to_light, to_light);
-		float distance_to_light         = sqrtf(distance_to_light_squared);
+			float3 to_light = light_point - hit_point;
+			float distance_to_light_squared = dot(to_light, to_light);
+			float distance_to_light         = sqrtf(distance_to_light_squared);
 
-		// Normalize the vector to the light
-		to_light /= distance_to_light;
+			// Normalize the vector to the light
+			to_light /= distance_to_light;
 
-		float cos_o = -dot(to_light, light_normal);
-		float cos_i =  dot(to_light,   hit_normal);
+			float cos_o = -dot(to_light, light_normal);
+			float cos_i =  dot(to_light,   hit_normal);
 
-		// Only trace Shadow Ray if light transport is possible given the normals
-		if (cos_o > 0.0f && cos_i > 0.0f) {
-			float3 half_vector = normalize(to_light + direction_in);
+			// Only trace Shadow Ray if light transport is possible given the normals
+			if (cos_o > 0.0f && cos_i > 0.0f) {
+				float3 half_vector = normalize(to_light + direction_in);
 
-			float i_dot_n = dot(direction_in, hit_normal);
-			float m_dot_n = dot(half_vector,  hit_normal);
+				float i_dot_n = dot(direction_in, hit_normal);
+				float m_dot_n = dot(half_vector,  hit_normal);
 
-			float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
-			float D = microfacet_D(m_dot_n, alpha);
-			float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
+				float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
+				float D = microfacet_D(m_dot_n, alpha);
+				float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
 
-			// NOTE: N dot L is omitted from the denominator here
-			float brdf     = (F * G * D) / (4.0f * i_dot_n);
-			float brdf_pdf = F * D * m_dot_n / (4.0f * dot(half_vector, direction_in));
-			
-			float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
+				// NOTE: N dot L is omitted from the denominator here
+				float brdf     = (F * G * D) / (4.0f * i_dot_n);
+				float brdf_pdf = F * D * m_dot_n / (4.0f * dot(half_vector, direction_in));
+				
+				float light_area = 0.5f * length(cross(light_position_edge_1, light_position_edge_2));
 
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-			float light_select_pdf = light_total_count_inv;
+				float light_select_pdf = light_total_count_inv;
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
-			float light_select_pdf = light_area / light_total_area;
+				float light_select_pdf = light_area / light_total_area;
 #endif
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
+				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
-#if ENABLE_MULTIPLE_IMPORTANCE_SAMPLING
-			float mis_pdf = brdf_pdf + light_pdf;
-#else
-			float mis_pdf = light_pdf;
-#endif
-			float3 emission     = materials[triangle_get_material_id(light_id)].emission;
-			float3 illumination = throughput * brdf * emission / mis_pdf;
+				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
 
-			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
+				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
+				float3 illumination = throughput * brdf * emission / mis_pdf;
 
-			ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
-			ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
+				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
-			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+				ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
+				ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
 
-			ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-			ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
+				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+
+				ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
+				ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
+			}
 		}
 	}
-#endif
 
 	if (bounce == NUM_BOUNCES - 1) return;
 
@@ -1000,7 +1002,9 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 	accumulator.set(x, y, colour);
 
 	// Clear frame buffers for next frame
-	frame_buffer_albedo  [pixel_index] = make_float4(0.0f);
+	if (settings.demodulate_albedo) {
+		frame_buffer_albedo[pixel_index] = make_float4(0.0f);
+	}
 	frame_buffer_direct  [pixel_index] = make_float4(0.0f);
 	frame_buffer_indirect[pixel_index] = make_float4(0.0f);
 }

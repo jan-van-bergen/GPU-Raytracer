@@ -195,6 +195,8 @@ int main(int argument_count, char ** arguments) {
 			bool settings_changed = false;
 
 			settings_changed |= ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.enable_rasterization);
+			settings_changed |= ImGui::Checkbox("NEE",                    &pathtracer.settings.enable_next_event_estimation);
+			settings_changed |= ImGui::Checkbox("MIS",                    &pathtracer.settings.enable_multiple_importance_sampling);
 			settings_changed |= ImGui::Checkbox("Update Scene",           &pathtracer.enable_scene_update);
 			settings_changed |= ImGui::Checkbox("SVGF",                   &pathtracer.enable_svgf);
 			settings_changed |= ImGui::Checkbox("Spatial Variance",       &pathtracer.enable_spatial_variance);
