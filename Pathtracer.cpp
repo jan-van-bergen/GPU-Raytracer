@@ -781,6 +781,8 @@ void Pathtracer::update(float delta) {
 		if (!enable_svgf) {
 			frames_since_camera_moved = 0;
 		}
+	} else {
+		scene.update(0.0f); // Update with 0 delta to make sure previous Transforms match current Transforms
 	}
 
 	scene.camera.update(delta, enable_rasterization);
