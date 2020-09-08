@@ -250,7 +250,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes);
 #endif
 
-	tlas_bvh_builder.init(&tlas_raw, mesh_count);
+	tlas_bvh_builder.init(&tlas_raw, mesh_count, 1);
 
 	tlas_raw.node_count = mesh_count * 2;
 #if BVH_TYPE == BVH_QBVH || BVH_TYPE == BVH_CWBVH

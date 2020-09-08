@@ -140,13 +140,15 @@ int MeshData::load(const char * filename) {
 		FREEA(mtl_filename);
 	} else {
 		OBJLoader::load_obj(filename, mesh_data);
+		
+		int max_primitives_in_leaf = BVH_TYPE == BVH_CWBVH ? 1 : INT_MAX; 
 
 #if BVH_TYPE == BVH_BVH
 		{
 			ScopeTimer timer("BVH Construction");
 			
 			BVHBuilder bvh_builder;
-			bvh_builder.init(&bvh, mesh_data->triangle_count);
+			bvh_builder.init(&bvh, mesh_data->triangle_count, max_primitives_in_leaf);
 			bvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
 			bvh_builder.free();
 		}
@@ -155,7 +157,7 @@ int MeshData::load(const char * filename) {
 			ScopeTimer timer("SBVH Construction");
 
 			SBVHBuilder sbvh_builder;
-			sbvh_builder.init(&bvh, mesh_data->triangle_count);
+			sbvh_builder.init(&bvh, mesh_data->triangle_count, max_primitives_in_leaf);
 			sbvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
 			sbvh_builder.free();
 		}

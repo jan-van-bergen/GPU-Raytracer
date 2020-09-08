@@ -14,9 +14,14 @@ private:
 	float * sah     = nullptr;
 	int   * temp[2] = { };
 
+	int max_primitives_in_leaf;
+
+	int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, int * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area);
+
 public:
-	inline void init(BVH * sbvh, int triangle_count) {
+	inline void init(BVH * sbvh, int triangle_count, int max_primitives_in_leaf) {
 		this->sbvh = sbvh;
+		this->max_primitives_in_leaf = max_primitives_in_leaf;
 
 		indices_x = new int[SBVH_OVERALLOCATION * triangle_count];
 		indices_y = new int[SBVH_OVERALLOCATION * triangle_count];

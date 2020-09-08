@@ -93,14 +93,12 @@ struct Settings {
 
 #define BVH_TYPE BVH_CWBVH
 
-#define BVH_STACK_SIZE 32
-
-#define SBVH_MAX_PRIMITIVES_IN_LEAF 1
-
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to
 // intersect triangles we postpone the intersection test to decrease divergence within a Warp
 #define CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR 5
+
+#define BVH_STACK_SIZE 32
 
 // Portion of the Stack that resides in Shared Memory
 #define SHARED_STACK_SIZE 8
