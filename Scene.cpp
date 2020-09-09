@@ -86,6 +86,9 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 	} else if (strstr(scene_name_lower, "rungholt.obj")) {
 		camera.position = Vector3(-22.413084f, 18.681219f, -23.566196f);
 		camera.rotation = Quaternion(0.000000f, 0.716948f, 0.000000f, -0.697125f);
+	} else if (strstr(scene_name_lower, "classroom.obj")) {	
+		camera.position = Vector3(2.557739f, 0.937730f, 3.667560f);
+		camera.rotation = Quaternion(0.000000f, -0.400390f, 0.000000f, -0.916341f);
 	} else {
 		camera.position = Vector3(1.272743f, 3.097532f, -3.189943f);
 		camera.rotation = Quaternion(0.000000f, 0.995683f, 0.000000f, -0.092814f);

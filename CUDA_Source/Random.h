@@ -92,10 +92,10 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 	float random_value = random_float_xorshift(seed) * light_total_area;
 
 	int   light_mesh_id = 0;
-	float light_area_cumulative = light_mesh_area[light_mesh_id];
+	float light_area_cumulative = light_mesh_area_scaled[0];
 
 	while (random_value > light_area_cumulative) {
-		light_area_cumulative += light_mesh_area[++light_mesh_id];
+		light_area_cumulative += light_mesh_area_scaled[++light_mesh_id];
 	}
 
 	// Pick random light emitting Triangle on the Mesh based on area
@@ -105,14 +105,14 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 	int index_left  = triangle_first_index;
 	int index_right = triangle_first_index + triangle_count - 1;
 
-	random_value = random_float_xorshift(seed);
+	random_value = random_float_xorshift(seed) * light_mesh_area_unscaled[light_mesh_id];
 
 	// Binary search
 	int light_triangle_id;
 	while (true) {
 		int index_middle = (index_left + index_right) / 2;
 
-		if (index_middle > triangle_first_index && random_value < light_areas_cumulative[index_middle - 1]) {
+		if (index_middle > triangle_first_index && random_value <= light_areas_cumulative[index_middle - 1]) {
 			index_right = index_middle - 1;
 		} else if (random_value > light_areas_cumulative[index_middle]) {
 			index_left = index_middle + 1;

@@ -229,7 +229,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
 	pinned_mesh_transforms_inv          = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
 	pinned_light_mesh_transform_indices = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
-	pinned_light_mesh_area              = CUDAMemory::malloc_pinned<float>    (scene.mesh_count);
+	pinned_light_mesh_area_scaled       = CUDAMemory::malloc_pinned<float>    (scene.mesh_count);
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.mesh_count);
 	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
@@ -366,7 +366,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 					light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], area });
 
 					light_mesh->triangle_count++;
-					light_mesh->area += area;
 				}
 			}
 
@@ -385,17 +384,18 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		float * light_areas_cumulative = new float[light_triangles.size()];
 
 		for (int m = 0; m < light_meshes.size(); m++) {
-			const LightMesh & light_mesh = light_meshes[m];
-			float light_mesh_area_inv = 1.0f / light_mesh.area;
+			LightMesh & light_mesh = light_meshes[m];
 
 			float cumulative_area = 0.0f;
 
 			for (int i = light_mesh.triangle_first_index; i < light_mesh.triangle_first_index + light_mesh.triangle_count; i++) {
 				light_indices[i] = light_triangles[i].index;
 
-				cumulative_area += light_triangles[i].area * light_mesh_area_inv;
+				cumulative_area += light_triangles[i].area;
 				light_areas_cumulative[i] = cumulative_area;
 			}
+
+			light_mesh.area = cumulative_area;
 		}
 
 		module.get_global("light_indices")         .set_buffer(light_indices,          light_triangles.size());
@@ -404,8 +404,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		delete [] light_indices;
 		delete [] light_areas_cumulative;
 
-		int   * light_mesh_triangle_count       = MALLOCA(int, mesh_count);
-		int   * light_mesh_triangle_first_index = MALLOCA(int, mesh_count);
+		float * light_mesh_area_unscaled        = MALLOCA(float, mesh_count);
+		int   * light_mesh_triangle_count       = MALLOCA(int,   mesh_count);
+		int   * light_mesh_triangle_first_index = MALLOCA(int,   mesh_count);
 		
 		int light_total_count = 0;
 		int light_mesh_count  = 0;
@@ -422,6 +423,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 				int mesh_index = light_mesh_count++;
 				assert(mesh_index < mesh_count);
 
+				light_mesh_area_unscaled       [mesh_index] = light_mesh.area;
 				light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
 				light_mesh_triangle_count      [mesh_index] = light_mesh.triangle_count;
 
@@ -432,16 +434,18 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		module.get_global("light_total_count_inv").set_value(1.0f / float(light_total_count));
 		module.get_global("light_mesh_count")     .set_value(light_mesh_count);
 
+		module.get_global("light_mesh_area_unscaled")       .set_buffer(light_mesh_area_unscaled,        light_mesh_count);
 		module.get_global("light_mesh_triangle_count")      .set_buffer(light_mesh_triangle_count,       light_mesh_count);
 		module.get_global("light_mesh_triangle_first_index").set_buffer(light_mesh_triangle_first_index, light_mesh_count);
 
 		ptr_light_total_area = module.get_global("light_total_area").ptr;
-		ptr_light_mesh_area              = CUDAMemory::malloc<float>(light_mesh_count);
+		ptr_light_mesh_area_scaled       = CUDAMemory::malloc<float>(light_mesh_count);
 		ptr_light_mesh_transform_indices = CUDAMemory::malloc<int>  (light_mesh_count);
 
-		module.get_global("light_mesh_area")             .set_value(ptr_light_mesh_area);
+		module.get_global("light_mesh_area_scaled")      .set_value(ptr_light_mesh_area_scaled);
 		module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
 
+		FREEA(light_mesh_area_unscaled);
 		FREEA(light_mesh_triangle_count);
 		FREEA(light_mesh_triangle_first_index);
 
@@ -752,7 +756,7 @@ void Pathtracer::build_tlas() {
 			assert(mesh.light_index < scene.mesh_count);
 
 			pinned_light_mesh_transform_indices[mesh.light_index] = i;
-			pinned_light_mesh_area             [mesh.light_index] = light_area_scaled;
+			pinned_light_mesh_area_scaled      [mesh.light_index] = light_area_scaled;
 			
 			light_count++;
 			light_total_area += light_area_scaled;
@@ -766,7 +770,7 @@ void Pathtracer::build_tlas() {
 	if (scene.has_lights) {
 		CUDAMemory::memcpy(ptr_light_total_area, &light_total_area);
 		CUDAMemory::memcpy(ptr_light_mesh_transform_indices, pinned_light_mesh_transform_indices, light_count);
-		CUDAMemory::memcpy(ptr_light_mesh_area,              pinned_light_mesh_area,              light_count);
+		CUDAMemory::memcpy(ptr_light_mesh_area_scaled,       pinned_light_mesh_area_scaled,       light_count);
 	}
 }
 

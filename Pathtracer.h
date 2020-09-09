@@ -133,7 +133,7 @@ private:
 	Matrix3x4 * pinned_mesh_transforms;
 	Matrix3x4 * pinned_mesh_transforms_inv;
 	int       * pinned_light_mesh_transform_indices;
-	float     * pinned_light_mesh_area;
+	float     * pinned_light_mesh_area_scaled;
 
 	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
@@ -141,7 +141,7 @@ private:
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
 
 	CUDAMemory::Ptr<float> ptr_light_total_area;
-	CUDAMemory::Ptr<float> ptr_light_mesh_area;
+	CUDAMemory::Ptr<float> ptr_light_mesh_area_scaled;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
 
 	void build_tlas();
