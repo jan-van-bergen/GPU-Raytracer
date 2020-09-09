@@ -16,9 +16,6 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 		return node.count;
 	}
 	
-	node.left = node_index;
-	node_index += 2;
-
 	// Object Split information
 	float object_split_cost;
 	int   object_split_dimension;
@@ -72,10 +69,13 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 			return node.count;
 		} 
 	}
-
+	
 	if (object_split_cost == INFINITY && spatial_split_cost == INFINITY) abort();
 
 	// From this point on it is decided that this Node will NOT be a leaf Node
+	node.left = node_index;
+	node_index += 2;
+
 	node.count = (object_split_dimension + 1) << 30;
 		
 	int * children_left [3] { indices[0] + first_index, indices[1] + first_index, indices[2] + first_index };
