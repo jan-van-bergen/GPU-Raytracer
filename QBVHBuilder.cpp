@@ -120,6 +120,24 @@ void QBVHBuilder::build(const BVH & bvh) {
 		}
 	}
 
-	// Collapse top-down, starting from the root
-	collapse(0);
+	// Check for the special case where the root is a leaf
+	if (bvh.nodes[0].is_leaf()) {
+		qbvh->nodes[0].aabb_min_x[0] = bvh.nodes[0].aabb.min.x;
+		qbvh->nodes[0].aabb_min_y[0] = bvh.nodes[0].aabb.min.y;
+		qbvh->nodes[0].aabb_min_z[0] = bvh.nodes[0].aabb.min.z;
+		qbvh->nodes[0].aabb_max_x[0] = bvh.nodes[0].aabb.max.x;
+		qbvh->nodes[0].aabb_max_y[0] = bvh.nodes[0].aabb.max.y;
+		qbvh->nodes[0].aabb_max_z[0] = bvh.nodes[0].aabb.max.z;
+
+		qbvh->nodes[0].get_index(0) = bvh.nodes[0].first;
+		qbvh->nodes[0].get_count(0) = bvh.nodes[0].get_count();
+
+		for (int i = 1; i < 4; i++) {
+			qbvh->nodes[0].get_index(i) = -1;
+			qbvh->nodes[0].get_count(i) = -1;
+		}
+	} else {
+		// Collapse tree top-down, starting from the root
+		collapse(0);
+	}
 }
