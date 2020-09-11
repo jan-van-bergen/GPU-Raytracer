@@ -17,6 +17,10 @@ struct Texture {
 	__device__ inline T get_lod(float s, float t, float lod) const {
 		return tex2DLod<T>(texture, s, t, lod);
 	}
+
+	__device__ inline T get_grad(float s, float t, float2 dx, float2 dy) const {
+		return tex2DGrad<T>(texture, s, t, dx, dy);
+	}
 };
 
 template<typename T>

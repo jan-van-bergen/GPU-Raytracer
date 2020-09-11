@@ -3,8 +3,6 @@
 
 #include <cuda.h>
 
-#include "CUDA_Source/Common.h"
-
 struct Texture {
 	enum class Format {
 		RGBA_COMPRESSED_BC1,
@@ -13,12 +11,15 @@ struct Texture {
 		RGBA
 	};
 
-	unsigned char * data = nullptr;
-
+	const unsigned char * data;
+	
 	Format format = Format::RGBA;
-
+	
 	int channels;
 	int width, height;
+
+	int   mip_levels;
+	int * mip_offsets; // Offsets in bytes
 
 	CUarray_format       get_cuda_array_format() const;
 	CUresourceViewFormat get_cuda_resource_view_format() const;

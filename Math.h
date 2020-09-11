@@ -15,6 +15,30 @@ namespace Math {
 	template<typename T> inline T min(T a, T b) { return a < b ? a : b;}
 	template<typename T> inline T max(T a, T b) { return a > b ? a : b;}
 
+	inline float linear_to_gamma(float x) {
+		if (x <= 0.0f) {
+			return 0.0f;
+		} else if (x >= 1.0f) {
+			return 1.0f;
+		} else if (x < 0.0031308f) {
+			return x * 12.92f;
+		} else {
+			return powf(x, 1.0f / 2.4f) * 1.055f - 0.055f;
+		}
+	}
+
+	inline float gamma_to_linear(float x) {
+		if (x <= 0.0f) {
+			return 0.0f;
+		} else if (x >= 1.0f) {
+			return 1.0f;
+		} else if (x < 0.04045f) {
+			return x / 12.92f;
+		} else {
+			return powf((x + 0.055f) / 1.055f, 2.4f);
+		}
+	}
+
 	// Checks if n is a power of two
 	inline constexpr bool is_power_of_two(int n) {
 		if (n == 0) return false;

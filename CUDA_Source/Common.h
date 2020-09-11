@@ -24,7 +24,7 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
-	bool enable_rasterization                = true;
+	bool enable_rasterization                = false;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_scene_update                 = false;

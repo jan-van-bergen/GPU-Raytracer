@@ -46,11 +46,12 @@ namespace CUDAMemory {
 		CUDACALL(cuMemcpyHtoD(ptr.ptr, data, count * sizeof(T)));
 	}
 
-	CUarray create_array  (int width, int height,            int channels, CUarray_format format);
-	CUarray create_array3d(int width, int height, int depth, int channels, CUarray_format format, unsigned flags);
+	CUarray          create_array       (int width, int height, int channels, CUarray_format format);
+	CUmipmappedArray create_array_mipmap(int width, int height, int channels, CUarray_format format, int level_count);
 
 	// Copies data from the Host Texture to the Device Array
 	void copy_array(CUarray array, int width_in_bytes, int height, const void * data);
+	void copy_array_3d(CUarray array, int width_in_bytes, int height, const void * data);
 	
 	// Graphics Resource management (for OpenGL interop)
 	CUgraphicsResource resource_register(unsigned gl_texture, unsigned flags);

@@ -29,6 +29,12 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
+	CUDAVector3_SoA dO_dx;
+	CUDAVector3_SoA dO_dy;
+	CUDAVector3_SoA dD_dx;
+	CUDAVector3_SoA dD_dy;
+
+	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
@@ -41,7 +47,13 @@ struct TraceBuffer {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
 
-		hits = CUDAMemory::malloc<float4>(buffer_size);
+		dO_dx.init(buffer_size);
+		dO_dy.init(buffer_size);
+		dD_dx.init(buffer_size);
+		dD_dy.init(buffer_size);
+
+		hit_ts = CUDAMemory::malloc<float> (buffer_size);
+		hits   = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -53,7 +65,13 @@ struct TraceBuffer {
 
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
+	
+	CUDAVector3_SoA dO_dx;
+	CUDAVector3_SoA dO_dy;
+	CUDAVector3_SoA dD_dx;
+	CUDAVector3_SoA dD_dy;
 
+	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
@@ -61,8 +79,14 @@ struct MaterialBuffer {
 
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
+		
+		dO_dx.init(buffer_size);
+		dO_dy.init(buffer_size);
+		dD_dx.init(buffer_size);
+		dD_dy.init(buffer_size);
 
-		hits = CUDAMemory::malloc<float4>(buffer_size);
+		hit_ts = CUDAMemory::malloc<float> (buffer_size);
+		hits   = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -121,37 +145,58 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	int texture_count = Texture::textures.size();
 	if (texture_count > 0) {
 		CUtexObject * tex_objects = new CUtexObject[texture_count];
+		
+		// Get maximum anisotropy from OpenGL
+		int max_aniso; glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso);
 
 		for (int i = 0; i < texture_count; i++) {
 			const Texture & texture = Texture::textures[i];
 
-			// Create Array on GPU
-			CUarray array = CUDAMemory::create_array(
+			// Create mipmapped CUDA array
+			CUmipmappedArray array = CUDAMemory::create_array_mipmap(
 				texture.width,
 				texture.height,
 				texture.channels,
-				texture.get_cuda_array_format()
+				texture.get_cuda_array_format(),
+				texture.mip_levels
 			);
 
-			// Copy Texture data over to GPU
-			CUDAMemory::copy_array(array, texture.get_width_in_bytes(), texture.height, texture.data);
+			// Upload each level of the mipmap
+			for (int level = 0; level < texture.mip_levels; level++) {
+				CUarray level_array;
+				CUDACALL(cuMipmappedArrayGetLevel(&level_array, array, level));
+
+				int level_width_in_bytes = texture.get_width_in_bytes() >> level;
+				int level_height         = texture.height               >> level;
+
+				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data + texture.mip_offsets[level]);
+			}
 
 			// Describe the Array to read from
 			CUDA_RESOURCE_DESC res_desc = { };
-			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
-			res_desc.res.array.hArray = array;
+			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_MIPMAPPED_ARRAY;
+			res_desc.res.mipmap.hMipmappedArray = array;
 
 			// Describe how to sample the Texture
 			CUDA_TEXTURE_DESC tex_desc = { };
 			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
-			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
+			tex_desc.addressMode[2] = CUaddress_mode::CU_TR_ADDRESS_MODE_CLAMP;
+			tex_desc.filterMode       = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.mipmapFilterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.mipmapLevelBias = 0;
+			tex_desc.maxAnisotropy = max_aniso;
+			tex_desc.minMipmapLevelClamp = 0;
+			tex_desc.maxMipmapLevelClamp = texture.mip_levels;
+			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
+			// Describe the Texture View
 			CUDA_RESOURCE_VIEW_DESC view_desc = { };
 			view_desc.format = texture.get_cuda_resource_view_format();
 			view_desc.width  = texture.get_cuda_resource_view_width();
 			view_desc.height = texture.get_cuda_resource_view_height();
+			view_desc.firstMipmapLevel = 0;
+			view_desc.lastMipmapLevel  = texture.mip_levels;
 
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, &view_desc));
 		}
@@ -466,17 +511,11 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 
 	// Initialize buffers used by Wavefront kernels
-	TraceBuffer     ray_buffer_trace;
-	MaterialBuffer  ray_buffer_shade_diffuse;
-	MaterialBuffer  ray_buffer_shade_dielectric;
-	MaterialBuffer  ray_buffer_shade_glossy;
-	ShadowRayBuffer ray_buffer_shadow;
-
-	                          ray_buffer_trace           .init(batch_size);
-	if (scene.has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);
-	if (scene.has_dielectric) ray_buffer_shade_dielectric.init(batch_size);
-	if (scene.has_glossy)     ray_buffer_shade_glossy    .init(batch_size);
-	if (scene.has_lights)     ray_buffer_shadow          .init(batch_size);
+	TraceBuffer     ray_buffer_trace;                                      ray_buffer_trace           .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_diffuse;    if (scene.has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_dielectric; if (scene.has_dielectric) ray_buffer_shade_dielectric.init(batch_size);
+	MaterialBuffer  ray_buffer_shade_glossy;     if (scene.has_glossy)     ray_buffer_shade_glossy    .init(batch_size);
+	ShadowRayBuffer ray_buffer_shadow;           if (scene.has_lights)     ray_buffer_shadow          .init(batch_size);
 
 	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);

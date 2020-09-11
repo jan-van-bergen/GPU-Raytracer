@@ -32,20 +32,32 @@ __device__ __constant__ int       * mesh_bvh_root_indices;
 __device__ __constant__ Matrix3x4 * mesh_transforms;
 __device__ __constant__ Matrix3x4 * mesh_transforms_inv;
 
-__device__ inline void mesh_transform_point_and_normal(int mesh_id, const float3 & point_in, const float3 & normal_in, float3 & point_out, float3 & normal_out) {
+__device__ inline void mesh_transform_position_and_direction(int mesh_id, float3 & position, float3 & direction) {
 	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
 	float4 row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
 	float4 row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
 
-	point_out = make_float3( // Transform as position (w = 1)
-		row_0.x * point_in.x + row_0.y * point_in.y + row_0.z * point_in.z + row_0.w,
-		row_1.x * point_in.x + row_1.y * point_in.y + row_1.z * point_in.z + row_1.w,
-		row_2.x * point_in.x + row_2.y * point_in.y + row_2.z * point_in.z + row_2.w
+	position = make_float3( // Transform as position (w = 1)
+		row_0.x * position.x + row_0.y * position.y + row_0.z * position.z + row_0.w,
+		row_1.x * position.x + row_1.y * position.y + row_1.z * position.z + row_1.w,
+		row_2.x * position.x + row_2.y * position.y + row_2.z * position.z + row_2.w
 	);
-	normal_out = make_float3( // Transform as direction (w = 0)
-		row_0.x * normal_in.x + row_0.y * normal_in.y + row_0.z * normal_in.z,
-		row_1.x * normal_in.x + row_1.y * normal_in.y + row_1.z * normal_in.z,
-		row_2.x * normal_in.x + row_2.y * normal_in.y + row_2.z * normal_in.z
+	direction = make_float3( // Transform as direction (w = 0)
+		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
+		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
+		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
+	);
+}
+
+__device__ inline void mesh_transform_direction(int mesh_id, float3 & direction) {
+	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
+	float4 row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
+	float4 row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
+
+	direction = make_float3( // Transform as direction (w = 0)
+		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
+		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
+		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
 	);
 }
 
@@ -998,6 +1010,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
+					ray_buffer_trace.hit_ts[ray_index] = ray_hit.t;
 					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
 
 					current_group.y = 0;
