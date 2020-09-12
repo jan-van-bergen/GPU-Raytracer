@@ -74,6 +74,10 @@ struct Settings {
 #define MAX_ATROUS_ITERATIONS 10
 
 
+// Mipmapping
+#define ENABLE_MIPMAPPING false
+
+
 // Microfacet
 #define MICROFACET_BECKMANN 0 
 #define MICROFACET_GGX      1

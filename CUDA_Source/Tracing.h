@@ -357,7 +357,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
+				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
 
 				break;
 			}
@@ -655,7 +655,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
+				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
 
 				break;
 			}
@@ -1013,8 +1013,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
-					ray_buffer_trace.hit_ts[ray_index] = ray_hit.t;
-					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
+					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
 
 					current_group.y = 0;
 

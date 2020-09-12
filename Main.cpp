@@ -136,7 +136,7 @@ int main(int argument_count, char ** arguments) {
 		ImGui::Begin("Pathtracer");
 
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_since_camera_moved);
+			ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_accumulated);
 			ImGui::Text("Delta: %.2f ms", 1000.0f * delta_time);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
 			ImGui::Text("Min:   %.2f ms", 1000.0f * min);

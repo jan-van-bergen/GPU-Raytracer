@@ -1,5 +1,6 @@
 #include "cudart/vector_types.h"
 #include "cudart/cuda_math.h"
+#include "cudart/cuda_fp16.h"
 
 #include "Common.h"
 
@@ -76,17 +77,22 @@ struct Vector3_SoA {
 struct HitBuffer {
 	float4 * hits;
 
-	__device__ void set(int index, int mesh_id, int triangle_id, float u, float v) {
-		hits[index] = make_float4(uint_as_float(mesh_id), uint_as_float(triangle_id), u, v);
+	__device__ void set(int index, int mesh_id, int triangle_id, float t, float u, float v) {
+		unsigned uv = __half_as_ushort(__float2half_rn(u)) | (__half_as_ushort(__float2half_rn(v)) << 16);
+		hits[index] = make_float4(uint_as_float(mesh_id), uint_as_float(triangle_id), t, uint_as_float(uv));
 	}
 
-	__device__ void get(int index, int & mesh_id, int & triangle_id, float & u, float & v) const {
+	__device__ void get(int index, int & mesh_id, int & triangle_id, float & t, float & u, float & v) const {
 		float4 hit = __ldg(&hits[index]);
 
 		mesh_id     = float_as_uint(hit.x);
 		triangle_id = float_as_uint(hit.y);
-		u = hit.z;
-		v = hit.w;
+		
+		t = hit.z;
+
+		unsigned uv = float_as_uint(hit.w);
+		u = __half2float(__ushort_as_half(uv & 0xffff));
+		v = __half2float(__ushort_as_half((uv >> 16)));
 	}
 };
 
@@ -94,11 +100,8 @@ struct HitBuffer {
 struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
-	
-	Vector3_SoA dO_dx;
-	Vector3_SoA dO_dy;
-	Vector3_SoA dD_dx;
-	Vector3_SoA dD_dy;
+
+	float * cone_width;
 
 	float   * hit_ts;
 	HitBuffer hits;
@@ -113,11 +116,8 @@ struct TraceBuffer {
 // Input to the various Shade Kernels in SoA layout
 struct MaterialBuffer {
 	Vector3_SoA direction;	
-		
-	Vector3_SoA dO_dx;
-	Vector3_SoA dO_dy;
-	Vector3_SoA dD_dx;
-	Vector3_SoA dD_dy;
+
+	float * cone_width;
 
 	float   * hit_ts;
 	HitBuffer hits;
@@ -160,6 +160,13 @@ struct BufferSizes {
 
 #include "Tracing.h"
 
+struct Camera {
+	float3 position;
+	float3 bottom_left_corner;
+	float3 x_axis;
+	float3 y_axis;
+} __device__ __constant__ camera;
+
 // Sends the rasterized GBuffer to the right Material kernels,
 // as if the primary Rays they were Raytraced 
 extern "C" __global__ void kernel_primary(
@@ -167,11 +174,7 @@ extern "C" __global__ void kernel_primary(
 	int sample_index,
 	int pixel_offset,
 	int pixel_count,
-	bool jitter,
-	float3 camera_position,
-	float3 camera_bottom_left_corner,
-	float3 camera_x_axis,
-	float3 camera_y_axis
+	bool jitter
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= pixel_count) return;
@@ -209,22 +212,17 @@ extern "C" __global__ void kernel_primary(
 		uv.y = saturate(uv.y + uv_gradient.y * dx + uv_gradient.w * dy);
 	}
 
-	sample_xy[pixel_index] = make_float2(
-		u_screenspace + dx,
-		v_screenspace + dy
-	);
+	float2 pixel_coord = make_float2(u_screenspace + dx, v_screenspace + dy);
+	sample_xy[pixel_index] = pixel_coord;
 
-	float3 ray_direction = normalize(camera_bottom_left_corner
-		+ (u_screenspace + dx) * camera_x_axis
-		+ (v_screenspace + dy) * camera_y_axis
-	);
+	float3 ray_direction = camera.bottom_left_corner + pixel_coord.x * camera.x_axis + pixel_coord.y * camera.y_axis;
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
 		if (settings.demodulate_albedo || settings.enable_svgf) {
 			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 		}
-		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
+		frame_buffer_direct[pixel_index] = make_float4(sample_sky(normalize(ray_direction)));
 
 		return;
 	}
@@ -248,7 +246,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
+			ray_buffer_shade_diffuse.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
@@ -261,7 +259,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
+			ray_buffer_shade_dielectric.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
@@ -274,7 +272,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
+			ray_buffer_shade_glossy.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
@@ -288,11 +286,7 @@ extern "C" __global__ void kernel_generate(
 	int rand_seed,
 	int sample_index,
 	int pixel_offset,
-	int pixel_count,
-	float3 camera_position,
-	float3 camera_bottom_left_corner,
-	float3 camera_x_axis,
-	float3 camera_y_axis
+	int pixel_count
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= pixel_count) return;
@@ -312,25 +306,11 @@ extern "C" __global__ void kernel_generate(
 
 	sample_xy[pixel_index] = make_float2(x_jittered, y_jittered);
 
-	// Calculate Ray direction and its derivative w.r.t. screen space coordinates
-	float3 direction_unnormalized = camera_bottom_left_corner + x_jittered * camera_x_axis + y_jittered * camera_y_axis;
-
-	float          d_dot_d = dot(direction_unnormalized, direction_unnormalized);
-	float inv_sqrt_d_dot_d = rsqrt(d_dot_d);
-
-	float denom = inv_sqrt_d_dot_d / d_dot_d; // d_dot_d ^ -3/2
-
-	float3 direction_normalized = direction_unnormalized * inv_sqrt_d_dot_d;
+	float3 direction_unnormalized = camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis;
 
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
-	ray_buffer_trace.origin   .from_float3(index, camera_position);
-	ray_buffer_trace.direction.from_float3(index, direction_normalized);
-
-	ray_buffer_trace.dO_dx.from_float3(index, make_float3(0.0f));
-	ray_buffer_trace.dO_dy.from_float3(index, make_float3(0.0f));
-
-	ray_buffer_trace.dD_dx.from_float3(index, (d_dot_d * camera_x_axis - dot(direction_unnormalized, camera_x_axis) * direction_unnormalized) * denom);
-	ray_buffer_trace.dD_dy.from_float3(index, (d_dot_d * camera_y_axis - dot(direction_unnormalized, camera_y_axis) * direction_unnormalized) * denom);
+	ray_buffer_trace.origin   .from_float3(index, camera.position);
+	ray_buffer_trace.direction.from_float3(index, direction_unnormalized);
 
 	ray_buffer_trace.pixel_index[index] = pixel_index;
 	ray_buffer_trace.throughput.from_float3(index, make_float3(1.0f));
@@ -351,16 +331,17 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	int   hit_mesh_id;
 	int   hit_triangle_id;
+	float hit_t;
 	float hit_u;
 	float hit_v;
-	ray_buffer_trace.hits.get(index, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
+	ray_buffer_trace.hits.get(index, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
 
 	// If we didn't hit anything, sample the Sky
 	if (hit_triangle_id == -1) {
-		float3 illumination = ray_throughput * sample_sky(ray_direction);
+		float3 illumination = ray_throughput * sample_sky(normalize(ray_direction));
 
 		if (bounce == 0) {
 			if (settings.demodulate_albedo || settings.enable_svgf) {
@@ -423,8 +404,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
 		
-			// ray_direction is the same direction as light is same direction as to_light, but normalized
-			to_light = ray_direction;
+			to_light /= distance_to_light;
 
 			float cos_o = fabsf(dot(to_light, light_normal));
 			// if (cos_o <= 0.0f) return;
@@ -470,17 +450,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			if (bounce == 0) {
-				ray_buffer_shade_diffuse.dO_dx.from_float3(index_out, ray_buffer_trace.dO_dx.to_float3(index));
-				ray_buffer_shade_diffuse.dO_dy.from_float3(index_out, ray_buffer_trace.dO_dy.to_float3(index));
-				ray_buffer_shade_diffuse.dD_dx.from_float3(index_out, ray_buffer_trace.dD_dx.to_float3(index));
-				ray_buffer_shade_diffuse.dD_dy.from_float3(index_out, ray_buffer_trace.dD_dy.to_float3(index));
-				
-				ray_buffer_shade_diffuse.hit_ts[index_out] = ray_buffer_trace.hit_ts[index];
-			}
-
-			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
-
+			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
+			
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
 
@@ -492,7 +463,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
+			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
@@ -505,7 +476,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
+			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
@@ -523,9 +494,10 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	int   ray_mesh_id;
 	int   ray_triangle_id;
+	float ray_t;
 	float ray_u;
 	float ray_v;
-	ray_buffer_shade_diffuse.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
+	ray_buffer_shade_diffuse.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -558,44 +530,43 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	hit_normal = normalize(hit_normal);
 	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 	
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	float2 dx = make_float2(0.0f);
 	float2 dy = make_float2(0.0f);
 
-	float3 dP_dx = make_float3(0.0f);
-	float3 dP_dy = make_float3(0.0f);
-
+#if ENABLE_MIPMAPPING
 	if (bounce == 0) {
-		float3 ray_dO_dx = ray_buffer_shade_diffuse.dO_dx.to_float3(index);
-		float3 ray_dO_dy = ray_buffer_shade_diffuse.dO_dy.to_float3(index);
+		// Formulae from Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
+		float          d_dot_d = dot(ray_direction, ray_direction);
+		float inv_sqrt_d_dot_d = rsqrt(d_dot_d);
 
-		float3 ray_dD_dx = ray_buffer_shade_diffuse.dD_dx.to_float3(index);
-		float3 ray_dD_dy = ray_buffer_shade_diffuse.dD_dy.to_float3(index);
+		float denom = inv_sqrt_d_dot_d / d_dot_d; // d_dot_d ^ -3/2
 
+		float3 ray_dD_dx = (d_dot_d * camera.x_axis - dot(ray_direction, camera.x_axis) * ray_direction) * denom;
+		float3 ray_dD_dy = (d_dot_d * camera.y_axis - dot(ray_direction, camera.y_axis) * ray_direction) * denom;
+
+		// Transform Triangle edges into world space
 		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_1);
 		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_2);
 
-		// Formulae from Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 		float one_over_k = 1.0f / dot(cross(hit_triangle_position_edge_1, hit_triangle_position_edge_2), ray_direction); 
 
-		float  t = ray_buffer_shade_diffuse.hit_ts[index];
-		float3 q = ray_dO_dx + t * ray_dD_dx;
-		float3 r = ray_dO_dy + t * ray_dD_dy;
+		if (settings.enable_rasterization) {
+			ray_t = length(hit_point - camera.position) / length(ray_direction);
+		}
+
+		float3 q = ray_t * ray_dD_dx;
+		float3 r = ray_t * ray_dD_dy;
 
 		float3 c_u = cross(hit_triangle_position_edge_2, ray_direction);
 		float3 c_v = cross(ray_direction, hit_triangle_position_edge_1);
 
-		// Differentials of barycentric coordinates
+		// Differentials of barycentric coordinates (u,v)
 		float du_dx = one_over_k * dot(c_u, q);
 		float du_dy = one_over_k * dot(c_u, r);
 		float dv_dx = one_over_k * dot(c_v, q);
 		float dv_dy = one_over_k * dot(c_v, r);
-		
-		// Differentials of hit point
-		dP_dx = du_dx * hit_triangle_position_edge_1 + dv_dx * hit_triangle_position_edge_2;
-		dP_dy = du_dy * hit_triangle_position_edge_1 + dv_dy * hit_triangle_position_edge_2;
 
-		// Differentials of Texture coordinates
+		// Differentials of Texture coordinates (s,t)
 		float ds_dx = du_dx * hit_triangle_tex_coord_edge_1.x + dv_dx * hit_triangle_tex_coord_edge_2.x;
 		float ds_dy = du_dy * hit_triangle_tex_coord_edge_1.x + dv_dy * hit_triangle_tex_coord_edge_2.x;
 		float dt_dx = du_dx * hit_triangle_tex_coord_edge_1.y + dv_dx * hit_triangle_tex_coord_edge_2.y;
@@ -607,14 +578,15 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		// float rho = sqrt(2048.0f) * fmaxf(sqrtf(ds_dx*ds_dx + dt_dx*dt_dx), sqrtf(ds_dy*ds_dy + dt_dy*dt_dy));
 		// float mip_lod = log2f(rho);
 
-		frame_buffer_direct[ray_pixel_index] = make_float4(material.albedo(hit_tex_coord.x, hit_tex_coord.y, dx, dy), 0.0f);
+		//frame_buffer_direct[ray_pixel_index] = make_float4(material.albedo(hit_tex_coord.x, hit_tex_coord.y, dx, dy), 0.0f);
 		//frame_buffer_direct[ray_pixel_index] = make_float4(material.albedo(hit_tex_coord.x, hit_tex_coord.y, mip_lod), 0.0f);
 		//frame_buffer_direct[ray_pixel_index] = make_float4(fabsf(ds_dx), fabsf(dt_dx), 0.0f, 0.0f);
 		
-		return;
-	}
+		//return;
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// ray_direction = normalize(ray_direction);
+	}
+#endif
 
 	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -704,12 +676,6 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
 	ray_buffer_trace.direction.from_float3(index_out, direction_world);
 
-	ray_buffer_trace.dO_dx.from_float3(index_out, dP_dx);
-	ray_buffer_trace.dO_dy.from_float3(index_out, dP_dy);
-
-	ray_buffer_trace.dD_dx.from_float3(index_out, 0.2f * tangent); // See https://www.pbrt.org/texcache.pdf
-	ray_buffer_trace.dD_dy.from_float3(index_out, 0.2f * binormal);
-
 	ray_buffer_trace.pixel_index[index_out]  = ray_pixel_index;
 	ray_buffer_trace.throughput.from_float3(index_out, throughput);
 
@@ -722,12 +688,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	if (index >= buffer_sizes.dielectric[bounce] || bounce == NUM_BOUNCES - 1) return;
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
+	if (bounce == 0) ray_direction = normalize(ray_direction);
 
 	int   ray_mesh_id;
 	int   ray_triangle_id;
+	float ray_t;
 	float ray_u;
 	float ray_v;
-	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
+	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 
@@ -819,12 +787,14 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
 	float3 direction_in = -1.0f * ray_buffer_shade_glossy.direction.to_float3(index);
+	if (bounce == 0) direction_in = normalize(direction_in);
 
 	int   ray_mesh_id;
 	int   ray_triangle_id;
+	float ray_t;
 	float ray_u;
 	float ray_v;
-	ray_buffer_shade_glossy.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
+	ray_buffer_shade_glossy.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -1058,7 +1028,7 @@ extern "C" __global__ void kernel_reconstruct() {
 	}
 }
 
-extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
+extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -1086,11 +1056,11 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 		reconstruction[pixel_index] = make_float4(0.0f);
 	}
 
-	if (frames_since_camera_moved > 0.0f) {
+	if (frames_accumulated > 0.0f) {
 		float4 colour_prev = accumulator.get(x, y);
 
 		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour = (colour_prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
+		colour = (colour_prev * (frames_accumulated - 1.0f) + colour) / frames_accumulated;
 	}
 
 	accumulator.set(x, y, colour);

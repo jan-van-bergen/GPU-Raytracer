@@ -29,10 +29,7 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
-	CUDAVector3_SoA dO_dx;
-	CUDAVector3_SoA dO_dy;
-	CUDAVector3_SoA dD_dx;
-	CUDAVector3_SoA dD_dy;
+	CUDAMemory::Ptr<float> cone_width;
 
 	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
@@ -47,10 +44,7 @@ struct TraceBuffer {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
 
-		dO_dx.init(buffer_size);
-		dO_dy.init(buffer_size);
-		dD_dx.init(buffer_size);
-		dD_dy.init(buffer_size);
+		cone_width = CUDAMemory::malloc<float>(buffer_size);
 
 		hit_ts = CUDAMemory::malloc<float> (buffer_size);
 		hits   = CUDAMemory::malloc<float4>(buffer_size);
@@ -66,10 +60,7 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 	
-	CUDAVector3_SoA dO_dx;
-	CUDAVector3_SoA dO_dy;
-	CUDAVector3_SoA dD_dx;
-	CUDAVector3_SoA dD_dy;
+	CUDAMemory::Ptr<float> cone_width;
 
 	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
@@ -80,10 +71,7 @@ struct MaterialBuffer {
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
 		
-		dO_dx.init(buffer_size);
-		dO_dy.init(buffer_size);
-		dD_dx.init(buffer_size);
-		dD_dy.init(buffer_size);
+		cone_width = CUDAMemory::malloc<float>(buffer_size);
 
 		hit_ts = CUDAMemory::malloc<float> (buffer_size);
 		hits   = CUDAMemory::malloc<float4>(buffer_size);
@@ -124,6 +112,22 @@ struct BufferSizes {
 	int rays_retired_shadow[NUM_BOUNCES];
 };
 static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)
+
+static void upload_camera(CUDAModule::Global global_camera, const Camera & camera) {
+	struct CUDACamera {
+		Vector3 position;
+		Vector3 bottom_left_corner;
+		Vector3 x_axis;
+		Vector3 y_axis;
+	} cuda_camera;
+
+	cuda_camera.position           = camera.position;
+	cuda_camera.bottom_left_corner = camera.bottom_left_corner_rotated;
+	cuda_camera.x_axis             = camera.x_axis_rotated;
+	cuda_camera.y_axis             = camera.y_axis_rotated;
+
+	global_camera.set_value(cuda_camera);
+}
 
 void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle) {
 	ScopeTimer timer("Pathtracer Initialization");
@@ -718,7 +722,12 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_shade_glossy    .set_grid_dim(batch_size / kernel_shade_glossy    .block_dim_x, 1, 1);
 	
 	scene.camera.resize(width, height);
-	frames_since_camera_moved = 0;
+	frames_accumulated = 0;
+	
+	scene.camera.update(0.0f, settings.enable_rasterization);
+
+	global_camera = module.get_global("camera");
+	upload_camera(global_camera, scene.camera);
 }
 
 void Pathtracer::resize_free() {
@@ -822,7 +831,7 @@ void Pathtracer::update(float delta) {
 		// If SVGF is enabled we can handle Scene updates using reprojection,
 		// otherwise 'frames_since_camera_moved' needs to be reset in order to avoid ghosting
 		if (!settings.enable_svgf) {
-			frames_since_camera_moved = 0;
+			frames_accumulated = 0;
 		}
 	} else {
 		scene.update(0.0f); // Update with 0 delta to make sure previous Transforms match current Transforms
@@ -830,16 +839,20 @@ void Pathtracer::update(float delta) {
 
 	scene.camera.update(delta, settings.enable_rasterization);
 
+	if (scene.camera.moved) {
+		upload_camera(global_camera, scene.camera);
+	}
+
 	if (settings_changed) {
-		frames_since_camera_moved = 0;
+		frames_accumulated = 0;
 
 		global_settings.set_value(settings);
 	} else if (settings.enable_svgf) {
-		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
+		frames_accumulated = (frames_accumulated + 1) & 255;
 	} else if (scene.camera.moved) {
-		frames_since_camera_moved = 0;
+		frames_accumulated = 0;
 	} else {
-		frames_since_camera_moved++;
+		frames_accumulated++;
 	}
 }
 
@@ -900,26 +913,18 @@ void Pathtracer::render() {
 			// Convert rasterized GBuffers into primary Rays
 			kernel_primary.execute(
 				Random::get_value(),
-				frames_since_camera_moved,
+				frames_accumulated,
 				pixel_offset,
 				pixel_count,
-				settings.enable_taa,
-				scene.camera.position,
-				scene.camera.bottom_left_corner_rotated,
-				scene.camera.x_axis_rotated,
-				scene.camera.y_axis_rotated
+				settings.enable_taa
 			);
 		} else {
 			// Generate primary Rays from the current Camera orientation
 			kernel_generate.execute(
 				Random::get_value(),
-				frames_since_camera_moved,
+				frames_accumulated,
 				pixel_offset,
-				pixel_count,
-				scene.camera.position, 
-				scene.camera.bottom_left_corner_rotated, 
-				scene.camera.x_axis_rotated, 
-				scene.camera.y_axis_rotated
+				pixel_count
 			);
 		}
 
@@ -937,7 +942,7 @@ void Pathtracer::render() {
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
 				RECORD_EVENT(event_shade_diffuse[bounce]);
-				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_since_camera_moved);
+				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			if (scene.has_dielectric) {
@@ -947,7 +952,7 @@ void Pathtracer::render() {
 
 			if (scene.has_glossy) {
 				RECORD_EVENT(event_shade_glossy[bounce]);
-				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_since_camera_moved);
+				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			// Trace shadow Rays
@@ -1013,7 +1018,7 @@ void Pathtracer::render() {
 		}
 
 		RECORD_EVENT(event_accumulate);
-		kernel_accumulate.execute(float(frames_since_camera_moved));
+		kernel_accumulate.execute(float(frames_accumulated));
 	}
 
 	RECORD_EVENT(event_end);

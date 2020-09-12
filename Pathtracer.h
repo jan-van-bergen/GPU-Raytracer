@@ -24,7 +24,7 @@ struct alignas(16) float4 { float x, y, z, w; };
 struct Pathtracer {
 	Scene scene;
 
-	int frames_since_camera_moved = -1;
+	int frames_accumulated = -1;
 
 	Settings settings;
 	bool     settings_changed = true;
@@ -78,8 +78,8 @@ private:
 
 	CUgraphicsResource resource_accumulator;
 
+	CUDAModule::Global global_camera;
 	CUDAModule::Global global_buffer_sizes;
-
 	CUDAModule::Global global_settings;
 	
 	Shader shader;

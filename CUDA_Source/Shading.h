@@ -23,13 +23,6 @@ struct Material {
 	float index_of_refraction;
 
 	float roughness;
-	
-	// __device__ inline float3 albedo(float s, float t, float lod) const {
-	// 	if (texture_id == -1) return diffuse;
-
-	// 	float4 tex_colour = textures[texture_id].get_lod(s, t, lod);
-	// 	return diffuse * make_float3(tex_colour);
-	// }
 
 	__device__ inline float3 albedo(float s, float t, float2 dx, float2 dy) const {
 		if (texture_id == -1) return diffuse;
