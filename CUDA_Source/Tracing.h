@@ -32,40 +32,38 @@ __device__ __constant__ int       * mesh_bvh_root_indices;
 __device__ __constant__ Matrix3x4 * mesh_transforms;
 __device__ __constant__ Matrix3x4 * mesh_transforms_inv;
 
-__device__ inline void mesh_transform_point_and_normal(int mesh_id, const float3 & point_in, const float3 & normal_in, float3 & point_out, float3 & normal_out) {
+__device__ inline void mesh_transform_position_and_direction(int mesh_id, float3 & position, float3 & direction) {
 	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
 	float4 row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
 	float4 row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
 
-	point_out = make_float3( // Transform as position (w = 1)
-		row_0.x * point_in.x + row_0.y * point_in.y + row_0.z * point_in.z + row_0.w,
-		row_1.x * point_in.x + row_1.y * point_in.y + row_1.z * point_in.z + row_1.w,
-		row_2.x * point_in.x + row_2.y * point_in.y + row_2.z * point_in.z + row_2.w
+	position = make_float3( // Transform as position (w = 1)
+		row_0.x * position.x + row_0.y * position.y + row_0.z * position.z + row_0.w,
+		row_1.x * position.x + row_1.y * position.y + row_1.z * position.z + row_1.w,
+		row_2.x * position.x + row_2.y * position.y + row_2.z * position.z + row_2.w
 	);
-	normal_out = make_float3( // Transform as direction (w = 0)
-		row_0.x * normal_in.x + row_0.y * normal_in.y + row_0.z * normal_in.z,
-		row_1.x * normal_in.x + row_1.y * normal_in.y + row_1.z * normal_in.z,
-		row_2.x * normal_in.x + row_2.y * normal_in.y + row_2.z * normal_in.z
+	direction = make_float3( // Transform as direction (w = 0)
+		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
+		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
+		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
 	);
 }
 
-__device__ inline void mesh_transform_inv_ray(int mesh_id, Ray & ray) {
+__device__ inline void mesh_transform_inv_position_and_direction(int mesh_id, float3 & position, float3 & direction) {
 	float4 row_0 = __ldg(&mesh_transforms_inv[mesh_id].row_0);
 	float4 row_1 = __ldg(&mesh_transforms_inv[mesh_id].row_1);
 	float4 row_2 = __ldg(&mesh_transforms_inv[mesh_id].row_2);
 
-	ray.origin = make_float3( // Transform as position (w = 1)
-		row_0.x * ray.origin.x + row_0.y * ray.origin.y + row_0.z * ray.origin.z + row_0.w,
-		row_1.x * ray.origin.x + row_1.y * ray.origin.y + row_1.z * ray.origin.z + row_1.w,
-		row_2.x * ray.origin.x + row_2.y * ray.origin.y + row_2.z * ray.origin.z + row_2.w
+	position = make_float3( // Transform as position (w = 1)
+		row_0.x * position.x + row_0.y * position.y + row_0.z * position.z + row_0.w,
+		row_1.x * position.x + row_1.y * position.y + row_1.z * position.z + row_1.w,
+		row_2.x * position.x + row_2.y * position.y + row_2.z * position.z + row_2.w
 	);
-	ray.direction = make_float3( // Transform as direction (w = 0)
-		row_0.x * ray.direction.x + row_0.y * ray.direction.y + row_0.z * ray.direction.z,
-		row_1.x * ray.direction.x + row_1.y * ray.direction.y + row_1.z * ray.direction.z,
-		row_2.x * ray.direction.x + row_2.y * ray.direction.y + row_2.z * ray.direction.z
+	direction = make_float3( // Transform as direction (w = 0)
+		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
+		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
+		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
 	);
-
-	ray.calc_direction_inv();
 }
 
 struct Triangle {
@@ -320,7 +318,8 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 
 						mesh_id = node.first;
 
-						mesh_transform_inv_ray(mesh_id, ray);
+						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						ray.calc_direction_inv();
 
 						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -410,7 +409,8 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 
 						mesh_id = node.first;
 
-						mesh_transform_inv_ray(mesh_id, ray);
+						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						ray.calc_direction_inv();
 
 						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -617,7 +617,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 						mesh_id = index;
 
-						mesh_transform_inv_ray(mesh_id, ray);
+						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						ray.calc_direction_inv();
 
 						unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -714,7 +715,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 						mesh_id = index;
 
-						mesh_transform_inv_ray(mesh_id, ray);
+						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						ray.calc_direction_inv();
 
 						unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
 						stack_push(shared_stack, stack, stack_size, root_index);
@@ -960,7 +962,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 						mesh_id = triangle_group.x + mesh_offset;
 
-						mesh_transform_inv_ray(mesh_id, ray);
+						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
 						unsigned oct = 
@@ -1132,7 +1135,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 						mesh_id = triangle_group.x + mesh_offset;
 
-						mesh_transform_inv_ray(mesh_id, ray);
+						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
 						unsigned oct = 

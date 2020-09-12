@@ -394,7 +394,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float3 light_normal = barycentric(hit_u, hit_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
 		
 			light_normal = normalize(light_normal);
-		
+			mesh_transform_position_and_direction(hit_mesh_id, light_point, light_normal);
+
 			float3 to_light = light_point - ray_origin;;
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
@@ -518,13 +519,12 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2
 	);
 
-	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
-	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
-	float2 hit_tex_coord    = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
+	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
 
-	float3 hit_point;  // World space
-	float3 hit_normal; // World space
-	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
+	hit_normal = normalize(hit_normal);
+	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 	
 	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -552,12 +552,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 				light_normal_0,   light_normal_edge_1,   light_normal_edge_2
 			);
 
-			float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-			float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+			float3 light_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+			float3 light_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
 
-			float3 light_point;
-			float3 light_normal;
-			mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
+			light_normal = normalize(light_normal);
+			mesh_transform_position_and_direction(light_transform_id, light_point, light_normal);
 
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);
@@ -650,14 +649,11 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2
 	);
 
-	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0, hit_triangle_position_edge_1, hit_triangle_position_edge_2);
-	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2);
+	float3 hit_point  = barycentric(ray_u, ray_v, hit_triangle_position_0, hit_triangle_position_edge_1, hit_triangle_position_edge_2);
+	float3 hit_normal = barycentric(ray_u, ray_v, hit_triangle_normal_0,   hit_triangle_normal_edge_1,   hit_triangle_normal_edge_2);
 	
-	hit_normal_model = normalize(hit_normal_model);
-
-	float3 hit_point;  // World space
-	float3 hit_normal; // World space
-	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
+	hit_normal = normalize(hit_normal);
+	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -754,13 +750,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2
 	);
 
-	float3 hit_point_model  = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
-	float3 hit_normal_model = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
-	float2 hit_tex_coord    = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
+	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle_position_0,  hit_triangle_position_edge_1,  hit_triangle_position_edge_2);
+	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle_normal_0,    hit_triangle_normal_edge_1,    hit_triangle_normal_edge_2);
+	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle_tex_coord_0, hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2);
 
-	float3 hit_point;  // World space
-	float3 hit_normal; // World space
-	mesh_transform_point_and_normal(ray_mesh_id, hit_point_model, hit_normal_model, hit_point, hit_normal);
+	hit_normal = normalize(hit_normal);
+	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 
 	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
@@ -789,12 +784,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				light_normal_0,   light_normal_edge_1,   light_normal_edge_2
 			);
 
-			float3 light_local_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
-			float3 light_local_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
+			float3 light_point  = barycentric(light_u, light_v, light_position_0, light_position_edge_1, light_position_edge_2);
+			float3 light_normal = barycentric(light_u, light_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
 
-			float3 light_point;
-			float3 light_normal;
-			mesh_transform_point_and_normal(light_transform_id, light_local_point, light_local_normal, light_point, light_normal);
+			light_normal = normalize(light_normal);
+			mesh_transform_position_and_direction(light_transform_id, light_point, light_normal);
 
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);
