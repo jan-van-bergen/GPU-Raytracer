@@ -75,24 +75,23 @@ struct Vector3_SoA {
 };
 
 struct HitBuffer {
-	float4 * hits;
+	uint4 * hits;
 
 	__device__ void set(int index, int mesh_id, int triangle_id, float t, float u, float v) {
-		unsigned uv = __half_as_ushort(__float2half_rn(u)) | (__half_as_ushort(__float2half_rn(v)) << 16);
-		hits[index] = make_float4(uint_as_float(mesh_id), uint_as_float(triangle_id), t, uint_as_float(uv));
+		unsigned uv = int(u * 65535.0f) | (int(v * 65535.0f) << 16);
+		hits[index] = make_uint4(mesh_id, triangle_id, float_as_uint(t), uv);
 	}
 
 	__device__ void get(int index, int & mesh_id, int & triangle_id, float & t, float & u, float & v) const {
-		float4 hit = __ldg(&hits[index]);
+		uint4 hit = __ldg(&hits[index]);
 
-		mesh_id     = float_as_uint(hit.x);
-		triangle_id = float_as_uint(hit.y);
+		mesh_id     = hit.x;
+		triangle_id = hit.y;
 		
-		t = hit.z;
+		t = uint_as_float(hit.z);
 
-		unsigned uv = float_as_uint(hit.w);
-		u = __half2float(__ushort_as_half(uv & 0xffff));
-		v = __half2float(__ushort_as_half((uv >> 16)));
+		u = float(hit.w & 0xffff) / 65535.0f;
+		v = float(hit.w >> 16)    / 65535.0f;
 	}
 };
 
@@ -338,7 +337,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
-
+	
 	// If we didn't hit anything, sample the Sky
 	if (hit_triangle_id == -1) {
 		float3 illumination = ray_throughput * sample_sky(normalize(ray_direction));
