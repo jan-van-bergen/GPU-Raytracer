@@ -382,6 +382,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		}
 
 		if (settings.enable_multiple_importance_sampling) {
+			// Get the corner + 2 edges of the Triangle we hit
 			float3 light_position_0, light_position_edge_1, light_position_edge_2;
 			float3 light_normal_0,   light_normal_edge_1,   light_normal_edge_2;
 
@@ -390,9 +391,11 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 				light_normal_0,   light_normal_edge_1,   light_normal_edge_2
 			);
 
+			// Get hit position / normal by interpolating based on the hit (u,v)
 			float3 light_point  = barycentric(hit_u, hit_v, light_position_0, light_position_edge_1, light_position_edge_2);
 			float3 light_normal = barycentric(hit_u, hit_v, light_normal_0,   light_normal_edge_1,   light_normal_edge_2);
-		
+
+			// Normalize and transform into world space
 			light_normal = normalize(light_normal);
 			mesh_transform_position_and_direction(hit_mesh_id, light_point, light_normal);
 
@@ -400,7 +403,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
 		
-			// ray_direction is the same direction as light is same direction as to_light, but normalized
+			// ray_direction is the same direction as to_light, but normalized so we save a normalization here
 			to_light = ray_direction;
 
 			float cos_o = fabsf(dot(to_light, light_normal));

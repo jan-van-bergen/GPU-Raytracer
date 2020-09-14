@@ -12,6 +12,11 @@ namespace Math {
 		return value;
 	}
 
+	template<typename T>
+	inline T divide_round_up(T numerator, T denominator) {
+		return (numerator + denominator - 1) / denominator;
+	}
+
 	template<typename T> inline T min(T a, T b) { return a < b ? a : b;}
 	template<typename T> inline T max(T a, T b) { return a > b ? a : b;}
 

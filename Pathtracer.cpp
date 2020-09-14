@@ -608,7 +608,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	pixel_count = width * height;
 	batch_size  = Math::min(BATCH_SIZE, pixel_count);
 
-	int pitch = (width + WARP_SIZE - 1) / WARP_SIZE * WARP_SIZE; // Round width up to multiple of WARP_SIZE
+	int pitch = Math::divide_round_up(width, WARP_SIZE) * WARP_SIZE;
 
 	module.get_global("screen_width") .set_value(width);
 	module.get_global("screen_pitch") .set_value(pitch);
@@ -662,21 +662,21 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float4>(pitch * height));
 
 	// Set Grid dimensions for screen size dependent Kernels
-	kernel_svgf_temporal.set_grid_dim(pitch / kernel_svgf_temporal.block_dim_x, (height + kernel_svgf_temporal.block_dim_y - 1) / kernel_svgf_temporal.block_dim_y, 1);
-	kernel_svgf_variance.set_grid_dim(pitch / kernel_svgf_variance.block_dim_x, (height + kernel_svgf_variance.block_dim_y - 1) / kernel_svgf_variance.block_dim_y, 1);
-	kernel_svgf_atrous  .set_grid_dim(pitch / kernel_svgf_atrous  .block_dim_x, (height + kernel_svgf_atrous  .block_dim_y - 1) / kernel_svgf_atrous  .block_dim_y, 1);
-	kernel_svgf_finalize.set_grid_dim(pitch / kernel_svgf_finalize.block_dim_x, (height + kernel_svgf_finalize.block_dim_y - 1) / kernel_svgf_finalize.block_dim_y, 1);
-	kernel_taa          .set_grid_dim(pitch / kernel_taa          .block_dim_x, (height + kernel_taa          .block_dim_y - 1) / kernel_taa          .block_dim_y, 1);
-	kernel_taa_finalize .set_grid_dim(pitch / kernel_taa_finalize .block_dim_x, (height + kernel_taa_finalize .block_dim_y - 1) / kernel_taa_finalize .block_dim_y, 1);
-	kernel_reconstruct  .set_grid_dim(pitch / kernel_reconstruct  .block_dim_x, (height + kernel_reconstruct  .block_dim_y - 1) / kernel_reconstruct  .block_dim_y, 1);
-	kernel_accumulate   .set_grid_dim(pitch / kernel_accumulate   .block_dim_x, (height + kernel_accumulate   .block_dim_y - 1) / kernel_accumulate   .block_dim_y, 1);
+	kernel_svgf_temporal.set_grid_dim(pitch / kernel_svgf_temporal.block_dim_x, Math::divide_round_up(height, kernel_svgf_temporal.block_dim_y), 1);
+	kernel_svgf_variance.set_grid_dim(pitch / kernel_svgf_variance.block_dim_x, Math::divide_round_up(height, kernel_svgf_variance.block_dim_y), 1);
+	kernel_svgf_atrous  .set_grid_dim(pitch / kernel_svgf_atrous  .block_dim_x, Math::divide_round_up(height, kernel_svgf_atrous  .block_dim_y), 1);
+	kernel_svgf_finalize.set_grid_dim(pitch / kernel_svgf_finalize.block_dim_x, Math::divide_round_up(height, kernel_svgf_finalize.block_dim_y), 1);
+	kernel_taa          .set_grid_dim(pitch / kernel_taa          .block_dim_x, Math::divide_round_up(height, kernel_taa          .block_dim_y), 1);
+	kernel_taa_finalize .set_grid_dim(pitch / kernel_taa_finalize .block_dim_x, Math::divide_round_up(height, kernel_taa_finalize .block_dim_y), 1);
+	kernel_reconstruct  .set_grid_dim(pitch / kernel_reconstruct  .block_dim_x, Math::divide_round_up(height, kernel_reconstruct  .block_dim_y), 1);
+	kernel_accumulate   .set_grid_dim(pitch / kernel_accumulate   .block_dim_x, Math::divide_round_up(height, kernel_accumulate   .block_dim_y), 1);
 
-	kernel_primary         .set_grid_dim(batch_size / kernel_primary         .block_dim_x, 1, 1);
-	kernel_generate        .set_grid_dim(batch_size / kernel_generate        .block_dim_x, 1, 1);
-	kernel_sort            .set_grid_dim(batch_size / kernel_sort            .block_dim_x, 1, 1);
-	kernel_shade_diffuse   .set_grid_dim(batch_size / kernel_shade_diffuse   .block_dim_x, 1, 1);
-	kernel_shade_dielectric.set_grid_dim(batch_size / kernel_shade_dielectric.block_dim_x, 1, 1);
-	kernel_shade_glossy    .set_grid_dim(batch_size / kernel_shade_glossy    .block_dim_x, 1, 1);
+	kernel_primary         .set_grid_dim(Math::divide_round_up(batch_size, kernel_primary         .block_dim_x), 1, 1);
+	kernel_generate        .set_grid_dim(Math::divide_round_up(batch_size, kernel_generate        .block_dim_x), 1, 1);
+	kernel_sort            .set_grid_dim(Math::divide_round_up(batch_size, kernel_sort            .block_dim_x), 1, 1);
+	kernel_shade_diffuse   .set_grid_dim(Math::divide_round_up(batch_size, kernel_shade_diffuse   .block_dim_x), 1, 1);
+	kernel_shade_dielectric.set_grid_dim(Math::divide_round_up(batch_size, kernel_shade_dielectric.block_dim_x), 1, 1);
+	kernel_shade_glossy    .set_grid_dim(Math::divide_round_up(batch_size, kernel_shade_glossy    .block_dim_x), 1, 1);
 	
 	scene.camera.resize(width, height);
 	frames_since_camera_moved = 0;
@@ -922,7 +922,7 @@ void Pathtracer::render() {
 
 		if (pixels_left > 0) {
 			// Set buffer sizes to appropriate pixel count for next Batch
-			buffer_sizes->trace[0] = pixels_left > batch_size ? batch_size : pixels_left;
+			buffer_sizes->trace[0] = Math::min(batch_size, pixels_left);
 			global_buffer_sizes.set_value(*buffer_sizes);
 		}
 	}
