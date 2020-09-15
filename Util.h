@@ -27,6 +27,8 @@ namespace Util {
 	// Checks if file_check is newer than file_reference
 	bool file_is_newer(const char * file_reference, const char * file_check);
 
+	char * file_read(const char * filename);
+
 	template<typename T>
 	void swap(T & a, T & b) {
 		T temp = a;
