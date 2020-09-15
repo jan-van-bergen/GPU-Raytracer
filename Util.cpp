@@ -38,6 +38,30 @@ bool Util::file_is_newer(const char * file_reference, const char * file_check) {
 	return last_write_time_reference < last_write_time_check;
 }
 
+char * Util::file_read(const char * filename) {
+	FILE * file;
+	fopen_s(&file, filename, "rb");
+
+	if (file == nullptr) {
+		printf("ERROR: Unable to open %s!\n", filename);
+		abort();
+	}
+
+	// Get file length
+	fseek(file, 0, SEEK_END);
+	int file_length = ftell(file);
+	rewind(file);
+
+	// Copy file source into c string
+	char * data = new char[file_length + 1];
+	fread_s(data, file_length + 1, 1, file_length, file);
+
+	fclose(file);
+
+	data[file_length] = NULL;
+	return data;
+}
+
 // Based on: https://rosettacode.org/wiki/Bitmap/Write_a_PPM_file
 void Util::export_ppm(const char * file_path, int width, int height, const unsigned char * data) {
 	FILE * file;

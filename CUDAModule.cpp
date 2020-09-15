@@ -33,26 +33,7 @@ struct Include {
 // Also check whether any included file has been modified since last compilation and if so sets 'should_recompile'
 // Returns source code of 'filename'
 static const char * scan_includes_recursive(const char * filename, const char * directory, std::vector<Include> & includes, const char * ptx_filename, bool & should_recompile) {
-	FILE * file;
-	fopen_s(&file, filename, "rb");
-
-	if (file == nullptr) {
-		printf("ERROR: Unable to open %s!\n", filename);
-		abort();
-	}
-
-	// Get file length
-	fseek(file, 0, SEEK_END);
-	int file_length = ftell(file);
-	rewind(file);
-
-	// Copy file source into c string
-	char * source = new char[file_length + 1];
-	fread_s(source, file_length + 1, 1, file_length, file);
-
-	source[file_length] = NULL;
-
-	fclose(file);
+	char * source = Util::file_read(filename);
 
 	// Look for first #include of the file
 	const char * include_ptr = strstr(source, "#include");

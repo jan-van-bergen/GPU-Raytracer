@@ -6,33 +6,26 @@
 #include "Util.h"
 
 static GLuint load_shader(const char * filename, GLuint shader_type) {
-	if (!Util::file_exists(filename)) {
-		printf("ERROR: unable to load Shader file %s!\n", filename);
-		abort();
-	}
-
-	// @SPEED
-	std::ifstream t(filename);
-	std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
-
-	const GLchar * src = static_cast<const GLchar *>(str.c_str());
-
 	GLuint shader = glCreateShader(shader_type);
 
-	const GLchar * srcs[1] = { src };
-	const GLint    lens[1] = { str.length() };
+	const char * source = Util::file_read(filename);
+
+	const GLchar * srcs[] = { source };
+	const GLint    lens[] = { strlen(source) };
+
 	glShaderSource(shader, 1, srcs, lens);
 	glCompileShader(shader);
 
-	GLint success;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+	GLint success; glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+
 	if (!success) {
-		GLchar info_log[1024];
-		glGetShaderInfoLog(shader, sizeof(info_log), nullptr, info_log);
-		fprintf(stderr, "Error compiling shader type %d: '%s'\n", shader_type, info_log);
+		GLchar info_log[1024]; glGetShaderInfoLog(shader, sizeof(info_log), nullptr, info_log);
 		
+		printf("Error compiling shader type %d: '%s'\n", shader_type, info_log);
 		__debugbreak();
 	}
+
+	delete [] source;
 
 	return shader;
 }
@@ -54,13 +47,12 @@ Shader Shader::load(const char * vertex_filename, const char * fragment_filename
 	glLinkProgram(shader.program_id);
 
 	// Check if linking succeeded
-	GLint success;
-	glGetProgramiv(shader.program_id, GL_LINK_STATUS, &success);
-	if (!success) {
-		GLchar info_log[1024];
-		glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
-		fprintf(stderr, "Error linking shader program: '%s'\n", info_log);
+	GLint success; glGetProgramiv(shader.program_id, GL_LINK_STATUS, &success);
 
+	if (!success) {
+		GLchar info_log[1024]; glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
+
+		printf("Error linking shader program: '%s'\n", info_log);
 		__debugbreak();
 	}
 
@@ -68,12 +60,12 @@ Shader Shader::load(const char * vertex_filename, const char * fragment_filename
 	glValidateProgram(shader.program_id);
 
 	// Check if the Program is valid
-	glGetProgramiv(shader.program_id, GL_VALIDATE_STATUS, &success);
-	if (!success) {
-		GLchar info_log[1024];
-		glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
-		fprintf(stderr, "Error validating shader program: '%s'\n", info_log);
+	GLint valid; glGetProgramiv(shader.program_id, GL_VALIDATE_STATUS, &valid);
+
+	if (!valid) {
+		GLchar info_log[1024]; glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
 		
+		printf("Error validating shader program: '%s'\n", info_log);
 		__debugbreak();
 	}
 
