@@ -5,7 +5,7 @@
 namespace Math {
 	// Clamps the value between a smallest and largest allowed value
 	template<typename T>
-	inline T clamp(T value, T min, T max) {
+	inline constexpr T clamp(T value, T min, T max) {
 		if (value < min) return min;
 		if (value > max) return max;
 
@@ -13,14 +13,14 @@ namespace Math {
 	}
 
 	template<typename T>
-	inline T divide_round_up(T numerator, T denominator) {
+	inline constexpr T divide_round_up(T numerator, T denominator) {
 		return (numerator + denominator - 1) / denominator;
 	}
 
-	template<typename T> inline T min(T a, T b) { return a < b ? a : b;}
-	template<typename T> inline T max(T a, T b) { return a > b ? a : b;}
+	template<typename T> inline constexpr T min(T a, T b) { return a < b ? a : b;}
+	template<typename T> inline constexpr T max(T a, T b) { return a > b ? a : b;}
 
-	inline float linear_to_gamma(float x) {
+	inline constexpr float linear_to_gamma(float x) {
 		if (x <= 0.0f) {
 			return 0.0f;
 		} else if (x >= 1.0f) {
@@ -32,7 +32,7 @@ namespace Math {
 		}
 	}
 
-	inline float gamma_to_linear(float x) {
+	inline constexpr float gamma_to_linear(float x) {
 		if (x <= 0.0f) {
 			return 0.0f;
 		} else if (x >= 1.0f) {
@@ -52,7 +52,7 @@ namespace Math {
 	}
 	
 	// Computes positive modulo of given value
-	inline unsigned mod(int value, int modulus) {
+	inline constexpr unsigned mod(int value, int modulus) {
 		int result = value % modulus;
 		if (result < 0) {
 			result += modulus;
@@ -60,17 +60,33 @@ namespace Math {
 
 		return result;
 	}
+	
+	// Based on Jonathan Blow's GD mag code
+	inline float sincf(float x) {
+		if (fabsf(x) < 0.0001f) {
+			return 1.0f + x*x*(-1.0f/6.0f + x*x*1.0f/120.0f);
+		} else {
+			return sinf(x) / x;
+		}
+	}
 
-	// Calculates N-th power by repeated squaring. This only works when N is a power of 2
-	template<int N> inline float pow2(float value);
+	// Based on Jonathan Blow's GD mag code
+	inline constexpr float bessel_0(float x) {
+		constexpr float EPSILON_RATIO = 1e-6f;
 
-	template<>      inline float pow2<0>(float value) { return 1.0f; }
-	template<>      inline float pow2<1>(float value) { return value; }
-	template<int N> inline float pow2   (float value) { static_assert(is_power_of_two(N)); float sqrt = pow2<N / 2>(value); return sqrt * sqrt; }
+		float xh  = 0.5f * x;
+		float sum = 1.0f;
+		float pow = 1.0f;
+		float ds  = 1.0;
+		float k   = 0.0f;
 
-	template<int N> inline double pow2(double value);
+		while (ds > sum * EPSILON_RATIO) {
+			k += 1.0f;
+			pow = pow * (xh / k);
+			ds  = pow * pow;
+			sum = sum + ds;
+		}
 
-	template<>      inline double pow2<0>(double value) { return 1.0; }
-	template<>      inline double pow2<1>(double value) { return value; }
-	template<int N> inline double pow2   (double value) { static_assert(is_power_of_two(N)); double sqrt = pow2<N / 2>(value); return sqrt * sqrt; }
+		return sum;
+	}
 }

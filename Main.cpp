@@ -51,7 +51,7 @@ static constexpr int capture_frame_index = -1;
 
 Pathtracer pathtracer;
 
-void window_resize(unsigned frame_buffer_handle, int width, int height) {
+static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_free();
 	pathtracer.resize_init(frame_buffer_handle, width, height);
 };

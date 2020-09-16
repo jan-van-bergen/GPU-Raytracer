@@ -5,9 +5,9 @@
 
 struct Texture {
 	enum class Format {
-		RGBA_COMPRESSED_BC1,
-		RGBA_COMPRESSED_BC2,
-		RGBA_COMPRESSED_BC3,
+		BC1,
+		BC2,
+		BC3,
 		RGBA
 	};
 

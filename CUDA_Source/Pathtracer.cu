@@ -532,32 +532,28 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	hit_normal = normalize(hit_normal);
 	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 	
-	float2 dx = make_float2(0.0f);
-	float2 dy = make_float2(0.0f);
+	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
+
+	float3 albedo;
 
 #if ENABLE_MIPMAPPING
 	if (bounce == 0) {
-		// Formulae from Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
-		float          d_dot_d = dot(ray_direction, ray_direction);
-		float inv_sqrt_d_dot_d = rsqrt(d_dot_d);
-
-		float denom = inv_sqrt_d_dot_d / d_dot_d; // d_dot_d ^ -3/2
-
-		float3 ray_dD_dx = (d_dot_d * camera.x_axis - dot(ray_direction, camera.x_axis) * ray_direction) * denom;
-		float3 ray_dD_dy = (d_dot_d * camera.y_axis - dot(ray_direction, camera.y_axis) * ray_direction) * denom;
-
 		// Transform Triangle edges into world space
 		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_1);
 		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_2);
-
-		float one_over_k = 1.0f / dot(cross(hit_triangle_position_edge_1, hit_triangle_position_edge_2), ray_direction); 
-
+		
 		if (settings.enable_rasterization) {
 			ray_t = length(hit_point - camera.position) / length(ray_direction);
 		}
 
-		float3 q = ray_t * ray_dD_dx;
-		float3 r = ray_t * ray_dD_dy;
+		// Formulae based on Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
+		float one_over_k = 1.0f / dot(cross(hit_triangle_position_edge_1, hit_triangle_position_edge_2), ray_direction); 
+
+		// Formula simplified because we only do ray differentials for primary rays
+		// This means the differential of the ray origin is zero and
+		// the differential of the ray directon is simply the x/y axis
+		float3 q = ray_t * camera.x_axis;
+		float3 r = ray_t * camera.y_axis;
 
 		float3 c_u = cross(hit_triangle_position_edge_2, ray_direction);
 		float3 c_v = cross(ray_direction, hit_triangle_position_edge_1);
@@ -574,32 +570,23 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		float dt_dx = du_dx * hit_triangle_tex_coord_edge_1.y + dv_dx * hit_triangle_tex_coord_edge_2.y;
 		float dt_dy = du_dy * hit_triangle_tex_coord_edge_1.y + dv_dy * hit_triangle_tex_coord_edge_2.y;
 
-		dx = make_float2(ds_dx, dt_dx);
-		dy = make_float2(ds_dy, dt_dy);
-		
-		// float rho = sqrt(2048.0f) * fmaxf(sqrtf(ds_dx*ds_dx + dt_dx*dt_dx), sqrtf(ds_dy*ds_dy + dt_dy*dt_dy));
-		// float mip_lod = log2f(rho);
+		float2 dx = make_float2(ds_dx, dt_dx);
+		float2 dy = make_float2(ds_dy, dt_dy);
 
-		//frame_buffer_direct[ray_pixel_index] = make_float4(material.albedo(hit_tex_coord.x, hit_tex_coord.y, dx, dy), 0.0f);
-		//frame_buffer_direct[ray_pixel_index] = make_float4(material.albedo(hit_tex_coord.x, hit_tex_coord.y, mip_lod), 0.0f);
-		//frame_buffer_direct[ray_pixel_index] = make_float4(fabsf(ds_dx), fabsf(dt_dx), 0.0f, 0.0f);
-		
-		//return;
-
-		// ray_direction = normalize(ray_direction);
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, dx, dy);
+	} else {
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	}
+#else
+	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 #endif
 
-	hit_normal = normalize(hit_normal);
-	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
-
-	float3 albedo     = material.albedo(hit_tex_coord.x, hit_tex_coord.y, dx, dy);
-	float3 throughput = ray_throughput * albedo;
-
-	if ((settings.demodulate_albedo  || settings.enable_svgf) && bounce == 0) {
+	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
+	float3 throughput = ray_throughput * albedo;
+	
 	if (settings.enable_next_event_estimation) {
 		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
 		if (scene_has_lights) {
