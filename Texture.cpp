@@ -187,6 +187,9 @@ static void downsample(FilterType filter_type, int width_src, int height_src, in
 	delete [] kernel_y;
 }
 
+static const int zero = 0;
+static const Vector4 pink = Vector4(1.0f, 0, 1.0f, 1.0f);
+
 static std::unordered_map<std::string, int> cache;
 
 static bool load_dds(Texture & texture, const char * file_path) {
@@ -247,9 +250,7 @@ static bool load_dds(Texture & texture, const char * file_path) {
 	unsigned char * data = new unsigned char[data_size];
 	fread_s(data, data_size, 1, data_size, file);
 
-	texture.data = data;
-	
-	texture.mip_offsets = new int[texture.mip_levels];
+	int * mip_offsets = new int[texture.mip_levels];
 	
 	int block_size = texture.channels * 4;
 
@@ -264,12 +265,15 @@ static bool load_dds(Texture & texture, const char * file_path) {
 			break;
 		}
 
-		texture.mip_offsets[level] = level_offset;
+		mip_offsets[level] = level_offset;
 		level_offset += level_width * level_height * block_size;
 
 		level_width  /= 2;
 		level_height /= 2;
 	}
+	
+	texture.data = data;
+	texture.mip_offsets = mip_offsets;
 
 	success = true;
 
@@ -288,7 +292,7 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	
 	int size = texture.width * texture.height;
 	Vector4 * data_rgba = new Vector4[size + size / 3];
-
+	
 #define RAINBOW false
 
 #if RAINBOW
@@ -309,9 +313,11 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	}
 #endif
 
-	texture.mip_levels  = 1 + int(log2f(Math::max(texture.width, texture.height)));
-	texture.mip_offsets = new int[texture.mip_levels];
-	texture.mip_offsets[0] = 0;
+#if ENABLE_MIPMAPPING
+	texture.mip_levels = 1 + int(log2f(Math::max(texture.width, texture.height)));
+
+	int * mip_offsets = new int[texture.mip_levels];
+	mip_offsets[0] = 0;
 
 	int offset      = texture.width * texture.height;
 	int offset_prev = 0;
@@ -340,7 +346,7 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 		}
 #endif
 
-		texture.mip_offsets[level++] = offset * sizeof(Vector4);
+		mip_offsets[level++] = offset * sizeof(Vector4);
 
 #if false
 		if (strstr(file_path, "sponza_curtain_blue_diff.tga")) {
@@ -373,8 +379,14 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 
 	assert(level == texture.mip_levels);
 
-	texture.data = reinterpret_cast<const unsigned char *>(data_rgba);
+	texture.mip_offsets = mip_offsets;
+#else
+	texture.mip_levels = 1;
+	texture.mip_offsets = &zero;
+#endif
 
+	texture.data = reinterpret_cast<const unsigned char *>(data_rgba);
+	
 	return true;
 }
 
@@ -419,9 +431,6 @@ int Texture::load(const char * file_path) {
 		printf("WARNING: Failed to load Texture '%s'!\n", file_path);
 
 		if (texture.data) delete [] texture.data;
-
-		static int zero = 0;
-		static const Vector4 pink = Vector4(1.0f, 0, 1.0f, 1.0f);
 
 		// Make Texture pure pink to signify invalid Texture
 		texture.data = reinterpret_cast<const unsigned char *>(&pink);

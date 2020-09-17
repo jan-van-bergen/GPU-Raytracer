@@ -9,6 +9,7 @@ struct Camera {
 	Quaternion rotation;
 
 	float fov; // Field of View in radians
+	float pixel_spread_angle;
 
 	float inv_width;
 	float inv_height;

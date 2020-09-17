@@ -42,7 +42,7 @@ struct Pathtracer {
 private:
 	int pixel_count;
 	int batch_size;
-
+	
 	GBuffer gbuffer;
 
 	CUDAModule module;
@@ -143,6 +143,8 @@ private:
 	CUDAMemory::Ptr<float> ptr_light_total_area;
 	CUDAMemory::Ptr<float> ptr_light_mesh_area_scaled;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
+
+	void upload_camera();
 
 	void build_tlas();
 };

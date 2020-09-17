@@ -18,8 +18,8 @@ struct Texture {
 	int channels;
 	int width, height;
 
-	int   mip_levels;
-	int * mip_offsets; // Offsets in bytes
+	int         mip_levels;
+	const int * mip_offsets; // Offsets in bytes
 
 	CUarray_format       get_cuda_array_format() const;
 	CUresourceViewFormat get_cuda_resource_view_format() const;

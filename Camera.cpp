@@ -8,14 +8,19 @@
 #include "Random.h"
 
 void Camera::resize(int width, int height) {
-	inv_width  = 1.0f / float(width);
-	inv_height = 1.0f / float(height);
+	float widthf  = float(width);
+	float heightf = float(height);
 
-	float half_width  = 0.5f * float(width);
-	float half_height = 0.5f * float(height);
+	inv_width  = 1.0f / widthf;
+	inv_height = 1.0f / heightf;
+
+	float half_width  = 0.5f * widthf;
+	float half_height = 0.5f * heightf;
+
+	float tan_half_fov = tanf(0.5f * fov);
 
 	// Distance to the viewing plane
-	float d = half_height / tanf(0.5f * fov);
+	float d = half_height / tan_half_fov;
 
 	// Initialize viewing pyramid vectors
 	bottom_left_corner = Vector3(-half_width, -half_height, -d);
@@ -23,6 +28,8 @@ void Camera::resize(int width, int height) {
 	y_axis             = Vector3(0.0f, 1.0f, 0.0f);
 
 	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
+
+	pixel_spread_angle = atanf(2.0f * tanf(0.5f * fov) * inv_height); // See equation 30 of "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 }
 
 void Camera::update(float delta, bool apply_jitter) {

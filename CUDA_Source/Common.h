@@ -75,7 +75,7 @@ struct Settings {
 
 
 // Mipmapping
-#define ENABLE_MIPMAPPING false
+#define ENABLE_MIPMAPPING true
 
 
 // Microfacet

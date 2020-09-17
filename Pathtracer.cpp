@@ -29,8 +29,9 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
+#if ENABLE_MIPMAPPING
 	CUDAMemory::Ptr<float> cone_width;
-
+#endif
 	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
@@ -44,8 +45,9 @@ struct TraceBuffer {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
 
+#if ENABLE_MIPMAPPING
 		cone_width = CUDAMemory::malloc<float>(buffer_size);
-
+#endif
 		hit_ts = CUDAMemory::malloc<float> (buffer_size);
 		hits   = CUDAMemory::malloc<float4>(buffer_size);
 
@@ -60,8 +62,9 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 	
+#if ENABLE_MIPMAPPING
 	CUDAMemory::Ptr<float> cone_width;
-
+#endif
 	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
@@ -71,8 +74,9 @@ struct MaterialBuffer {
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
 		
+#if ENABLE_MIPMAPPING
 		cone_width = CUDAMemory::malloc<float>(buffer_size);
-
+#endif
 		hit_ts = CUDAMemory::malloc<float> (buffer_size);
 		hits   = CUDAMemory::malloc<float4>(buffer_size);
 
@@ -112,22 +116,6 @@ struct BufferSizes {
 	int rays_retired_shadow[NUM_BOUNCES];
 };
 static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)
-
-static void upload_camera(CUDAModule::Global global_camera, const Camera & camera) {
-	struct CUDACamera {
-		Vector3 position;
-		Vector3 bottom_left_corner;
-		Vector3 x_axis;
-		Vector3 y_axis;
-	} cuda_camera;
-
-	cuda_camera.position           = camera.position;
-	cuda_camera.bottom_left_corner = camera.bottom_left_corner_rotated;
-	cuda_camera.x_axis             = camera.x_axis_rotated;
-	cuda_camera.y_axis             = camera.y_axis_rotated;
-
-	global_camera.set_value(cuda_camera);
-}
 
 void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle) {
 	ScopeTimer timer("Pathtracer Initialization");
@@ -191,7 +179,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			tex_desc.mipmapLevelBias = 0;
 			tex_desc.maxAnisotropy = max_aniso;
 			tex_desc.minMipmapLevelClamp = 0;
-			tex_desc.maxMipmapLevelClamp = texture.mip_levels;
+			tex_desc.maxMipmapLevelClamp = texture.mip_levels - 1;
 			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
 			// Describe the Texture View
@@ -200,7 +188,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			view_desc.width  = texture.get_cuda_resource_view_width();
 			view_desc.height = texture.get_cuda_resource_view_height();
 			view_desc.firstMipmapLevel = 0;
-			view_desc.lastMipmapLevel  = texture.mip_levels;
+			view_desc.lastMipmapLevel  = texture.mip_levels - 1;
 
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, &view_desc));
 		}
@@ -322,6 +310,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	
 	CUDATriangle * triangles             = new CUDATriangle[global_index_count];
 	int          * triangle_material_ids = new int         [global_index_count];
+	float        * triangle_lods         = new float       [global_index_count];
 
 	int * reverse_indices = new int[global_index_count];
 
@@ -340,13 +329,33 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		triangles[i].tex_coord_edge_1 = global_triangles[index].tex_coord_1 - global_triangles[index].tex_coord_0;
 		triangles[i].tex_coord_edge_2 = global_triangles[index].tex_coord_2 - global_triangles[index].tex_coord_0;
 
-		triangle_material_ids[i] = global_triangles[index].material_id;
+		int material_id = global_triangles[index].material_id;
+		triangle_material_ids[i] = material_id;
+
+		int texture_id = Material::materials[material_id].texture_id;
+		if (texture_id != -1) {
+			const Texture & texture = Texture::textures[texture_id];
+
+			// Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
+			float t_a = float(texture.width * texture.height) * fabsf(
+				triangles[i].tex_coord_edge_1.x * triangles[i].tex_coord_edge_2.y -
+				triangles[i].tex_coord_edge_2.x * triangles[i].tex_coord_edge_1.y
+			); 
+			float p_a = Vector3::length(Vector3::cross(triangles[i].position_edge_1, triangles[i].position_edge_2));
+
+			triangle_lods[i] = 0.5f * log2f(t_a / p_a);
+		} else {
+			triangle_lods[i] = 0.0f;
+		}
 
 		reverse_indices[index] = i;
 	}
 
 	module.get_global("triangles")            .set_buffer(triangles,             global_index_count);
 	module.get_global("triangle_material_ids").set_buffer(triangle_material_ids, global_index_count);
+
+	module.get_global("triangle_lods").set_buffer(triangle_lods, global_index_count);
+	delete [] triangle_lods;
 
 	// Init OpenGL MeshData for rasterization
 	for (int m = 0; m < mesh_data_count; m++) {
@@ -533,6 +542,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(*buffer_sizes);
+
+	global_camera = module.get_global("camera");
 
 	global_settings = module.get_global("settings");
 
@@ -726,8 +737,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	
 	scene.camera.update(0.0f, settings.enable_rasterization);
 
-	global_camera = module.get_global("camera");
-	upload_camera(global_camera, scene.camera);
+	upload_camera();
 }
 
 void Pathtracer::resize_free() {
@@ -767,6 +777,24 @@ void Pathtracer::resize_free() {
 	
 	CUDAMemory::free(module.get_global("taa_frame_prev").get_value<CUDAMemory::Ptr<float4>>());
 	CUDAMemory::free(module.get_global("taa_frame_curr").get_value<CUDAMemory::Ptr<float4>>());
+}
+
+void Pathtracer::upload_camera() {
+	struct CUDACamera {
+		Vector3 position;
+		Vector3 bottom_left_corner;
+		Vector3 x_axis;
+		Vector3 y_axis;
+		float pixel_spread_angle;
+	} cuda_camera;
+
+	cuda_camera.position           = scene.camera.position;
+	cuda_camera.bottom_left_corner = scene.camera.bottom_left_corner_rotated;
+	cuda_camera.x_axis             = scene.camera.x_axis_rotated;
+	cuda_camera.y_axis             = scene.camera.y_axis_rotated;
+	cuda_camera.pixel_spread_angle = scene.camera.pixel_spread_angle;
+
+	global_camera.set_value(cuda_camera);
 }
 
 void Pathtracer::build_tlas() {
@@ -839,9 +867,7 @@ void Pathtracer::update(float delta) {
 
 	scene.camera.update(delta, settings.enable_rasterization);
 
-	if (scene.camera.moved) {
-		upload_camera(global_camera, scene.camera);
-	}
+	if (scene.camera.moved) upload_camera();
 
 	if (settings_changed) {
 		frames_accumulated = 0;

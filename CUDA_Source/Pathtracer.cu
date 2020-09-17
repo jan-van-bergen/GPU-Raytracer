@@ -1,6 +1,5 @@
 #include "cudart/vector_types.h"
 #include "cudart/cuda_math.h"
-#include "cudart/cuda_fp16.h"
 
 #include "Common.h"
 
@@ -100,7 +99,9 @@ struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
 
+#if ENABLE_MIPMAPPING
 	float * cone_width;
+#endif
 
 	float   * hit_ts;
 	HitBuffer hits;
@@ -116,7 +117,9 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	Vector3_SoA direction;	
 
+#if ENABLE_MIPMAPPING
 	float * cone_width;
+#endif
 
 	float   * hit_ts;
 	HitBuffer hits;
@@ -164,6 +167,7 @@ struct Camera {
 	float3 bottom_left_corner;
 	float3 x_axis;
 	float3 y_axis;
+	float  pixel_spread_angle;
 } __device__ __constant__ camera;
 
 // Sends the rasterized GBuffer to the right Material kernels,
@@ -452,6 +456,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
+#if ENABLE_MIPMAPPING
+			if (bounce > 0) ray_buffer_shade_diffuse.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+#endif
 			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 			
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
@@ -465,6 +472,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
+#if ENABLE_MIPMAPPING
+			if (bounce > 0) ray_buffer_shade_dielectric.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+#endif
 			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
@@ -478,6 +488,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
+#if ENABLE_MIPMAPPING
+			if (bounce > 0) ray_buffer_shade_glossy.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+#endif
 			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
@@ -537,15 +550,17 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 albedo;
 
 #if ENABLE_MIPMAPPING
+	float cone_width;
+
+	if (settings.enable_rasterization) {
+		ray_t = length(hit_point - camera.position) / length(ray_direction);
+	}
+
 	if (bounce == 0) {
 		// Transform Triangle edges into world space
 		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_1);
 		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_2);
 		
-		if (settings.enable_rasterization) {
-			ray_t = length(hit_point - camera.position) / length(ray_direction);
-		}
-
 		// Formulae based on Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 		float one_over_k = 1.0f / dot(cross(hit_triangle_position_edge_1, hit_triangle_position_edge_2), ray_direction); 
 
@@ -574,8 +589,14 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		float2 dy = make_float2(ds_dy, dt_dy);
 
 		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, dx, dy);
+
+		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); 
 	} else {
-		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+
+		float lod = triangle_get_lod(ray_triangle_id) + log2f(cone_width / fabsf(dot(ray_direction, hit_normal)));
+
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
 #else
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -664,6 +685,10 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
 	ray_buffer_trace.direction.from_float3(index_out, direction_world);
+	
+#if ENABLE_MIPMAPPING
+	ray_buffer_trace.cone_width[index_out] = cone_width;
+#endif
 
 	ray_buffer_trace.pixel_index[index_out]  = ray_pixel_index;
 	ray_buffer_trace.throughput.from_float3(index_out, throughput);

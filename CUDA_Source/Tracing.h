@@ -89,9 +89,14 @@ struct Triangle {
 
 __device__ __constant__ const Triangle * triangles;
 __device__ __constant__ const int      * triangle_material_ids;
+__device__ __constant__ const float    * triangle_lods;
 
 __device__ inline int triangle_get_material_id(int index) {
 	return triangle_material_ids[index];
+}
+
+__device__ inline float triangle_get_lod(int index) {
+	return triangle_lods[index];
 }
 
 __device__ inline void triangle_get_positions(int index, float3 & position_0, float3 & position_edge_1, float3 & position_edge_2) {
