@@ -9,7 +9,6 @@
 #include "Math.h"
 #include "Vector4.h"
 
-#include "Util.h"
 #include "CUDA_Source\Common.h"
 
 /*
@@ -46,12 +45,11 @@ struct FilterKaiser {
 	static constexpr float stretch = 1.0f;
 
 	static float eval(float x) {
-		float sinc = Math::sincf(PI * x * stretch);
-		float t = x / width;
+		float t  = x / width;
 		float t2 = t * t;
 
 		if (t2 < 1.0f) {
-			return sinc * Math::bessel_0(alpha * sqrtf(1.0f - t2)) / Math::bessel_0(alpha);
+			return Math::sincf(PI * x * stretch) * Math::bessel_0(alpha * sqrtf(1.0f - t2)) / Math::bessel_0(alpha);
 		} else {
 			return 0.0f;
 		}
@@ -66,17 +64,20 @@ typedef FilterLanczos Filter;
 typedef FilterKaiser Filter;
 #endif
 
-static float filter_sample_box(float x, float scale, int samples) {
-	float sum = 0.0f;
-	float inv_samples = 1.0f / float(samples);
+static float filter_sample_box(float x, float scale) {
+	constexpr int   SAMPLE_COUNT     = 32;
+	constexpr float SAMPLE_COUNT_INV = 1.0f / float(SAMPLE_COUNT);
 
-	for (int s = 0; s < samples; s++) {
-		float p = (x + (float(s) + 0.5f) * inv_samples) * scale;
+	float sample = 0.5f;
+	float sum    = 0.0f;
+
+	for (int i = 0; i < SAMPLE_COUNT; i++, sample += 1.0f) {
+		float p = (x + sample * SAMPLE_COUNT_INV) * scale;
 
 		sum += Filter::eval(p);
 	}
 
-	return sum * inv_samples;
+	return sum * SAMPLE_COUNT_INV;
 }
 
 static void downsample(int width_src, int height_src, int width_dst, int height_dst, const Vector4 texture_src[], Vector4 texture_dst[], Vector4 temp[]) {
@@ -88,11 +89,11 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 	float inv_scale_x = 1.0f / scale_x;
 	float inv_scale_y = 1.0f / scale_y;
 
-	float width_x = Filter::width * inv_scale_x;
-	float width_y = Filter::width * inv_scale_y;
+	float filter_width_x = Filter::width * inv_scale_x;
+	float filter_width_y = Filter::width * inv_scale_y;
 
-	int window_size_x = int(ceilf(width_x * 2.0f)) + 1;
-	int window_size_y = int(ceilf(width_y * 2.0f)) + 1;
+	int window_size_x = int(ceilf(filter_width_x * 2.0f)) + 1;
+	int window_size_y = int(ceilf(filter_width_y * 2.0f)) + 1;
 
 	float * kernel_x = new float[window_size_x];
 	float * kernel_y = new float[window_size_y];
@@ -103,61 +104,65 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 	float sum_x = 0.0f;
 	float sum_y = 0.0f;
 
-	for (int j = 0; j < window_size_x; j++) {
-		float sample = filter_sample_box(j - window_size_x / 2, scale_x, 32);
+	// Fill horizontal kernel
+	for (int x = 0; x < window_size_x; x++) {
+		float sample = filter_sample_box(x - window_size_x / 2, scale_x);
 
-		kernel_x[j] = sample;
+		kernel_x[x] = sample;
 		sum_x += sample;
 	}
-	for (int j = 0; j < window_size_y; j++) {
-		float sample = filter_sample_box(j - window_size_y / 2, scale_y, 32);
 
-		kernel_y[j] = sample;
+	// Fill vertical kernel
+	for (int y = 0; y < window_size_y; y++) {
+		float sample = filter_sample_box(y - window_size_y / 2, scale_y);
+
+		kernel_y[y] = sample;
 		sum_y += sample;
 	}
 
-	for (int j = 0; j < window_size_x; j++) kernel_x[j] /= sum_x;
-	for (int j = 0; j < window_size_y; j++) kernel_y[j] /= sum_y;
+	// Normalize kernels
+	for (int x = 0; x < window_size_x; x++) kernel_x[x] /= sum_x;
+	for (int y = 0; y < window_size_y; y++) kernel_y[y] /= sum_y;
 
 	// Apply horizontal kernel
-	for (int j = 0; j < height_src; j++) {
-		Vector4 * row = temp + j * width_dst;
+	for (int y = 0; y < height_src; y++) {
+		Vector4 * row = temp + y * width_dst;
 
-		for (int i = 0; i < width_dst; i++) {
-			float center = (float(i) + 0.5f) * inv_scale_x;
+		for (int x = 0; x < width_dst; x++) {
+			float center = (float(x) + 0.5f) * inv_scale_x;
 
-			int left = int(floorf(center - width_x));
+			int left = int(floorf(center - filter_width_x));
 
 			Vector4 sum = Vector4(0.0f);
 
-			for (int k = 0; k < window_size_x; k++) {
-				int index = Math::clamp(left + k, 0, width_src - 1) + j * width_src;
+			for (int i = 0; i < window_size_x; i++) {
+				int index = Math::clamp(left + i, 0, width_src - 1) + y * width_src;
 
-				sum += kernel_x[k] * texture_src[index];
+				sum += kernel_x[i] * texture_src[index];
 			}
 
-			row[i] = sum;
+			row[x] = sum;
 		}
 	}
 
 	// Apply vertical kernel
-	for (int i = 0; i < width_dst; i++) {
-		Vector4 * col = texture_dst + i;
+	for (int x = 0; x < width_dst; x++) {
+		Vector4 * col = texture_dst + x;
 
-		for (int j = 0; j < height_dst; j++) {
-			float center = (float(j) + 0.5f) * inv_scale_y;
+		for (int y = 0; y < height_dst; y++) {
+			float center = (float(y) + 0.5f) * inv_scale_y;
 
-			int top = int(floorf(center - width_y));
+			int top = int(floorf(center - filter_width_y));
 
 			Vector4 sum = Vector4(0.0f);
 
-			for (int k = 0; k < window_size_y; k++) {
-				int index = i + Math::clamp(top + k, 0, height_src - 1) * width_dst;
+			for (int i = 0; i < window_size_y; i++) {
+				int index = x + Math::clamp(top + i, 0, height_src - 1) * width_dst;
 
-				sum += kernel_y[k] * temp[index];
+				sum += kernel_y[i] * temp[index];
 			}
 
-			col[j * width_dst] = sum;
+			col[y * width_dst] = sum;
 		}
 	}
 
@@ -165,14 +170,13 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 	delete [] kernel_y;
 }
 
-static const int zero = 0;
+static const int     zero = 0;
 static const Vector4 pink = Vector4(1.0f, 0, 1.0f, 1.0f);
 
 static std::unordered_map<std::string, int> cache;
 
 static bool load_dds(Texture & texture, const char * file_path) {
-	FILE * file;
-	fopen_s(&file, file_path, "rb");
+	FILE * file; fopen_s(&file, file_path, "rb");
 
 	if (file == nullptr) return false;
 	
@@ -276,8 +280,8 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 #if RAINBOW
 	const Vector4 rainbow[] = { Vector4(1,0,0,0), Vector4(1,1,0,0), Vector4(0,1,0,0), Vector4(0,1,1,0), Vector4(0,0,1,0), Vector4(1,0,1,0), Vector4(1,1,1,0) };
 
-	for (int i = 0; i < texture.width * texture.height; i++) {
-		data_rgba[i] = rainbow[0];
+	for (int x = 0; x < texture.width * texture.height; x++) {
+		data_rgba[x] = rainbow[0];
 	}
 #else
 	// Copy the data over into Mipmap level 0, and convert it to linear colour space
@@ -321,24 +325,6 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 #endif
 
 		mip_offsets[level++] = offset * sizeof(Vector4);
-
-#if false
-		if (strstr(file_path, "sponza_curtain_blue_diff.tga")) {
-			unsigned char * data_rgb = new unsigned char[level_width * level_height * 3];
-
-			for (int i = 0; i < level_width * level_height; i++) {
-				data_rgb[i * 3 + 0] = unsigned char(Math::clamp((data_rgba + offset)[i].x * 255.0f, 0.0f, 255.0f));
-				data_rgb[i * 3 + 1] = unsigned char(Math::clamp((data_rgba + offset)[i].y * 255.0f, 0.0f, 255.0f));
-				data_rgb[i * 3 + 2] = unsigned char(Math::clamp((data_rgba + offset)[i].z * 255.0f, 0.0f, 255.0f));
-			}
-
-			char path[32]; sprintf_s(path, "mip_%i.ppm", level - 1);
-
-			Util::save_ppm(path, level_width, level_height, data_rgb);
-
-			delete [] data_rgb;
-		}
-#endif
 
 		if (level_width == 1 && level_height == 1) break;
 
