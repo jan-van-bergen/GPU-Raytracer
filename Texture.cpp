@@ -16,59 +16,70 @@
 	Mipmap filter code based on http://number-none.com/product/Mipmapping,%20Part%201/index.html and https://github.com/castano/nvidia-texture-tools
 */
 
-enum class FilterType {
-	BOX,
-	LANCZOS,
-	KAISER
+struct FilterBox {
+	static constexpr float width = 0.5f;
+
+	static float eval(float x) {
+		if (fabsf(x) <= width) {
+			return 1.0f;
+		} else {
+			return 0.0f;
+		}
+	}
 };
 
-typedef float (*Filter)(float width, float x);
+struct FilterLanczos {
+	static constexpr float width = 3.0f;
 
-static float filter_box(float width, float x) {
-	if (fabsf(x) <= width) {
-		return 1.0f;
-	} else {
-		return 0.0f;
+	static float eval(float x) {
+		if (fabsf(x) < width) {
+			return Math::sincf(PI * x) * Math::sincf(PI * x / width);
+		} else {
+			return 0.0f;
+		}
 	}
-}
+};
 
-static float filter_lanczos(float width, float x) {
-	if (fabsf(x) < 3.0f) {
-		return Math::sincf(PI * x) * Math::sincf(PI * x / 3.0f);
-	} else {
-		return 0.0f;
+struct FilterKaiser {
+	static constexpr float width   = 7.0f;
+	static constexpr float alpha   = 4.0f;
+	static constexpr float stretch = 1.0f;
+
+	static float eval(float x) {
+		float sinc = Math::sincf(PI * x * stretch);
+		float t = x / width;
+		float t2 = t * t;
+
+		if (t2 < 1.0f) {
+			return sinc * Math::bessel_0(alpha * sqrtf(1.0f - t2)) / Math::bessel_0(alpha);
+		} else {
+			return 0.0f;
+		}
 	}
-}
+};
 
-static float filter_kaiser(float width, float x) {
-	constexpr float alpha   = 4.0f;
-	constexpr float stretch = 1.0f;
+#if MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
+typedef FilterBox Filter;
+#elif MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_LANCZOS
+typedef FilterLanczos Filter;
+#elif MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_KAISER
+typedef FilterKaiser Filter;
+#endif
 
-	float sinc = Math::sincf(PI * x * stretch);
-	float t = x / width;
-	float t2 = t * t;
-
-	if (t2 < 1.0f) {
-		return sinc * Math::bessel_0(alpha * sqrtf(1.0f - t2)) / Math::bessel_0(alpha);
-	} else {
-		return 0.0f;
-	}
-}
-
-static float filter_sample_box(Filter filter, float filter_width, float x, float scale, int samples) {
+static float filter_sample_box(float x, float scale, int samples) {
 	float sum = 0.0f;
 	float inv_samples = 1.0f / float(samples);
 
 	for (int s = 0; s < samples; s++) {
 		float p = (x + (float(s) + 0.5f) * inv_samples) * scale;
 
-		sum += filter(filter_width, p);
+		sum += Filter::eval(p);
 	}
 
 	return sum * inv_samples;
 }
 
-static void downsample(FilterType filter_type, int width_src, int height_src, int width_dst, int height_dst, const Vector4 texture_src[], Vector4 texture_dst[], Vector4 temp[]) {
+static void downsample(int width_src, int height_src, int width_dst, int height_dst, const Vector4 texture_src[], Vector4 texture_dst[], Vector4 temp[]) {
 	float scale_x = float(width_dst)  / float(width_src);
 	float scale_y = float(height_dst) / float(height_src);
 
@@ -77,41 +88,8 @@ static void downsample(FilterType filter_type, int width_src, int height_src, in
 	float inv_scale_x = 1.0f / scale_x;
 	float inv_scale_y = 1.0f / scale_y;
 
-	float  filter_width_x;
-	float  filter_width_y;
-	Filter filter = nullptr;
-
-	switch (filter_type) {
-		case FilterType::BOX: {
-			filter_width_x = 0.5f;
-			filter_width_y = 0.5f;
-
-			filter = &filter_box;
-
-			break;
-		}
-		case FilterType::LANCZOS: {
-			filter_width_x = 3.0f;
-			filter_width_y = 3.0f;
-
-			filter = &filter_lanczos;
-
-			break;
-		}
-		case FilterType::KAISER: {
-			filter_width_x = 5.0f;
-			filter_width_y = 5.0f;
-
-			filter = &filter_kaiser;
-
-			break;
-		}
-
-		default: abort();
-	}
-
-	float width_x = filter_width_x * inv_scale_x;
-	float width_y = filter_width_y * inv_scale_y;
+	float width_x = Filter::width * inv_scale_x;
+	float width_y = Filter::width * inv_scale_y;
 
 	int window_size_x = int(ceilf(width_x * 2.0f)) + 1;
 	int window_size_y = int(ceilf(width_y * 2.0f)) + 1;
@@ -126,13 +104,13 @@ static void downsample(FilterType filter_type, int width_src, int height_src, in
 	float sum_y = 0.0f;
 
 	for (int j = 0; j < window_size_x; j++) {
-		float sample = filter_sample_box(filter, filter_width_x, j - window_size_x / 2, scale_x, 32);
+		float sample = filter_sample_box(j - window_size_x / 2, scale_x, 32);
 
 		kernel_x[j] = sample;
 		sum_x += sample;
 	}
 	for (int j = 0; j < window_size_y; j++) {
-		float sample = filter_sample_box(filter, filter_width_y, j - window_size_y / 2, scale_y, 32);
+		float sample = filter_sample_box(j - window_size_y / 2, scale_y, 32);
 
 		kernel_y[j] = sample;
 		sum_y += sample;
@@ -329,21 +307,17 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 
 	Vector4 * temp = new Vector4[texture.width * texture.height / 2];
 
-	FilterType filter_type = FilterType::LANCZOS;
-
 	while (true) {
 #if RAINBOW
 		for (int i = 0; i < level_width * level_height; i++) {
 			data_rgba[offset + i] = rainbow[Math::min(Util::array_element_count(rainbow) - 1, level)];
 		}
+#elif MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
+		// Box filter can downsample the previous Mip level
+		downsample(level_width * 2, level_height * 2, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
 #else
-		if (filter_type == FilterType::BOX) {
-			// Box filter can downsample the previous Mip level
-			downsample(filter_type, level_width * 2, level_height * 2, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
-		} else {
-			// Other filters downsample the original Texture for better quality
-			downsample(filter_type, texture.width, texture.height, level_width, level_height, data_rgba, data_rgba + offset, temp);
-		}
+		// Other filters downsample the original Texture for better quality
+		downsample(texture.width, texture.height, level_width, level_height, data_rgba, data_rgba + offset, temp);
 #endif
 
 		mip_offsets[level++] = offset * sizeof(Vector4);
