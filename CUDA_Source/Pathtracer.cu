@@ -841,7 +841,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	hit_normal = normalize(hit_normal);
 	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 
-	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, make_float2(0), make_float2(0));
+	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
+
+	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 	float3 throughput = ray_throughput * albedo;
 
 	if ((settings.demodulate_albedo || settings.enable_svgf) && bounce == 0) {
@@ -927,9 +929,6 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	}
 
 	if (bounce == NUM_BOUNCES - 1) return;
-
-	hit_normal = normalize(hit_normal);
-	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
 
 	// Sample normal distribution in spherical coordinates
 	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 4, seed) + 1e-8f)));
