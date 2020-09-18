@@ -126,8 +126,6 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 
 	// Apply horizontal kernel
 	for (int y = 0; y < height_src; y++) {
-		Vector4 * row = temp + y * width_dst;
-
 		for (int x = 0; x < width_dst; x++) {
 			float center = (float(x) + 0.5f) * inv_scale_x;
 
@@ -141,14 +139,12 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 				sum += kernel_x[i] * texture_src[index];
 			}
 
-			row[x] = sum;
+			temp[x * height_src + y] = sum;
 		}
 	}
 
 	// Apply vertical kernel
 	for (int x = 0; x < width_dst; x++) {
-		Vector4 * col = texture_dst + x;
-
 		for (int y = 0; y < height_dst; y++) {
 			float center = (float(y) + 0.5f) * inv_scale_y;
 
@@ -157,12 +153,12 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 			Vector4 sum = Vector4(0.0f);
 
 			for (int i = 0; i < window_size_y; i++) {
-				int index = x + Math::clamp(top + i, 0, height_src - 1) * width_dst;
+				int index = x * height_src + Math::clamp(top + i, 0, height_src - 1);
 
 				sum += kernel_y[i] * temp[index];
 			}
 
-			col[y * width_dst] = sum;
+			texture_dst[x + y * width_dst] = sum;
 		}
 	}
 
