@@ -48,8 +48,9 @@ static int current_frame = 0;
 
 // Index of frame to take screen capture on
 static constexpr int capture_frame_index = -1;
+static constexpr bool exit_after_capture = true;
 
-Pathtracer pathtracer;
+static Pathtracer pathtracer;
 
 static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_free();
@@ -91,11 +92,13 @@ int main(int argument_count, char ** arguments) {
 		
 		window.render_framebuffer();
 		
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || current_frame == capture_frame_index ) {
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || current_frame == capture_frame_index) {
 			char screenshot_name[32];
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", current_frame);
 
 			capture_screen(window, screenshot_name);
+
+			if (current_frame == capture_frame_index && exit_after_capture) break;
 		}
 		
 		// Perform frame timing

@@ -160,8 +160,6 @@ struct BufferSizes {
 	int rays_retired_shadow[NUM_BOUNCES];
 } __device__ buffer_sizes;
 
-#include "Tracing.h"
-
 struct Camera {
 	float3 position;
 	float3 bottom_left_corner;
@@ -169,6 +167,9 @@ struct Camera {
 	float3 y_axis;
 	float  pixel_spread_angle;
 } __device__ __constant__ camera;
+
+#include "Tracing.h"
+#include "Mipmap.h"
 
 // Sends the rasterized GBuffer to the right Material kernels,
 // as if the primary Rays they were Raytraced 
@@ -552,51 +553,21 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #if ENABLE_MIPMAPPING
 	float cone_width;
 
-	if (settings.enable_rasterization) {
-		ray_t = length(hit_point - camera.position) / length(ray_direction);
-	}
-
 	if (bounce == 0) {
-		// Transform Triangle edges into world space
-		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_1);
-		mesh_transform_direction(ray_mesh_id, hit_triangle_position_edge_2);
-		
-		// Formulae based on Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
-		float one_over_k = 1.0f / dot(cross(hit_triangle_position_edge_1, hit_triangle_position_edge_2), ray_direction); 
+		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
 
-		// Formula simplified because we only do ray differentials for primary rays
-		// This means the differential of the ray origin is zero and
-		// the differential of the ray directon is simply the x/y axis
-		float3 q = ray_t * camera.x_axis;
-		float3 r = ray_t * camera.y_axis;
-
-		float3 c_u = cross(hit_triangle_position_edge_2, ray_direction);
-		float3 c_v = cross(ray_direction, hit_triangle_position_edge_1);
-
-		// Differentials of barycentric coordinates (u,v)
-		float du_dx = one_over_k * dot(c_u, q);
-		float du_dy = one_over_k * dot(c_u, r);
-		float dv_dx = one_over_k * dot(c_v, q);
-		float dv_dy = one_over_k * dot(c_v, r);
-
-		// Differentials of Texture coordinates (s,t)
-		float ds_dx = du_dx * hit_triangle_tex_coord_edge_1.x + dv_dx * hit_triangle_tex_coord_edge_2.x;
-		float ds_dy = du_dy * hit_triangle_tex_coord_edge_1.x + dv_dy * hit_triangle_tex_coord_edge_2.x;
-		float dt_dx = du_dx * hit_triangle_tex_coord_edge_1.y + dv_dx * hit_triangle_tex_coord_edge_2.y;
-		float dt_dy = du_dy * hit_triangle_tex_coord_edge_1.y + dv_dy * hit_triangle_tex_coord_edge_2.y;
-
-		float2 dx = make_float2(ds_dx, dt_dx);
-		float2 dy = make_float2(ds_dy, dt_dy);
-
-		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, dx, dy);
-
-		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); 
-	} else {
+		albedo = mipmap_sample_ray_differentials(
+			material,
+			ray_mesh_id, ray_triangle_id,
+			hit_triangle_position_edge_1, hit_triangle_position_edge_2,
+			hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2,
+			ray_direction, ray_t,
+			hit_tex_coord
+		);
+	} else {	
 		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
 
-		float lod = triangle_get_lod(ray_triangle_id) + log2f(cone_width / fabsf(dot(ray_direction, hit_normal)));
-
-		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
+		albedo = mipmap_sample_ray_cones(material, ray_triangle_id, ray_direction, ray_t, cone_width, hit_normal, hit_tex_coord);
 	}
 #else
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -711,6 +682,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float ray_v;
 	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
 
+	// Primary Ray direction is not normalized because ray differentials need their original length
+	// This is not needed in this kernel so normalize the direction and correct t so that it is the actual distance along the ray
+	if (bounce == 0) {
+		float ray_direction_length_inv = 1.0f / length(ray_direction);
+		ray_t         *= ray_direction_length_inv;
+		ray_direction *= ray_direction_length_inv;
+	}
+
 	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 
 	float3 ray_throughput = ray_buffer_shade_dielectric.throughput.to_float3(index);
@@ -790,6 +769,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
 	ray_buffer_trace.direction.from_float3(index_out, direction);
 
+#if ENABLE_MIPMAPPING
+	ray_buffer_trace.cone_width[index_out] = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+#endif
 	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
 	ray_buffer_trace.throughput.from_float3(index_out, ray_throughput);
 
@@ -800,8 +782,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
-	float3 direction_in = -1.0f * ray_buffer_shade_glossy.direction.to_float3(index);
-	if (bounce == 0) direction_in = normalize(direction_in);
+	float3 ray_direction = ray_buffer_shade_glossy.direction.to_float3(index);
 
 	int   ray_mesh_id;
 	int   ray_triangle_id;
@@ -841,14 +822,40 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	hit_normal = normalize(hit_normal);
 	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 
-	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
+	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
-	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
-	float3 throughput = ray_throughput * albedo;
+	float3 albedo;
 
-	if ((settings.demodulate_albedo || settings.enable_svgf) && bounce == 0) {
+#if ENABLE_MIPMAPPING
+	float cone_width;
+
+	if (bounce == 0) {
+		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
+
+		albedo = mipmap_sample_ray_differentials(
+			material,
+			ray_mesh_id, ray_triangle_id,
+			hit_triangle_position_edge_1, hit_triangle_position_edge_2,
+			hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2,
+			ray_direction, ray_t,
+			hit_tex_coord
+		);
+	} else {	
+		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+
+		albedo = mipmap_sample_ray_cones(material, ray_triangle_id, ray_direction, ray_t, cone_width, hit_normal, hit_tex_coord);
+	}
+#else
+	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+#endif
+
+	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
+
+	float3 throughput = ray_throughput * albedo;
+
+	float3 direction_in = -1.0f * normalize(ray_direction);
 
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
 	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
