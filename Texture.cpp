@@ -166,9 +166,6 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 	delete [] kernel_y;
 }
 
-static const int     zero = 0;
-static const Vector4 pink = Vector4(1.0f, 0, 1.0f, 1.0f);
-
 static std::unordered_map<std::string, int> cache;
 
 static bool load_dds(Texture & texture, const char * file_path) {
@@ -264,7 +261,9 @@ exit:
 static bool load_stbi(Texture & texture, const char * file_path) {
 	unsigned char * data = stbi_load(file_path, &texture.width, &texture.height, &texture.channels, STBI_rgb_alpha);
 
-	if (data == nullptr || texture.width == 0 || texture.height == 0) return false;
+	if (data == nullptr || texture.width == 0 || texture.height == 0) {
+		return false;
+	}
 
 	texture.channels = 4;
 	
@@ -340,7 +339,7 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	texture.mip_offsets = mip_offsets;
 #else
 	texture.mip_levels = 1;
-	texture.mip_offsets = &zero;
+	texture.mip_offsets = new int(0);
 #endif
 
 	texture.data = reinterpret_cast<const unsigned char *>(data_rgba);
@@ -391,13 +390,13 @@ int Texture::load(const char * file_path) {
 		if (texture.data) delete [] texture.data;
 
 		// Make Texture pure pink to signify invalid Texture
-		texture.data = reinterpret_cast<const unsigned char *>(&pink);
+		texture.data = reinterpret_cast<const unsigned char *>(new Vector4(1.0f, 0.0f, 1.0f, 1.0f));
 		texture.format = Texture::Format::RGBA;
 		texture.width  = 1;
 		texture.height = 1;
 		texture.channels = 4;
 		texture.mip_levels  = 1;
-		texture.mip_offsets = &zero;
+		texture.mip_offsets = new int(0);
 	}
 
 	delete [] file_extension;
@@ -407,9 +406,7 @@ int Texture::load(const char * file_path) {
 
 void Texture::free() {
 	delete [] data;
-#if ENABLE_MIPMAPPING
 	delete [] mip_offsets;
-#endif
 }
 
 CUarray_format Texture::get_cuda_array_format() const {
