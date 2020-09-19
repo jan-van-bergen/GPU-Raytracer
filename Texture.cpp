@@ -269,16 +269,7 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	
 	int pixel_count = texture.width * texture.height;
 	Vector4 * data_rgba = new Vector4[pixel_count + (ENABLE_MIPMAPPING ? pixel_count / 3 : 0)];
-	
-#define RAINBOW false // For debugging purposes: every level of the mipmap pyramid gets a different uniform colour
 
-#if RAINBOW
-	const Vector4 rainbow[] = { Vector4(1,0,0,0), Vector4(1,1,0,0), Vector4(0,1,0,0), Vector4(0,1,1,0), Vector4(0,0,1,0), Vector4(1,0,1,0), Vector4(1,1,1,0) };
-
-	for (int x = 0; x < pixel_count; x++) {
-		data_rgba[x] = rainbow[0];
-	}
-#else
 	// Copy the data over into Mipmap level 0, and convert it to linear colour space
 	for (int i = 0; i < pixel_count; i++) {
 		data_rgba[i] = Vector4(
@@ -288,7 +279,6 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 			Math::gamma_to_linear(float(data[i * 4 + 3]) / 255.0f)
 		);
 	}
-#endif
 
 	stbi_image_free(data);
 
@@ -309,11 +299,7 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	Vector4 * temp = new Vector4[pixel_count / 2]; // Intermediate storage used when performing seperable filtering
 
 	while (true) {
-#if RAINBOW
-		for (int i = 0; i < level_width * level_height; i++) {
-			data_rgba[offset + i] = rainbow[Math::min(Util::array_element_count(rainbow) - 1, level)];
-		}
-#elif MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
+#if MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
 		// Box filter can downsample the previous Mip level
 		downsample(level_width * 2, level_height * 2, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
 #else
