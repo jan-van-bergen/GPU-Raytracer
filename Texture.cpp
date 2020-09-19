@@ -291,6 +291,8 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	}
 #endif
 
+	stbi_image_free(data);
+
 #if ENABLE_MIPMAPPING
 	texture.mip_levels = 1 + int(log2f(Math::max(texture.width, texture.height)));
 
