@@ -5,7 +5,7 @@
 // simplifications that are only appropriate for primary rays.
 // For subsequent bounces the Ray Cones method is used.
 __device__ inline float3 mipmap_sample_ray_differentials(
-    const Material & material,
+	const Material & material,
 	int mesh_id,
 	int triangle_id,
 	float3 & triangle_position_edge_1,
@@ -53,7 +53,7 @@ __device__ inline float3 mipmap_sample_ray_differentials(
 // Samples the given Material's albedo texture map at the appropriate LOD
 // The LOD is determined using ray cones.
 __device__ inline float3 mipmap_sample_ray_cones(
-    const Material & material,
+	const Material & material,
 	int triangle_id,
 	const float3 & ray_direction,
 	float ray_t,

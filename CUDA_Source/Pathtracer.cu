@@ -553,6 +553,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #if ENABLE_MIPMAPPING
 	float cone_width;
 
+	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
 	if (bounce == 0) {
 		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
 
@@ -829,6 +830,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 #if ENABLE_MIPMAPPING
 	float cone_width;
 
+	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
 	if (bounce == 0) {
 		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
 

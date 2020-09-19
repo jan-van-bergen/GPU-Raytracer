@@ -27,9 +27,11 @@ void Camera::resize(int width, int height) {
 	x_axis             = Vector3(1.0f, 0.0f, 0.0f);
 	y_axis             = Vector3(0.0f, 1.0f, 0.0f);
 
+	// Projection matrix (for rasterization)
 	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
 
-	pixel_spread_angle = atanf(2.0f * tanf(0.5f * fov) * inv_height); // See equation 30 of "Texture Level of Detail Strategies for Real-Time Ray Tracing"
+	// See equation 30 of "Texture Level of Detail Strategies for Real-Time Ray Tracing"
+	pixel_spread_angle = atanf(2.0f * tan_half_fov * inv_height);
 }
 
 void Camera::update(float delta, bool apply_jitter) {
