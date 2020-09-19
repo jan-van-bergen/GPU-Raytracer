@@ -132,7 +132,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	// Set global Material table
 	module.get_global("materials").set_buffer(Material::materials);
-
+	
 	// Set global Texture table
 	int texture_count = Texture::textures.size();
 	if (texture_count > 0) {
@@ -142,7 +142,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		int max_aniso; glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso);
 
 		for (int i = 0; i < texture_count; i++) {
-			const Texture & texture = Texture::textures[i];
+			Texture & texture = Texture::textures[i];
 
 			// Create mipmapped CUDA array
 			CUmipmappedArray array = CUDAMemory::create_array_mipmap(
@@ -191,6 +191,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			view_desc.lastMipmapLevel  = texture.mip_levels - 1;
 
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, &view_desc));
+
+			texture.free();
 		}
 
 		module.get_global("textures").set_buffer(tex_objects, texture_count);

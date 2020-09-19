@@ -403,6 +403,13 @@ int Texture::load(const char * file_path) {
 	return texture_id;
 }
 
+void Texture::free() {
+	delete [] data;
+#if ENABLE_MIPMAPPING
+	delete [] mip_offsets;
+#endif
+}
+
 CUarray_format Texture::get_cuda_array_format() const {
 	switch (format) {
 		case Format::BC1:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;
