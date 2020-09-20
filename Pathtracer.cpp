@@ -133,6 +133,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	// Set global Material table
 	module.get_global("materials").set_buffer(Material::materials);
 	
+	Texture::wait_until_textures_loaded();
+
 	// Set global Texture table
 	int texture_count = Texture::textures.size();
 	if (texture_count > 0) {

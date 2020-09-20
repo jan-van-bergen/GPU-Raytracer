@@ -33,5 +33,7 @@ struct Texture {
 
 	static int load(const char * file_path);
 
+	static void wait_until_textures_loaded();
+
 	inline static std::vector<Texture> textures;
 };

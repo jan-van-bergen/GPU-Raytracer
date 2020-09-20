@@ -3,6 +3,9 @@
 #include <unordered_map>
 #include <ctype.h>
 
+#include <mutex>
+#include <thread>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
 
@@ -95,8 +98,9 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 	int window_size_x = int(ceilf(filter_width_x * 2.0f)) + 1;
 	int window_size_y = int(ceilf(filter_width_y * 2.0f)) + 1;
 
-	float * kernel_x = new float[window_size_x];
-	float * kernel_y = new float[window_size_y];
+	float * kernels = new float[window_size_x + window_size_y];
+	float * kernel_x = kernels;
+	float * kernel_y = kernels + window_size_x;
 
 	memset(kernel_x, 0, window_size_x * sizeof(float));
 	memset(kernel_y, 0, window_size_y * sizeof(float));
@@ -162,11 +166,8 @@ static void downsample(int width_src, int height_src, int width_dst, int height_
 		}
 	}
 
-	delete [] kernel_x;
-	delete [] kernel_y;
+	delete [] kernels;
 }
-
-static std::unordered_map<std::string, int> cache;
 
 static bool load_dds(Texture & texture, const char * file_path) {
 	FILE * file; fopen_s(&file, file_path, "rb");
@@ -333,15 +334,13 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	return true;
 }
 
-int Texture::load(const char * file_path) {
-	int & texture_id = cache[file_path];
+static std::unordered_map<std::string, int> cache;
 
-	// If the cache already contains this Texture simply return it
-	if (texture_id != 0 && textures.size() > 0) return texture_id;
-	
-	// Otherwise, create new Texture and load it from disk
-	texture_id        = textures.size();
-	Texture & texture = textures.emplace_back();
+static std::mutex       textures_mutex; // Protects Texture::textures
+static std::atomic<int> textures_finished;
+
+static void load_texture(std::string filename, int texture_id) {
+	const char * file_path = filename.c_str();
 
 	int    file_path_length = strlen(file_path);
 	char * file_extension   = nullptr;
@@ -360,6 +359,7 @@ int Texture::load(const char * file_path) {
 		}
 	}
 
+	Texture texture;
 	bool success = false;
 
 	if (file_extension) {
@@ -384,10 +384,45 @@ int Texture::load(const char * file_path) {
 		texture.mip_levels  = 1;
 		texture.mip_offsets = new int(0);
 	}
+	
+	{
+		std::lock_guard<std::mutex> lock(textures_mutex);
+
+		Texture::textures[texture_id] = texture;
+	}
+
+	textures_finished++;
 
 	delete [] file_extension;
+}
+
+int Texture::load(const char * file_path) {
+	int & texture_id = cache[file_path];
+
+	// If the cache already contains this Texture simply return its index
+	if (texture_id != 0 && textures.size() > 0) return texture_id;
+	
+	// Otherwise, create new Texture and load it from disk
+	texture_id = textures.size();
+
+	{
+		std::lock_guard<std::mutex> lock(textures_mutex);
+
+		textures.emplace_back();
+	}
+
+	std::thread loader(load_texture, std::string(file_path), texture_id);
+	loader.detach();
 
 	return texture_id;
+}
+
+void Texture::wait_until_textures_loaded() {
+	using namespace std::chrono_literals;
+
+	while (textures_finished < textures.size()) {
+		std::this_thread::sleep_for(100ms);
+	}
 }
 
 void Texture::free() {
