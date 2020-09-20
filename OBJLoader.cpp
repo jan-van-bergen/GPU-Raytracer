@@ -40,6 +40,7 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 		}
 
 		new_material.index_of_refraction = material.ior;
+		new_material.absorption = Vector3(material.transmittance[0] - 1.0f, material.transmittance[1] - 1.0f, material.transmittance[2] - 1.0f);
 
 		new_material.roughness = material.roughness * material.roughness;
 	}

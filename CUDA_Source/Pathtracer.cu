@@ -725,27 +725,35 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float3 normal;
 	float  cos_theta;
 
-	float n_1;
-	float n_2;
+	float eta_1;
+	float eta_2;
 
 	float dir_dot_normal = dot(ray_direction, hit_normal);
 	if (dir_dot_normal < 0.0f) { 
 		// Entering material		
-		n_1 = 1.0f;
-		n_2 = material.index_of_refraction;
+		eta_1 = 1.0f;
+		eta_2 = material.index_of_refraction;
 
 		normal    =  hit_normal;
 		cos_theta = -dir_dot_normal;
 	} else { 
 		// Leaving material
-		n_1 = material.index_of_refraction;
-		n_2 = 1.0f;
+		eta_1 = material.index_of_refraction;
+		eta_2 = 1.0f;
 
 		normal    = -hit_normal;
 		cos_theta =  dir_dot_normal;
+
+		// Lambert-Beer Law
+		// NOTE: does not take into account nested dielectrics!
+		if (dot(material.absorption, material.absorption) > EPSILON) {
+			ray_throughput.x *= expf(material.absorption.x * ray_t);
+			ray_throughput.y *= expf(material.absorption.y * ray_t);
+			ray_throughput.z *= expf(material.absorption.z * ray_t);
+		}
 	}
 
-	float eta = n_1 / n_2;
+	float eta = eta_1 / eta_2;
 	float k = 1.0f - eta*eta * (1.0f - cos_theta*cos_theta);
 
 	if (k < 0.0f) {
@@ -754,7 +762,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	} else {
 		float3 direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
 
-		float fresnel = fresnel_schlick(n_1, n_2, cos_theta, -dot(direction_refracted, normal));
+		float fresnel = fresnel_schlick(eta_1, eta_2, cos_theta, -dot(direction_refracted, normal));
 
 		if (random_float_xorshift(seed) < fresnel) {
 			direction = direction_reflected;
