@@ -29,6 +29,10 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
+#if ENABLE_MIPMAPPING
+	CUDAMemory::Ptr<float> cone_width;
+#endif
+	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
@@ -41,7 +45,11 @@ struct TraceBuffer {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
 
-		hits = CUDAMemory::malloc<float4>(buffer_size);
+#if ENABLE_MIPMAPPING
+		cone_width = CUDAMemory::malloc<float>(buffer_size);
+#endif
+		hit_ts = CUDAMemory::malloc<float> (buffer_size);
+		hits   = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -53,7 +61,11 @@ struct TraceBuffer {
 
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
-
+	
+#if ENABLE_MIPMAPPING
+	CUDAMemory::Ptr<float> cone_width;
+#endif
+	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
@@ -61,8 +73,12 @@ struct MaterialBuffer {
 
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
-
-		hits = CUDAMemory::malloc<float4>(buffer_size);
+		
+#if ENABLE_MIPMAPPING
+		cone_width = CUDAMemory::malloc<float>(buffer_size);
+#endif
+		hit_ts = CUDAMemory::malloc<float> (buffer_size);
+		hits   = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -116,44 +132,69 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	// Set global Material table
 	module.get_global("materials").set_buffer(Material::materials);
+	
+	Texture::wait_until_textures_loaded();
 
 	// Set global Texture table
 	int texture_count = Texture::textures.size();
 	if (texture_count > 0) {
 		CUtexObject * tex_objects = new CUtexObject[texture_count];
+		
+		// Get maximum anisotropy from OpenGL
+		int max_aniso; glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso);
 
 		for (int i = 0; i < texture_count; i++) {
-			const Texture & texture = Texture::textures[i];
+			Texture & texture = Texture::textures[i];
 
-			// Create Array on GPU
-			CUarray array = CUDAMemory::create_array(
+			// Create mipmapped CUDA array
+			CUmipmappedArray array = CUDAMemory::create_array_mipmap(
 				texture.width,
 				texture.height,
 				texture.channels,
-				texture.get_cuda_array_format()
+				texture.get_cuda_array_format(),
+				texture.mip_levels
 			);
 
-			// Copy Texture data over to GPU
-			CUDAMemory::copy_array(array, texture.get_width_in_bytes(), texture.height, texture.data);
+			// Upload each level of the mipmap
+			for (int level = 0; level < texture.mip_levels; level++) {
+				CUarray level_array;
+				CUDACALL(cuMipmappedArrayGetLevel(&level_array, array, level));
+
+				int level_width_in_bytes = texture.get_width_in_bytes() >> level;
+				int level_height         = texture.height               >> level;
+
+				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data + texture.mip_offsets[level]);
+			}
 
 			// Describe the Array to read from
 			CUDA_RESOURCE_DESC res_desc = { };
-			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
-			res_desc.res.array.hArray = array;
+			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_MIPMAPPED_ARRAY;
+			res_desc.res.mipmap.hMipmappedArray = array;
 
 			// Describe how to sample the Texture
 			CUDA_TEXTURE_DESC tex_desc = { };
 			tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
 			tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-			tex_desc.filterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
-			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES | CU_TRSF_SRGB;
+			tex_desc.addressMode[2] = CUaddress_mode::CU_TR_ADDRESS_MODE_CLAMP;
+			tex_desc.filterMode       = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.mipmapFilterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
+			tex_desc.mipmapLevelBias = 0;
+			tex_desc.maxAnisotropy = max_aniso;
+			tex_desc.minMipmapLevelClamp = 0;
+			tex_desc.maxMipmapLevelClamp = texture.mip_levels - 1;
+			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
+			// Describe the Texture View
 			CUDA_RESOURCE_VIEW_DESC view_desc = { };
 			view_desc.format = texture.get_cuda_resource_view_format();
 			view_desc.width  = texture.get_cuda_resource_view_width();
 			view_desc.height = texture.get_cuda_resource_view_height();
+			view_desc.firstMipmapLevel = 0;
+			view_desc.lastMipmapLevel  = texture.mip_levels - 1;
 
 			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, &view_desc));
+
+			texture.free();
 		}
 
 		module.get_global("textures").set_buffer(tex_objects, texture_count);
@@ -273,6 +314,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	
 	CUDATriangle * triangles             = new CUDATriangle[global_index_count];
 	int          * triangle_material_ids = new int         [global_index_count];
+	float        * triangle_lods         = new float       [global_index_count];
 
 	int * reverse_indices = new int[global_index_count];
 
@@ -291,13 +333,33 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		triangles[i].tex_coord_edge_1 = global_triangles[index].tex_coord_1 - global_triangles[index].tex_coord_0;
 		triangles[i].tex_coord_edge_2 = global_triangles[index].tex_coord_2 - global_triangles[index].tex_coord_0;
 
-		triangle_material_ids[i] = global_triangles[index].material_id;
+		int material_id = global_triangles[index].material_id;
+		triangle_material_ids[i] = material_id;
+
+		int texture_id = Material::materials[material_id].texture_id;
+		if (texture_id != -1) {
+			const Texture & texture = Texture::textures[texture_id];
+
+			// Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
+			float t_a = float(texture.width * texture.height) * fabsf(
+				triangles[i].tex_coord_edge_1.x * triangles[i].tex_coord_edge_2.y -
+				triangles[i].tex_coord_edge_2.x * triangles[i].tex_coord_edge_1.y
+			); 
+			float p_a = Vector3::length(Vector3::cross(triangles[i].position_edge_1, triangles[i].position_edge_2));
+
+			triangle_lods[i] = 0.5f * log2f(t_a / p_a);
+		} else {
+			triangle_lods[i] = 0.0f;
+		}
 
 		reverse_indices[index] = i;
 	}
 
 	module.get_global("triangles")            .set_buffer(triangles,             global_index_count);
 	module.get_global("triangle_material_ids").set_buffer(triangle_material_ids, global_index_count);
+
+	module.get_global("triangle_lods").set_buffer(triangle_lods, global_index_count);
+	delete [] triangle_lods;
 
 	// Init OpenGL MeshData for rasterization
 	for (int m = 0; m < mesh_data_count; m++) {
@@ -466,17 +528,11 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 
 	// Initialize buffers used by Wavefront kernels
-	TraceBuffer     ray_buffer_trace;
-	MaterialBuffer  ray_buffer_shade_diffuse;
-	MaterialBuffer  ray_buffer_shade_dielectric;
-	MaterialBuffer  ray_buffer_shade_glossy;
-	ShadowRayBuffer ray_buffer_shadow;
-
-	                          ray_buffer_trace           .init(batch_size);
-	if (scene.has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);
-	if (scene.has_dielectric) ray_buffer_shade_dielectric.init(batch_size);
-	if (scene.has_glossy)     ray_buffer_shade_glossy    .init(batch_size);
-	if (scene.has_lights)     ray_buffer_shadow          .init(batch_size);
+	TraceBuffer     ray_buffer_trace;                                      ray_buffer_trace           .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_diffuse;    if (scene.has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_dielectric; if (scene.has_dielectric) ray_buffer_shade_dielectric.init(batch_size);
+	MaterialBuffer  ray_buffer_shade_glossy;     if (scene.has_glossy)     ray_buffer_shade_glossy    .init(batch_size);
+	ShadowRayBuffer ray_buffer_shadow;           if (scene.has_lights)     ray_buffer_shadow          .init(batch_size);
 
 	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
@@ -490,6 +546,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(*buffer_sizes);
+
+	global_camera = module.get_global("camera");
 
 	global_settings = module.get_global("settings");
 
@@ -679,7 +737,11 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_shade_glossy    .set_grid_dim(Math::divide_round_up(batch_size, kernel_shade_glossy    .block_dim_x), 1, 1);
 	
 	scene.camera.resize(width, height);
-	frames_since_camera_moved = 0;
+	frames_accumulated = 0;
+	
+	scene.camera.update(0.0f, settings.enable_rasterization);
+
+	upload_camera();
 }
 
 void Pathtracer::resize_free() {
@@ -719,6 +781,24 @@ void Pathtracer::resize_free() {
 	
 	CUDAMemory::free(module.get_global("taa_frame_prev").get_value<CUDAMemory::Ptr<float4>>());
 	CUDAMemory::free(module.get_global("taa_frame_curr").get_value<CUDAMemory::Ptr<float4>>());
+}
+
+void Pathtracer::upload_camera() {
+	struct CUDACamera {
+		Vector3 position;
+		Vector3 bottom_left_corner;
+		Vector3 x_axis;
+		Vector3 y_axis;
+		float pixel_spread_angle;
+	} cuda_camera;
+
+	cuda_camera.position           = scene.camera.position;
+	cuda_camera.bottom_left_corner = scene.camera.bottom_left_corner_rotated;
+	cuda_camera.x_axis             = scene.camera.x_axis_rotated;
+	cuda_camera.y_axis             = scene.camera.y_axis_rotated;
+	cuda_camera.pixel_spread_angle = scene.camera.pixel_spread_angle;
+
+	global_camera.set_value(cuda_camera);
 }
 
 void Pathtracer::build_tlas() {
@@ -783,7 +863,7 @@ void Pathtracer::update(float delta) {
 		// If SVGF is enabled we can handle Scene updates using reprojection,
 		// otherwise 'frames_since_camera_moved' needs to be reset in order to avoid ghosting
 		if (!settings.enable_svgf) {
-			frames_since_camera_moved = 0;
+			frames_accumulated = 0;
 		}
 	} else {
 		scene.update(0.0f); // Update with 0 delta to make sure previous Transforms match current Transforms
@@ -791,16 +871,18 @@ void Pathtracer::update(float delta) {
 
 	scene.camera.update(delta, settings.enable_rasterization);
 
+	if (scene.camera.moved) upload_camera();
+
 	if (settings_changed) {
-		frames_since_camera_moved = 0;
+		frames_accumulated = 0;
 
 		global_settings.set_value(settings);
 	} else if (settings.enable_svgf) {
-		frames_since_camera_moved = (frames_since_camera_moved + 1) & 255;
+		frames_accumulated = (frames_accumulated + 1) & 255;
 	} else if (scene.camera.moved) {
-		frames_since_camera_moved = 0;
+		frames_accumulated = 0;
 	} else {
-		frames_since_camera_moved++;
+		frames_accumulated++;
 	}
 }
 
@@ -861,26 +943,18 @@ void Pathtracer::render() {
 			// Convert rasterized GBuffers into primary Rays
 			kernel_primary.execute(
 				Random::get_value(),
-				frames_since_camera_moved,
+				frames_accumulated,
 				pixel_offset,
 				pixel_count,
-				settings.enable_taa,
-				scene.camera.position,
-				scene.camera.bottom_left_corner_rotated,
-				scene.camera.x_axis_rotated,
-				scene.camera.y_axis_rotated
+				settings.enable_taa
 			);
 		} else {
 			// Generate primary Rays from the current Camera orientation
 			kernel_generate.execute(
 				Random::get_value(),
-				frames_since_camera_moved,
+				frames_accumulated,
 				pixel_offset,
-				pixel_count,
-				scene.camera.position, 
-				scene.camera.bottom_left_corner_rotated, 
-				scene.camera.x_axis_rotated, 
-				scene.camera.y_axis_rotated
+				pixel_count
 			);
 		}
 
@@ -898,7 +972,7 @@ void Pathtracer::render() {
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
 				RECORD_EVENT(event_shade_diffuse[bounce]);
-				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_since_camera_moved);
+				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			if (scene.has_dielectric) {
@@ -908,7 +982,7 @@ void Pathtracer::render() {
 
 			if (scene.has_glossy) {
 				RECORD_EVENT(event_shade_glossy[bounce]);
-				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_since_camera_moved);
+				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			// Trace shadow Rays
@@ -974,7 +1048,7 @@ void Pathtracer::render() {
 		}
 
 		RECORD_EVENT(event_accumulate);
-		kernel_accumulate.execute(float(frames_since_camera_moved));
+		kernel_accumulate.execute(float(frames_accumulated));
 	}
 
 	RECORD_EVENT(event_end);

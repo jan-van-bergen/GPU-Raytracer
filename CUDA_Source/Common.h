@@ -24,7 +24,7 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
-	bool enable_rasterization                = true;
+	bool enable_rasterization                = false;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_scene_update                 = false;
@@ -72,6 +72,16 @@ struct Settings {
 
 // SVGF
 #define MAX_ATROUS_ITERATIONS 10
+
+
+// Mipmapping
+#define MIPMAP_DOWNSAMPLE_FILTER_BOX     0
+#define MIPMAP_DOWNSAMPLE_FILTER_LANCZOS 1
+#define MIPMAP_DOWNSAMPLE_FILTER_KAISER  2
+
+#define MIPMAP_DOWNSAMPLE_FILTER MIPMAP_DOWNSAMPLE_FILTER_LANCZOS
+
+#define ENABLE_MIPMAPPING true
 
 
 // Microfacet

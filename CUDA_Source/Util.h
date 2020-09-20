@@ -6,6 +6,7 @@
 	#define ASSERT(proposition, fmt, ...) do { } while (false)
 #endif
 
+// Type safe wrapper around Texture Object
 template<typename T>
 struct Texture {
 	cudaTextureObject_t texture;
@@ -17,15 +18,20 @@ struct Texture {
 	__device__ inline T get_lod(float s, float t, float lod) const {
 		return tex2DLod<T>(texture, s, t, lod);
 	}
+
+	__device__ inline T get_grad(float s, float t, float2 dx, float2 dy) const {
+		return tex2DGrad<T>(texture, s, t, dx, dy);
+	}
 };
 
+// Type safe wrapper around Surface Object
 template<typename T>
 struct Surface {
 	cudaSurfaceObject_t surface;
 
 	__device__ inline T get(int x, int y) const {
-		assert(x >= 0 && x < screen_width);
-		assert(y >= 0 && y < screen_height);
+		// assert(x >= 0 && x < screen_width);
+		// assert(y >= 0 && y < screen_height);
 		
 		T value;
 		surf2Dread<T>(&value, surface, x * sizeof(T), y);
@@ -33,8 +39,8 @@ struct Surface {
 	}
 
 	__device__ inline void set(int x, int y, const T & value) {
-		assert(x >= 0 && x < screen_width);
-		assert(y >= 0 && y < screen_height);
+		// assert(x >= 0 && x < screen_width);
+		// assert(y >= 0 && y < screen_height);
 
 		surf2Dwrite<T>(value, surface, x * sizeof(T), y);
 	}

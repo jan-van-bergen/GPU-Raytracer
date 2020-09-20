@@ -48,10 +48,11 @@ static int current_frame = 0;
 
 // Index of frame to take screen capture on
 static constexpr int capture_frame_index = -1;
+static constexpr bool exit_after_capture = true;
 
-Pathtracer pathtracer;
+static Pathtracer pathtracer;
 
-void window_resize(unsigned frame_buffer_handle, int width, int height) {
+static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_free();
 	pathtracer.resize_init(frame_buffer_handle, width, height);
 };
@@ -91,11 +92,13 @@ int main(int argument_count, char ** arguments) {
 		
 		window.render_framebuffer();
 		
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || current_frame == capture_frame_index ) {
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || current_frame == capture_frame_index) {
 			char screenshot_name[32];
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", current_frame);
 
 			capture_screen(window, screenshot_name);
+
+			if (current_frame == capture_frame_index && exit_after_capture) break;
 		}
 		
 		// Perform frame timing
@@ -136,7 +139,7 @@ int main(int argument_count, char ** arguments) {
 		ImGui::Begin("Pathtracer");
 
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_since_camera_moved);
+			ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_accumulated);
 			ImGui::Text("Delta: %.2f ms", 1000.0f * delta_time);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
 			ImGui::Text("Min:   %.2f ms", 1000.0f * min);

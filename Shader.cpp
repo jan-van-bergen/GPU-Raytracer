@@ -1,7 +1,7 @@
 #include "Shader.h"
 
-#include <fstream>
-#include <iostream>
+#include <stdio.h>
+#include <string.h>
 
 #include "Util.h"
 

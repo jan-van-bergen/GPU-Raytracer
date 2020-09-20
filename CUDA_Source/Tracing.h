@@ -49,6 +49,18 @@ __device__ inline void mesh_transform_position_and_direction(int mesh_id, float3
 	);
 }
 
+__device__ inline void mesh_transform_direction(int mesh_id, float3 & direction) {
+	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
+	float4 row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
+	float4 row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
+
+	direction = make_float3( // Transform as direction (w = 0)
+		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
+		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
+		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
+	);
+}
+
 __device__ inline void mesh_transform_inv_position_and_direction(int mesh_id, float3 & position, float3 & direction) {
 	float4 row_0 = __ldg(&mesh_transforms_inv[mesh_id].row_0);
 	float4 row_1 = __ldg(&mesh_transforms_inv[mesh_id].row_1);
@@ -77,9 +89,14 @@ struct Triangle {
 
 __device__ __constant__ const Triangle * triangles;
 __device__ __constant__ const int      * triangle_material_ids;
+__device__ __constant__ const float    * triangle_lods;
 
 __device__ inline int triangle_get_material_id(int index) {
 	return triangle_material_ids[index];
+}
+
+__device__ inline float triangle_get_lod(int index) {
+	return triangle_lods[index];
 }
 
 __device__ inline void triangle_get_positions(int index, float3 & position_0, float3 & position_edge_1, float3 & position_edge_2) {
@@ -345,7 +362,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
+				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
 
 				break;
 			}
@@ -643,7 +660,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
+				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
 
 				break;
 			}
@@ -1001,7 +1018,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
-					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.u, ray_hit.v);
+					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
 
 					current_group.y = 0;
 

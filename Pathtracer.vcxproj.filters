@@ -241,5 +241,8 @@
     <ClInclude Include="Random.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Vector4.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

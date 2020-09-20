@@ -21,6 +21,7 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - *Multiple Importance Sampling* (MIS): Explicit light sampling (NEE) is combined with standard BRDF sampling using MIS to get the best of both.
   - Cosine weighted direction sampling for diffuse bounces.
   - Microfacet sampling as described in [Walter et al. 2007](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)
+- *Mipmapping*: Textures are sampled using mipmapping. Mipmap LOD is calculated using two different techniques; primary rays use ray differentials [Igehy 1999](https://graphics.stanford.edu/papers/trd/trd.pdf), subsequent bounces use ray cones [Möller et al. 2019](https://media.contentapi.ea.com/content/dam/ea/seed/presentations/2019-ray-tracing-gems-chapter-20-akenine-moller-et-al.pdf). Ray differentials achieve the best quality, but are expensive due to their large memory consumption (12 floats per Ray). Only using them for primary Rays allows for some shortcuts computation-wise and primary hits are where texture aliasing matters most anyway.
 - *Blue Noise Sampling*: The low discrepency sampler by [Heitz et al. 2019](https://eheitzresearch.wordpress.com/762-2/) is used. This sampler distributes Monte Carlo errors as a blue noise in screen space.
 - Primary Ray Rasterization: Optionally, primary rays can be rasterized using OpenGL, before being propagated further as bounced rays in CUDA.
 - Multiple Material types

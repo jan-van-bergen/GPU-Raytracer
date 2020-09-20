@@ -1,8 +1,8 @@
 #pragma once
 
-__device__ unsigned char * sobol_256spp_256d; // 256 * 256
-__device__ unsigned char * scrambling_tile;   // 128 * 128 * 8
-__device__ unsigned char * ranking_tile;      // 128 * 128 * 4
+__device__ __constant__ unsigned char * sobol_256spp_256d; // 256 * 256
+__device__ __constant__ unsigned char * scrambling_tile;   // 128 * 128 * 8
+__device__ __constant__ unsigned char * ranking_tile;      // 128 * 128 * 4
 
 // Based on: A Low-Discrepancy Sampler that Distributes Monte Carlo Errors as a Blue Noise in Screen Space - Heitz et al. 19
 __device__ float random_heitz(int x, int y, int sample_index, int sample_dimension) {
@@ -55,7 +55,7 @@ __device__ float random_float_heitz(int x, int y, int sample_index, int bounce, 
 	}
 }
 
-__device__ float3 random_cosine_weighted_direction(int x, int y, int sample_index, int bounce, unsigned & seed, const float3 & normal) {
+__device__ float3 random_cosine_weighted_direction(int x, int y, int sample_index, int bounce, unsigned & seed) {
 	float r0 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
 	float r1 = random_float_heitz(x, y, sample_index, bounce, 3, seed);
 
@@ -66,15 +66,7 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 	float xf = r * cos_theta;
 	float yf = r * sin_theta;
 	
-	float3 direction = normalize(make_float3(xf, yf, sqrtf(1.0f - r0)));
-	
-	float3 tangent, binormal;
-	orthonormal_basis(normal, tangent, binormal);
-
-	// Multiply the direction with the TBN matrix
-	direction = local_to_world(direction, tangent, binormal, normal);
-
-	return direction;
+	return normalize(make_float3(xf, yf, sqrtf(1.0f - r0)));
 }
 
 __device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v, int & transform_id) {

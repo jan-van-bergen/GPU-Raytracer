@@ -4,11 +4,11 @@
 #include <cudaGL.h>
 
 CUarray CUDAMemory::create_array(int width, int height, int channels, CUarray_format format) {
-	CUDA_ARRAY_DESCRIPTOR desc;
-	desc.Width  = width;
-	desc.Height = height;
+	CUDA_ARRAY_DESCRIPTOR desc = { };
+	desc.Width       = width;
+	desc.Height      = height;
 	desc.NumChannels = channels;
-	desc.Format = format;
+	desc.Format      = format;
 		
 	CUarray array;
 	CUDACALL(cuArrayCreate(&array, &desc));
@@ -16,31 +16,31 @@ CUarray CUDAMemory::create_array(int width, int height, int channels, CUarray_fo
 	return array;
 }
 
-CUarray CUDAMemory::create_array3d(int width, int height, int depth, int channels, CUarray_format format, unsigned flags) {
-	CUDA_ARRAY3D_DESCRIPTOR desc;
-	desc.Width  = width;
-	desc.Height = height;
-	desc.Depth  = depth;
+CUmipmappedArray CUDAMemory::create_array_mipmap(int width, int height, int channels, CUarray_format format, int level_count) {
+	CUDA_ARRAY3D_DESCRIPTOR desc = { };
+	desc.Width       = width;
+	desc.Height      = height;
+	desc.Depth       = 0;
 	desc.NumChannels = channels;
-	desc.Format = format;
-	desc.Flags  = flags;
-		
-	CUarray array;
-	CUDACALL(cuArray3DCreate(&array, &desc));
-	
-	return array;
+	desc.Format      = format;
+	desc.Flags       = 0;
+
+	CUmipmappedArray mipmap;
+	CUDACALL(cuMipmappedArrayCreate(&mipmap, &desc, level_count));
+
+	return mipmap;
 }
 
 // Copies data from the Host Texture to the Device Array
 void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, const void * data) {
 	CUDA_MEMCPY2D copy = { };
 	copy.srcMemoryType = CU_MEMORYTYPE_HOST;
+	copy.srcHost       = data;
+	copy.srcPitch      = width_in_bytes;
 	copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-	copy.srcHost  = data;
-	copy.dstArray = array;
-	copy.srcPitch = width_in_bytes;
-	copy.WidthInBytes = copy.srcPitch;
-	copy.Height       = height;
+	copy.dstArray      = array;
+	copy.WidthInBytes  = copy.srcPitch;
+	copy.Height        = height;
 
 	CUDACALL(cuMemcpy2D(&copy));
 }

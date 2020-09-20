@@ -21,13 +21,28 @@ struct Material {
 	float3 emission;
 
 	float index_of_refraction;
+	float3 absorption;
 
 	float roughness;
-	
+
 	__device__ inline float3 albedo(float s, float t) const {
 		if (texture_id == -1) return diffuse;
 
 		float4 tex_colour = textures[texture_id].get(s, t);
+		return diffuse * make_float3(tex_colour);
+	}
+
+	__device__ inline float3 albedo(float s, float t, float lod) const {
+		if (texture_id == -1) return diffuse;
+
+		float4 tex_colour = textures[texture_id].get_lod(s, t, lod);
+		return diffuse * make_float3(tex_colour);
+	}
+
+	__device__ inline float3 albedo(float s, float t, float2 dx, float2 dy) const {
+		if (texture_id == -1) return diffuse;
+
+		float4 tex_colour = textures[texture_id].get_grad(s, t, dx, dy);
 		return diffuse * make_float3(tex_colour);
 	}
 };
@@ -49,11 +64,11 @@ __device__ __constant__ const float * light_mesh_area_unscaled;
 __device__ __constant__ const int   * light_mesh_transform_indices;
 
 // Assumes no Total Internal Reflection
-__device__ inline float fresnel_schlick(float n_1, float n_2, float cos_theta_i, float cos_theta_t) {
-	float r_0 = (n_1 - n_2) / (n_1 + n_2);
+__device__ inline float fresnel_schlick(float eta_1, float eta_2, float cos_theta_i, float cos_theta_t) {
+	float r_0 = (eta_1 - eta_2) / (eta_1 + eta_2);
 	r_0 *= r_0;
 
-	float           cos_theta  = n_1 <= n_2 ? cos_theta_i : cos_theta_t;
+	float           cos_theta  = eta_1 <= eta_2 ? cos_theta_i : cos_theta_t;
 	float one_minus_cos_theta  = 1.0f - cos_theta;
 	float one_minus_cos_theta2 = one_minus_cos_theta  * one_minus_cos_theta;
 	float one_minus_cos_theta4 = one_minus_cos_theta2 * one_minus_cos_theta2;

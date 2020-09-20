@@ -74,19 +74,23 @@ struct Vector3_SoA {
 };
 
 struct HitBuffer {
-	float4 * hits;
+	uint4 * hits;
 
-	__device__ void set(int index, int mesh_id, int triangle_id, float u, float v) {
-		hits[index] = make_float4(uint_as_float(mesh_id), uint_as_float(triangle_id), u, v);
+	__device__ void set(int index, int mesh_id, int triangle_id, float t, float u, float v) {
+		unsigned uv = int(u * 65535.0f) | (int(v * 65535.0f) << 16);
+		hits[index] = make_uint4(mesh_id, triangle_id, float_as_uint(t), uv);
 	}
 
-	__device__ void get(int index, int & mesh_id, int & triangle_id, float & u, float & v) const {
-		float4 hit = __ldg(&hits[index]);
+	__device__ void get(int index, int & mesh_id, int & triangle_id, float & t, float & u, float & v) const {
+		uint4 hit = __ldg(&hits[index]);
 
-		mesh_id     = float_as_uint(hit.x);
-		triangle_id = float_as_uint(hit.y);
-		u = hit.z;
-		v = hit.w;
+		mesh_id     = hit.x;
+		triangle_id = hit.y;
+		
+		t = uint_as_float(hit.z);
+
+		u = float(hit.w & 0xffff) / 65535.0f;
+		v = float(hit.w >> 16)    / 65535.0f;
 	}
 };
 
@@ -94,7 +98,12 @@ struct HitBuffer {
 struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
-	
+
+#if ENABLE_MIPMAPPING
+	float * cone_width;
+#endif
+
+	float   * hit_ts;
 	HitBuffer hits;
 
 	int       * pixel_index;
@@ -107,7 +116,12 @@ struct TraceBuffer {
 // Input to the various Shade Kernels in SoA layout
 struct MaterialBuffer {
 	Vector3_SoA direction;	
-	
+
+#if ENABLE_MIPMAPPING
+	float * cone_width;
+#endif
+
+	float   * hit_ts;
 	HitBuffer hits;
 
 	int       * pixel_index;
@@ -146,7 +160,16 @@ struct BufferSizes {
 	int rays_retired_shadow[NUM_BOUNCES];
 } __device__ buffer_sizes;
 
+struct Camera {
+	float3 position;
+	float3 bottom_left_corner;
+	float3 x_axis;
+	float3 y_axis;
+	float  pixel_spread_angle;
+} __device__ __constant__ camera;
+
 #include "Tracing.h"
+#include "Mipmap.h"
 
 // Sends the rasterized GBuffer to the right Material kernels,
 // as if the primary Rays they were Raytraced 
@@ -155,11 +178,7 @@ extern "C" __global__ void kernel_primary(
 	int sample_index,
 	int pixel_offset,
 	int pixel_count,
-	bool jitter,
-	float3 camera_position,
-	float3 camera_bottom_left_corner,
-	float3 camera_x_axis,
-	float3 camera_y_axis
+	bool jitter
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= pixel_count) return;
@@ -197,22 +216,17 @@ extern "C" __global__ void kernel_primary(
 		uv.y = saturate(uv.y + uv_gradient.y * dx + uv_gradient.w * dy);
 	}
 
-	sample_xy[pixel_index] = make_float2(
-		u_screenspace + dx,
-		v_screenspace + dy
-	);
+	float2 pixel_coord = make_float2(u_screenspace + dx, v_screenspace + dy);
+	sample_xy[pixel_index] = pixel_coord;
 
-	float3 ray_direction = normalize(camera_bottom_left_corner
-		+ (u_screenspace + dx) * camera_x_axis
-		+ (v_screenspace + dy) * camera_y_axis
-	);
+	float3 ray_direction = camera.bottom_left_corner + pixel_coord.x * camera.x_axis + pixel_coord.y * camera.y_axis;
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
 		if (settings.demodulate_albedo || settings.enable_svgf) {
 			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 		}
-		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
+		frame_buffer_direct[pixel_index] = make_float4(sample_sky(normalize(ray_direction)));
 
 		return;
 	}
@@ -236,7 +250,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
+			ray_buffer_shade_diffuse.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
@@ -249,7 +263,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
+			ray_buffer_shade_dielectric.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
@@ -262,7 +276,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.hits.set(index_out, mesh_id, triangle_id, uv.x, uv.y);
+			ray_buffer_shade_glossy.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
@@ -276,11 +290,7 @@ extern "C" __global__ void kernel_generate(
 	int rand_seed,
 	int sample_index,
 	int pixel_offset,
-	int pixel_count,
-	float3 camera_position,
-	float3 camera_bottom_left_corner,
-	float3 camera_x_axis,
-	float3 camera_y_axis
+	int pixel_count
 ) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= pixel_count) return;
@@ -295,17 +305,16 @@ extern "C" __global__ void kernel_generate(
 	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
 
 	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
-	float u = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
-	float v = float(y) + random_float_heitz(x, y, sample_index, 0, 1, seed);
+	float x_jittered = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
+	float y_jittered = float(y) + random_float_heitz(x, y, sample_index, 0, 1, seed);
 
-	sample_xy[pixel_index] = make_float2(u, v);
+	sample_xy[pixel_index] = make_float2(x_jittered, y_jittered);
+
+	float3 direction_unnormalized = camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis;
 
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
-	ray_buffer_trace.origin   .from_float3(index, camera_position);
-	ray_buffer_trace.direction.from_float3(index, normalize(camera_bottom_left_corner
-		+ u * camera_x_axis
-		+ v * camera_y_axis
-	));
+	ray_buffer_trace.origin   .from_float3(index, camera.position);
+	ray_buffer_trace.direction.from_float3(index, direction_unnormalized);
 
 	ray_buffer_trace.pixel_index[index] = pixel_index;
 	ray_buffer_trace.throughput.from_float3(index, make_float3(1.0f));
@@ -326,16 +335,17 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	int   hit_mesh_id;
 	int   hit_triangle_id;
+	float hit_t;
 	float hit_u;
 	float hit_v;
-	ray_buffer_trace.hits.get(index, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
+	ray_buffer_trace.hits.get(index, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
-
+	
 	// If we didn't hit anything, sample the Sky
 	if (hit_triangle_id == -1) {
-		float3 illumination = ray_throughput * sample_sky(ray_direction);
+		float3 illumination = ray_throughput * sample_sky(normalize(ray_direction));
 
 		if (bounce == 0) {
 			if (settings.demodulate_albedo || settings.enable_svgf) {
@@ -355,13 +365,11 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	const Material & material = materials[triangle_get_material_id(hit_triangle_id)];
 
 	if (material.type == Material::Type::LIGHT) {
-		bool no_mis;
+		bool no_mis = true;
 		if (settings.enable_next_event_estimation) {
 			no_mis = 
 				(ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
 				(ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF);
-		} else {
-			no_mis = true;
 		}
 
 		if (no_mis) {
@@ -402,9 +410,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float3 to_light = light_point - ray_origin;;
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
-		
-			// ray_direction is the same direction as to_light, but normalized so we save a normalization here
-			to_light = ray_direction;
+
+			to_light /= distance_to_light; // Normalize
 
 			float cos_o = fabsf(dot(to_light, light_normal));
 			// if (cos_o <= 0.0f) return;
@@ -450,8 +457,11 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
-
+#if ENABLE_MIPMAPPING
+			if (bounce > 0) ray_buffer_shade_diffuse.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+#endif
+			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
+			
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
 
@@ -463,7 +473,10 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
+#if ENABLE_MIPMAPPING
+			if (bounce > 0) ray_buffer_shade_dielectric.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+#endif
+			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
@@ -476,7 +489,10 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_u, hit_v);
+#if ENABLE_MIPMAPPING
+			if (bounce > 0) ray_buffer_shade_glossy.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+#endif
+			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
@@ -494,9 +510,10 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	int   ray_mesh_id;
 	int   ray_triangle_id;
+	float ray_t;
 	float ray_u;
 	float ray_v;
-	ray_buffer_shade_diffuse.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
+	ray_buffer_shade_diffuse.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -531,13 +548,38 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
-	float3 albedo     = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
-	float3 throughput = ray_throughput * albedo;
+	float3 albedo;
 
-	if ((settings.demodulate_albedo  || settings.enable_svgf) && bounce == 0) {
+#if ENABLE_MIPMAPPING
+	float cone_width;
+
+	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
+	if (bounce == 0) {
+		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
+
+		albedo = mipmap_sample_ray_differentials(
+			material,
+			ray_mesh_id, ray_triangle_id,
+			hit_triangle_position_edge_1, hit_triangle_position_edge_2,
+			hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2,
+			ray_direction, ray_t,
+			hit_tex_coord
+		);
+	} else {	
+		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+
+		albedo = mipmap_sample_ray_cones(material, ray_triangle_id, ray_direction, ray_t, cone_width, hit_normal, hit_tex_coord);
+	}
+#else
+	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+#endif
+
+	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
+	float3 throughput = ray_throughput * albedo;
+	
 	if (settings.enable_next_event_estimation) {
 		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
 		if (scene_has_lights) {
@@ -607,16 +649,24 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
-	float3 direction = random_cosine_weighted_direction(x, y, sample_index, bounce, seed, hit_normal);
+	float3 tangent, binormal;
+	orthonormal_basis(hit_normal, tangent, binormal);
+
+	float3 direction_local = random_cosine_weighted_direction(x, y, sample_index, bounce, seed);
+	float3 direction_world = local_to_world(direction_local, tangent, binormal, hit_normal);
 
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
-	ray_buffer_trace.direction.from_float3(index_out, direction);
+	ray_buffer_trace.direction.from_float3(index_out, direction_world);
+	
+#if ENABLE_MIPMAPPING
+	ray_buffer_trace.cone_width[index_out] = cone_width;
+#endif
 
 	ray_buffer_trace.pixel_index[index_out]  = ray_pixel_index;
 	ray_buffer_trace.throughput.from_float3(index_out, throughput);
 
 	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::DIFFUSE);
-	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction, hit_normal)) * ONE_OVER_PI;
+	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction_world, hit_normal)) * ONE_OVER_PI;
 }
 
 extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
@@ -624,12 +674,22 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	if (index >= buffer_sizes.dielectric[bounce] || bounce == NUM_BOUNCES - 1) return;
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
+	if (bounce == 0) ray_direction = normalize(ray_direction);
 
 	int   ray_mesh_id;
 	int   ray_triangle_id;
+	float ray_t;
 	float ray_u;
 	float ray_v;
-	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
+	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
+
+	// Primary Ray direction is not normalized because ray differentials need their original length
+	// This is not needed in this kernel so normalize the direction and correct t so that it is the actual distance along the ray
+	if (bounce == 0) {
+		float ray_direction_length_inv = 1.0f / length(ray_direction);
+		ray_t         *= ray_direction_length_inv;
+		ray_direction *= ray_direction_length_inv;
+	}
 
 	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 
@@ -665,27 +725,35 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float3 normal;
 	float  cos_theta;
 
-	float n_1;
-	float n_2;
+	float eta_1;
+	float eta_2;
 
 	float dir_dot_normal = dot(ray_direction, hit_normal);
 	if (dir_dot_normal < 0.0f) { 
 		// Entering material		
-		n_1 = 1.0f;
-		n_2 = material.index_of_refraction;
+		eta_1 = 1.0f;
+		eta_2 = material.index_of_refraction;
 
 		normal    =  hit_normal;
 		cos_theta = -dir_dot_normal;
 	} else { 
 		// Leaving material
-		n_1 = material.index_of_refraction;
-		n_2 = 1.0f;
+		eta_1 = material.index_of_refraction;
+		eta_2 = 1.0f;
 
 		normal    = -hit_normal;
 		cos_theta =  dir_dot_normal;
+
+		// Lambert-Beer Law
+		// NOTE: does not take into account nested dielectrics!
+		if (dot(material.absorption, material.absorption) > EPSILON) {
+			ray_throughput.x *= expf(material.absorption.x * ray_t);
+			ray_throughput.y *= expf(material.absorption.y * ray_t);
+			ray_throughput.z *= expf(material.absorption.z * ray_t);
+		}
 	}
 
-	float eta = n_1 / n_2;
+	float eta = eta_1 / eta_2;
 	float k = 1.0f - eta*eta * (1.0f - cos_theta*cos_theta);
 
 	if (k < 0.0f) {
@@ -694,7 +762,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	} else {
 		float3 direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
 
-		float fresnel = fresnel_schlick(n_1, n_2, cos_theta, -dot(direction_refracted, normal));
+		float fresnel = fresnel_schlick(eta_1, eta_2, cos_theta, -dot(direction_refracted, normal));
 
 		if (random_float_xorshift(seed) < fresnel) {
 			direction = direction_reflected;
@@ -710,6 +778,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
 	ray_buffer_trace.direction.from_float3(index_out, direction);
 
+#if ENABLE_MIPMAPPING
+	ray_buffer_trace.cone_width[index_out] = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+#endif
 	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
 	ray_buffer_trace.throughput.from_float3(index_out, ray_throughput);
 
@@ -720,13 +791,14 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
-	float3 direction_in = -1.0f * ray_buffer_shade_glossy.direction.to_float3(index);
+	float3 ray_direction = ray_buffer_shade_glossy.direction.to_float3(index);
 
 	int   ray_mesh_id;
 	int   ray_triangle_id;
+	float ray_t;
 	float ray_u;
 	float ray_v;
-	ray_buffer_shade_glossy.hits.get(index, ray_mesh_id, ray_triangle_id, ray_u, ray_v);
+	ray_buffer_shade_glossy.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
 
 	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -759,14 +831,41 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	hit_normal = normalize(hit_normal);
 	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
 
-	if (dot(direction_in, hit_normal) < 0.0f) hit_normal = -hit_normal;
+	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
-	float3 albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
-	float3 throughput = ray_throughput * albedo;
+	float3 albedo;
 
-	if ((settings.demodulate_albedo || settings.enable_svgf) && bounce == 0) {
+#if ENABLE_MIPMAPPING
+	float cone_width;
+
+	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
+	if (bounce == 0) {
+		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
+
+		albedo = mipmap_sample_ray_differentials(
+			material,
+			ray_mesh_id, ray_triangle_id,
+			hit_triangle_position_edge_1, hit_triangle_position_edge_2,
+			hit_triangle_tex_coord_edge_1, hit_triangle_tex_coord_edge_2,
+			ray_direction, ray_t,
+			hit_tex_coord
+		);
+	} else {	
+		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+
+		albedo = mipmap_sample_ray_cones(material, ray_triangle_id, ray_direction, ray_t, cone_width, hit_normal, hit_tex_coord);
+	}
+#else
+	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
+#endif
+
+	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
+
+	float3 throughput = ray_throughput * albedo;
+
+	float3 direction_in = -1.0f * normalize(ray_direction);
 
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
 	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
@@ -959,7 +1058,7 @@ extern "C" __global__ void kernel_reconstruct() {
 	}
 }
 
-extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
+extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -987,11 +1086,11 @@ extern "C" __global__ void kernel_accumulate(float frames_since_camera_moved) {
 		reconstruction[pixel_index] = make_float4(0.0f);
 	}
 
-	if (frames_since_camera_moved > 0.0f) {
+	if (frames_accumulated > 0.0f) {
 		float4 colour_prev = accumulator.get(x, y);
 
 		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour = (colour_prev * (frames_since_camera_moved - 1.0f) + colour) / frames_since_camera_moved;
+		colour = (colour_prev * (frames_accumulated - 1.0f) + colour) / frames_accumulated;
 	}
 
 	accumulator.set(x, y, colour);
