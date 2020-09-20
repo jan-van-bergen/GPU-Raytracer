@@ -24,7 +24,7 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
-	bool enable_rasterization                = false;
+	bool enable_rasterization                = true;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_scene_update                 = false;
@@ -79,7 +79,7 @@ struct Settings {
 #define MIPMAP_DOWNSAMPLE_FILTER_LANCZOS 1
 #define MIPMAP_DOWNSAMPLE_FILTER_KAISER  2
 
-#define MIPMAP_DOWNSAMPLE_FILTER MIPMAP_DOWNSAMPLE_FILTER_LANCZOS
+#define MIPMAP_DOWNSAMPLE_FILTER MIPMAP_DOWNSAMPLE_FILTER_KAISER
 
 #define ENABLE_MIPMAPPING true
 
