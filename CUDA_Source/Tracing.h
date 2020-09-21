@@ -630,15 +630,15 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			// Check if the Node is a leaf
 			if (count > 0) {
 				if (tlas_stack_size == -1) {
-						tlas_stack_size = stack_size;
+					tlas_stack_size = stack_size;
 
-						mesh_id = index;
+					mesh_id = index;
 
-						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
-						ray.calc_direction_inv();
+					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					ray.calc_direction_inv();
 
-						unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
-						stack_push(shared_stack, stack, stack_size, root_index);
+					unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
+					stack_push(shared_stack, stack, stack_size, root_index);
 				} else {
 					for (int j = index; j < index + count; j++) {
 						triangle_trace(mesh_id, j, ray, ray_hit);
@@ -728,15 +728,15 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			// Check if the Node is a leaf
 			if (count > 0) {
 				if (tlas_stack_size == -1) {
-						tlas_stack_size = stack_size;
+					tlas_stack_size = stack_size;
 
-						mesh_id = index;
+					mesh_id = index;
 
-						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
-						ray.calc_direction_inv();
+					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					ray.calc_direction_inv();
 
-						unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
-						stack_push(shared_stack, stack, stack_size, root_index);
+					unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
+					stack_push(shared_stack, stack, stack_size, root_index);
 				} else {
 					bool hit = false;
 
@@ -807,9 +807,9 @@ __device__ inline unsigned cwbvh_node_intersect(
 	float3 p = make_float3(node_0);
 
 	unsigned e_imask = float_as_uint(node_0.w);
-	byte e_x   = extract_byte(e_imask, 0);
-	byte e_y   = extract_byte(e_imask, 1);
-	byte e_z   = extract_byte(e_imask, 2);
+	byte e_x = extract_byte(e_imask, 0);
+	byte e_y = extract_byte(e_imask, 1);
+	byte e_z = extract_byte(e_imask, 2);
 	
 	float3 adjusted_ray_direction_inv = make_float3(
 		uint_as_float(e_x << 23) * ray.direction_inv.x,
@@ -874,7 +874,7 @@ __device__ inline unsigned cwbvh_node_intersect(
 	return hit_mask;
 }
 
-// Constants used by Dynamic Fetch Heurisic (see section 4.4 of Ylitie et al. 2017)
+// Constants used by Dynamic Fetch Heuristic (see section 4.4 of Ylitie et al. 2017)
 #define N_d 4
 #define N_w 16
 
@@ -974,32 +974,32 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
 				if (tlas_stack_size == -1) {
-						int mesh_offset = msb(triangle_group.y);
-						triangle_group.y &= ~(1 << mesh_offset);
+					int mesh_offset = msb(triangle_group.y);
+					triangle_group.y &= ~(1 << mesh_offset);
 
-						mesh_id = triangle_group.x + mesh_offset;
+					mesh_id = triangle_group.x + mesh_offset;
 
-						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
-						ray.calc_direction_inv();
+					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					ray.calc_direction_inv();
 
-						// Ray octant, encoded in 3 bits
-						unsigned oct = 
-							(ray.direction.x < 0.0f ? 0b100 : 0) |
-							(ray.direction.y < 0.0f ? 0b010 : 0) |
-							(ray.direction.z < 0.0f ? 0b001 : 0);
+					// Ray octant, encoded in 3 bits
+					unsigned oct = 
+						(ray.direction.x < 0.0f ? 0b100 : 0) |
+						(ray.direction.y < 0.0f ? 0b010 : 0) |
+						(ray.direction.z < 0.0f ? 0b001 : 0);
 
-						oct_inv4 = (7 - oct) * 0x01010101;
+					oct_inv4 = (7 - oct) * 0x01010101;
 
-						if (triangle_group.y != 0) {
-							stack_push(shared_stack, stack, stack_size, triangle_group);
-						}
+					if (triangle_group.y != 0) {
+						stack_push(shared_stack, stack, stack_size, triangle_group);
+					}
 
-						tlas_stack_size = stack_size;
+					tlas_stack_size = stack_size;
 
-						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
-						current_group = make_uint2(root_index, 0x80000000);
+					int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
+					current_group = make_uint2(root_index, 0x80000000);
 
-						break;
+					break;
 				} else {
 					int thread_count = __popc(active_thread_mask());
 					if (thread_count < postpone_threshold) {
@@ -1147,32 +1147,32 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
 				if (tlas_stack_size == -1) {
-						int mesh_offset = msb(triangle_group.y);
-						triangle_group.y &= ~(1 << mesh_offset);
+					int mesh_offset = msb(triangle_group.y);
+					triangle_group.y &= ~(1 << mesh_offset);
 
-						mesh_id = triangle_group.x + mesh_offset;
+					mesh_id = triangle_group.x + mesh_offset;
 
-						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
-						ray.calc_direction_inv();
+					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					ray.calc_direction_inv();
 
-						// Ray octant, encoded in 3 bits
-						unsigned oct = 
-							(ray.direction.x < 0.0f ? 0b100 : 0) |
-							(ray.direction.y < 0.0f ? 0b010 : 0) |
-							(ray.direction.z < 0.0f ? 0b001 : 0);
+					// Ray octant, encoded in 3 bits
+					unsigned oct = 
+						(ray.direction.x < 0.0f ? 0b100 : 0) |
+						(ray.direction.y < 0.0f ? 0b010 : 0) |
+						(ray.direction.z < 0.0f ? 0b001 : 0);
 
-						oct_inv4 = (7 - oct) * 0x01010101;
+					oct_inv4 = (7 - oct) * 0x01010101;
 
-						if (triangle_group.y != 0) {
-							stack_push(shared_stack, stack, stack_size, triangle_group);
-						}
+					if (triangle_group.y != 0) {
+						stack_push(shared_stack, stack, stack_size, triangle_group);
+					}
 
-						tlas_stack_size = stack_size;
+					tlas_stack_size = stack_size;
 
-						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
-						current_group = make_uint2(root_index, 0x80000000);
+					int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
+					current_group = make_uint2(root_index, 0x80000000);
 
-						break;
+					break;
 				} else {
 					int thread_count = __popc(active_thread_mask());
 					if (thread_count < postpone_threshold) {
