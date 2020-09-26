@@ -58,13 +58,13 @@ struct Vector3_SoA {
 	float * y;
 	float * z;
 
-	__device__ void from_float3(int index, const float3 & vector) {
+	__device__ void set(int index, const float3 & vector) {
 		x[index] = vector.x;
 		y[index] = vector.y;
 		z[index] = vector.z;
 	}
 
-	__device__ float3 to_float3(int index) const {
+	__device__ float3 get(int index) const {
 		return make_float3(
 			x[index],
 			y[index],
@@ -268,12 +268,12 @@ extern "C" __global__ void kernel_primary(
 		case Material::Type::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[0]);
 
-			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_diffuse.direction.set(index_out, ray_direction);
 
 			ray_buffer_shade_diffuse.hits.set(index_out, ray_hit);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
-			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
+			ray_buffer_shade_diffuse.throughput.set(index_out, make_float3(1.0f));
 
 			break;
 		}
@@ -281,12 +281,12 @@ extern "C" __global__ void kernel_primary(
 		case Material::Type::DIELECTRIC: {
 			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[0]);
 
-			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_dielectric.direction.set(index_out, ray_direction);
 
 			ray_buffer_shade_dielectric.hits.set(index_out, ray_hit);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
-			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
+			ray_buffer_shade_dielectric.throughput.set(index_out, make_float3(1.0f));
 			
 			break;
 		}
@@ -294,12 +294,12 @@ extern "C" __global__ void kernel_primary(
 		case Material::Type::GLOSSY: {
 			int index_out = atomic_agg_inc(&buffer_sizes.glossy[0]);
 
-			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_glossy.direction.set(index_out, ray_direction);
 
 			ray_buffer_shade_glossy.hits.set(index_out, ray_hit);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
-			ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
+			ray_buffer_shade_glossy.throughput.set(index_out, make_float3(1.0f));
 			
 			break;
 		}
@@ -333,11 +333,11 @@ extern "C" __global__ void kernel_generate(
 	float3 direction_unnormalized = camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis;
 
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
-	ray_buffer_trace.origin   .from_float3(index, camera.position);
-	ray_buffer_trace.direction.from_float3(index, direction_unnormalized);
+	ray_buffer_trace.origin   .set(index, camera.position);
+	ray_buffer_trace.direction.set(index, direction_unnormalized);
 
 	ray_buffer_trace.pixel_index[index] = pixel_index;
-	ray_buffer_trace.throughput.from_float3(index, make_float3(1.0f));
+	ray_buffer_trace.throughput.set(index, make_float3(1.0f));
 
 	ray_buffer_trace.last_material_type[index] = char(Material::Type::DIELECTRIC);
 }
@@ -350,13 +350,13 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.trace[bounce]) return;
 
-	float3 ray_origin    = ray_buffer_trace.origin   .to_float3(index);
-	float3 ray_direction = ray_buffer_trace.direction.to_float3(index);
+	float3 ray_origin    = ray_buffer_trace.origin   .get(index);
+	float3 ray_direction = ray_buffer_trace.direction.get(index);
 
 	RayHit hit = ray_buffer_trace.hits.get(index);
 
 	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
+	float3 ray_throughput  = ray_buffer_trace.throughput.get(index);
 	
 	// If we didn't hit anything, sample the Sky
 	if (hit.triangle_id == -1) {
@@ -405,14 +405,14 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		}
 
 		if (settings.enable_multiple_importance_sampling) {
+			// Obtain the Light's position and normal
 			TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
 
-			// Get hit position / normal by interpolating based on the hit (u,v)
-			float3 light_point  = barycentric(hit.u, hit.v, light.position_0, light.position_edge_1, light.position_edge_2);
-			float3 light_normal = barycentric(hit.u, hit.v, light.normal_0,   light.normal_edge_1,   light.normal_edge_2);
+			float3 light_point;
+			float3 light_normal;
+			triangle_barycentric(light, hit.u, hit.v, light_point, light_normal);
 
-			// Normalize and transform into world space
-			light_normal = normalize(light_normal);
+			// Transform into world space
 			mesh_transform_position_and_direction(hit.mesh_id, light_point, light_normal);
 
 			float3 to_light = light_point - ray_origin;;
@@ -463,7 +463,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		case Material::Type::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[bounce]);
 
-			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_diffuse.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
 			if (bounce > 0) ray_buffer_shade_diffuse.cone_width[index_out] = ray_buffer_trace.cone_width[index];
@@ -471,7 +471,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_diffuse.hits.set(index_out, hit);
 			
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
-			ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
+			ray_buffer_shade_diffuse.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -479,7 +479,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		case Material::Type::DIELECTRIC: {
 			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[bounce]);
 
-			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_dielectric.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
 			if (bounce > 0) ray_buffer_shade_dielectric.cone_width[index_out] = ray_buffer_trace.cone_width[index];
@@ -487,7 +487,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_dielectric.hits.set(index_out, hit);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
-			ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
+			ray_buffer_shade_dielectric.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -495,7 +495,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		case Material::Type::GLOSSY: {
 			int index_out = atomic_agg_inc(&buffer_sizes.glossy[bounce]);
 
-			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
+			ray_buffer_shade_glossy.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
 			if (bounce > 0) ray_buffer_shade_glossy.cone_width[index_out] = ray_buffer_trace.cone_width[index];
@@ -503,7 +503,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_glossy.hits.set(index_out, hit);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
-			ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
+			ray_buffer_shade_glossy.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -514,15 +514,14 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.diffuse[bounce]) return;
 
-	float3 ray_direction = ray_buffer_shade_diffuse.direction.to_float3(index);
-
-	RayHit hit = ray_buffer_shade_diffuse.hits.get(index);
+	float3 ray_direction = ray_buffer_shade_diffuse.direction.get(index);
+	RayHit hit           = ray_buffer_shade_diffuse.hits     .get(index);
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
 	int y = ray_pixel_index / screen_pitch;
 
-	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.to_float3(index);
+	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.get(index);
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -532,13 +531,15 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	ASSERT(material.type == Material::Type::DIFFUSE, "Material should be diffuse in this Kernel");
 
+	// Obtain hit Triangle position, normal, and texture coordinates
 	TrianglePosNorTex hit_triangle = triangle_get_positions_normals_and_tex_coords(hit.triangle_id);
 
-	float3 hit_point     = barycentric(hit.u, hit.v, hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2);
-	float3 hit_normal    = barycentric(hit.u, hit.v, hit_triangle.normal_0,    hit_triangle.normal_edge_1,    hit_triangle.normal_edge_2);
-	float2 hit_tex_coord = barycentric(hit.u, hit.v, hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
+	float3 hit_point;
+	float3 hit_normal;
+	float2 hit_tex_coord;
+	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
-	hit_normal = normalize(hit_normal);
+	// Transform into world space
 	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
 	
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -583,12 +584,14 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			int   light_transform_id;
 			int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
+			// Obtain the Light's position and normal
 			TrianglePosNor light = triangle_get_positions_and_normals(light_id);
 
-			float3 light_point  = barycentric(light_u, light_v, light.position_0, light.position_edge_1, light.position_edge_2);
-			float3 light_normal = barycentric(light_u, light_v, light.normal_0,   light.normal_edge_1,   light.normal_edge_2);
+			float3 light_point;
+			float3 light_normal;
+			triangle_barycentric(light, light_u, light_v, light_point, light_normal);
 
-			light_normal = normalize(light_normal);
+			// Transform into world space
 			mesh_transform_position_and_direction(light_transform_id, light_point, light_normal);
 
 			float3 to_light = light_point - hit_point;
@@ -623,13 +626,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
-				ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
-				ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
+				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
+				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
 
 				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
 				ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-				ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
+				ray_buffer_shadow.illumination.set(shadow_ray_index, illumination);
 			}
 		}
 	}
@@ -644,15 +647,15 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 direction_local = random_cosine_weighted_direction(x, y, sample_index, bounce, seed);
 	float3 direction_world = local_to_world(direction_local, tangent, binormal, hit_normal);
 
-	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
-	ray_buffer_trace.direction.from_float3(index_out, direction_world);
+	ray_buffer_trace.origin   .set(index_out, hit_point);
+	ray_buffer_trace.direction.set(index_out, direction_world);
 	
 #if ENABLE_MIPMAPPING
 	ray_buffer_trace.cone_width[index_out] = cone_width;
 #endif
 
 	ray_buffer_trace.pixel_index[index_out]  = ray_pixel_index;
-	ray_buffer_trace.throughput.from_float3(index_out, throughput);
+	ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::DIFFUSE);
 	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction_world, hit_normal)) * ONE_OVER_PI;
@@ -662,10 +665,8 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.dielectric[bounce] || bounce == NUM_BOUNCES - 1) return;
 
-	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
-	if (bounce == 0) ray_direction = normalize(ray_direction);
-
-	RayHit hit = ray_buffer_shade_dielectric.hits.get(index);
+	float3 ray_direction = ray_buffer_shade_dielectric.direction.get(index);
+	RayHit hit           = ray_buffer_shade_dielectric.hits     .get(index);
 
 	// Primary Ray direction is not normalized because ray differentials need their original length
 	// This is not needed in this kernel so normalize the direction and correct t so that it is the actual distance along the ray
@@ -675,9 +676,8 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		ray_direction *= ray_direction_length_inv;
 	}
 
-	int ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
-
-	float3 ray_throughput = ray_buffer_shade_dielectric.throughput.to_float3(index);
+	int    ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
+	float3 ray_throughput  = ray_buffer_shade_dielectric.throughput.get(index);
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -687,18 +687,19 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	ASSERT(material.type == Material::Type::DIELECTRIC, "Material should be dielectric in this Kernel");
 
+	// Obtain hit Triangle position, normal, and texture coordinates
 	TrianglePosNor hit_triangle = triangle_get_positions_and_normals(hit.triangle_id);
 
-	float3 hit_point  = barycentric(hit.u, hit.v, hit_triangle.position_0, hit_triangle.position_edge_1, hit_triangle.position_edge_2);
-	float3 hit_normal = barycentric(hit.u, hit.v, hit_triangle.normal_0,   hit_triangle.normal_edge_1,   hit_triangle.normal_edge_2);
-	
-	hit_normal = normalize(hit_normal);
+	float3 hit_point;
+	float3 hit_normal;
+	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal);
+
+	// Transform into world space
 	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
-	float3 ray_direction_reflected = reflect(ray_direction, hit_normal);
-
+	// Calculate proper facing normal and determine indices of refraction
 	float3 normal;
 	float  cos_theta;
 
@@ -733,6 +734,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float eta = eta_1 / eta_2;
 	float k = 1.0f - eta*eta * (1.0f - cos_theta*cos_theta);
 
+	float3 ray_direction_reflected = reflect(ray_direction, hit_normal);
 	float3 direction_out;
 
 	if (k < 0.0f) { // Total Internal Reflection
@@ -749,18 +751,18 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		}
 	}
 
-	if ((settings.demodulate_albedo || settings.enable_svgf) && bounce == 0) {
+	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
-	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
-	ray_buffer_trace.direction.from_float3(index_out, direction_out);
+	ray_buffer_trace.origin   .set(index_out, hit_point);
+	ray_buffer_trace.direction.set(index_out, direction_out);
 
 #if ENABLE_MIPMAPPING
 	ray_buffer_trace.cone_width[index_out] = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
 #endif
 	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
-	ray_buffer_trace.throughput.from_float3(index_out, ray_throughput);
+	ray_buffer_trace.throughput.set(index_out, ray_throughput);
 
 	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
@@ -769,7 +771,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
-	float3 ray_direction = ray_buffer_shade_glossy.direction.to_float3(index);
+	float3 ray_direction = ray_buffer_shade_glossy.direction.get(index);
 
 	RayHit hit = ray_buffer_shade_glossy.hits.get(index);
 
@@ -777,7 +779,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int x = ray_pixel_index % screen_pitch;
 	int y = ray_pixel_index / screen_pitch; 
 
-	float3 ray_throughput = ray_buffer_shade_glossy.throughput.to_float3(index);
+	float3 ray_throughput = ray_buffer_shade_glossy.throughput.get(index);
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -787,13 +789,15 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	ASSERT(material.type == Material::Type::GLOSSY, "Material should be glossy in this Kernel");
 
+	// Obtain hit Triangle position, normal, and texture coordinates
 	TrianglePosNorTex hit_triangle = triangle_get_positions_normals_and_tex_coords(hit.triangle_id);
 
-	float3 hit_point     = barycentric(hit.u, hit.v, hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2);
-	float3 hit_normal    = barycentric(hit.u, hit.v, hit_triangle.normal_0,    hit_triangle.normal_edge_1,    hit_triangle.normal_edge_2);
-	float2 hit_tex_coord = barycentric(hit.u, hit.v, hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
+	float3 hit_point;
+	float3 hit_normal;
+	float2 hit_tex_coord;
+	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
-	hit_normal = normalize(hit_normal);
+	// Transform into world space
 	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
 
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
@@ -844,12 +848,14 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			int   light_transform_id;
 			int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
 
+			// Obtain the Light's position and normal
 			TrianglePosNor light = triangle_get_positions_and_normals(light_id);
 
-			float3 light_point  = barycentric(light_u, light_v, light.position_0, light.position_edge_1, light.position_edge_2);
-			float3 light_normal = barycentric(light_u, light_v, light.normal_0,   light.normal_edge_1,   light.normal_edge_2);
+			float3 light_point;
+			float3 light_normal;
+			triangle_barycentric(light, light_u, light_v, light_point, light_normal);
 
-			light_normal = normalize(light_normal);
+			// Transform into world space
 			mesh_transform_position_and_direction(light_transform_id, light_point, light_normal);
 
 			float3 to_light = light_point - hit_point;
@@ -893,13 +899,13 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
-				ray_buffer_shadow.ray_origin   .from_float3(shadow_ray_index, hit_point);
-				ray_buffer_shadow.ray_direction.from_float3(shadow_ray_index, to_light);
+				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
+				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
 
 				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
 				ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-				ray_buffer_shadow.illumination.from_float3(shadow_ray_index, illumination);
+				ray_buffer_shadow.illumination.set(shadow_ray_index, illumination);
 			}
 		}
 	}
@@ -910,20 +916,19 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 4, seed) + 1e-8f)));
 	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 5, seed);
 
-	float sin_theta, cos_theta;
-	float sin_phi,   cos_phi;
-
-	sincos(theta, &sin_theta, &cos_theta);
-	sincos(phi,   &sin_phi,   &cos_phi);
+	float sin_theta, cos_theta; sincos(theta, &sin_theta, &cos_theta);
+	float sin_phi,   cos_phi;   sincos(phi,   &sin_phi,   &cos_phi);
 
 	// Convert from spherical coordinates to cartesian coordinates
 	float3 micro_normal_local = make_float3(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta);
 
+	// Convert from tangent to world space
 	float3 hit_tangent, hit_binormal;
 	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
 
 	float3 micro_normal_world = local_to_world(micro_normal_local, hit_tangent, hit_binormal, hit_normal);
 
+	// Apply perfect mirror reflection to world space normal
 	float3 direction_out = reflect(-direction_in, micro_normal_world);
 
 	float i_dot_m = dot(direction_in,  micro_normal_world);
@@ -939,14 +944,14 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
-	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
-	ray_buffer_trace.direction.from_float3(index_out, direction_out);
+	ray_buffer_trace.origin   .set(index_out, hit_point);
+	ray_buffer_trace.direction.set(index_out, direction_out);
 
 	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
-	ray_buffer_trace.throughput.from_float3(index_out, throughput);
+	ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::GLOSSY);
-	ray_buffer_trace.last_pdf[index_out] = D * fabsf(m_dot_n) / (4.0f * fabsf(o_dot_m));
+	ray_buffer_trace.last_pdf[index_out] = weight;
 }
 
 extern "C" __global__ void kernel_trace_shadow(int bounce) {

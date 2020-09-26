@@ -180,6 +180,21 @@ __device__ inline TrianglePosNorTex triangle_get_positions_normals_and_tex_coord
 	return triangle;
 }
 
+__device__ inline void triangle_barycentric(const TrianglePosNor & triangle, float u, float v, float3 & position, float3 & normal) {
+	position = barycentric(u, v, triangle.position_0,  triangle.position_edge_1,  triangle.position_edge_2);
+	normal   = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
+
+	normal = normalize(normal);
+}
+
+__device__ inline void triangle_barycentric(const TrianglePosNorTex & triangle, float u, float v, float3 & position, float3 & normal, float2 & tex_coord) {
+	position  = barycentric(u, v, triangle.position_0,  triangle.position_edge_1,  triangle.position_edge_2);
+	normal    = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
+	tex_coord = barycentric(u, v, triangle.tex_coord_0, triangle.tex_coord_edge_1, triangle.tex_coord_edge_2);
+
+	normal = normalize(normal);
+}
+
 __device__ inline void triangle_trace(int mesh_id, int triangle_id, const Ray & ray, RayHit & ray_hit) {
 	TrianglePos triangle = triangle_get_positions(triangle_id);
 
@@ -320,8 +335,8 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_trace.origin   .get(ray_index);
+			ray.direction = ray_buffer_trace.direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
@@ -339,8 +354,8 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 				tlas_stack_size = -1;
 
 				// Reset Ray to untransformed version
-				ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-				ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+				ray.origin    = ray_buffer_trace.origin   .get(ray_index);
+				ray.direction = ray_buffer_trace.direction.get(ray_index);
 				ray.calc_direction_inv();
 			}
 
@@ -412,8 +427,8 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
@@ -430,8 +445,8 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 				tlas_stack_size = -1;
 
 				// Reset Ray to untransformed version
-				ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-				ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+				ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
+				ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 				ray.calc_direction_inv();
 			}
 
@@ -488,7 +503,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 			if (stack_size == 0) {
 				// We didn't hit anything, apply illumination
 				int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
-				float3 illumination = ray_buffer_shadow.illumination.to_float3(ray_index);
+				float3 illumination = ray_buffer_shadow.illumination.get(ray_index);
 
 				if (bounce == 0) {
 					frame_buffer_direct[pixel_index] += make_float4(illumination);
@@ -610,8 +625,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_trace.origin   .get(ray_index);
+			ray.direction = ray_buffer_trace.direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
@@ -629,8 +644,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				tlas_stack_size = -1;
 
 				// Reset Ray to untransformed version
-				ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-				ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+				ray.origin    = ray_buffer_trace.origin   .get(ray_index);
+				ray.direction = ray_buffer_trace.direction.get(ray_index);
 				ray.calc_direction_inv();
 			}
 
@@ -710,8 +725,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
@@ -728,8 +743,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				tlas_stack_size = -1;
 
 				// Reset Ray to untransformed version
-				ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-				ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+				ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
+				ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 				ray.calc_direction_inv();
 			}
 
@@ -793,7 +808,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			if (stack_size == 0) {
 				// We didn't hit anything, apply illumination
 				int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
-				float3 illumination = ray_buffer_shadow.illumination.to_float3(ray_index);
+				float3 illumination = ray_buffer_shadow.illumination.get(ray_index);
 
 				if (bounce == 0) {
 					frame_buffer_direct[pixel_index] += make_float4(illumination);
@@ -924,8 +939,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_trace.origin   .get(ray_index);
+			ray.direction = ray_buffer_trace.direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			// Ray octant, encoded in 3 bits
@@ -1050,8 +1065,8 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 					tlas_stack_size = -1;
 
 					// Reset Ray to untransformed version
-					ray.origin    = ray_buffer_trace.origin   .to_float3(ray_index);
-					ray.direction = ray_buffer_trace.direction.to_float3(ray_index);
+					ray.origin    = ray_buffer_trace.origin   .get(ray_index);
+					ray.direction = ray_buffer_trace.direction.get(ray_index);
 					ray.calc_direction_inv();
 
 					// Ray octant, encoded in 3 bits
@@ -1096,8 +1111,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-			ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
+			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			// Ray octant, encoded in 3 bits
@@ -1225,7 +1240,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				if (stack_size == 0) {
 					// We didn't hit anything, apply illumination
 					int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
-					float3 illumination = ray_buffer_shadow.illumination.to_float3(ray_index);
+					float3 illumination = ray_buffer_shadow.illumination.get(ray_index);
 
 					if (bounce == 0) {
 						frame_buffer_direct[pixel_index] += make_float4(illumination);
@@ -1242,8 +1257,8 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 					tlas_stack_size = -1;
 
 					// Reset Ray to untransformed version
-					ray.origin    = ray_buffer_shadow.ray_origin   .to_float3(ray_index);
-					ray.direction = ray_buffer_shadow.ray_direction.to_float3(ray_index);
+					ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
+					ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 					ray.calc_direction_inv();
 
 					// Ray octant, encoded in 3 bits
