@@ -109,30 +109,51 @@ __device__ inline void triangle_get_positions(int index, float3 & position_0, fl
 	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
 }
 
-__device__ inline void triangle_get_positions_and_normals(int index, 
-	float3 & position_0, float3 & position_edge_1, float3 & position_edge_2,
-	float3 & normal_0,   float3 & normal_edge_1,   float3 & normal_edge_2
-) {
+struct TrianglePosNor {
+	float3 position_0;
+	float3 position_edge_1;
+	float3 position_edge_2;
+
+	float3 normal_0;
+	float3 normal_edge_1;
+	float3 normal_edge_2;
+};
+
+__device__ inline TrianglePosNor triangle_get_positions_and_normals(int index) {
 	float4 part_0 = __ldg(&triangles[index].part_0);
 	float4 part_1 = __ldg(&triangles[index].part_1);
 	float4 part_2 = __ldg(&triangles[index].part_2);
 	float4 part_3 = __ldg(&triangles[index].part_3);
 	float4 part_4 = __ldg(&triangles[index].part_4);
 
-	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
-	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
-	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
+	TrianglePosNor triangle;
 
-	normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
-	normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
-	normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
-}
+	triangle.position_0      = make_float3(part_0.x, part_0.y, part_0.z);
+	triangle.position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
+	triangle.position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
 
-__device__ inline void triangle_get_positions_normals_and_tex_coords(int index, 
-	float3 & position_0,  float3 & position_edge_1,  float3 & position_edge_2,
-	float3 & normal_0,    float3 & normal_edge_1,    float3 & normal_edge_2,
-	float2 & tex_coord_0, float2 & tex_coord_edge_1, float2 & tex_coord_edge_2
-) {
+	triangle.normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
+	triangle.normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
+	triangle.normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
+
+	return triangle;
+};
+
+struct TrianglePosNorTex {
+	float3 position_0;
+	float3 position_edge_1;
+	float3 position_edge_2;
+
+	float3 normal_0;
+	float3 normal_edge_1;
+	float3 normal_edge_2;
+
+	float2 tex_coord_0;
+	float2 tex_coord_edge_1;
+	float2 tex_coord_edge_2;
+};
+
+__device__ inline TrianglePosNorTex triangle_get_positions_normals_and_tex_coords(int index) {
 	float4 part_0 = __ldg(&triangles[index].part_0);
 	float4 part_1 = __ldg(&triangles[index].part_1);
 	float4 part_2 = __ldg(&triangles[index].part_2);
@@ -140,17 +161,21 @@ __device__ inline void triangle_get_positions_normals_and_tex_coords(int index,
 	float4 part_4 = __ldg(&triangles[index].part_4);
 	float4 part_5 = __ldg(&triangles[index].part_5);
 
-	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
-	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
-	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
+	TrianglePosNorTex triangle;
 
-	normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
-	normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
-	normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
+	triangle.position_0      = make_float3(part_0.x, part_0.y, part_0.z);
+	triangle.position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
+	triangle.position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
 
-	tex_coord_0      = make_float2(part_4.z, part_4.w);
-	tex_coord_edge_1 = make_float2(part_5.x, part_5.y);
-	tex_coord_edge_2 = make_float2(part_5.z, part_5.w);
+	triangle.normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
+	triangle.normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
+	triangle.normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
+
+	triangle.tex_coord_0      = make_float2(part_4.z, part_4.w);
+	triangle.tex_coord_edge_1 = make_float2(part_5.x, part_5.y);
+	triangle.tex_coord_edge_2 = make_float2(part_5.z, part_5.w);
+
+	return triangle;
 }
 
 __device__ inline void triangle_trace(int mesh_id, int triangle_id, const Ray & ray, RayHit & ray_hit) {
