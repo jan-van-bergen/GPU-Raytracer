@@ -14,14 +14,6 @@ struct Ray {
 	}
 };
 
-struct RayHit {
-	float t = INFINITY;
-	float u, v;
-
-	int mesh_id;
-	int triangle_id = -1;
-};
-
 struct Matrix3x4 {
 	float4 row_0;
 	float4 row_1;
@@ -99,14 +91,24 @@ __device__ inline float triangle_get_lod(int index) {
 	return triangle_lods[index];
 }
 
-__device__ inline void triangle_get_positions(int index, float3 & position_0, float3 & position_edge_1, float3 & position_edge_2) {
+struct TrianglePos {
+	float3 position_0;
+	float3 position_edge_1;
+	float3 position_edge_2;
+};
+
+__device__ inline TrianglePos triangle_get_positions(int index) {
 	float4 part_0 = __ldg(&triangles[index].part_0);
 	float4 part_1 = __ldg(&triangles[index].part_1);
 	float4 part_2 = __ldg(&triangles[index].part_2);
 
-	position_0      = make_float3(part_0.x, part_0.y, part_0.z);
-	position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
-	position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
+	TrianglePos triangle;
+
+	triangle.position_0      = make_float3(part_0.x, part_0.y, part_0.z);
+	triangle.position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
+	triangle.position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
+
+	return triangle;
 }
 
 struct TrianglePosNor {
@@ -179,24 +181,21 @@ __device__ inline TrianglePosNorTex triangle_get_positions_normals_and_tex_coord
 }
 
 __device__ inline void triangle_trace(int mesh_id, int triangle_id, const Ray & ray, RayHit & ray_hit) {
-	float3 position_0;
-	float3 position_edge_1;
-	float3 position_edge_2;
-	triangle_get_positions(triangle_id, position_0, position_edge_1, position_edge_2);
+	TrianglePos triangle = triangle_get_positions(triangle_id);
 
-	float3 h = cross(ray.direction, position_edge_2);
-	float  a = dot(position_edge_1, h);
+	float3 h = cross(ray.direction, triangle.position_edge_2);
+	float  a = dot(triangle.position_edge_1, h);
 
 	float  f = 1.0f / a;
-	float3 s = ray.origin - position_0;
+	float3 s = ray.origin - triangle.position_0;
 	float  u = f * dot(s, h);
 
 	if (u >= 0.0f && u <= 1.0f) {
-		float3 q = cross(s, position_edge_1);
+		float3 q = cross(s, triangle.position_edge_1);
 		float  v = f * dot(ray.direction, q);
 
 		if (v >= 0.0f && u + v <= 1.0f) {
-			float t = f * dot(position_edge_2, q);
+			float t = f * dot(triangle.position_edge_2, q);
 
 			if (t > EPSILON && t < ray_hit.t) {
 				ray_hit.t = t;
@@ -210,24 +209,21 @@ __device__ inline void triangle_trace(int mesh_id, int triangle_id, const Ray & 
 }
 
 __device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, float max_distance) {
-	float3 position_0;
-	float3 position_edge_1;
-	float3 position_edge_2;
-	triangle_get_positions(triangle_id, position_0, position_edge_1, position_edge_2);
+	TrianglePos triangle = triangle_get_positions(triangle_id);
 
-	float3 h = cross(ray.direction, position_edge_2);
-	float  a = dot(position_edge_1, h);
+	float3 h = cross(ray.direction, triangle.position_edge_2);
+	float  a = dot(triangle.position_edge_1, h);
 
 	float  f = 1.0f / a;
-	float3 s = ray.origin - position_0;
+	float3 s = ray.origin - triangle.position_0;
 	float  u = f * dot(s, h);
 
 	if (u >= 0.0f && u <= 1.0f) {
-		float3 q = cross(s, position_edge_1);
+		float3 q = cross(s, triangle.position_edge_1);
 		float  v = f * dot(ray.direction, q);
 
 		if (v >= 0.0f && u + v <= 1.0f) {
-			float t = f * dot(position_edge_2, q);
+			float t = f * dot(triangle.position_edge_2, q);
 
 			if (t > EPSILON && t < max_distance) return true;
 		}
@@ -387,7 +383,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
+				ray_buffer_trace.hits.set(ray_index, ray_hit);
 
 				break;
 			}
@@ -685,7 +681,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
+				ray_buffer_trace.hits.set(ray_index, ray_hit);
 
 				break;
 			}
@@ -1043,7 +1039,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
-					ray_buffer_trace.hits.set(ray_index, ray_hit.mesh_id, ray_hit.triangle_id, ray_hit.t, ray_hit.u, ray_hit.v);
+					ray_buffer_trace.hits.set(ray_index, ray_hit);
 
 					current_group.y = 0;
 

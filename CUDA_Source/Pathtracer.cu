@@ -73,24 +73,37 @@ struct Vector3_SoA {
 	}
 };
 
+struct RayHit {
+	float t;
+	float u, v;
+
+	int mesh_id;
+	int triangle_id;
+};
+
 struct HitBuffer {
 	uint4 * hits;
 
-	__device__ void set(int index, int mesh_id, int triangle_id, float t, float u, float v) {
-		unsigned uv = int(u * 65535.0f) | (int(v * 65535.0f) << 16);
-		hits[index] = make_uint4(mesh_id, triangle_id, float_as_uint(t), uv);
+	__device__ void set(int index, const RayHit & ray_hit) {
+		unsigned uv = int(ray_hit.u * 65535.0f) | (int(ray_hit.v * 65535.0f) << 16);
+
+		hits[index] = make_uint4(ray_hit.mesh_id, ray_hit.triangle_id, float_as_uint(ray_hit.t), uv);
 	}
 
-	__device__ void get(int index, int & mesh_id, int & triangle_id, float & t, float & u, float & v) const {
+	__device__ RayHit get(int index) const {
 		uint4 hit = __ldg(&hits[index]);
 
-		mesh_id     = hit.x;
-		triangle_id = hit.y;
-		
-		t = uint_as_float(hit.z);
+		RayHit ray_hit;
 
-		u = float(hit.w & 0xffff) / 65535.0f;
-		v = float(hit.w >> 16)    / 65535.0f;
+		ray_hit.mesh_id     = hit.x;
+		ray_hit.triangle_id = hit.y;
+		
+		ray_hit.t = uint_as_float(hit.z);
+
+		ray_hit.u = float(hit.w & 0xffff) / 65535.0f;
+		ray_hit.v = float(hit.w >> 16)    / 65535.0f;
+
+		return ray_hit;
 	}
 };
 
@@ -231,6 +244,13 @@ extern "C" __global__ void kernel_primary(
 		return;
 	}
 
+	RayHit ray_hit;
+	ray_hit.mesh_id     = mesh_id;
+	ray_hit.triangle_id = triangle_id;
+	ray_hit.t = 0.0f;
+	ray_hit.u = uv.x;
+	ray_hit.v = uv.y;
+
 	const Material & material = materials[triangle_get_material_id(triangle_id)];
 
 	// Decide which Kernel to invoke, based on Material Type
@@ -250,7 +270,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_diffuse.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_diffuse.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
+			ray_buffer_shade_diffuse.hits.set(index_out, ray_hit);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, make_float3(1.0f));
@@ -263,7 +283,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_dielectric.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_dielectric.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
+			ray_buffer_shade_dielectric.hits.set(index_out, ray_hit);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, make_float3(1.0f));
@@ -276,7 +296,7 @@ extern "C" __global__ void kernel_primary(
 
 			ray_buffer_shade_glossy.direction.from_float3(index_out, ray_direction);
 
-			ray_buffer_shade_glossy.hits.set(index_out, mesh_id, triangle_id, 0.0f, uv.x, uv.y);
+			ray_buffer_shade_glossy.hits.set(index_out, ray_hit);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, make_float3(1.0f));
@@ -333,18 +353,13 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	float3 ray_origin    = ray_buffer_trace.origin   .to_float3(index);
 	float3 ray_direction = ray_buffer_trace.direction.to_float3(index);
 
-	int   hit_mesh_id;
-	int   hit_triangle_id;
-	float hit_t;
-	float hit_u;
-	float hit_v;
-	ray_buffer_trace.hits.get(index, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
+	RayHit hit = ray_buffer_trace.hits.get(index);
 
 	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_trace.throughput.to_float3(index);
 	
 	// If we didn't hit anything, sample the Sky
-	if (hit_triangle_id == -1) {
+	if (hit.triangle_id == -1) {
 		float3 illumination = ray_throughput * sample_sky(normalize(ray_direction));
 
 		if (bounce == 0) {
@@ -362,7 +377,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	}
 
 	// Get the Material of the Triangle we hit
-	const Material & material = materials[triangle_get_material_id(hit_triangle_id)];
+	const Material & material = materials[triangle_get_material_id(hit.triangle_id)];
 
 	if (material.type == Material::Type::LIGHT) {
 		bool no_mis = true;
@@ -390,15 +405,15 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		}
 
 		if (settings.enable_multiple_importance_sampling) {
-			TrianglePosNor light = triangle_get_positions_and_normals(hit_triangle_id);
+			TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
 
 			// Get hit position / normal by interpolating based on the hit (u,v)
-			float3 light_point  = barycentric(hit_u, hit_v, light.position_0, light.position_edge_1, light.position_edge_2);
-			float3 light_normal = barycentric(hit_u, hit_v, light.normal_0,   light.normal_edge_1,   light.normal_edge_2);
+			float3 light_point  = barycentric(hit.u, hit.v, light.position_0, light.position_edge_1, light.position_edge_2);
+			float3 light_normal = barycentric(hit.u, hit.v, light.normal_0,   light.normal_edge_1,   light.normal_edge_2);
 
 			// Normalize and transform into world space
 			light_normal = normalize(light_normal);
-			mesh_transform_position_and_direction(hit_mesh_id, light_point, light_normal);
+			mesh_transform_position_and_direction(hit.mesh_id, light_point, light_normal);
 
 			float3 to_light = light_point - ray_origin;;
 			float distance_to_light_squared = dot(to_light, to_light);
@@ -453,7 +468,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 #if ENABLE_MIPMAPPING
 			if (bounce > 0) ray_buffer_shade_diffuse.cone_width[index_out] = ray_buffer_trace.cone_width[index];
 #endif
-			ray_buffer_shade_diffuse.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
+			ray_buffer_shade_diffuse.hits.set(index_out, hit);
 			
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_diffuse.throughput.from_float3(index_out, ray_throughput);
@@ -469,7 +484,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 #if ENABLE_MIPMAPPING
 			if (bounce > 0) ray_buffer_shade_dielectric.cone_width[index_out] = ray_buffer_trace.cone_width[index];
 #endif
-			ray_buffer_shade_dielectric.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
+			ray_buffer_shade_dielectric.hits.set(index_out, hit);
 
 			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_dielectric.throughput.from_float3(index_out, ray_throughput);
@@ -485,7 +500,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 #if ENABLE_MIPMAPPING
 			if (bounce > 0) ray_buffer_shade_glossy.cone_width[index_out] = ray_buffer_trace.cone_width[index];
 #endif
-			ray_buffer_shade_glossy.hits.set(index_out, hit_mesh_id, hit_triangle_id, hit_t, hit_u, hit_v);
+			ray_buffer_shade_glossy.hits.set(index_out, hit);
 
 			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
 			ray_buffer_shade_glossy.throughput.from_float3(index_out, ray_throughput);
@@ -501,12 +516,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	float3 ray_direction = ray_buffer_shade_diffuse.direction.to_float3(index);
 
-	int   ray_mesh_id;
-	int   ray_triangle_id;
-	float ray_t;
-	float ray_u;
-	float ray_v;
-	ray_buffer_shade_diffuse.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
+	RayHit hit = ray_buffer_shade_diffuse.hits.get(index);
 
 	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -514,22 +524,22 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.to_float3(index);
 
-	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
+	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
+	const Material & material = materials[triangle_get_material_id(hit.triangle_id)];
 
 	ASSERT(material.type == Material::Type::DIFFUSE, "Material should be diffuse in this Kernel");
 
-	TrianglePosNorTex hit_triangle = triangle_get_positions_normals_and_tex_coords(ray_triangle_id);
+	TrianglePosNorTex hit_triangle = triangle_get_positions_normals_and_tex_coords(hit.triangle_id);
 
-	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2);
-	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle.normal_0,    hit_triangle.normal_edge_1,    hit_triangle.normal_edge_2);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
+	float3 hit_point     = barycentric(hit.u, hit.v, hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2);
+	float3 hit_normal    = barycentric(hit.u, hit.v, hit_triangle.normal_0,    hit_triangle.normal_edge_1,    hit_triangle.normal_edge_2);
+	float2 hit_tex_coord = barycentric(hit.u, hit.v, hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
 
 	hit_normal = normalize(hit_normal);
-	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
+	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
 	
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
@@ -540,20 +550,20 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
 	if (bounce == 0) {
-		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
+		cone_width = camera.pixel_spread_angle * hit.t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
 
 		albedo = mipmap_sample_ray_differentials(
 			material,
-			ray_mesh_id, ray_triangle_id,
+			hit.mesh_id, hit.triangle_id,
 			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
-			ray_direction, ray_t,
+			ray_direction, hit.t,
 			hit_tex_coord
 		);
 	} else {	
-		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
 
-		albedo = mipmap_sample_ray_cones(material, ray_triangle_id, ray_direction, ray_t, cone_width, hit_normal, hit_tex_coord);
+		albedo = mipmap_sample_ray_cones(material, hit.triangle_id, ray_direction, hit.t, cone_width, hit_normal, hit_tex_coord);
 	}
 #else
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -655,18 +665,13 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.to_float3(index);
 	if (bounce == 0) ray_direction = normalize(ray_direction);
 
-	int   ray_mesh_id;
-	int   ray_triangle_id;
-	float ray_t;
-	float ray_u;
-	float ray_v;
-	ray_buffer_shade_dielectric.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
+	RayHit hit = ray_buffer_shade_dielectric.hits.get(index);
 
 	// Primary Ray direction is not normalized because ray differentials need their original length
 	// This is not needed in this kernel so normalize the direction and correct t so that it is the actual distance along the ray
 	if (bounce == 0) {
 		float ray_direction_length_inv = 1.0f / length(ray_direction);
-		ray_t         *= ray_direction_length_inv;
+		hit.t         *= ray_direction_length_inv;
 		ray_direction *= ray_direction_length_inv;
 	}
 
@@ -674,26 +679,25 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	float3 ray_throughput = ray_buffer_shade_dielectric.throughput.to_float3(index);
 
-	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
+	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
+	const Material & material = materials[triangle_get_material_id(hit.triangle_id)];
 
 	ASSERT(material.type == Material::Type::DIELECTRIC, "Material should be dielectric in this Kernel");
 
-	TrianglePosNor hit_triangle = triangle_get_positions_and_normals(ray_triangle_id);
+	TrianglePosNor hit_triangle = triangle_get_positions_and_normals(hit.triangle_id);
 
-	float3 hit_point  = barycentric(ray_u, ray_v, hit_triangle.position_0, hit_triangle.position_edge_1, hit_triangle.position_edge_2);
-	float3 hit_normal = barycentric(ray_u, ray_v, hit_triangle.normal_0,   hit_triangle.normal_edge_1,   hit_triangle.normal_edge_2);
+	float3 hit_point  = barycentric(hit.u, hit.v, hit_triangle.position_0, hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float3 hit_normal = barycentric(hit.u, hit.v, hit_triangle.normal_0,   hit_triangle.normal_edge_1,   hit_triangle.normal_edge_2);
 	
 	hit_normal = normalize(hit_normal);
-	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
+	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
-	float3 direction;
-	float3 direction_reflected = reflect(ray_direction, hit_normal);
+	float3 ray_direction_reflected = reflect(ray_direction, hit_normal);
 
 	float3 normal;
 	float  cos_theta;
@@ -720,27 +724,28 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		// Lambert-Beer Law
 		// NOTE: does not take into account nested dielectrics!
 		if (dot(material.absorption, material.absorption) > EPSILON) {
-			ray_throughput.x *= expf(material.absorption.x * ray_t);
-			ray_throughput.y *= expf(material.absorption.y * ray_t);
-			ray_throughput.z *= expf(material.absorption.z * ray_t);
+			ray_throughput.x *= expf(material.absorption.x * hit.t);
+			ray_throughput.y *= expf(material.absorption.y * hit.t);
+			ray_throughput.z *= expf(material.absorption.z * hit.t);
 		}
 	}
 
 	float eta = eta_1 / eta_2;
 	float k = 1.0f - eta*eta * (1.0f - cos_theta*cos_theta);
 
-	if (k < 0.0f) {
-		// Total Internal Reflection
-		direction = direction_reflected;
-	} else {
-		float3 direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
+	float3 direction_out;
 
-		float fresnel = fresnel_schlick(eta_1, eta_2, cos_theta, -dot(direction_refracted, normal));
+	if (k < 0.0f) { // Total Internal Reflection
+		direction_out = ray_direction_reflected;
+	} else {
+		float3 ray_direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
+
+		float fresnel = fresnel_schlick(eta_1, eta_2, cos_theta, -dot(ray_direction_refracted, normal));
 
 		if (random_float_xorshift(seed) < fresnel) {
-			direction = direction_reflected;
+			direction_out = ray_direction_reflected;
 		} else {
-			direction = direction_refracted;
+			direction_out = ray_direction_refracted;
 		}
 	}
 
@@ -749,10 +754,10 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	}
 
 	ray_buffer_trace.origin   .from_float3(index_out, hit_point);
-	ray_buffer_trace.direction.from_float3(index_out, direction);
+	ray_buffer_trace.direction.from_float3(index_out, direction_out);
 
 #if ENABLE_MIPMAPPING
-	ray_buffer_trace.cone_width[index_out] = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+	ray_buffer_trace.cone_width[index_out] = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
 #endif
 	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
 	ray_buffer_trace.throughput.from_float3(index_out, ray_throughput);
@@ -766,12 +771,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 ray_direction = ray_buffer_shade_glossy.direction.to_float3(index);
 
-	int   ray_mesh_id;
-	int   ray_triangle_id;
-	float ray_t;
-	float ray_u;
-	float ray_v;
-	ray_buffer_shade_glossy.hits.get(index, ray_mesh_id, ray_triangle_id, ray_t, ray_u, ray_v);
+	RayHit hit = ray_buffer_shade_glossy.hits.get(index);
 
 	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
@@ -779,22 +779,22 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 ray_throughput = ray_buffer_shade_glossy.throughput.to_float3(index);
 
-	ASSERT(ray_triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
+	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	const Material & material = materials[triangle_get_material_id(ray_triangle_id)];
+	const Material & material = materials[triangle_get_material_id(hit.triangle_id)];
 
 	ASSERT(material.type == Material::Type::GLOSSY, "Material should be glossy in this Kernel");
 
-	TrianglePosNorTex hit_triangle = triangle_get_positions_normals_and_tex_coords(ray_triangle_id);
+	TrianglePosNorTex hit_triangle = triangle_get_positions_normals_and_tex_coords(hit.triangle_id);
 
-	float3 hit_point     = barycentric(ray_u, ray_v, hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2);
-	float3 hit_normal    = barycentric(ray_u, ray_v, hit_triangle.normal_0,    hit_triangle.normal_edge_1,    hit_triangle.normal_edge_2);
-	float2 hit_tex_coord = barycentric(ray_u, ray_v, hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
+	float3 hit_point     = barycentric(hit.u, hit.v, hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2);
+	float3 hit_normal    = barycentric(hit.u, hit.v, hit_triangle.normal_0,    hit_triangle.normal_edge_1,    hit_triangle.normal_edge_2);
+	float2 hit_tex_coord = barycentric(hit.u, hit.v, hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
 
 	hit_normal = normalize(hit_normal);
-	mesh_transform_position_and_direction(ray_mesh_id, hit_point, hit_normal);
+	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
 
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
@@ -805,20 +805,20 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
 	if (bounce == 0) {
-		cone_width = camera.pixel_spread_angle * ray_t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
+		cone_width = camera.pixel_spread_angle * hit.t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
 
 		albedo = mipmap_sample_ray_differentials(
 			material,
-			ray_mesh_id, ray_triangle_id,
+			hit.mesh_id, hit.triangle_id,
 			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
-			ray_direction, ray_t,
+			ray_direction, hit.t,
 			hit_tex_coord
 		);
 	} else {	
-		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * ray_t;
+		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
 
-		albedo = mipmap_sample_ray_cones(material, ray_triangle_id, ray_direction, ray_t, cone_width, hit_normal, hit_tex_coord);
+		albedo = mipmap_sample_ray_cones(material, hit.triangle_id, ray_direction, hit.t, cone_width, hit_normal, hit_tex_coord);
 	}
 #else
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
