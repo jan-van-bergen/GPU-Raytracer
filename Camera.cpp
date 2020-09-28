@@ -34,12 +34,24 @@ void Camera::resize(int width, int height) {
 	pixel_spread_angle = atanf(2.0f * tan_half_fov * inv_height);
 }
 
-void Camera::update(float delta, bool apply_jitter) {
-	if (apply_jitter) {
-		jitter = Vector2(
-			(float(Random::get_value()) * (1.0f / UINT32_MAX) - 0.5f) * inv_width, 
-			(float(Random::get_value()) * (1.0f / UINT32_MAX) - 0.5f) * inv_height
-		);
+void Camera::update(float delta, const Settings & settings) {
+	if (settings.enable_rasterization) {
+		if (settings.enable_svgf) {
+			static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
+			static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
+
+			jitter = Vector2(
+				(halton_x[jitter_index] - 0.5f) * inv_width, 
+				(halton_y[jitter_index] - 0.5f) * inv_height
+			);
+
+			jitter_index = (jitter_index + 1) % 4;
+		} else {
+			jitter = Vector2(
+				(float(Random::get_value()) / float(UINT32_MAX) - 0.5f) * inv_width, 
+				(float(Random::get_value()) / float(UINT32_MAX) - 0.5f) * inv_height
+			);
+		}
 	} else {
 		jitter = Vector2(0.0f);
 	}

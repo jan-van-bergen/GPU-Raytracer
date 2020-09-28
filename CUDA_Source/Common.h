@@ -37,10 +37,10 @@ struct Settings {
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::BOX;
 
 	// SVGF Settings
-	float alpha_colour = 0.2f;
-	float alpha_moment = 0.2f;
+	float alpha_colour = 0.1f;
+	float alpha_moment = 0.1f;
 
-	int atrous_iterations = 5;
+	int atrous_iterations = 4;
 
 	float sigma_z =  4.0f;
 	float sigma_n = 16.0f;

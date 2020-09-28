@@ -4,6 +4,8 @@
 #include "Quaternion.h"
 #include "Matrix4.h"
 
+#include "CUDA_Source/Common.h"
+
 struct Camera {
 	Vector3    position;	
 	Quaternion rotation;
@@ -28,14 +30,17 @@ struct Camera {
 	bool moved;
 
 	Vector2 jitter;
+	int     jitter_index;
 	
 	inline void init(float fov, float near = 0.1f, float far = 300.0f) {
 		this->fov = fov;
 		this->near = near;
 		this->far  = far;
+
+		jitter_index = 0;
 	}
 
 	void resize(int width, int height);
 
-	void update(float delta, bool apply_jitter);
+	void update(float delta, const Settings & settings);
 };

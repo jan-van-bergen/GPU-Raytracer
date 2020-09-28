@@ -71,7 +71,7 @@ int main(int argument_count, char ** arguments) {
 	int fps = 0;
 	
 	const char * mesh_names[] = {
-		DATA_PATH("Bunny.obj"),
+		DATA_PATH("sponza/sponza_lit.obj"),
 		DATA_PATH("Diamond.obj"),
 		DATA_PATH("Lantern.obj")
 	};

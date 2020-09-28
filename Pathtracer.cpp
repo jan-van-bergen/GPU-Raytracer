@@ -739,7 +739,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	scene.camera.resize(width, height);
 	frames_accumulated = 0;
 	
-	scene.camera.update(0.0f, settings.enable_rasterization);
+	scene.camera.update(0.0f, settings);
 
 	upload_camera();
 }
@@ -869,7 +869,7 @@ void Pathtracer::update(float delta) {
 		scene.update(0.0f); // Update with 0 delta to make sure previous Transforms match current Transforms
 	}
 
-	scene.camera.update(delta, settings.enable_rasterization);
+	scene.camera.update(delta, settings);
 
 	if (scene.camera.moved) upload_camera();
 
@@ -1004,7 +1004,7 @@ void Pathtracer::render() {
 	if (settings.enable_svgf) {
 		// Integrate temporally
 		RECORD_EVENT(event_svgf_temporal);
-		kernel_svgf_temporal.execute();
+		kernel_svgf_temporal.execute(scene.camera.jitter);
 
 		CUdeviceptr direct_in    = ptr_direct    .ptr;
 		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
@@ -1033,7 +1033,7 @@ void Pathtracer::render() {
 		}
 
 		RECORD_EVENT(event_svgf_finalize);
-		kernel_svgf_finalize.execute(direct_out, indirect_out);
+		kernel_svgf_finalize.execute(scene.camera.jitter, direct_out, indirect_out);
 
 		if (settings.enable_taa) {
 			RECORD_EVENT(event_taa);

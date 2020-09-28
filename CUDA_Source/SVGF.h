@@ -48,7 +48,7 @@ __device__ inline float2 edge_stopping_weights(
 	return make_float2(w_l_direct, w_l_indirect);
 }
 
-extern "C" __global__ void kernel_svgf_temporal() {
+extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -69,8 +69,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	moment.z = moment.x * moment.x;
 	moment.w = moment.y * moment.y;
 
-	float u = (float(x) + 0.5f) / float(screen_width);
-	float v = (float(y) + 0.5f) / float(screen_height);
+	float u = (float(x) + 0.5f) / float(screen_width)  - jitter.x;
+	float v = (float(y) + 0.5f) / float(screen_height) - jitter.y;
 
 	float4 normal_and_depth     = gbuffer_normal_and_depth    .get(u, v);
 	float2 screen_position_prev = gbuffer_screen_position_prev.get(u, v);
@@ -94,8 +94,8 @@ extern "C" __global__ void kernel_svgf_temporal() {
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
 	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
 
-	float s_prev = u_prev * float(screen_width);
-	float t_prev = v_prev * float(screen_height);
+	float s_prev = u_prev * float(screen_width)  - 0.5f;
+	float t_prev = v_prev * float(screen_height) - 0.5f;
 	
 	int x_prev = int(s_prev);
 	int y_prev = int(t_prev);
@@ -503,6 +503,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
 extern "C" __global__ void kernel_svgf_finalize(
+	float2 jitter,
 	const float4 * colour_direct,
 	const float4 * colour_indirect
 ) {
@@ -536,8 +537,8 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 moment = frame_buffer_moment[pixel_index];
 
-	float u = (float(x) + 0.5f) / float(screen_width);
-	float v = (float(y) + 0.5f) / float(screen_height);
+	float u = (float(x) + 0.5f) / float(screen_width)  - jitter.x;
+	float v = (float(y) + 0.5f) / float(screen_height) - jitter.y;
 
 	float4 normal_and_depth = gbuffer_normal_and_depth.get(u, v);
 
