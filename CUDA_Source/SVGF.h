@@ -525,15 +525,17 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	accumulator.set(x, y, colour);
 
-	// "Pseudo" Reinhard (uses luma)
-	colour = colour / (1.0f + luminance(colour.x, colour.y, colour.z));
+	if (settings.enable_taa) {
+		// "Pseudo" Reinhard (uses luma)
+		colour = colour / (1.0f + luminance(colour.x, colour.y, colour.z));
 
-	// Convert to gamma space
-	colour.x = sqrtf(fmaxf(0.0f, colour.x));
-	colour.y = sqrtf(fmaxf(0.0f, colour.y));
-	colour.z = sqrtf(fmaxf(0.0f, colour.z));
+		// Convert to gamma space
+		colour.x = sqrtf(fmaxf(0.0f, colour.x));
+		colour.y = sqrtf(fmaxf(0.0f, colour.y));
+		colour.z = sqrtf(fmaxf(0.0f, colour.z));
 
-	taa_frame_curr[pixel_index] = colour;
+		taa_frame_curr[pixel_index] = colour;
+	}
 
 	float4 moment = frame_buffer_moment[pixel_index];
 
@@ -552,9 +554,8 @@ extern "C" __global__ void kernel_svgf_finalize(
 	history_moment          [pixel_index] = moment;
 	history_normal_and_depth[pixel_index] = normal_and_depth;
 
-	// @SPEED
 	// Clear frame buffers for next frame
-	frame_buffer_albedo  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-	frame_buffer_direct  [pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-	frame_buffer_indirect[pixel_index] = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	frame_buffer_albedo  [pixel_index] = make_float4(0.0f);
+	frame_buffer_direct  [pixel_index] = make_float4(0.0f);
+	frame_buffer_indirect[pixel_index] = make_float4(0.0f);
 }

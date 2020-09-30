@@ -551,13 +551,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	global_settings = module.get_global("settings");
 
-	unsigned long long bytes_available = CUDAContext::get_available_memory();
-	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
-
-	puts("");
-	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n", bytes_allocated >> 10, bytes_allocated >> 20);
-	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n", bytes_available >> 10, bytes_available >> 20);
-
 	kernel_primary         .init(&module, "kernel_primary");
 	kernel_generate        .init(&module, "kernel_generate");
 	kernel_trace           .init(&module, "kernel_trace");
@@ -660,6 +653,12 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	scene.update(0.0f);
 	build_tlas();
+	
+	unsigned long long bytes_available = CUDAContext::get_available_memory();
+	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
+
+	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n",   bytes_allocated >> 10, bytes_allocated >> 20);
+	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n\n", bytes_available >> 10, bytes_available >> 20);
 }
 
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {
@@ -701,8 +700,8 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	module.get_global("frame_buffer_direct")  .set_value(ptr_direct  .ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
 
-	module.get_global("sample_xy")     .set_value(CUDAMemory::malloc<float2>(pitch * height).ptr);
-	module.get_global("reconstruction").set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
+	module.get_global("sample_xy")     .set_value(ptr_direct_alt  .ptr);
+	module.get_global("reconstruction").set_value(ptr_indirect_alt.ptr);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
@@ -762,9 +761,6 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free(module.get_global("frame_buffer_albedo").get_value<CUDAMemory::Ptr<float4>>());
 	CUDAMemory::free(module.get_global("frame_buffer_moment").get_value<CUDAMemory::Ptr<float4>>());
 
-	CUDAMemory::free(module.get_global("sample_xy")     .get_value<CUDAMemory::Ptr<float2>>());
-	CUDAMemory::free(module.get_global("reconstruction").get_value<CUDAMemory::Ptr<float4>>());
-	
 	CUDAMemory::resource_unregister(resource_accumulator);
 	CUDACALL(cuSurfObjectDestroy(module.get_global("accumulator").get_value<CUsurfObject>()));
 
