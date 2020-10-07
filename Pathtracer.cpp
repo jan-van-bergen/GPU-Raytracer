@@ -886,6 +886,12 @@ void Pathtracer::update(float delta) {
 	if (settings_changed) {
 		frames_accumulated = 0;
 
+		if (settings.enable_svgf && !settings.enable_rasterization) {
+			puts("WARNING: SVGF only works with rasterization enabled!");
+
+			settings.enable_rasterization = true;
+		}
+
 		global_settings.set_value(settings);
 	} else if (settings.enable_svgf) {
 		frames_accumulated = (frames_accumulated + 1) & 255;
