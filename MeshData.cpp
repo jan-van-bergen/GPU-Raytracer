@@ -92,7 +92,7 @@ static bool try_to_load_from_disk(BVH & bvh, MeshData * mesh_data, const char * 
 	fread(reinterpret_cast<char *>(bvh.nodes), sizeof(BVHNode), bvh.node_count, file);
 
 	fread(reinterpret_cast<char *>(&bvh.index_count), sizeof(int), 1, file);
-			
+	
 	bvh.indices = new int[bvh.index_count];
 	fread(reinterpret_cast<char *>(bvh.indices), sizeof(int), bvh.index_count, file);
 
@@ -121,10 +121,10 @@ int MeshData::load(const char * filename) {
 
 	MeshData * mesh_data = new MeshData();
 	mesh_datas.push_back(mesh_data);
-
+	
 	BVH bvh;
 	bool bvh_loaded = try_to_load_from_disk(bvh, mesh_data, filename, file_extension);
-
+	
 	if (bvh_loaded) {
 		// If the BVH loaded successfully we only need to load the Materials
 		// of the Mesh, because the geometry is already included in the BVH
@@ -172,13 +172,19 @@ int MeshData::load(const char * filename) {
 	QBVHBuilder qbvh_builder;
 	qbvh_builder.init(&mesh_data->bvh, bvh);
 	qbvh_builder.build(bvh);
+	
+	delete [] bvh.indices;
+	delete [] bvh.nodes;
 #elif BVH_TYPE == BVH_CWBVH
 	CWBVHBuilder cwbvh_builder;
 	cwbvh_builder.init(&mesh_data->bvh, bvh);
 	cwbvh_builder.build(bvh);
 	cwbvh_builder.free();
-#endif
 
+	delete [] bvh.indices;
+	delete [] bvh.nodes;
+#endif
+	
 	return mesh_data_index;
 }
 

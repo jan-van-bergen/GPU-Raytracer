@@ -8,4 +8,5 @@ struct Sky {
 	Vector3 * data;
 
 	void init(const char * file_name);
+	void free();
 };

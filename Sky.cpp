@@ -25,3 +25,7 @@ void Sky::init(const char * file_path) {
 	fread(reinterpret_cast<char *>(data), sizeof(Vector3), size_squared, file);
 	fclose(file);
 }
+
+void Sky::free() {
+	delete [] data;
+}

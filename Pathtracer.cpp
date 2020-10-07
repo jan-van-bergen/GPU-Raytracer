@@ -119,17 +119,17 @@ static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)
 
 void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle) {
 	ScopeTimer timer("Pathtracer Initialization");
-
+	
 	pixel_count = SCREEN_WIDTH * SCREEN_HEIGHT;
 	batch_size  = BATCH_SIZE;
 
 	CUDAContext::init();
-
+	
 	scene.init(mesh_count, mesh_names, sky_name);
-
+	
 	// Init CUDA Module and its Kernel
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
-
+	
 	// Set global Material table
 	module.get_global("materials").set_buffer(Material::materials);
 	
@@ -359,8 +359,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("triangle_material_ids").set_buffer(triangle_material_ids, global_index_count);
 
 	module.get_global("triangle_lods").set_buffer(triangle_lods, global_index_count);
-	delete [] triangle_lods;
-
+	
 	// Init OpenGL MeshData for rasterization
 	for (int m = 0; m < mesh_data_count; m++) {
 		MeshData::mesh_datas[m]->gl_init(reverse_indices + mesh_data_triangle_offsets[m]);
@@ -515,18 +514,33 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	} else {
 		module.get_global("light_total_count_inv").set_value(INFINITY); // 1 / 0
 	}
-	
+
+	delete [] global_bvh_nodes;
+	delete [] global_indices;
+	delete [] global_triangles;
+
 	delete [] triangles;
+	delete [] triangle_lods;
+	delete [] triangle_material_ids;
+
 	delete [] reverse_indices;
 
 	module.get_global("sky_size").set_value (scene.sky.size);
 	module.get_global("sky_data").set_buffer(scene.sky.data, scene.sky.size * scene.sky.size);
 	
+	scene.sky.free();
+
 	// Set Blue Noise Sampler globals
 	module.get_global("sobol_256spp_256d").set_buffer(sobol_256spp_256d);
 	module.get_global("scrambling_tile").set_buffer(scrambling_tile);
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
-
+	
+	for (int m = 0; m < mesh_data_count; m++) {
+		delete [] MeshData::mesh_datas[m]->bvh.indices;
+		delete [] MeshData::mesh_datas[m]->bvh.nodes;
+		delete [] MeshData::mesh_datas[m]->triangles;
+	}
+	
 	// Initialize buffers used by Wavefront kernels
 	TraceBuffer     ray_buffer_trace;                                      ray_buffer_trace           .init(batch_size);
 	MaterialBuffer  ray_buffer_shade_diffuse;    if (scene.has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);

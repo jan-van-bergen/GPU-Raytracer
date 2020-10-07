@@ -61,7 +61,7 @@ void OBJLoader::load_mtl(const char * filename, MeshData * mesh_data) {
 		std::istream is(&fb);
 
 		tinyobj::LoadMtl(&material_map, &materials, &is, &warning, &error);
-		
+
 		char * path = MALLOCA(char, strlen(filename) + 1);
 		Util::get_path(filename, path);
 
