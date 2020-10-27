@@ -160,8 +160,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 				CUarray level_array;
 				CUDACALL(cuMipmappedArrayGetLevel(&level_array, array, level));
 
-				int level_width_in_bytes = texture.get_width_in_bytes() >> level;
-				int level_height         = texture.height               >> level;
+				int level_width_in_bytes = texture.get_width_in_bytes(level);
+				int level_height         = texture.height >> level;
 
 				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data + texture.mip_offsets[level]);
 			}

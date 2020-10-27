@@ -268,11 +268,28 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 
 	texture.channels = 4;
 	
+#if ENABLE_MIPMAPPING
+	int pixel_count = 0;
+
+	int w = texture.width;
+	int h = texture.height;
+
+	while (true) {
+		pixel_count += w * h;
+
+		if (w == 1 && h == 1) break;
+
+		if (w > 1) w /= 2;
+		if (h > 1) h /= 2;
+	}
+#else
 	int pixel_count = texture.width * texture.height;
-	Vector4 * data_rgba = new Vector4[pixel_count + (ENABLE_MIPMAPPING ? pixel_count / 3 : 0)];
+#endif
+
+	Vector4 * data_rgba = new Vector4[pixel_count];
 
 	// Copy the data over into Mipmap level 0, and convert it to linear colour space
-	for (int i = 0; i < pixel_count; i++) {
+	for (int i = 0; i < texture.width * texture.height; i++) {
 		data_rgba[i] = Vector4(
 			Math::gamma_to_linear(float(data[i * 4    ]) / 255.0f),
 			Math::gamma_to_linear(float(data[i * 4 + 1]) / 255.0f),
@@ -289,7 +306,7 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 	int * mip_offsets = new int[texture.mip_levels];
 	mip_offsets[0] = 0;
 
-	int offset      = pixel_count;
+	int offset      = texture.width * texture.height;
 	int offset_prev = 0;
 
 	int level_width  = texture.width  / 2;
@@ -297,7 +314,7 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 
 	int level = 1;
 
-	Vector4 * temp = new Vector4[pixel_count / 2]; // Intermediate storage used when performing seperable filtering
+	Vector4 * temp = new Vector4[(texture.width / 2) * texture.height]; // Intermediate storage used when performing seperable filtering
 
 	while (true) {
 #if MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
@@ -464,10 +481,12 @@ int Texture::get_cuda_resource_view_height() const {
 	}
 }
 
-int Texture::get_width_in_bytes() const {
+int Texture::get_width_in_bytes(int mip_level) const {
+	int level_width = Math::max(width >> mip_level, 1);
+
 	if (format == Format::RGBA) {
-		return width * sizeof(Vector4);
+		return level_width * sizeof(Vector4);
 	} else {
-		return width * channels * 4;
+		return level_width * channels * 4;
 	}
 }

@@ -29,7 +29,7 @@ struct Texture {
 	int get_cuda_resource_view_width()  const;
 	int get_cuda_resource_view_height() const;
 
-	int get_width_in_bytes() const;
+	int get_width_in_bytes(int mip_level = 0) const;
 
 	static int load(const char * file_path);
 
