@@ -302,19 +302,12 @@ static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, const bo
 	}
 }
 
-#define RECORD_SAH_COSTS false // Record SAH cost every iteration and write results to a txt file
-
 void BVHOptimizer::optimize(BVH & bvh) {
 	ScopeTimer timer("BVH Optimization");
 	
 	float cost_before = bvh_sah_cost(bvh);
 
 	if (bvh.node_count < 8) return;
-
-#if RECORD_SAH_COSTS
-	std::vector<float> sah_costs;
-	sah_costs.push_back(cost_before);
-#endif
 
 	int * parent_indices = new int[bvh.node_count];
 	parent_indices[0] = -1; // Root has no parent
@@ -464,9 +457,6 @@ void BVHOptimizer::optimize(BVH & bvh) {
 		}
 		
 		float sah_cost = bvh_sah_cost(bvh);
-#if RECORD_SAH_COSTS
-		sah_costs.push_back(sah_cost);
-#endif
 
 		if (sah_cost < sah_cost_best) {
 			sah_cost_best = sah_cost;
@@ -542,14 +532,4 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	// Report the improvement of the SAH cost
 	float cost_after = bvh_sah_cost(bvh);
 	printf("\ncost: %f -> %f - nodes: %i -> %i\n", cost_before, cost_after, node_count_before, node_count_after);
-
-#if RECORD_SAH_COSTS
-	FILE * file; fopen_s(&file, "sah_costs.txt", "wb");
-
-	for (int i = 0; i < sah_costs.size(); i++) {
-		fprintf_s(file, "%f\n", sah_costs[i]);
-	}
-
-	fclose(file);
-#endif
 }
