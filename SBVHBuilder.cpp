@@ -61,8 +61,10 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 
 	if (index_count <= max_primitives_in_leaf) {
 		// Check SAH termination condition
-		float parent_cost = node.aabb.surface_area() * float(index_count); 
-		if (parent_cost <= object_split_cost && parent_cost <= spatial_split_cost) {
+		float leaf_cost = node.aabb.surface_area() * SAH_COST_LEAF * float(index_count);
+		float node_cost = node.aabb.surface_area() * SAH_COST_NODE + Math::min(object_split_cost, spatial_split_cost);
+
+		if (leaf_cost < node_cost) {
 			node.first = first_index;
 			node.count = index_count;
 			
@@ -72,7 +74,6 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, int * in
 	
 	if (object_split_cost == INFINITY && spatial_split_cost == INFINITY) abort();
 
-	// From this point on it is decided that this Node will NOT be a leaf Node
 	node.left = node_index;
 	node_index += 2;
 

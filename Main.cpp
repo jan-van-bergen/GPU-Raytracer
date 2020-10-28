@@ -12,6 +12,7 @@
 #include "Random.h"
 
 #include "Util.h"
+#include "PerfTest.h"
 #include "ScopeTimer.h"
 
 // Forces NVIDIA driver to be used 
@@ -51,6 +52,7 @@ static constexpr int capture_frame_index = -1;
 static constexpr bool exit_after_capture = true;
 
 static Pathtracer pathtracer;
+static PerfTest   perf_test;
 
 static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_free();
@@ -71,13 +73,20 @@ int main(int argument_count, char ** arguments) {
 	int fps = 0;
 	
 	const char * mesh_names[] = {
-		DATA_PATH("sponza/sponza_lit.obj"),
-		DATA_PATH("Diamond.obj"),
-		DATA_PATH("Lantern.obj")
+		//"C:/Dev/Git/Advanced Graphics/Models/FantasyBook/untitled.obj",
+		//"C:/Dev/Git/Advanced Graphics/San_Miguel/san-miguel-low-poly.obj",
+		"C:/Dev/Git/Advanced Graphics/San_Miguel/test.obj",
+		//"C:/Dev/Git/Advanced Graphics/Bistro_v4/bistro.obj",
+		//"C:/Dev/Git/Advanced Graphics/classroom/classroom.obj"
+		//DATA_PATH("sponza/sponza_lit.obj"),
+		//DATA_PATH("Diamond.obj"),
+		//DATA_PATH("Lantern.obj")
 	};
 	const char * sky_filename = DATA_PATH("Sky_Probes/rnl_probe.float");
 
 	pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
+
+	perf_test.init(&pathtracer, true, mesh_names[0]);
 
 	window.resize_handler = &window_resize;
 
@@ -87,6 +96,8 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
+		perf_test.frame_begin();
+
 		pathtracer.update(delta_time);
 		pathtracer.render();
 		
@@ -217,6 +228,8 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		ImGui::End();
+
+		if (perf_test.frame_end(delta_time)) break;
 
 		// Save Keyboard State of this frame before SDL_PumpEvents
 		Input::update();

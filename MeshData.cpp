@@ -10,6 +10,7 @@
 #include "SBVHBuilder.h"
 #include "QBVHBuilder.h"
 #include "CWBVHBuilder.h"
+#include "BVHOptimizer.h"
 
 #include "Util.h"
 #include "ScopeTimer.h"
@@ -124,7 +125,7 @@ int MeshData::load(const char * filename) {
 	
 	BVH bvh;
 	bool bvh_loaded = try_to_load_from_disk(bvh, mesh_data, filename, file_extension);
-	
+
 	if (bvh_loaded) {
 		// If the BVH loaded successfully we only need to load the Materials
 		// of the Mesh, because the geometry is already included in the BVH
@@ -141,18 +142,10 @@ int MeshData::load(const char * filename) {
 	} else {
 		OBJLoader::load_obj(filename, mesh_data);
 		
-		int max_primitives_in_leaf = BVH_TYPE == BVH_CWBVH ? 1 : INT_MAX; 
+		// CWBVH and BVH optimization require 1 primitive per leaf Node, the others have no upper limits
+		int max_primitives_in_leaf = BVH_TYPE == BVH_CWBVH || ENABLE_BVH_OPTIMIZATION ? 1 : INT_MAX;
 
-#if BVH_TYPE == BVH_BVH
-		{
-			ScopeTimer timer("BVH Construction");
-			
-			BVHBuilder bvh_builder;
-			bvh_builder.init(&bvh, mesh_data->triangle_count, max_primitives_in_leaf);
-			bvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
-			bvh_builder.free();
-		}
-#else // All other BVH types use SBVH as a starting point
+#if BVH_TYPE == BVH_SBVH // All other BVH types use standard BVH as a starting point
 		{
 			ScopeTimer timer("SBVH Construction");
 
@@ -161,11 +154,24 @@ int MeshData::load(const char * filename) {
 			sbvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
 			sbvh_builder.free();
 		}
+#else 
+		{
+			ScopeTimer timer("BVH Construction");
+			
+			BVHBuilder bvh_builder;
+			bvh_builder.init(&bvh, mesh_data->triangle_count, max_primitives_in_leaf);
+			bvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
+			bvh_builder.free();
+		}
+#endif
+		
+#if ENABLE_BVH_OPTIMIZATION
+		BVHOptimizer::optimize(bvh);
 #endif
 
 		save_to_disk(bvh, mesh_data, filename, file_extension);
 	}
-
+	
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
 	mesh_data->bvh = bvh;
 #elif BVH_TYPE == BVH_QBVH

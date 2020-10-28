@@ -310,6 +310,8 @@ struct BVHNode {
 			case BVH_AXIS_Y_BITS: return ray.direction.y > 0.0f;
 			case BVH_AXIS_Z_BITS: return ray.direction.z > 0.0f;
 		}
+
+		assert(false && "Invalid BVH_AXIS_MASK");
 	}
 };
 
