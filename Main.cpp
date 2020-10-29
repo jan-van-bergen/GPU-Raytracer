@@ -79,7 +79,7 @@ int main(int argument_count, char ** arguments) {
 
 	pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
 
-	perf_test.init(&pathtracer, false, mesh_names[0]);
+	perf_test.init(&pathtracer, true, mesh_names[0]);
 
 	window.resize_handler = &window_resize;
 

@@ -45,8 +45,8 @@ static void init_parent_indices(const BVH & bvh, int parent_indices[], int node_
 	init_parent_indices(bvh, parent_indices, node.left + 1);
 }
 
-// Produces a single pass consisting of 'pass_size' candidates for reinsertion based on random sampling
-static void select_nodes_random(const BVH & bvh, const int parent_indices[], int pass_size, int pass_indices[]) {
+// Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
+static void select_nodes_random(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[]) {
 	int offset = 0;
 	int * temp = new int[bvh.node_count];
 
@@ -57,14 +57,14 @@ static void select_nodes_random(const BVH & bvh, const int parent_indices[], int
 		}
 	}
 
-	// Select 'pass_size' Nodes from all viable Nodes
-	std::sample(temp, temp + offset, pass_indices, pass_size, rng);
+	// Select a single batch of random Nodes from all viable Nodes
+	std::sample(temp, temp + offset, batch_indices, batch_size, rng);
 
 	delete [] temp;
 }
 
-// Produces a single pass consisting of 'pass_size' candidates for reinsertion based on which Nodes have the highest inefficiency measure
-static void select_nodes_measure(const BVH & bvh, const int parent_indices[], int pass_size, int pass_indices[]) {
+// Produces a single batch consisting of 'batch_size' candidates for reinsertion based on which Nodes have the highest inefficiency measure
+static void select_nodes_measure(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[]) {
 	float * costs = new float[bvh.node_count];
 
 	int offset = 0;
@@ -83,12 +83,12 @@ static void select_nodes_measure(const BVH & bvh, const int parent_indices[], in
 
 			costs[i] = cost_sum * cost_min * cost_area;
 			
-			pass_indices[offset++] = i;
+			batch_indices[offset++] = i;
 		}
 	}
 
-	// Select 'pass_size' worst Nodes
-	std::partial_sort(pass_indices, pass_indices + pass_size, pass_indices + offset, [&](int a, int b) {
+	// Select 'batch_size' worst Nodes
+	std::partial_sort(batch_indices, batch_indices + batch_size, batch_indices + offset, [&](int a, int b) {
 		return costs[a] > costs[b];
 	});
 
@@ -307,25 +307,25 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	
 	float cost_before = bvh_sah_cost(bvh);
 
-	if (bvh.node_count < 8) return;
+	if (bvh.node_count < 8) return; // Tree too small to optimize
 
 	int * parent_indices = new int[bvh.node_count];
 	parent_indices[0] = -1; // Root has no parent
 	init_parent_indices(bvh, parent_indices);
 	
-	constexpr int P_R = 5;  // After P_R passes with no improvement to the best SAH cost we switch to random Node selection 
-	constexpr int P_T = 10; // After P_T passes with no improvement to the best SAH cost we terminate the algorithm
+	constexpr int P_R = 5;  // After P_R batches with no improvement to the best SAH cost we switch to random Node selection 
+	constexpr int P_T = 10; // After P_T batches with no improvement to the best SAH cost we terminate the algorithm
 	constexpr int k = 100;
 	
 	static_assert(P_T >= P_R);
 
-	constexpr size_t TIME_OUT = 20; // Time budget in seconds, after this amount of time the algorithm terminates
+	constexpr size_t TIME_OUT = -1; // Time budget in seconds, after this amount of time the algorithm terminates
 
-	int   pass_size = bvh.node_count / k;
-	int * pass_indices = new int[bvh.node_count];
+	int   batch_size = bvh.node_count / k;
+	int * batch_indices = new int[bvh.node_count];
 
-	int pass_count = 0;
-	int passes_since_last_cost_reduction = 0;
+	int batch_count = 0;
+	int batches_since_last_cost_reduction = 0;
 
 	float sah_cost_best = cost_before;
 
@@ -340,10 +340,10 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	auto start_time = std::chrono::high_resolution_clock::now();
 
 	while (true) {
-		// Select a batch of problematic internal Nodes, either randomly or using a heuristic measure
+		// Select a batch of internal Nodes, either randomly or using a heuristic measure
 		switch (node_selection_method) {
-			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, pass_size, pass_indices); break;
-			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, pass_size, pass_indices); break;
+			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices); break;
+			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, batch_indices); break;
 
 			default: abort();
 		}
@@ -353,8 +353,8 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			displacement[i] = i;
 		}
 
-		for (int i = 0; i < pass_size; i++) {			
-			int node_index = displacement[pass_indices[i]];
+		for (int i = 0; i < batch_size; i++) {			
+			int node_index = displacement[batch_indices[i]];
 			if (node_index == -1) continue; // This Node was overwritten by another reinsertion and no longer exists
 
 			const BVHNode & node = bvh.nodes[node_index];
@@ -461,18 +461,18 @@ void BVHOptimizer::optimize(BVH & bvh) {
 		if (sah_cost < sah_cost_best) {
 			sah_cost_best = sah_cost;
 
-			passes_since_last_cost_reduction = 0;
+			batches_since_last_cost_reduction = 0;
 
 			node_selection_method = NodeSelectionMethod::MEASURE;
 		} else {
-			passes_since_last_cost_reduction++;
+			batches_since_last_cost_reduction++;
 
 			// Check if we should switch to random selection
-			if (passes_since_last_cost_reduction == P_R) {
+			if (batches_since_last_cost_reduction == P_R) {
 				node_selection_method = NodeSelectionMethod::RANDOM;
 			}
 			// Check if we should terminate
-			if (passes_since_last_cost_reduction == P_T) {
+			if (batches_since_last_cost_reduction == P_T) {
 				break;
 			}
 		}
@@ -486,15 +486,15 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			break;
 		}
 			
-		printf("%i: SAH=%f best=%f last_reduction=%i     \r", pass_count, sah_cost, sah_cost_best, passes_since_last_cost_reduction);
+		printf("%i: SAH=%f best=%f last_reduction=%i     \r", batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
 
-		pass_count++;
+		batch_count++;
 	}
 
 	delete [] originated;
 	delete [] displacement;
 
-	delete [] pass_indices;
+	delete [] batch_indices;
 	delete [] parent_indices;
 
 	// Collapse leaf Nodes of the tree based on SAH cost
