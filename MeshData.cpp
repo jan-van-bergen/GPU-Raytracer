@@ -110,12 +110,12 @@ int MeshData::load(const char * filename) {
 	int & mesh_data_index = cache[filename];
 
 	// If the cache already contains this Model Data simply return it
-	if (mesh_data_index != 0 && mesh_datas.size() > 0 ) return mesh_data_index;
+	if (mesh_data_index != 0 && mesh_datas.size() > 0) return mesh_data_index;
 
-#if BVH_TYPE == BVH_BVH
-	const char * file_extension = ".bvh";
-#else
+#if BVH_TYPE == BVH_SBVH
 	const char * file_extension = ".sbvh";
+#else
+	const char * file_extension = ".bvh";
 #endif
 
 	mesh_data_index = mesh_datas.size();
