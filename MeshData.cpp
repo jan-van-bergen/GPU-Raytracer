@@ -244,6 +244,10 @@ int MeshData::load(const char * filename) {
 }
 
 void MeshData::gl_init(int reverse_indices[]) const {
+	glGenVertexArrays(1, &gl_vao);
+
+
+
 	int      vertex_count = triangle_count * 3;
 	Vertex * vertices = new Vertex[vertex_count];
 
@@ -271,6 +275,22 @@ void MeshData::gl_init(int reverse_indices[]) const {
 	}
 
 	glGenBuffers(1, &gl_vbo);
+	glBindVertexArray(gl_vao);
+	
+	glVertexAttribFormat (0, 3, GL_FLOAT, false, offsetof(Vertex, position));
+	glVertexAttribFormat (1, 3, GL_FLOAT, false, offsetof(Vertex, normal));
+	glVertexAttribFormat (2, 2, GL_FLOAT, false, offsetof(Vertex, uv));
+	glVertexAttribIFormat(3, 1, GL_INT,          offsetof(Vertex, triangle_id));
+
+	glVertexAttribBinding(0, 0);
+	glVertexAttribBinding(1, 0);
+	glVertexAttribBinding(2, 0);
+	glVertexAttribBinding(3, 0);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	glEnableVertexAttribArray(3);
 
 	glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
 	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
@@ -279,12 +299,7 @@ void MeshData::gl_init(int reverse_indices[]) const {
 }
 
 void MeshData::gl_render() const {
-	glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
-
-	glVertexAttribPointer (0, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, position)));
-	glVertexAttribPointer (1, 3, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, normal)));
-	glVertexAttribPointer (2, 2, GL_FLOAT, false, sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, uv)));
-	glVertexAttribIPointer(3, 1, GL_INT,          sizeof(Vertex), reinterpret_cast<const GLvoid *>(offsetof(Vertex, triangle_id)));
+	glBindVertexBuffer(0, gl_vbo, 0, sizeof(Vertex));
 
 	glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);
 }

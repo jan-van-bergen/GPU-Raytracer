@@ -13,6 +13,7 @@ struct MeshData {
 
 	int material_offset;
 	
+	mutable unsigned gl_vao;
 	mutable unsigned gl_vbo;
 
 	void gl_init(int reverse_indices[]) const;

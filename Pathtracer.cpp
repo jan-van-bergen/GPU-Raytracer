@@ -916,11 +916,6 @@ void Pathtracer::render() {
 		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection));
 		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection_prev));
 
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		
 		for (int m = 0; m < scene.mesh_count; m++) {
 			const Mesh & mesh = scene.meshes[tlas.indices[m]];
 			
@@ -932,12 +927,6 @@ void Pathtracer::render() {
 			MeshData::mesh_datas[mesh.mesh_data_index]->gl_render();
 		}
 
-		glDisableVertexAttribArray(3);
-		glDisableVertexAttribArray(2);
-		glDisableVertexAttribArray(1);
-		glDisableVertexAttribArray(0);
-
-		shader .unbind();
 		gbuffer.unbind();
 
 		glFinish();
