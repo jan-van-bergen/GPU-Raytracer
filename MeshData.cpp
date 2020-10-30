@@ -90,8 +90,6 @@ static void save_to_disk(const BVH & bvh, const MeshData * mesh_data, const char
 }
 
 static bool try_to_load_from_disk(BVH & bvh, MeshData * mesh_data, const char * filename) {
-	assert(file_extension[0] == '.');
-
 	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
 	char * bvh_filename      = MALLOCA(char, bvh_filename_size);
 
