@@ -244,10 +244,6 @@ int MeshData::load(const char * filename) {
 }
 
 void MeshData::gl_init(int reverse_indices[]) const {
-	glGenVertexArrays(1, &gl_vao);
-
-
-
 	int      vertex_count = triangle_count * 3;
 	Vertex * vertices = new Vertex[vertex_count];
 
@@ -274,7 +270,7 @@ void MeshData::gl_init(int reverse_indices[]) const {
 		vertices[index_2].triangle_id = reverse_indices[t];
 	}
 
-	glGenBuffers(1, &gl_vbo);
+	glGenVertexArrays(1, &gl_vao);
 	glBindVertexArray(gl_vao);
 	
 	glVertexAttribFormat (0, 3, GL_FLOAT, false, offsetof(Vertex, position));
@@ -291,7 +287,8 @@ void MeshData::gl_init(int reverse_indices[]) const {
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
 	glEnableVertexAttribArray(3);
-
+	
+	glGenBuffers(1, &gl_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
 	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
 
