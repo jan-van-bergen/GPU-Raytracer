@@ -16,7 +16,7 @@ private:
 		
 	float * sah  = nullptr;
 	int   * temp = nullptr;
-	
+
 	int max_primitives_in_leaf;
 
 	template<typename Primitive>
@@ -30,25 +30,29 @@ private:
 
 			return;
 		}
-		
-		node.left = node_index;
-		node_index += 2;
-		
+
 		int   split_dimension;
 		float split_cost;
 		int   split_index = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, sah, split_dimension, split_cost);
 
+#if !BVH_ENABLE_OPTIMIZATION && BVH_TYPE != BVH_CWBVH // BVH Optimizer and CWBVH both expect leaves with only a single primitive
 		if (index_count <= max_primitives_in_leaf){
 			// Check SAH termination condition
-			float parent_cost = node.aabb.surface_area() * float(index_count); 
-			if (split_cost >= parent_cost) {
+			float leaf_cost = node.aabb.surface_area() * SAH_COST_LEAF * float(index_count);
+			float node_cost = node.aabb.surface_area() * SAH_COST_NODE + split_cost;
+
+			if (leaf_cost < node_cost) {
 				node.first = first_index;
 				node.count = index_count;
 
 				return;
 			}
 		}
+#endif
 
+		node.left = node_index;
+		node_index += 2;
+		
 		float split = primitives[indices[split_dimension][split_index]].get_center()[split_dimension];
 		BVHPartitions::split_indices(primitives, indices, first_index, index_count, temp, split_dimension, split_index, split);
 

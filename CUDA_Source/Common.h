@@ -48,7 +48,7 @@ struct Settings {
 };
 
 
-// Screen related
+// Screen size at startup
 #define SCREEN_WIDTH  900
 #define SCREEN_HEIGHT 600
 
@@ -96,12 +96,17 @@ struct Settings {
 
 
 // BVH related
+#define SAH_COST_NODE 4.0f
+#define SAH_COST_LEAF 1.0f
+
 #define BVH_BVH   0 // Binary SAH-based BVH
 #define BVH_SBVH  1 // Binary SAH-based Spatial BVH
-#define BVH_QBVH  2 // Quaternary BVH, constructed by collapsing the binary SBVH
-#define BVH_CWBVH 3 // Compressed Wide BVH (8 way)
+#define BVH_QBVH  2 // Quaternary BVH,              constructed by collapsing the binary BVH
+#define BVH_CWBVH 3 // Compressed Wide BVH (8 way), constructed by collapsing the binary BVH
 
 #define BVH_TYPE BVH_CWBVH
+
+#define BVH_ENABLE_OPTIMIZATION true
 
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to

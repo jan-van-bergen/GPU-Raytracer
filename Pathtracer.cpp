@@ -751,10 +751,6 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	
 	scene.camera.resize(width, height);
 	frames_accumulated = 0;
-	
-	scene.camera.update(0.0f, settings);
-
-	upload_camera();
 }
 
 void Pathtracer::resize_free() {
@@ -791,24 +787,6 @@ void Pathtracer::resize_free() {
 	
 	CUDAMemory::free(module.get_global("taa_frame_prev").get_value<CUDAMemory::Ptr<float4>>());
 	CUDAMemory::free(module.get_global("taa_frame_curr").get_value<CUDAMemory::Ptr<float4>>());
-}
-
-void Pathtracer::upload_camera() {
-	struct CUDACamera {
-		Vector3 position;
-		Vector3 bottom_left_corner;
-		Vector3 x_axis;
-		Vector3 y_axis;
-		float pixel_spread_angle;
-	} cuda_camera;
-
-	cuda_camera.position           = scene.camera.position;
-	cuda_camera.bottom_left_corner = scene.camera.bottom_left_corner_rotated;
-	cuda_camera.x_axis             = scene.camera.x_axis_rotated;
-	cuda_camera.y_axis             = scene.camera.y_axis_rotated;
-	cuda_camera.pixel_spread_angle = scene.camera.pixel_spread_angle;
-
-	global_camera.set_value(cuda_camera);
 }
 
 void Pathtracer::build_tlas() {
@@ -881,7 +859,26 @@ void Pathtracer::update(float delta) {
 
 	scene.camera.update(delta, settings);
 
-	if (scene.camera.moved) upload_camera();
+	if (scene.camera.moved || camera_invalidated) {
+		// Upload Camera
+		struct CUDACamera {
+			Vector3 position;
+			Vector3 bottom_left_corner;
+			Vector3 x_axis;
+			Vector3 y_axis;
+			float pixel_spread_angle;
+		} cuda_camera;
+
+		cuda_camera.position           = scene.camera.position;
+		cuda_camera.bottom_left_corner = scene.camera.bottom_left_corner_rotated;
+		cuda_camera.x_axis             = scene.camera.x_axis_rotated;
+		cuda_camera.y_axis             = scene.camera.y_axis_rotated;
+		cuda_camera.pixel_spread_angle = scene.camera.pixel_spread_angle;
+
+		global_camera.set_value(cuda_camera);
+
+		camera_invalidated = false;
+	}
 
 	if (settings_changed) {
 		frames_accumulated = 0;

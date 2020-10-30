@@ -209,7 +209,9 @@
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="MeshData.cpp" />
     <ClCompile Include="OBJLoader.cpp" />
+    <ClCompile Include="BVHOptimizer.cpp" />
     <ClCompile Include="Pathtracer.cpp" />
+    <ClCompile Include="PerfTest.cpp" />
     <ClCompile Include="QBVHBuilder.cpp" />
     <ClCompile Include="Random.cpp" />
     <ClCompile Include="SBVHBuilder.cpp" />
@@ -251,7 +253,9 @@
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="OBJLoader.h" />
     <ClInclude Include="MeshData.h" />
+    <ClInclude Include="BVHOptimizer.h" />
     <ClInclude Include="Pathtracer.h" />
+    <ClInclude Include="PerfTest.h" />
     <ClInclude Include="QBVHBuilder.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="Random.h" />

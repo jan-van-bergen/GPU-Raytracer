@@ -16,7 +16,9 @@ public:
 		std::chrono::time_point stop_time = std::chrono::high_resolution_clock::now();
 		unsigned long long      duration  = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
 
-		if (duration >= 1000000) {
+		if (duration >= 60000000) {
+			printf("%s took: %llu s (%llu min)\n", name, duration / 1000000, duration / 60000000);
+		} else if (duration >= 1000000) {
 			printf("%s took: %llu us (%llu s)\n", name, duration, duration / 1000000);
 		} else if (duration >= 1000) {
 			printf("%s took: %llu us (%llu ms)\n", name, duration, duration / 1000);

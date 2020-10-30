@@ -79,6 +79,12 @@
     <ClCompile Include="Random.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="BVHOptimizer.cpp">
+      <Filter>BVH\Optimizers</Filter>
+    </ClCompile>
+    <ClCompile Include="PerfTest.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -107,6 +113,9 @@
     </Filter>
     <Filter Include="BVH\Builders">
       <UniqueIdentifier>{2a80c523-a358-438a-aead-602c959f8290}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BVH\Optimizers">
+      <UniqueIdentifier>{d5616d7d-66fd-4abe-b35b-dceecbb51ec4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -243,6 +252,12 @@
     </ClInclude>
     <ClInclude Include="Vector4.h">
       <Filter>Math</Filter>
+	 </ClInclude>
+    <ClInclude Include="BVHOptimizer.h">
+      <Filter>BVH\Optimizers</Filter>
+    </ClInclude>
+    <ClInclude Include="PerfTest.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

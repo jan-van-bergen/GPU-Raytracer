@@ -12,6 +12,7 @@
 #include "Random.h"
 
 #include "Util.h"
+#include "PerfTest.h"
 #include "ScopeTimer.h"
 
 // Forces NVIDIA driver to be used 
@@ -51,6 +52,7 @@ static constexpr int capture_frame_index = -1;
 static constexpr bool exit_after_capture = true;
 
 static Pathtracer pathtracer;
+static PerfTest   perf_test;
 
 static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_free();
@@ -79,6 +81,8 @@ int main(int argument_count, char ** arguments) {
 
 	pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
 
+	perf_test.init(&pathtracer, false, mesh_names[0]);
+
 	window.resize_handler = &window_resize;
 
 	Random::init(1337);
@@ -87,6 +91,8 @@ int main(int argument_count, char ** arguments) {
 
 	// Game loop
 	while (!window.is_closed) {
+		perf_test.frame_begin();
+
 		pathtracer.update(delta_time);
 		pathtracer.render();
 		
@@ -217,6 +223,8 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		ImGui::End();
+
+		if (perf_test.frame_end(delta_time)) break;
 
 		// Save Keyboard State of this frame before SDL_PumpEvents
 		Input::update();
