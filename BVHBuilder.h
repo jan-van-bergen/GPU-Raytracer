@@ -35,7 +35,7 @@ private:
 		float split_cost;
 		int   split_index = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, sah, split_dimension, split_cost);
 
-#if !ENABLE_BVH_OPTIMIZATION && BVH_TYPE != BVH_CWBVH // BVH Optimizer and CWBVH both expect leaves with only a single primitive
+#if !BVH_ENABLE_OPTIMIZATION && BVH_TYPE != BVH_CWBVH // BVH Optimizer and CWBVH both expect leaves with only a single primitive
 		if (index_count <= max_primitives_in_leaf){
 			// Check SAH termination condition
 			float leaf_cost = node.aabb.surface_area() * SAH_COST_LEAF * float(index_count);

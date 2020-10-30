@@ -56,24 +56,7 @@ public:
 		{ Vector3(-7.894484f, 2.674741f, 0.916597f),   Quaternion(0.104225f, 0.628730f, 0.085566f, -0.765840f), { } },
 	};
 
-	inline void init(Pathtracer * pathtracer, bool enabled, const char * scene_name) {
-		this->enabled = enabled;
-
-		index_pov    = 0;
-		index_buffer = 0;
-
-		this->pathtracer = pathtracer;
-
-		if (strstr(scene_name, "sponza")) {
-			povs = &povs_sponza;
-		} else if (strstr(scene_name, "San_Miguel")) {
-			povs = &povs_san_miguel;
-		} else if (strstr(scene_name, "bistro")) {
-			povs = &povs_bistro;
-		} else {
-			povs = &povs_sponza; // default
-		}
-	}
+	void init(Pathtracer * pathtracer, bool enabled, const char * scene_name);
 
 	void frame_begin();
 	bool frame_end(float frame_time);

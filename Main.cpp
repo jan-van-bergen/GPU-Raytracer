@@ -74,12 +74,14 @@ int main(int argument_count, char ** arguments) {
 	
 	const char * mesh_names[] = {
 		DATA_PATH("sponza/sponza_lit.obj"),
+		DATA_PATH("Diamond.obj"),
+		DATA_PATH("Lantern.obj")
 	};
 	const char * sky_filename = DATA_PATH("Sky_Probes/rnl_probe.float");
 
 	pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
 
-	perf_test.init(&pathtracer, true, mesh_names[0]);
+	perf_test.init(&pathtracer, false, mesh_names[0]);
 
 	window.resize_handler = &window_resize;
 

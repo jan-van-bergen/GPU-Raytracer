@@ -24,7 +24,7 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
-	bool enable_rasterization                = false;
+	bool enable_rasterization                = true;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_scene_update                 = false;
@@ -101,12 +101,12 @@ struct Settings {
 
 #define BVH_BVH   0 // Binary SAH-based BVH
 #define BVH_SBVH  1 // Binary SAH-based Spatial BVH
-#define BVH_QBVH  2 // Quaternary BVH, constructed by collapsing the binary SBVH
-#define BVH_CWBVH 3 // Compressed Wide BVH (8 way)
+#define BVH_QBVH  2 // Quaternary BVH,              constructed by collapsing the binary BVH
+#define BVH_CWBVH 3 // Compressed Wide BVH (8 way), constructed by collapsing the binary BVH
 
-#define BVH_TYPE BVH_BVH
+#define BVH_TYPE BVH_CWBVH
 
-#define ENABLE_BVH_OPTIMIZATION true
+#define BVH_ENABLE_OPTIMIZATION true
 
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to

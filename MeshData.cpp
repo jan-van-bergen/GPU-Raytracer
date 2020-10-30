@@ -15,10 +15,11 @@
 #include "Util.h"
 #include "ScopeTimer.h"
 
-static constexpr int UNDERLYING_BVH_TYPE = BVH_TYPE == BVH_SBVH ? BVH_SBVH : BVH_BVH; // All BVH use standard BVH as underlying type, only SBVH uses SBVH
+static constexpr int UNDERLYING_BVH_TYPE    = BVH_TYPE == BVH_SBVH ? BVH_SBVH : BVH_BVH; // All BVH use standard BVH as underlying type, only SBVH uses SBVH
+static constexpr int MAX_PRIMITIVES_IN_LEAF = BVH_TYPE == BVH_CWBVH || BVH_ENABLE_OPTIMIZATION ? 1 : INT_MAX; // CWBVH and BVH optimization require 1 primitive per leaf Node, the others have no upper limits
 
 static constexpr const char * BVH_FILE_EXTENSION = ".bvh";
-static constexpr int          BVH_FILETYPE_VERSION = 1;
+static constexpr int          BVH_FILETYPE_VERSION = 2;
 
 struct BVHFileHeader {
 	char filetype_identifier[4];
@@ -27,6 +28,7 @@ struct BVHFileHeader {
 	// Store settings with which the BVH was created
 	char underlying_bvh_type;
 	bool bvh_is_optimized;
+	int  max_primitives_in_leaf;
 	float sah_cost_node;
 	float sah_cost_leaf;
 
@@ -69,8 +71,9 @@ static void save_to_disk(const BVH & bvh, const MeshData * mesh_data, const char
 	header.filetype_identifier[3] = '\0';
 	header.filetype_version = BVH_FILETYPE_VERSION;
 
-	header.underlying_bvh_type = UNDERLYING_BVH_TYPE;
-	header.bvh_is_optimized    = ENABLE_BVH_OPTIMIZATION;
+	header.underlying_bvh_type    = UNDERLYING_BVH_TYPE;
+	header.bvh_is_optimized       = BVH_ENABLE_OPTIMIZATION;
+	header.max_primitives_in_leaf = MAX_PRIMITIVES_IN_LEAF;
 	header.sah_cost_node = SAH_COST_NODE;
 	header.sah_cost_leaf = SAH_COST_LEAF;
 
@@ -125,8 +128,9 @@ static bool try_to_load_from_disk(BVH & bvh, MeshData * mesh_data, const char * 
 	if (header.filetype_version < BVH_FILETYPE_VERSION) goto exit;
 
 	// Check if the settings used to create the BVH file are the same as the current settings
-	if (header.underlying_bvh_type != UNDERLYING_BVH_TYPE || 
-		header.bvh_is_optimized != ENABLE_BVH_OPTIMIZATION || 
+	if (header.underlying_bvh_type    != UNDERLYING_BVH_TYPE || 
+		header.bvh_is_optimized       != BVH_ENABLE_OPTIMIZATION || 
+		header.max_primitives_in_leaf != MAX_PRIMITIVES_IN_LEAF ||
 		header.sah_cost_node != SAH_COST_NODE || 
 		header.sah_cost_leaf != SAH_COST_LEAF
 	) {
@@ -188,9 +192,6 @@ int MeshData::load(const char * filename) {
 	} else {
 		OBJLoader::load_obj(filename, mesh_data);
 		
-		// CWBVH and BVH optimization require 1 primitive per leaf Node, the others have no upper limits
-		int max_primitives_in_leaf = BVH_TYPE == BVH_CWBVH || ENABLE_BVH_OPTIMIZATION ? 1 : INT_MAX;
-
 #if BVH_TYPE == BVH_SBVH // All other BVH types use standard BVH as a starting point
 		{
 			ScopeTimer timer("SBVH Construction");
@@ -205,13 +206,13 @@ int MeshData::load(const char * filename) {
 			ScopeTimer timer("BVH Construction");
 			
 			BVHBuilder bvh_builder;
-			bvh_builder.init(&bvh, mesh_data->triangle_count, max_primitives_in_leaf);
+			bvh_builder.init(&bvh, mesh_data->triangle_count, MAX_PRIMITIVES_IN_LEAF);
 			bvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
 			bvh_builder.free();
 		}
 #endif
 		
-#if ENABLE_BVH_OPTIMIZATION
+#if BVH_ENABLE_OPTIMIZATION
 		BVHOptimizer::optimize(bvh);
 #endif
 
