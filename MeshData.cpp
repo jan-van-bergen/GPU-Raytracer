@@ -15,6 +15,26 @@
 #include "Util.h"
 #include "ScopeTimer.h"
 
+static constexpr int UNDERLYING_BVH_TYPE = BVH_TYPE == BVH_SBVH ? BVH_SBVH : BVH_BVH; // All BVH use standard BVH as underlying type, only SBVH uses SBVH
+
+static constexpr const char * BVH_FILE_EXTENSION = ".bvh";
+static constexpr int          BVH_FILETYPE_VERSION = 1;
+
+struct BVHFileHeader {
+	char filetype_identifier[4];
+	char filetype_version;
+
+	// Store settings with which the BVH was created
+	char underlying_bvh_type;
+	bool bvh_is_optimized;
+	float sah_cost_node;
+	float sah_cost_leaf;
+
+	int num_triangles;
+	int num_nodes;
+	int num_indices;
+};
+
 struct Vertex {
 	Vector3 position;
 	Vector3 normal;
@@ -24,14 +44,12 @@ struct Vertex {
 
 static std::unordered_map<std::string, int> cache;
 
-static void save_to_disk(const BVH & bvh, const MeshData * mesh_data, const char * filename, const char * file_extension) {
-	assert(file_extension[0] == '.');
-
-	int    bvh_filename_length = strlen(filename) + strlen(file_extension) + 1;
+static void save_to_disk(const BVH & bvh, const MeshData * mesh_data, const char * filename) {
+	int    bvh_filename_length = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
 	char * bvh_filename        = MALLOCA(char, bvh_filename_length);
 
 	strcpy_s(bvh_filename, bvh_filename_length, filename);
-	strcat_s(bvh_filename, bvh_filename_length, file_extension);
+	strcat_s(bvh_filename, bvh_filename_length, BVH_FILE_EXTENSION);
 
 	FILE * file;
 	fopen_s(&file, bvh_filename, "wb");
@@ -44,29 +62,43 @@ static void save_to_disk(const BVH & bvh, const MeshData * mesh_data, const char
 		return;
 	}
 
-	fwrite(reinterpret_cast<const char *>(&mesh_data->triangle_count), sizeof(int),      1,                         file);
-	fwrite(reinterpret_cast<const char *>( mesh_data->triangles),      sizeof(Triangle), mesh_data->triangle_count, file);
+	BVHFileHeader header = { };
+	header.filetype_identifier[0] = 'B';
+	header.filetype_identifier[1] = 'V';
+	header.filetype_identifier[2] = 'H';
+	header.filetype_identifier[3] = '\0';
+	header.filetype_version = BVH_FILETYPE_VERSION;
 
-	fwrite(reinterpret_cast<const char *>(&bvh.node_count), sizeof(int),     1,              file);
-	fwrite(reinterpret_cast<const char *>( bvh.nodes),      sizeof(BVHNode), bvh.node_count, file);
+	header.underlying_bvh_type = UNDERLYING_BVH_TYPE;
+	header.bvh_is_optimized    = ENABLE_BVH_OPTIMIZATION;
+	header.sah_cost_node = SAH_COST_NODE;
+	header.sah_cost_leaf = SAH_COST_LEAF;
 
-	fwrite(reinterpret_cast<const char *>(&bvh.index_count), sizeof(int), 1,               file);
-	fwrite(reinterpret_cast<const char *>( bvh.indices),     sizeof(int), bvh.index_count, file);
+	header.num_triangles = mesh_data->triangle_count;
+	header.num_nodes     = bvh.node_count;
+	header.num_indices   = bvh.index_count;
+
+	fwrite(reinterpret_cast<const char *>(&header), sizeof(header), 1, file);
+
+	fwrite(reinterpret_cast<const char *>(mesh_data->triangles), sizeof(Triangle), mesh_data->triangle_count, file);
+	fwrite(reinterpret_cast<const char *>(bvh.nodes),            sizeof(BVHNode),  bvh.node_count,            file);
+	fwrite(reinterpret_cast<const char *>(bvh.indices),          sizeof(int),      bvh.index_count,           file);
 
 	fclose(file);
 
 	FREEA(bvh_filename);
 }
 
-static bool try_to_load_from_disk(BVH & bvh, MeshData * mesh_data, const char * filename, const char * file_extension) {
+static bool try_to_load_from_disk(BVH & bvh, MeshData * mesh_data, const char * filename) {
 	assert(file_extension[0] == '.');
 
-	int    bvh_filename_size = strlen(filename) + strlen(file_extension) + 1;
+	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
 	char * bvh_filename      = MALLOCA(char, bvh_filename_size);
 
 	strcpy_s(bvh_filename, bvh_filename_size, filename);
-	strcat_s(bvh_filename, bvh_filename_size, file_extension);
+	strcat_s(bvh_filename, bvh_filename_size, BVH_FILE_EXTENSION);
 
+	// If the BVH file doesn't exist or is outdated return false
 	if (!Util::file_exists(bvh_filename) || !Util::file_is_newer(filename, bvh_filename)) {
 		FREEA(bvh_filename);
 
@@ -75,35 +107,57 @@ static bool try_to_load_from_disk(BVH & bvh, MeshData * mesh_data, const char * 
 
 	FILE * file;
 	fopen_s(&file, bvh_filename, "rb");
+	
+	BVHFileHeader header = { };
+
+	bool success = false;
 
 	if (!file) {
-		FREEA(bvh_filename);
-
-		return false;
+		printf("WARNING: Unable to open BVH file '%s'!\n", bvh_filename);
+		goto exit;
 	}
 
-	fread(reinterpret_cast<char *>(&mesh_data->triangle_count), sizeof(int), 1, file);
+	fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
+
+	if (strcmp(header.filetype_identifier, "BVH") != 0) {
+		printf("WARNING: BVH file '%s' has an invalid header!\n", bvh_filename);
+		goto exit;
+	}
+
+	if (header.filetype_version < BVH_FILETYPE_VERSION) goto exit;
+
+	// Check if the settings used to create the BVH file are the same as the current settings
+	if (header.underlying_bvh_type != UNDERLYING_BVH_TYPE || 
+		header.bvh_is_optimized != ENABLE_BVH_OPTIMIZATION || 
+		header.sah_cost_node != SAH_COST_NODE || 
+		header.sah_cost_leaf != SAH_COST_LEAF
+	) {
+		printf("BVH file '%s' was created with different settings, rebuiling BVH from scratch.\n", bvh_filename);
+		goto exit;
+	}
+
+	mesh_data->triangle_count = header.num_triangles;
+	bvh.node_count            = header.num_nodes;
+	bvh.index_count           = header.num_indices;
 
 	mesh_data->triangles = new Triangle[mesh_data->triangle_count];
+	bvh.nodes            = new BVHNode[bvh.node_count];
+	bvh.indices          = new int    [bvh.index_count];
+
 	fread(reinterpret_cast<char *>(mesh_data->triangles), sizeof(Triangle), mesh_data->triangle_count, file);
-		
-	fread(reinterpret_cast<char *>(&bvh.node_count), sizeof(int), 1, file);
+	fread(reinterpret_cast<char *>(bvh.nodes),            sizeof(BVHNode),  bvh.node_count,            file);
+	fread(reinterpret_cast<char *>(bvh.indices),          sizeof(int),      bvh.index_count,           file);
 
-	bvh.nodes = new BVHNode[bvh.node_count];
-	fread(reinterpret_cast<char *>(bvh.nodes), sizeof(BVHNode), bvh.node_count, file);
+	printf("Loaded BVH %s from disk\n", bvh_filename);
 
-	fread(reinterpret_cast<char *>(&bvh.index_count), sizeof(int), 1, file);
-	
-	bvh.indices = new int[bvh.index_count];
-	fread(reinterpret_cast<char *>(bvh.indices), sizeof(int), bvh.index_count, file);
+	success = true;
 
+exit:
 	fclose(file);
-
-	printf("Loaded BVH  %s from disk\n", bvh_filename);
 
 	FREEA(bvh_filename);
 
-	return true;
+	return success;
 }
 
 int MeshData::load(const char * filename) {
@@ -112,19 +166,13 @@ int MeshData::load(const char * filename) {
 	// If the cache already contains this Model Data simply return it
 	if (mesh_data_index != 0 && mesh_datas.size() > 0) return mesh_data_index;
 
-#if BVH_TYPE == BVH_SBVH
-	const char * file_extension = ".sbvh";
-#else
-	const char * file_extension = ".bvh";
-#endif
-
 	mesh_data_index = mesh_datas.size();
 
 	MeshData * mesh_data = new MeshData();
 	mesh_datas.push_back(mesh_data);
 	
 	BVH bvh;
-	bool bvh_loaded = try_to_load_from_disk(bvh, mesh_data, filename, file_extension);
+	bool bvh_loaded = try_to_load_from_disk(bvh, mesh_data, filename);
 
 	if (bvh_loaded) {
 		// If the BVH loaded successfully we only need to load the Materials
@@ -154,7 +202,7 @@ int MeshData::load(const char * filename) {
 			sbvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
 			sbvh_builder.free();
 		}
-#else 
+#else
 		{
 			ScopeTimer timer("BVH Construction");
 			
@@ -169,12 +217,13 @@ int MeshData::load(const char * filename) {
 		BVHOptimizer::optimize(bvh);
 #endif
 
-		save_to_disk(bvh, mesh_data, filename, file_extension);
+		save_to_disk(bvh, mesh_data, filename);
 	}
 	
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
 	mesh_data->bvh = bvh;
 #elif BVH_TYPE == BVH_QBVH
+	// Collapse binary BVH into quaternary BVH
 	QBVHBuilder qbvh_builder;
 	qbvh_builder.init(&mesh_data->bvh, bvh);
 	qbvh_builder.build(bvh);
@@ -182,6 +231,7 @@ int MeshData::load(const char * filename) {
 	delete [] bvh.indices;
 	delete [] bvh.nodes;
 #elif BVH_TYPE == BVH_CWBVH
+	// Collapse binary BVH into 8-way Compressed Wide BVH
 	CWBVHBuilder cwbvh_builder;
 	cwbvh_builder.init(&mesh_data->bvh, bvh);
 	cwbvh_builder.build(bvh);
