@@ -31,7 +31,13 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 
 		new_material.diffuse = Vector3(material.diffuse[0], material.diffuse[1], material.diffuse[2]);
 		if (material.diffuse_texname.length() > 0) {
-			new_material.texture_id = Texture::load((std::string(path) + material.diffuse_texname).c_str());
+			if (Util::file_exists(material.diffuse_texname.c_str())) {
+				// Load as absolute path
+				new_material.texture_id = Texture::load(material.diffuse_texname.c_str());
+			} else {
+				// Load as relative path
+				new_material.texture_id = Texture::load((std::string(path) + material.diffuse_texname).c_str());
+			}
 		}
 
 		new_material.emission = Vector3(material.emission);
