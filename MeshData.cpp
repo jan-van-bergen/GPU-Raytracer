@@ -166,9 +166,9 @@ int MeshData::load(const char * filename) {
 	int & mesh_data_index = cache[filename];
 
 	// If the cache already contains this Model Data simply return it
-	if (mesh_data_index != 0 && mesh_datas.size() > 0) return mesh_data_index;
+	if (mesh_data_index != 0) return mesh_data_index - 1;
 
-	mesh_data_index = mesh_datas.size();
+	mesh_data_index = mesh_datas.size() + 1;
 
 	MeshData * mesh_data = new MeshData();
 	mesh_datas.push_back(mesh_data);
@@ -240,7 +240,7 @@ int MeshData::load(const char * filename) {
 	delete [] bvh.nodes;
 #endif
 	
-	return mesh_data_index;
+	return mesh_data_index - 1;
 }
 
 void MeshData::gl_init(int reverse_indices[]) const {

@@ -417,10 +417,10 @@ int Texture::load(const char * file_path) {
 	int & texture_id = cache[file_path];
 
 	// If the cache already contains this Texture simply return its index
-	if (texture_id != 0 && textures.size() > 0) return texture_id;
+	if (texture_id != 0) return texture_id - 1;
 	
 	// Otherwise, create new Texture and load it from disk
-	texture_id = textures.size();
+	texture_id = textures.size() + 1;
 
 	{
 		std::lock_guard<std::mutex> lock(textures_mutex);
@@ -428,10 +428,10 @@ int Texture::load(const char * file_path) {
 		textures.emplace_back();
 	}
 
-	std::thread loader(load_texture, std::string(file_path), texture_id);
+	std::thread loader(load_texture, std::string(file_path), texture_id - 1);
 	loader.detach();
 
-	return texture_id;
+	return texture_id - 1;
 }
 
 void Texture::wait_until_textures_loaded() {
