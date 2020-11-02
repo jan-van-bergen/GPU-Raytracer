@@ -197,7 +197,7 @@ int MeshData::load(const char * filename) {
 			ScopeTimer timer("SBVH Construction");
 
 			SBVHBuilder sbvh_builder;
-			sbvh_builder.init(&bvh, mesh_data->triangle_count, max_primitives_in_leaf);
+			sbvh_builder.init(&bvh, mesh_data->triangle_count, MAX_PRIMITIVES_IN_LEAF);
 			sbvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
 			sbvh_builder.free();
 		}
