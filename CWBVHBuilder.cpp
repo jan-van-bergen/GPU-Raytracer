@@ -160,9 +160,9 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 	for (int c = 0; c < child_count; c++) {
 		for (int s = 0; s < 8; s++) {
 			Vector3 direction(
-				(s & 0b100) ? -1.0f : 1.0f,
-				(s & 0b010) ? -1.0f : 1.0f,
-				(s & 0b001) ? -1.0f : 1.0f
+				(s & 0b100) ? -1.0f : +1.0f,
+				(s & 0b010) ? -1.0f : +1.0f,
+				(s & 0b001) ? -1.0f : +1.0f
 			);
 
 			cost[c][s] = Vector3::dot(nodes[children[c]].aabb.get_center() - p, direction);
@@ -184,8 +184,8 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 		for (int c = 0; c < child_count; c++) {
 			if (assignment[c] == -1) {
 				for (int s = 0; s < 8; s++) {
-					if (!slot_filled[s] && cost[s][c] < min_cost) {
-						min_cost = cost[s][c];
+					if (!slot_filled[s] && cost[c][s] < min_cost) {
+						min_cost = cost[c][s];
 
 						min_slot  = s;
 						min_index = c;
@@ -204,9 +204,7 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 	int children_copy[8];
 	memcpy(children_copy, children, sizeof(children_copy));
 
-	for (int i = 0; i < 8; i++) {
-		children[i] = -1;
-	}
+	for (int i = 0; i < 8; i++) children[i] = -1;
 
 	for (int i = 0; i < child_count; i++) {
 		assert(assignment   [i] != -1);
@@ -222,8 +220,8 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 
 	node.p = aabb.min;
 
-	const int Nq = 8;
-	const float denom = 1.0f / float((1 << Nq) - 1);
+	constexpr int Nq = 8;
+	constexpr float denom = 1.0f / float((1 << Nq) - 1);
 
 	Vector3 e(
 		exp2f(ceilf(log2f((aabb.max.x - aabb.min.x) * denom))),
@@ -255,8 +253,8 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 
 	assert(child_count <= 8);
 
-	//order_children(node_index_sbvh, nodes_sbvh, children, child_count);
-
+	order_children(node_index_sbvh, nodes_sbvh, children, child_count);
+	
 	node.imask = 0;
 
 	node.base_index_child    = cwbvh->node_count;
@@ -267,7 +265,6 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 
 	for (int i = 0; i < 8; i++) {
 		int child_index = children[i];
-
 		if (child_index == -1) continue; // Empty slot
 
 		const AABB & child_aabb = nodes_sbvh[child_index].aabb;
