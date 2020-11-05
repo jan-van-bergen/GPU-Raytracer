@@ -13,6 +13,11 @@ private:
 	PrimitiveRef * indices_x = nullptr;
 	PrimitiveRef * indices_y = nullptr;
 	PrimitiveRef * indices_z = nullptr;
+
+	PrimitiveRef * indices_going_right_x = nullptr;
+	PrimitiveRef * indices_going_right_y = nullptr;
+	PrimitiveRef * indices_going_right_z = nullptr;
+	int            indices_going_right_offset;
 	
 	float * sah     = nullptr;
 	int   * temp[2] = { };
@@ -26,10 +31,16 @@ public:
 		this->sbvh = sbvh;
 		this->max_primitives_in_leaf = max_primitives_in_leaf;
 
-		indices_x = new PrimitiveRef[SBVH_OVERALLOCATION * triangle_count];
-		indices_y = new PrimitiveRef[SBVH_OVERALLOCATION * triangle_count];
-		indices_z = new PrimitiveRef[SBVH_OVERALLOCATION * triangle_count];
+		PrimitiveRef * indices_xyz = new PrimitiveRef[3 * SBVH_OVERALLOCATION * triangle_count];
+		indices_x = indices_xyz;
+		indices_y = indices_xyz + SBVH_OVERALLOCATION * triangle_count;
+		indices_z = indices_xyz + SBVH_OVERALLOCATION * triangle_count * 2;
 
+		PrimitiveRef * indices_going_right_xyz = new PrimitiveRef[3 * 2 * triangle_count];
+		indices_going_right_x = indices_going_right_xyz;
+		indices_going_right_y = indices_going_right_xyz + 2 * triangle_count;
+		indices_going_right_z = indices_going_right_xyz + 2 * triangle_count * 2;
+		
 		sah     = new float[triangle_count];
 		temp[0] = new int  [triangle_count];
 		temp[1] = new int  [triangle_count];
@@ -40,8 +51,7 @@ public:
 
 	inline void free() {
 		delete [] indices_x;
-		delete [] indices_y;
-		delete [] indices_z;
+		delete [] indices_going_right_x;
 
 		delete [] sah;
 		delete [] temp[0];

@@ -62,9 +62,9 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 		indices[2] + first_index
 	};
 	PrimitiveRef * children_right[3] {
-		new PrimitiveRef[index_count],
-		new PrimitiveRef[index_count],
-		new PrimitiveRef[index_count]
+		indices_going_right_x + indices_going_right_offset,
+		indices_going_right_y + indices_going_right_offset,
+		indices_going_right_z + indices_going_right_offset
 	};
 
 	int children_left_count [3] = { 0, 0, 0 };
@@ -295,6 +295,8 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	sbvh->nodes[node.left    ].aabb = child_aabb_left;
 	sbvh->nodes[node.left + 1].aabb = child_aabb_right;
 
+	indices_going_right_offset += n_right;
+
 	// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
 	int num_leaves_left = build_sbvh(sbvh->nodes[node.left], triangles, indices, node_index, first_index, n_left, inv_root_surface_area);
 
@@ -305,11 +307,9 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	
 	// Now recurse on the right side
 	int num_leaves_right = build_sbvh(sbvh->nodes[node.left + 1], triangles, indices, node_index, first_index + num_leaves_left, n_right, inv_root_surface_area);
-		
-	delete [] children_right[0];
-	delete [] children_right[1];
-	delete [] children_right[2];
-		
+	
+	indices_going_right_offset -= n_right;
+
 	return num_leaves_left + num_leaves_right;
 }
 
@@ -340,7 +340,9 @@ void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 	std::sort(indices_x, indices_x + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
 	std::sort(indices_y, indices_y + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
 	std::sort(indices_z, indices_z + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
-		
+	
+	indices_going_right_offset = 0;
+
 	PrimitiveRef * indices[3] = { indices_x, indices_y, indices_z };
 
 	sbvh->nodes[0].aabb = root_aabb;
