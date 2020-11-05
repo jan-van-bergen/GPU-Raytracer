@@ -321,6 +321,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	for (int i = 0; i < global_index_count; i++) {
 		int index = global_indices[i];
 
+		assert(index < global_triangle_count);
+
 		triangles[i].position_0      = global_triangles[index].position_0;
 		triangles[i].position_edge_1 = global_triangles[index].position_1 - global_triangles[index].position_0;
 		triangles[i].position_edge_2 = global_triangles[index].position_2 - global_triangles[index].position_0;

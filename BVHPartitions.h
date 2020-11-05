@@ -6,7 +6,12 @@
 // Contains various ways to parition space into "left" and "right" as well as helper methods
 namespace BVHPartitions {
 	const int SBVH_BIN_COUNT = 256;
-		
+	
+	struct PrimitiveRef {
+		int  index;
+		AABB aabb;
+	};
+
 	// Calculates the smallest enclosing AABB over the union of all AABB's of the primitives in the range defined by [first, last>
 	template<typename Primitive>
 	inline AABB calculate_bounds(const Primitive * primitives, const int * indices, int first, int last) {
@@ -115,11 +120,21 @@ namespace BVHPartitions {
 		return min_split_index;
 	}
 
+	struct ObjectSplit {
+		int   index;
+		float cost;
+		int   dimension;
+		
+		AABB aabb_left;
+		AABB aabb_right;
+	};
+
 	// Evaluates SAH for every object for every dimension to determine splitting candidate
-	inline int partition_object(const Triangle * primitives, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost, const AABB & node_aabb, AABB & aabb_left, AABB & aabb_right) {
-		float min_split_cost = INFINITY;
-		int   min_split_index     = -1;
-		int   min_split_dimension = -1;
+	inline ObjectSplit partition_object(const Triangle * primitives, PrimitiveRef * indices[3], int first_index, int index_count, float * sah) {
+		ObjectSplit split = { };
+		split.cost = INFINITY;
+		split.index     = -1;
+		split.dimension = -1;
 		
 		AABB * bounds       = new AABB[index_count + index_count + 1];
 		AABB * bounds_left  = bounds;
@@ -133,8 +148,7 @@ namespace BVHPartitions {
 			// First traverse left to right along the current dimension to evaluate first half of the SAH
 			for (int i = 1; i < index_count; i++) {
 				bounds_left[i] = bounds_left[i-1];
-				bounds_left[i].expand(primitives[indices[dimension][first_index + i - 1]].aabb);
-				bounds_left[i] = AABB::overlap(bounds_left[i], node_aabb);
+				bounds_left[i].expand(indices[dimension][first_index + i - 1].aabb);
 
 				sah[i] = bounds_left[i].surface_area() * float(i);
 			}
@@ -142,42 +156,77 @@ namespace BVHPartitions {
 			// Then traverse right to left along the current dimension to evaluate second half of the SAH
 			for (int i = index_count - 1; i > 0; i--) {
 				bounds_right[i] = bounds_right[i+1];
-				bounds_right[i].expand(primitives[indices[dimension][first_index + i]].aabb);
-				bounds_right[i] = AABB::overlap(bounds_right[i], node_aabb);
-				
+				bounds_right[i].expand(indices[dimension][first_index + i].aabb);
+
 				sah[i] += bounds_right[i].surface_area() * float(index_count - i);
 			}
 			
 			// Find the minimum of the SAH
 			for (int i = 1; i < index_count; i++) {
 				float cost = sah[i];
-				if (cost < min_split_cost) {
-					min_split_cost = cost;
-					min_split_index = first_index + i;
-					min_split_dimension = dimension;
+				if (cost < split.cost) {
+					split.cost = cost;
+					split.index = first_index + i;
+					split.dimension = dimension;
 					
 					assert(!bounds_left [i].is_empty());
 					assert(!bounds_right[i].is_empty());
 
-					aabb_left  = bounds_left[i];
-					aabb_right = bounds_right[i];
+					split.aabb_left  = bounds_left[i];
+					split.aabb_right = bounds_right[i];
 				}
 			}
 		}
 
 		delete [] bounds;
-		
-		split_dimension = min_split_dimension;
-		split_cost      = min_split_cost;
 
-		return min_split_index;
+		return split;
 	}
 
-	inline int partition_spatial(const Triangle * triangles, int * indices[3], int first_index, int index_count, float * sah, int & split_dimension, float & split_cost, AABB & aabb_left, AABB & aabb_right, int & n_left, int & n_right, AABB bounds) {
-		float min_bin_cost = INFINITY;
-		int   min_bin_index     = -1;
-		int   min_bin_dimension = -1;
-		float min_bin_plane_distance = NAN;
+	inline void triangle_intersect_plane(Vector3 vertices[3], int dimension, float plane, Vector3 intersections[], int * intersection_count) {
+		for (int i = 0; i < 3; i++) {
+			float vertex_i = vertices[i][dimension];
+
+			for (int j = i + 1; j < 3; j++) {
+				float vertex_j = vertices[j][dimension];
+
+				float delta_ij = vertex_j - vertex_i;
+
+				// Check if edge between Vertex i and j intersects the plane
+				if (vertex_i <= plane && plane <= vertex_j) {
+					if (delta_ij == 0) {
+						intersections[(*intersection_count)++] = vertices[i];
+						intersections[(*intersection_count)++] = vertices[j];
+					} else {
+						// Lerp to obtain exact intersection point
+						float t = (plane - vertex_i) / delta_ij;
+						intersections[(*intersection_count)++] = (1.0f - t) * vertices[i] + t * vertices[j];
+					}
+				}
+			}
+		}
+	}
+	
+	struct SpatialSplit {
+		int   index;
+		float cost;
+		int   dimension;
+		
+		float plane_distance;
+
+		AABB aabb_left;
+		AABB aabb_right;
+
+		int num_left;
+		int num_right;
+	};
+
+	inline SpatialSplit partition_spatial(const Triangle * triangles, PrimitiveRef * indices[3], int first_index, int index_count, float * sah, AABB bounds) {
+		SpatialSplit split = { };
+		split.cost = INFINITY;
+		split.index     = -1;
+		split.dimension = -1;
+		split.plane_distance = NAN;
 
 		for (int dimension = 0; dimension < 3; dimension++) {
 			float bounds_min  = bounds.min[dimension] - 0.001f;
@@ -193,9 +242,9 @@ namespace BVHPartitions {
 			} bins[SBVH_BIN_COUNT];
 
 			for (int i = first_index; i < first_index + index_count; i++) {
-				const Triangle & triangle = triangles[indices[dimension][i]];
+				const Triangle & triangle = triangles[indices[dimension][i].index];
 				
-				AABB triangle_aabb = AABB::overlap(triangle.aabb, bounds);
+				AABB triangle_aabb = indices[dimension][i].aabb;
 
 				Vector3 vertices[3] = { 
 					triangle.position_0,
@@ -203,16 +252,16 @@ namespace BVHPartitions {
 					triangle.position_2 
 				};
 				
-				// Sort the vertices along the current dimension using unrolled Bubble Sort
+				// Sort the vertices along the current dimension
 				if (vertices[0][dimension] > vertices[1][dimension]) Util::swap(vertices[0], vertices[1]);
 				if (vertices[1][dimension] > vertices[2][dimension]) Util::swap(vertices[1], vertices[2]);
 				if (vertices[0][dimension] > vertices[1][dimension]) Util::swap(vertices[0], vertices[1]);
 
-				float vertex_min = vertices[0][dimension];
-				float vertex_max = vertices[2][dimension];
+				float vertex_min = triangle_aabb.min[dimension];
+				float vertex_max = triangle_aabb.max[dimension];
 				
-				int bin_min = int(SBVH_BIN_COUNT * ((triangle_aabb.min[dimension] - bounds_min) * inv_bounds_delta));
-				int bin_max = int(SBVH_BIN_COUNT * ((triangle_aabb.max[dimension] - bounds_min) * inv_bounds_delta));
+				int bin_min = int(SBVH_BIN_COUNT * ((vertex_min - bounds_min) * inv_bounds_delta));
+				int bin_max = int(SBVH_BIN_COUNT * ((vertex_max - bounds_min) * inv_bounds_delta));
 
 				bin_min = Math::clamp(bin_min, 0, SBVH_BIN_COUNT - 1);
 				bin_max = Math::clamp(bin_max, 0, SBVH_BIN_COUNT - 1);
@@ -229,66 +278,49 @@ namespace BVHPartitions {
 
 					assert(bin.aabb.is_valid() || bin.aabb.is_empty());
 
-					// Calculate relevant portion of the AABB with regard to the two planes that define the current Bin
-					AABB box;
-
-					// If all vertices lie on one side of either plane the AABB is empty
+					// If all vertices lie outside the bin we don't care about this triangle
 					if (vertex_min >= bin_right_plane || vertex_max <= bin_left_plane) {
 						continue;
+					}
+					
+					// Calculate relevant portion of the AABB with regard to the two planes that define the current Bin
+					AABB triangle_aabb_clipped_against_bin = AABB::create_empty();
+					
 					// If all verticies lie between the two planes, the AABB is just the Triangle's entire AABB
-					} else if (vertex_min >= bin_left_plane && vertex_max <= bin_right_plane) {
-						box = triangle_aabb;
+					if (vertex_min >= bin_left_plane && vertex_max <= bin_right_plane) {
+						triangle_aabb_clipped_against_bin = triangle_aabb;
 					} else {
-						Vector3 intersections[4];
+						Vector3 intersections[12];
 						int     intersection_count = 0;
 
-						for (int i = 0; i < 3; i++) {
-							float vertex_i = vertices[i][dimension];
+						if (vertex_min <= bin_left_plane  && bin_left_plane  <= vertex_max) triangle_intersect_plane(vertices, dimension, bin_left_plane,  intersections, &intersection_count);
+						if (vertex_min <= bin_right_plane && bin_right_plane <= vertex_max) triangle_intersect_plane(vertices, dimension, bin_right_plane, intersections, &intersection_count);
 
-							for (int j = i + 1; j < 3; j++) {
-								float vertex_j = vertices[j][dimension];
+						assert(intersection_count < Util::array_element_count(intersections));
 
-								float delta_ij = vertex_j - vertex_i;
+						if (intersection_count == 0) {
+							triangle_aabb_clipped_against_bin = triangle_aabb;
+						} else {
+							// All intersection points should be included in the AABB
+							triangle_aabb_clipped_against_bin = AABB::from_points(intersections, intersection_count);
 
-								// Check if edge between Vertex i and j intersects the left plane
-								if (vertex_i < bin_left_plane && bin_left_plane <= vertex_j) { 
-									// Lerp to obtain exact intersection point
-									float t = (bin_left_plane - vertex_i) / delta_ij;
-									intersections[intersection_count++] = (1.0f - t) * vertices[i] + t * vertices[j];
-								}
-
-								// Check if edge between Vertex i and j intersects the right plane
-								if (vertex_i < bin_right_plane && bin_right_plane <= vertex_j) { 
-									// Lerp to obtain exact intersection point
-									float t = (bin_right_plane - vertex_i) / delta_ij;
-									intersections[intersection_count++] = (1.0f - t) * vertices[i] + t * vertices[j];
-								}
+							// If the middle vertex lies between the two planes it should be included in the AABB
+							if (vertices[1][dimension] >= bin_left_plane && vertices[1][dimension] < bin_right_plane) {
+								triangle_aabb_clipped_against_bin.expand(vertices[1]);
 							}
+
+							if (vertices[2][dimension] <= bin_right_plane && vertices[2][dimension <= vertex_max]) triangle_aabb_clipped_against_bin.expand(vertices[2]);
+							if (vertices[0][dimension] >= bin_left_plane  && vertices[0][dimension >= vertex_min]) triangle_aabb_clipped_against_bin.expand(vertices[0]);
+
+							triangle_aabb_clipped_against_bin = AABB::overlap(triangle_aabb_clipped_against_bin, triangle_aabb);
 						}
-
-						// There must be either 2 or 4 intersections with the two planes
-						assert(intersection_count == 2 || intersection_count == 4);
-
-						// All intersection points should be included in the AABB
-						box = AABB::from_points(intersections, intersection_count);
-
-						// If the middle vertex lies between the two planes it should be included in the AABB
-						if (vertices[1][dimension] >= bin_left_plane && vertices[1][dimension] < bin_right_plane) {
-							box.expand(vertices[1]);
-						}
-
-						// In case we have only two intersections with either plane it must be the case that
-						// either the leftmost or the rightmost vertex lies between the two planes
-						if (intersection_count == 2) {
-							box.expand(vertex_max < bin_right_plane ? vertices[2] : vertices[0]);
-						}
-
-						box.fix_if_needed();
 					}
 
 					// Clip the AABB against the parent bounds
-					bin.aabb.expand(box);
+					bin.aabb.expand(triangle_aabb_clipped_against_bin);
 					bin.aabb = AABB::overlap(bin.aabb, bounds);
+
+					bin.aabb.fix_if_needed();
 
 					// AABB must be valid
 					assert(bin.aabb.is_valid() || bin.aabb.is_empty());
@@ -357,25 +389,22 @@ namespace BVHPartitions {
 			// Find the splitting plane that yields the lowest SAH cost along the current dimension
 			for (int b = 1; b < SBVH_BIN_COUNT; b++) {
 				float cost = bin_sah[b];
-				if (cost < min_bin_cost) {
-					min_bin_cost = cost;
-					min_bin_index = b;
-					min_bin_dimension = dimension;
+				if (cost < split.cost) {
+					split.cost = cost;
+					split.index = b;
+					split.dimension = dimension;
+					
+					split.plane_distance = bounds_min + bounds_step * float(b);
 
-					aabb_left  = bounds_left [b];
-					aabb_right = bounds_right[b];
+					split.aabb_left  = bounds_left [b];
+					split.aabb_right = bounds_right[b];
 
-					n_left  = count_left [b];
-					n_right = count_right[b];
-
-					min_bin_plane_distance = bounds_min + bounds_step * float(b);
+					split.num_left  = count_left [b];
+					split.num_right = count_right[b];
 				}
 			}
 		}
 
-		split_dimension = min_bin_dimension;
-		split_cost      = min_bin_cost;
-		
-		return min_bin_index;
+		return split;
 	}
 }

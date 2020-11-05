@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include <SDL2/SDL_keyboard.h>
+
 #define KEY_TABLE_SIZE SDL_NUM_SCANCODES
 
 static bool keyboard_state_previous_frame[KEY_TABLE_SIZE] = { };
