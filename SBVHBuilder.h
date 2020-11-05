@@ -2,6 +2,8 @@
 #include "BVH.h"
 #include "BVHPartitions.h"
 
+#include "BitArray.h"
+
 struct SBVHBuilder {
 private:
 	static constexpr int SBVH_OVERALLOCATION = 4; // SBVH requires more space
@@ -19,8 +21,11 @@ private:
 	PrimitiveRef * indices_going_right_z = nullptr;
 	int            indices_going_right_offset;
 	
-	float * sah     = nullptr;
-	int   * temp[2] = { };
+	// Scatch memory
+	float * sah    = nullptr;
+	AABB  * bounds = nullptr;
+	BitArray indices_going_left;
+	BitArray indices_going_right;
 
 	int max_primitives_in_leaf;
 
@@ -41,9 +46,10 @@ public:
 		indices_going_right_y = indices_going_right_xyz + 2 * triangle_count;
 		indices_going_right_z = indices_going_right_xyz + 2 * triangle_count * 2;
 		
-		sah     = new float[triangle_count];
-		temp[0] = new int  [triangle_count];
-		temp[1] = new int  [triangle_count];
+		sah    = new float[triangle_count];
+		bounds = new AABB [triangle_count * 2 + 1];
+		indices_going_left .init(triangle_count);
+		indices_going_right.init(triangle_count);
 		
 		sbvh->indices = new int    [SBVH_OVERALLOCATION * triangle_count];
 		sbvh->nodes   = new BVHNode[SBVH_OVERALLOCATION * triangle_count];
@@ -54,8 +60,9 @@ public:
 		delete [] indices_going_right_x;
 
 		delete [] sah;
-		delete [] temp[0];
-		delete [] temp[1];
+		delete [] bounds;
+		indices_going_left .free();
+		indices_going_right.free();
 	}
 
 	void build(const Triangle * triangles, int triangle_count); // SAH-based object + spatial splits, Stich et al. 2009 (Triangles only)

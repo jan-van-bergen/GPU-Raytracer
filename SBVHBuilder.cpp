@@ -17,7 +17,7 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	}
 	
 	// Object Split information
-	BVHPartitions::ObjectSplit object_split = BVHPartitions::partition_object(triangles, indices, first_index, index_count, sah);
+	BVHPartitions::ObjectSplit object_split = BVHPartitions::partition_object(triangles, indices, first_index, index_count, bounds, sah);
 	assert(object_split.index != -1);
 
 	// Calculate the overlap between the child bounding boxes resulting from the Object Split
@@ -76,9 +76,6 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	AABB child_aabb_right;
 	
 	// The two temp arrays will be used as lookup tables
-	int * indices_going_left  = temp[0];
-	int * indices_going_right = temp[1];
-	
 	if (object_split.cost <= spatial_split.cost) {
 		// Perform Object Split
 	

@@ -192,6 +192,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AABB.cpp" />
+    <ClCompile Include="BitArray.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CUDAContext.cpp" />
     <ClCompile Include="CUDAMemory.cpp" />
@@ -224,6 +225,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AABB.h" />
+    <ClInclude Include="BitArray.h" />
     <ClInclude Include="BlueNoise.h" />
     <ClInclude Include="BVH.h" />
     <ClInclude Include="BVHBuilder.h" />
