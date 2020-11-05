@@ -12,7 +12,7 @@ struct AABB {
 	static AABB from_points(const Vector3 * points, int point_count);
 
 	inline bool is_valid() const {
-		return max.x > min.x && max.y > min.y && max.z > min.z;
+		return max.x >= min.x && max.y >= min.y && max.z >= min.z;
 	}
 
 	inline bool is_empty() const {
@@ -22,10 +22,11 @@ struct AABB {
 	}
 
 	// Make sure the AABB is non-zero along every dimension
-	inline void fix_if_needed() {
+	inline void fix_if_needed(float epsilon = 0.001f) {
 		for (int dimension = 0; dimension < 3; dimension++) {
-			if (max[dimension] - min[dimension] < 0.001f) {
-				max[dimension] += 0.005f;
+			if (max[dimension] - min[dimension] < epsilon) {
+				min[dimension] -= 0.5f * epsilon;
+				max[dimension] += 0.5f * epsilon;
 			}
 		}
 	}
@@ -78,7 +79,7 @@ struct AABB {
 		}
 
 		for (int f = 0; f < 36; f += 3) {
-			fprintf_s(file, "f %i %i %i\n", index + faces[f], index + faces[f+1], index + faces[f+2]);
+			fprintf_s(file, "f %i %i %i\n", 8*index + faces[f], 8*index + faces[f+1], 8*index + faces[f+2]);
 		}
 	}
 

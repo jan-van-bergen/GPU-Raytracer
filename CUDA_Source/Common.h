@@ -108,6 +108,8 @@ struct Settings {
 
 #define BVH_ENABLE_OPTIMIZATION true
 
+#define SBVH_ALPHA 10e-5f // Alpha parameter for SBVH construction, alpha == 1 means regular BVH, alpha == 0 means full SBVH
+
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to
 // intersect triangles we postpone the intersection test to decrease divergence within a Warp

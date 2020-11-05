@@ -85,6 +85,9 @@
     <ClCompile Include="PerfTest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="BitArray.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -252,11 +255,14 @@
     </ClInclude>
     <ClInclude Include="Vector4.h">
       <Filter>Math</Filter>
-	 </ClInclude>
+    </ClInclude>
     <ClInclude Include="BVHOptimizer.h">
       <Filter>BVH\Optimizers</Filter>
     </ClInclude>
     <ClInclude Include="PerfTest.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="BitArray.h">
       <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
