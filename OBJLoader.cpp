@@ -22,7 +22,7 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 		Material & new_material = Material::materials.emplace_back();
 
 		switch (material.illum) {
-			case 0:                         new_material.type = Material::Type::GLOSSY;     break;
+			case 0: case 3:                 new_material.type = Material::Type::GLOSSY;     break;
 			case 1: case 2:                 new_material.type = Material::Type::DIFFUSE;    break;
 			case 4: case 5: case 6: case 7: new_material.type = Material::Type::DIELECTRIC; break;
 

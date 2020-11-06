@@ -11,7 +11,7 @@ struct Texture {
 		RGBA
 	};
 
-	const unsigned char * data;
+	const unsigned char * data = nullptr;
 	
 	Format format = Format::RGBA;
 	
