@@ -752,6 +752,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_shade_glossy    .set_grid_dim(Math::divide_round_up(batch_size, kernel_shade_glossy    .block_dim_x), 1, 1);
 	
 	scene.camera.resize(width, height);
+	camera_invalidated = true;
 	frames_accumulated = 0;
 }
 
