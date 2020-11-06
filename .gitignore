@@ -356,3 +356,6 @@ imgui.ini
 
 # CUDA PTX assembly
 *.ptx
+
+# Performance Report
+perf.txt
