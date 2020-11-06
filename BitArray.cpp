@@ -1,6 +1,7 @@
 #include "BitArray.h"
 
 #include <assert.h>
+#include <string.h>
 
 void BitArray::init(int size) {
 	buffer_size = (size + 31) / 32;
@@ -9,6 +10,10 @@ void BitArray::init(int size) {
 
 void BitArray::free() {
 	delete [] buffer;
+}
+
+void BitArray::set_all(bool value) {
+	memset(buffer, value, buffer_size * sizeof(unsigned));
 }
 
 BitArray::Access BitArray::operator[](int index) {

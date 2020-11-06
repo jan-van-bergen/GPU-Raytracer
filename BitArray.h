@@ -9,6 +9,8 @@ public:
 	void init(int size); // Size in bits
 	void free();
 
+	void set_all(bool value);
+
 	struct Access {
 	private:
 		BitArray * array;

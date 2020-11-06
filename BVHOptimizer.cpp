@@ -4,6 +4,8 @@
 #include <queue>
 #include <random>
 
+#include "BitArray.h"
+
 #include "Random.h"
 #include "ScopeTimer.h"
 
@@ -215,7 +217,7 @@ struct CollapseCost {
 };
 
 // Bottom up calculation of the cost of collapsing multiple leaf nodes into one
-static CollapseCost bvh_calc_collapse_cost(const BVH & bvh, bool collapse[], int node_index = 0) {
+static CollapseCost bvh_calc_collapse_cost(const BVH & bvh, BitArray & collapse, int node_index = 0) {
 	const BVHNode & node = bvh.nodes[node_index];
 
 	if (node.is_leaf()) {
@@ -266,7 +268,7 @@ static int collapse_subtree(const BVH & bvh, BVH & new_bvh, int node_index) {
 };
 
 // Collapse leaf nodes based on precalculated cost
-static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, const bool collapse[], int node_index = 0) {
+static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, BitArray & collapse, int node_index = 0) {
 	const BVHNode & node = bvh.nodes[node_index];
 
 	BVHNode & new_node = new_bvh.nodes[new_index];
@@ -499,8 +501,9 @@ void BVHOptimizer::optimize(BVH & bvh) {
 
 	// Collapse leaf Nodes of the tree based on SAH cost
 	// Step 1: Calculate costs of collapse, and fill array with the decision to collapse, yes or no
-	bool * collapse = new bool[bvh.node_count];
-	memset(collapse, false, bvh.node_count);
+	BitArray collapse;
+	collapse.init(bvh.node_count);
+	collapse.set_all(false);
 
 #if BVH_TYPE != BVH_CWBVH // CWBVH also requires every leaf Node to contain only 1 primitive, so in that case we skip the collapse step
 	bvh_calc_collapse_cost(bvh, collapse);
@@ -519,7 +522,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	assert(new_bvh.index_count == bvh.index_count);
 
 	// Cleanup
-	delete [] collapse;
+	collapse.free();
 
 	delete [] bvh.nodes;
 	delete [] bvh.indices;
