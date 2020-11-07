@@ -77,7 +77,7 @@ int main(int argument_count, char ** arguments) {
 		DATA_PATH("Diamond.obj"),
 		DATA_PATH("Lantern.obj")
 	};
-	const char * sky_filename = DATA_PATH("Sky_Probes/rnl_probe.float");
+	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 
 	pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
 

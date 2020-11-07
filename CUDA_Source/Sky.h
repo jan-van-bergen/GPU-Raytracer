@@ -1,22 +1,22 @@
 #pragma once
 
-__device__ int      sky_size;
-__device__ float3 * sky_data;
+__device__ __constant__ int      sky_width;
+__device__ __constant__ int      sky_height;
+__device__ __constant__ float3 * sky_data;
 
 __device__ float3 sample_sky(const float3 & direction) {
-	// Formulas as described on https://www.pauldebevec.com/Probes/
-	float r = 0.5f * ONE_OVER_PI * acos(direction.z) * rsqrt(direction.x*direction.x + direction.y*direction.y);
+	// Convert direction to spherical coordinates
+	float phi   = atan2f(-direction.z, direction.x);
+	float theta = acosf(clamp(direction.y, -1.0f, 1.0f));
 
-	float u = direction.x * r + 0.5f;
-	float v = direction.y * r + 0.5f;
+	float u = phi   * ONE_OVER_TWO_PI;
+	float v = theta * ONE_OVER_PI;
 
 	// Convert to pixel coordinates
-	int x = int(u * sky_size);
-	int y = int(v * sky_size);
+	int x = int(u * sky_width);
+	int y = int(v * sky_height);
 
-	int index = x + y * sky_size;
-	index = max(index, 0);
-	index = min(index, sky_size * sky_size);
+	int index = clamp(x + y * sky_width, 0, sky_width * sky_height - 1);
 
 	return sky_data[index];
 }

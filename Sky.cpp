@@ -2,28 +2,17 @@
 
 #include <cstdio>
 
-void Sky::init(const char * file_path) {
-	FILE * file; 
-	fopen_s(&file, file_path, "rb");
+#include <stb_image/stb_image.h>
 
-	if (file == nullptr) {
-		printf("ERROR: Failed to load Sky file %s!", file_path);
-		abort();
-	}
-
-	// Seek to the end to obtain the total pixel count
-	fseek(file, 0, SEEK_END);
-	int size_squared = ftell(file) / sizeof(Vector3);
-	rewind(file);
-
-	// The image is square, so take a square root to obtain the side lengths
-	size = int(sqrtf(size_squared));
-	assert(size * size == size_squared);
-
+void Sky::init(const char * filename) {
+	int channels;
+	float * hdr = stbi_loadf(filename, &width, &height, &channels, STBI_rgb);
+	
 	// Allocate data and copy it over from the file
-	data = new Vector3[size_squared];
-	fread(reinterpret_cast<char *>(data), sizeof(Vector3), size_squared, file);
-	fclose(file);
+	data = new Vector3[width * height];
+	memcpy(data, hdr, width * height * sizeof(Vector3));
+
+	stbi_image_free(hdr);
 }
 
 void Sky::free() {

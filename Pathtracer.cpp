@@ -527,8 +527,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	delete [] reverse_indices;
 
-	module.get_global("sky_size").set_value (scene.sky.size);
-	module.get_global("sky_data").set_buffer(scene.sky.data, scene.sky.size * scene.sky.size);
+	module.get_global("sky_width") .set_value(scene.sky.width);
+	module.get_global("sky_height").set_value(scene.sky.height);
+	module.get_global("sky_data").set_buffer(scene.sky.data, scene.sky.width * scene.sky.height);
 	
 	scene.sky.free();
 
