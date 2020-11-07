@@ -35,8 +35,8 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
 SVGF: Raw output of the pathtracer on the left and the filtered result on the right.
 
-![Microfacet Model](Screenshots/Microfacets.png "Glossy materials using the Beckmann microfacet model")
-Glossy spheres with varying roughness.
+![Bistro](Screenshots/Bistro.png "Amazon Bistro Scene")
+![Salle_de_Bain](Screenshots/Salle_de_Bain.png "PBRT Salle de Bain Scene")
 
 ## Usage
 
