@@ -55,6 +55,16 @@ __device__ float random_float_heitz(int x, int y, int sample_index, int bounce, 
 	}
 }
 
+__device__ float2 box_muller(float u1, float u2) {
+	float f = sqrt(-2.0f * logf(u1));
+	float a = TWO_PI * u2;
+	
+	float sin_a, cos_a;
+	__sincosf(a, &sin_a, &cos_a);
+
+	return make_float2(f * cos_a, f * sin_a);
+}
+
 __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_index, int bounce, unsigned & seed) {
 	float r0 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
 	float r1 = random_float_heitz(x, y, sample_index, bounce, 3, seed);

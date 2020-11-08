@@ -19,7 +19,6 @@
 // Settings
 enum class ReconstructionFilter {
 	BOX,
-	MITCHELL_NETRAVALI,
 	GAUSSIAN
 };
 
@@ -34,7 +33,7 @@ struct Settings {
 	
 	bool demodulate_albedo = false;
 
-	ReconstructionFilter reconstruction_filter = ReconstructionFilter::BOX;
+	ReconstructionFilter reconstruction_filter = ReconstructionFilter::GAUSSIAN;
 
 	// SVGF Settings
 	float alpha_colour = 0.1f;

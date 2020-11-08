@@ -42,10 +42,6 @@ __device__ float4 * history_normal_and_depth;
 __device__ float4 * taa_frame_curr;
 __device__ float4 * taa_frame_prev;
 
-// Used by Reconstruction Filter
-__device__ float2 * sample_xy;
-__device__ float4 * reconstruction;
-
 // Final Frame buffer, shared with OpenGL
 __device__ Surface<float4> accumulator; 
 
@@ -230,7 +226,6 @@ extern "C" __global__ void kernel_primary(
 	}
 
 	float2 pixel_coord = make_float2(u_screenspace + dx, v_screenspace + dy);
-	sample_xy[pixel_index] = pixel_coord;
 
 	float3 ray_direction = camera.bottom_left_corner + pixel_coord.x * camera.x_axis + pixel_coord.y * camera.y_axis;
 
@@ -324,11 +319,31 @@ extern "C" __global__ void kernel_generate(
 	int pixel_index = x + y * screen_pitch;
 	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
 
-	// Add random value between 0 and 1 so that after averaging we get anti-aliasing
-	float x_jittered = float(x) + random_float_heitz(x, y, sample_index, 0, 0, seed);
-	float y_jittered = float(y) + random_float_heitz(x, y, sample_index, 0, 1, seed);
+	float u1 = random_float_heitz(x, y, sample_index, 0, 0, seed);
+	float u2 = random_float_heitz(x, y, sample_index, 0, 1, seed);
 
-	sample_xy[pixel_index] = make_float2(x_jittered, y_jittered);
+	float2 jitter;
+
+	switch (settings.reconstruction_filter) {
+		case ReconstructionFilter::BOX: {
+			jitter.x = u1;
+			jitter.y = u2;
+
+			break;
+		}
+
+		case ReconstructionFilter::GAUSSIAN: {
+			float2 gaussians = box_muller(u1, u2);
+
+			jitter.x =0.5f + 0.5f * gaussians.x;
+			jitter.y =0.5f + 0.5f * gaussians.y;
+		
+			break;
+		}
+	}
+
+	float x_jittered = float(x) + jitter.x;
+	float y_jittered = float(y) + jitter.y;
 
 	float3 direction_unnormalized = camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis;
 
@@ -958,7 +973,7 @@ extern "C" __global__ void kernel_trace_shadow(int bounce) {
 	bvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
 }
 
-extern "C" __global__ void kernel_reconstruct() {
+extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -973,82 +988,7 @@ extern "C" __global__ void kernel_reconstruct() {
 
 	if (settings.demodulate_albedo) {
 		colour /= fmaxf(frame_buffer_albedo[pixel_index], make_float4(1e-8f));
-	}
-
-	float2 sample = sample_xy[pixel_index];
-
-	const float FILTER_RADIUS    = 1.0f;
-	const float GAUSSIAN_FALLOFF = 0.5f;
-	const float GUASSIAN_OFFSET  = expf(-GAUSSIAN_FALLOFF * FILTER_RADIUS * FILTER_RADIUS);
-	
-	float start_x = fmaxf(floorf(sample.x - FILTER_RADIUS + 0.5f), 0.0f);
-	float start_y = fmaxf(floorf(sample.y - FILTER_RADIUS + 0.5f), 0.0f);
-	float end_x   = fminf(floorf(sample.x + FILTER_RADIUS + 0.5f), float(screen_width)  - 1.0f);
-	float end_y   = fminf(floorf(sample.y + FILTER_RADIUS + 0.5f), float(screen_height) - 1.0f);
-
-	int i, j;
-	float fi, fj;
-
-	for (j = int(start_y), fj = start_y + 0.5f; j <= int(end_y); j++, fj += 1.0f) {
-		for (i = int(start_x), fi = start_x + 0.5f; i <= int(end_x); i++, fi += 1.0f) {
-			const int index = i + j * screen_pitch;
-
-			float weight;
-			switch (settings.reconstruction_filter) {
-				case ReconstructionFilter::MITCHELL_NETRAVALI: {
-					weight = mitchell_netravali(fi - sample.x) * mitchell_netravali(fj - sample.y);
-
-					break;
-				}
-
-				case ReconstructionFilter::GAUSSIAN: {
-					float dx = fi - sample.x;
-					float dy = fj - sample.y;
-
-					float gaussian_x = fmaxf(0.0f, expf(-GAUSSIAN_FALLOFF * dx*dx) - GUASSIAN_OFFSET);
-					float gaussian_y = fmaxf(0.0f, expf(-GAUSSIAN_FALLOFF * dy*dy) - GUASSIAN_OFFSET);
-
-					weight = gaussian_x * gaussian_y;
-
-					break;
-				}
-			}
-
-			atomicAdd(&reconstruction[index].x, weight * colour.x);
-			atomicAdd(&reconstruction[index].y, weight * colour.y);
-			atomicAdd(&reconstruction[index].z, weight * colour.z);
-			atomicAdd(&reconstruction[index].w, weight);
-		}
-	}
-}
-
-extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-
-	if (x >= screen_width || y >= screen_height) return;
-
-	int pixel_index = x + y * screen_pitch;
-
-	float4 colour;
-
-	if (settings.reconstruction_filter == ReconstructionFilter::BOX) {
-		float4 direct   = frame_buffer_direct  [pixel_index];
-		float4 indirect = frame_buffer_indirect[pixel_index];
-
-		colour = direct + indirect;
-
-		if (settings.demodulate_albedo) {
-			colour /= fmaxf(frame_buffer_albedo[pixel_index], make_float4(1e-8f));
-		}	
-	} else {
-		colour = reconstruction[pixel_index];
-		colour.x /= colour.w;
-		colour.y /= colour.w;
-		colour.z /= colour.w;
-
-		reconstruction[pixel_index] = make_float4(0.0f);
-	}
+	}	
 
 	if (frames_accumulated > 0.0f) {
 		float4 colour_prev = accumulator.get(x, y);

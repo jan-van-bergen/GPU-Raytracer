@@ -582,7 +582,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
 	kernel_taa             .init(&module, "kernel_taa");
 	kernel_taa_finalize    .init(&module, "kernel_taa_finalize");
-	kernel_reconstruct     .init(&module, "kernel_reconstruct");
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
 	// Set Block dimensions for all Kernels
@@ -592,7 +591,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	kernel_svgf_finalize.occupancy_max_block_size_2d();
 	kernel_taa          .occupancy_max_block_size_2d();
 	kernel_taa_finalize .occupancy_max_block_size_2d();
-	kernel_reconstruct  .occupancy_max_block_size_2d();
 	kernel_accumulate   .occupancy_max_block_size_2d();
 
 	kernel_primary         .set_block_dim(WARP_SIZE * 2, 1, 1);
@@ -717,9 +715,6 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	module.get_global("frame_buffer_direct")  .set_value(ptr_direct  .ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
 
-	module.get_global("sample_xy")     .set_value(ptr_direct_alt  .ptr);
-	module.get_global("reconstruction").set_value(ptr_indirect_alt.ptr);
-
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
 	module.set_surface("accumulator", CUDAMemory::resource_get_array(resource_accumulator));
@@ -742,7 +737,6 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_svgf_finalize.set_grid_dim(pitch / kernel_svgf_finalize.block_dim_x, Math::divide_round_up(height, kernel_svgf_finalize.block_dim_y), 1);
 	kernel_taa          .set_grid_dim(pitch / kernel_taa          .block_dim_x, Math::divide_round_up(height, kernel_taa          .block_dim_y), 1);
 	kernel_taa_finalize .set_grid_dim(pitch / kernel_taa_finalize .block_dim_x, Math::divide_round_up(height, kernel_taa_finalize .block_dim_y), 1);
-	kernel_reconstruct  .set_grid_dim(pitch / kernel_reconstruct  .block_dim_x, Math::divide_round_up(height, kernel_reconstruct  .block_dim_y), 1);
 	kernel_accumulate   .set_grid_dim(pitch / kernel_accumulate   .block_dim_x, Math::divide_round_up(height, kernel_accumulate   .block_dim_y), 1);
 
 	kernel_primary         .set_grid_dim(Math::divide_round_up(batch_size, kernel_primary         .block_dim_x), 1, 1);
@@ -1048,11 +1042,6 @@ void Pathtracer::render() {
 			kernel_taa_finalize.execute();
 		}
 	} else {
-		if (settings.reconstruction_filter != ReconstructionFilter::BOX) {
-			RECORD_EVENT(event_reconstruct);
-			kernel_reconstruct.execute();
-		}
-
 		RECORD_EVENT(event_accumulate);
 		kernel_accumulate.execute(float(frames_accumulated));
 	}

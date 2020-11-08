@@ -67,7 +67,6 @@ private:
 	CUDAKernel kernel_taa;
 	CUDAKernel kernel_taa_finalize;
 
-	CUDAKernel kernel_reconstruct;
 	CUDAKernel kernel_accumulate;
 
 	CUgraphicsResource resource_gbuffer_normal_and_depth;
