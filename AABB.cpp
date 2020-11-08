@@ -15,7 +15,7 @@ AABB AABB::from_points(const Vector3 * points, int point_count) {
 		aabb.expand(points[i]);
 	}
 
-	//aabb.fix_if_needed();
+	aabb.fix_if_needed();
 	assert(aabb.is_valid());
 
 	return aabb;

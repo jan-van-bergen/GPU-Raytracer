@@ -12,7 +12,7 @@ struct AABB {
 	static AABB from_points(const Vector3 * points, int point_count);
 
 	inline bool is_valid() const {
-		return max.x >= min.x && max.y >= min.y && max.z >= min.z;
+		return max.x > min.x && max.y > min.y && max.z > min.z;
 	}
 
 	inline bool is_empty() const {
@@ -25,8 +25,8 @@ struct AABB {
 	inline void fix_if_needed(float epsilon = 0.001f) {
 		for (int dimension = 0; dimension < 3; dimension++) {
 			if (max[dimension] - min[dimension] < epsilon) {
-				min[dimension] -= 0.5f * epsilon;
-				max[dimension] += 0.5f * epsilon;
+				min[dimension] -= epsilon;
+				max[dimension] += epsilon;
 			}
 		}
 	}
