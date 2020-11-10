@@ -292,6 +292,13 @@ void MeshData::gl_init(int reverse_indices[]) const {
 	glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
 	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
 
+	glBindVertexArray(0);
+
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(2);
+	glDisableVertexAttribArray(3);
+
 	delete [] vertices;
 }
 
