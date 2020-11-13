@@ -273,6 +273,11 @@ void MeshData::gl_init(int reverse_indices[]) const {
 	glGenVertexArrays(1, &gl_vao);
 	glBindVertexArray(gl_vao);
 	
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	glEnableVertexAttribArray(3);
+	
 	glVertexAttribFormat (0, 3, GL_FLOAT, false, offsetof(Vertex, position));
 	glVertexAttribFormat (1, 3, GL_FLOAT, false, offsetof(Vertex, normal));
 	glVertexAttribFormat (2, 2, GL_FLOAT, false, offsetof(Vertex, uv));
@@ -283,11 +288,6 @@ void MeshData::gl_init(int reverse_indices[]) const {
 	glVertexAttribBinding(2, 0);
 	glVertexAttribBinding(3, 0);
 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glEnableVertexAttribArray(2);
-	glEnableVertexAttribArray(3);
-	
 	glGenBuffers(1, &gl_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
 	glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(Vertex), vertices, GL_STATIC_DRAW);
@@ -303,6 +303,7 @@ void MeshData::gl_init(int reverse_indices[]) const {
 }
 
 void MeshData::gl_render() const {
+	glBindVertexArray(gl_vao);
 	glBindVertexBuffer(0, gl_vbo, 0, sizeof(Vertex));
 
 	glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);

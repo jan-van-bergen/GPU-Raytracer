@@ -16,6 +16,14 @@
 static void load_materials(const std::vector<tinyobj::material_t> & materials, MeshData * mesh_data, const char * path) {
 	mesh_data->material_offset = Material::materials.size();
 
+	if (materials.size() == 0) {
+		// Add default Material
+		Material & default_material = Material::materials.emplace_back();
+		default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
+
+		return;
+	}
+
 	for (int i = 0; i < materials.size(); i++) {
 		const tinyobj::material_t & material = materials[i];
 
@@ -67,17 +75,16 @@ void OBJLoader::load_mtl(const char * filename, MeshData * mesh_data) {
 		std::istream is(&fb);
 
 		tinyobj::LoadMtl(&material_map, &materials, &is, &warning, &error);
-
-		char * path = MALLOCA(char, strlen(filename) + 1);
-		Util::get_path(filename, path);
-
-		load_materials(materials, mesh_data, path);
-
-		FREEA(path);
 	} else {
-		printf("ERROR: Cannot open mtl file %s! Make sure the .mtl file has the same name as the .obj file.\n", filename);
-		abort();
+		printf("Warning: MTL file '%s' does not exist!\n", filename);
 	}
+
+	char * path = MALLOCA(char, strlen(filename) + 1);
+	Util::get_path(filename, path);
+
+	load_materials(materials, mesh_data, path);
+
+	FREEA(path);
 }
 
 void OBJLoader::load_obj(const char * filename, MeshData * mesh_data) {
@@ -191,7 +198,7 @@ void OBJLoader::load_obj(const char * filename, MeshData * mesh_data) {
 			mesh_data->triangles[triangle_offset + v].tex_coord_2 = tex_coords[3*v + 2];
 
 			int material_id = shapes[s].mesh.material_ids[v];
-			if (material_id == INVALID) material_id = 0;
+			if (material_id == INVALID || material_id >= materials.size()) material_id = 0;
 
 			mesh_data->triangles[triangle_offset + v].material_id = material_id;
 		}

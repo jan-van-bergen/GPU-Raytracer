@@ -339,7 +339,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		triangle_material_ids[i] = material_id;
 
 		int texture_id = Material::materials[material_id].texture_id;
-		if (texture_id != -1) {
+		if (texture_id != INVALID) {
 			const Texture & texture = Texture::textures[texture_id];
 
 			// Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
@@ -913,7 +913,7 @@ void Pathtracer::render() {
 
 		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection));
 		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection_prev));
-
+		
 		for (int m = 0; m < scene.mesh_count; m++) {
 			const Mesh & mesh = scene.meshes[tlas.indices[m]];
 			

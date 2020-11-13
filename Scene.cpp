@@ -13,10 +13,6 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 	}
 
 	camera.init(DEG_TO_RAD(110.0f));
-
-	// Set default Material before loading Meshes
-	Material & default_material = Material::materials.emplace_back();
-	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
 	
 	// Load Meshes
 	this->mesh_count = mesh_count;
