@@ -114,10 +114,9 @@ struct TraceBuffer {
 
 	HitBuffer hits;
 
-	int       * pixel_index;
+	int       * pixel_index_and_last_material; // Last material in 2 highest bits, pixel index in lowest 30
 	Vector3_SoA throughput;
 
-	char  * last_material_type;
 	float * last_pdf;
 };
 
@@ -349,10 +348,8 @@ extern "C" __global__ void kernel_generate(
 	ray_buffer_trace.origin   .set(index, camera.position);
 	ray_buffer_trace.direction.set(index, direction_unnormalized);
 
-	ray_buffer_trace.pixel_index[index] = pixel_index;
+	ray_buffer_trace.pixel_index_and_last_material[index] = pixel_index | int(Material::Type::DIELECTRIC) << 30;
 	ray_buffer_trace.throughput.set(index, make_float3(1.0f));
-
-	ray_buffer_trace.last_material_type[index] = char(Material::Type::DIELECTRIC);
 }
 
 extern "C" __global__ void kernel_trace(int bounce) {
@@ -368,8 +365,12 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	RayHit hit = ray_buffer_trace.hits.get(index);
 
-	int    ray_pixel_index = ray_buffer_trace.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_trace.throughput.get(index);
+	unsigned ray_pixel_index_and_last_material = ray_buffer_trace.pixel_index_and_last_material[index];
+	int      ray_pixel_index = ray_pixel_index_and_last_material & ~(0b11 << 30);
+
+	Material::Type last_material_type = Material::Type(ray_pixel_index_and_last_material >> 30);
+
+	float3 ray_throughput = ray_buffer_trace.throughput.get(index);
 	
 	// If we didn't hit anything, sample the Sky
 	if (hit.triangle_id == -1) {
@@ -396,8 +397,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		bool no_mis = true;
 		if (settings.enable_next_event_estimation) {
 			no_mis = 
-				(ray_buffer_trace.last_material_type[index] == char(Material::Type::DIELECTRIC)) ||
-				(ray_buffer_trace.last_material_type[index] == char(Material::Type::GLOSSY) && material.roughness < ROUGHNESS_CUTOFF);
+				(last_material_type == Material::Type::DIELECTRIC) ||
+				(last_material_type == Material::Type::GLOSSY && material.roughness < ROUGHNESS_CUTOFF);
 		}
 
 		if (no_mis) {
@@ -483,7 +484,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 #endif
 			ray_buffer_shade_diffuse.hits.set(index_out, hit);
 			
-			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
+			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_pixel_index;
 			ray_buffer_shade_diffuse.throughput.set(index_out, ray_throughput);
 
 			break;
@@ -499,7 +500,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 #endif
 			ray_buffer_shade_dielectric.hits.set(index_out, hit);
 
-			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
+			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_pixel_index;
 			ray_buffer_shade_dielectric.throughput.set(index_out, ray_throughput);
 
 			break;
@@ -515,7 +516,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 #endif
 			ray_buffer_shade_glossy.hits.set(index_out, hit);
 
-			ray_buffer_shade_glossy.pixel_index[index_out] = ray_buffer_trace.pixel_index[index];
+			ray_buffer_shade_glossy.pixel_index[index_out] = ray_pixel_index;
 			ray_buffer_shade_glossy.throughput.set(index_out, ray_throughput);
 
 			break;
@@ -667,10 +668,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	ray_buffer_trace.cone_width[index_out] = cone_width;
 #endif
 
-	ray_buffer_trace.pixel_index[index_out]  = ray_pixel_index;
+	ray_buffer_trace.pixel_index_and_last_material[index_out] = ray_pixel_index | int(Material::Type::DIFFUSE) << 30;
 	ray_buffer_trace.throughput.set(index_out, throughput);
 
-	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::DIFFUSE);
 	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction_world, hit_normal)) * ONE_OVER_PI;
 }
 
@@ -774,10 +774,8 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 #if ENABLE_MIPMAPPING
 	ray_buffer_trace.cone_width[index_out] = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
 #endif
-	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
+	ray_buffer_trace.pixel_index_and_last_material[index_out] = ray_pixel_index | int(Material::Type::DIELECTRIC) << 30;
 	ray_buffer_trace.throughput.set(index_out, ray_throughput);
-
-	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::DIELECTRIC);
 }
 
 extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sample_index) {
@@ -960,10 +958,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
-	ray_buffer_trace.pixel_index[index_out] = ray_pixel_index;
+	ray_buffer_trace.pixel_index_and_last_material[index_out] = ray_pixel_index | int(Material::Type::GLOSSY) << 30;
 	ray_buffer_trace.throughput.set(index_out, throughput);
 
-	ray_buffer_trace.last_material_type[index_out] = char(Material::Type::GLOSSY);
 	ray_buffer_trace.last_pdf[index_out] = weight;
 }
 

@@ -34,10 +34,9 @@ struct TraceBuffer {
 #endif
 	CUDAMemory::Ptr<float4> hits;
 
-	CUDAMemory::Ptr<int> pixel_index;
+	CUDAMemory::Ptr<int> pixel_index_and_last_material;
 	CUDAVector3_SoA      throughput;
 
-	CUDAMemory::Ptr<char>  last_material_type;
 	CUDAMemory::Ptr<float> last_pdf;
 
 	inline void init(int buffer_size) {
@@ -49,11 +48,10 @@ struct TraceBuffer {
 #endif
 		hits = CUDAMemory::malloc<float4>(buffer_size);
 
-		pixel_index = CUDAMemory::malloc<int>(buffer_size);
+		pixel_index_and_last_material = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
 
-		last_material_type = CUDAMemory::malloc<char> (buffer_size);
-		last_pdf           = CUDAMemory::malloc<float>(buffer_size);
+		last_pdf = CUDAMemory::malloc<float>(buffer_size);
 	}
 };
 
@@ -76,7 +74,7 @@ struct MaterialBuffer {
 #endif
 		hits = CUDAMemory::malloc<float4>(buffer_size);
 
-		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
+		pixel_index = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
 	}
 };
