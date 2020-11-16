@@ -32,7 +32,6 @@ struct TraceBuffer {
 #if ENABLE_MIPMAPPING
 	CUDAMemory::Ptr<float> cone_width;
 #endif
-	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
@@ -48,8 +47,7 @@ struct TraceBuffer {
 #if ENABLE_MIPMAPPING
 		cone_width = CUDAMemory::malloc<float>(buffer_size);
 #endif
-		hit_ts = CUDAMemory::malloc<float> (buffer_size);
-		hits   = CUDAMemory::malloc<float4>(buffer_size);
+		hits = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -65,7 +63,6 @@ struct MaterialBuffer {
 #if ENABLE_MIPMAPPING
 	CUDAMemory::Ptr<float> cone_width;
 #endif
-	CUDAMemory::Ptr<float>  hit_ts;
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
@@ -77,8 +74,7 @@ struct MaterialBuffer {
 #if ENABLE_MIPMAPPING
 		cone_width = CUDAMemory::malloc<float>(buffer_size);
 #endif
-		hit_ts = CUDAMemory::malloc<float> (buffer_size);
-		hits   = CUDAMemory::malloc<float4>(buffer_size);
+		hits = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index  = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);

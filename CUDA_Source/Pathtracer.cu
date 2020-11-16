@@ -112,7 +112,6 @@ struct TraceBuffer {
 	float * cone_width;
 #endif
 
-	float   * hit_ts;
 	HitBuffer hits;
 
 	int       * pixel_index;
@@ -130,7 +129,6 @@ struct MaterialBuffer {
 	float * cone_width;
 #endif
 
-	float   * hit_ts;
 	HitBuffer hits;
 
 	int       * pixel_index;
