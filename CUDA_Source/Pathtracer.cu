@@ -924,8 +924,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	if (bounce == NUM_BOUNCES - 1) return;
 
 	// Sample normal distribution in spherical coordinates
-	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 4, seed) + 1e-8f)));
-	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 5, seed);
+	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 2, seed) + 1e-8f)));
+	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 3, seed);
 
 	float sin_theta, cos_theta; sincos(theta, &sin_theta, &cos_theta);
 	float sin_phi,   cos_phi;   sincos(phi,   &sin_phi,   &cos_phi);

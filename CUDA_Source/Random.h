@@ -49,7 +49,7 @@ __device__ float random_float_xorshift(unsigned & seed) {
 __device__ float random_float_heitz(int x, int y, int sample_index, int bounce, int dimension, unsigned & seed) {
 	// Use Blue Noise sampler for first 256 samples
 	if (sample_index < 256) {
-		return random_heitz(x, y, sample_index, (bounce << 3) + dimension);
+		return random_heitz(x, y, sample_index, (bounce * 8) + dimension);
 	} else {
 		return random_float_xorshift(seed);
 	}
@@ -82,16 +82,16 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 __device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v, int & transform_id) {
 #if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
 	// Pick random light emitting Mesh uniformly
-	unsigned light_mesh_id = random_xorshift(seed) % light_mesh_count;
+	unsigned light_mesh_id = random_float_heitz(x, y, sample_index, bounce, 4, seed) % light_mesh_count;
 
 	// Pick random light emitting Triangle on the Mesh uniformly
 	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
 	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
 
-	int light_triangle_id = light_indices[triangle_first_index + random_xorshift(seed) % triangle_count];
+	int light_triangle_id = light_indices[triangle_first_index + random_float_heitz(x, y, sample_index, bounce, 5, seed) % triangle_count];
 #elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 	// Pick random light emitting Mesh based on area
-	float random_value = random_float_xorshift(seed) * light_total_area;
+	float random_value = random_float_heitz(x, y, sample_index, bounce, 4, seed) * light_total_area;
 
 	int   light_mesh_id = 0;
 	float light_area_cumulative = light_mesh_area_scaled[0];
@@ -107,7 +107,7 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 	int index_left  = triangle_first_index;
 	int index_right = triangle_first_index + triangle_count - 1;
 
-	random_value = random_float_xorshift(seed) * light_mesh_area_unscaled[light_mesh_id];
+	random_value = random_float_heitz(x, y, sample_index, bounce, 5, seed) * light_mesh_area_unscaled[light_mesh_id];
 
 	// Binary search
 	int light_triangle_id;
