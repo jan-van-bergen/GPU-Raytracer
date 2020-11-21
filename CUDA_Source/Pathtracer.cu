@@ -755,9 +755,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	} else {
 		float3 ray_direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
 
-		float fresnel = fresnel_schlick(eta_1, eta_2, cos_theta, -dot(ray_direction_refracted, normal));
+		float f = fresnel(eta_1, eta_2, cos_theta, -dot(ray_direction_refracted, normal));
 
-		if (random_float_xorshift(seed) < fresnel) {
+		if (random_float_xorshift(seed) < f) {
 			direction_out = ray_direction_reflected;
 		} else {
 			direction_out = ray_direction_refracted;
@@ -886,7 +886,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				float i_dot_n = dot(direction_in, hit_normal);
 				float m_dot_n = dot(half_vector,  hit_normal);
 
-				float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
+				float F = fresnel(material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
 				float D = microfacet_D(m_dot_n, alpha);
 				float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
 
@@ -948,7 +948,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float o_dot_n = dot(direction_out,      hit_normal);
 	float m_dot_n = dot(micro_normal_world, hit_normal);
 
-	float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_m, i_dot_m);
+	float F = fresnel(material.index_of_refraction, 1.0f, i_dot_m, i_dot_m);
 	float D = microfacet_D(m_dot_n, alpha);
 	float G = microfacet_G(i_dot_m, o_dot_m, i_dot_n, o_dot_n, m_dot_n, alpha);
 	float weight = fabsf(i_dot_m) * F * G / fabsf(i_dot_n * m_dot_n);

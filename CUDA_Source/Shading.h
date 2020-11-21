@@ -64,17 +64,11 @@ __device__ __constant__ const float * light_mesh_area_unscaled;
 __device__ __constant__ const int   * light_mesh_transform_indices;
 
 // Assumes no Total Internal Reflection
-__device__ inline float fresnel_schlick(float eta_1, float eta_2, float cos_theta_i, float cos_theta_t) {
-	float r_0 = (eta_1 - eta_2) / (eta_1 + eta_2);
-	r_0 *= r_0;
+__device__ inline float fresnel(float eta_1, float eta_2, float cos_theta_i, float cos_theta_t) {
+	float s = (eta_1 * cos_theta_i - eta_2 * cos_theta_t) / (eta_1 * cos_theta_i + eta_2 * cos_theta_t);
+	float p = (eta_1 * cos_theta_t - eta_2 * cos_theta_i) / (eta_1 * cos_theta_t + eta_2 * cos_theta_i);
 
-	float           cos_theta  = eta_1 <= eta_2 ? cos_theta_i : cos_theta_t;
-	float one_minus_cos_theta  = 1.0f - cos_theta;
-	float one_minus_cos_theta2 = one_minus_cos_theta  * one_minus_cos_theta;
-	float one_minus_cos_theta4 = one_minus_cos_theta2 * one_minus_cos_theta2;
-	float one_minus_cos_theta5 = one_minus_cos_theta4 * one_minus_cos_theta;
-
-	return r_0 + (1.0f - r_0) * one_minus_cos_theta5;
+	return 0.5f * (s*s + p*p);
 }
 
 // Distribution of Normals term D for the Beckmann microfacet model
