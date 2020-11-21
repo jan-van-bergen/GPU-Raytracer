@@ -427,7 +427,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			triangle_barycentric(light, hit.u, hit.v, light_point, light_normal);
 
 			// Transform into world space
-			mesh_transform_position_and_direction(hit.mesh_id, light_point, light_normal);
+			Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+			matrix3x4_transform_position (world, light_point);
+			matrix3x4_transform_direction(world, light_normal);
 
 			float3 to_light = light_point - ray_origin;;
 			float distance_to_light_squared = dot(to_light, to_light);
@@ -554,8 +556,10 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
 	// Transform into world space
-	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
-	
+	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+	matrix3x4_transform_position (world, hit_point);
+	matrix3x4_transform_direction(world, hit_normal);
+
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float3 albedo;
@@ -606,7 +610,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			triangle_barycentric(light, light_u, light_v, light_point, light_normal);
 
 			// Transform into world space
-			mesh_transform_position_and_direction(light_transform_id, light_point, light_normal);
+			Matrix3x4 light_world = mesh_get_transform(light_transform_id);
+			matrix3x4_transform_position (light_world, light_point);
+			matrix3x4_transform_direction(light_world, light_normal);
 
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);
@@ -708,7 +714,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal);
 
 	// Transform into world space
-	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
+	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+	matrix3x4_transform_position (world, hit_point);
+	matrix3x4_transform_direction(world, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -809,7 +817,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
 	// Transform into world space
-	mesh_transform_position_and_direction(hit.mesh_id, hit_point, hit_normal);
+	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+	matrix3x4_transform_position (world, hit_point);
+	matrix3x4_transform_direction(world, hit_normal);
 
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
@@ -867,7 +877,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			triangle_barycentric(light, light_u, light_v, light_point, light_normal);
 
 			// Transform into world space
-			mesh_transform_position_and_direction(light_transform_id, light_point, light_normal);
+			Matrix3x4 light_world = mesh_get_transform(light_transform_id);
+			matrix3x4_transform_position (light_world, light_point);
+			matrix3x4_transform_direction(light_world, light_normal);
 
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);

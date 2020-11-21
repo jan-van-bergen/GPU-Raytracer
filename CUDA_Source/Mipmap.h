@@ -17,8 +17,9 @@ __device__ inline float3 mipmap_sample_ray_differentials(
 	const float2 & tex_coord
 ) {
 	// Transform Triangle edges into world space
-	mesh_transform_direction(mesh_id, triangle_position_edge_1);
-	mesh_transform_direction(mesh_id, triangle_position_edge_2);
+	Matrix3x4 world = mesh_get_transform(mesh_id);
+	matrix3x4_transform_direction(world, triangle_position_edge_1);
+	matrix3x4_transform_direction(world, triangle_position_edge_2);
 	
 	// Formulae based on Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 	float one_over_k = 1.0f / dot(cross(triangle_position_edge_1, triangle_position_edge_2), ray_direction); 

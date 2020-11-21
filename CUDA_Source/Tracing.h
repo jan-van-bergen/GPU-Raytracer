@@ -20,54 +20,44 @@ struct Matrix3x4 {
 	float4 row_2;
 };
 
+// Transform vector as position (w = 1)
+__device__ inline void matrix3x4_transform_position(const Matrix3x4 & matrix, float3 & position) {
+	position = make_float3( 
+		matrix.row_0.x * position.x + matrix.row_0.y * position.y + matrix.row_0.z * position.z + matrix.row_0.w,
+		matrix.row_1.x * position.x + matrix.row_1.y * position.y + matrix.row_1.z * position.z + matrix.row_1.w,
+		matrix.row_2.x * position.x + matrix.row_2.y * position.y + matrix.row_2.z * position.z + matrix.row_2.w
+	);
+}
+
+// Transform vector as direction (w = 0)
+__device__ inline void matrix3x4_transform_direction(const Matrix3x4 & matrix, float3 & direction) {
+	direction = make_float3(
+		matrix.row_0.x * direction.x + matrix.row_0.y * direction.y + matrix.row_0.z * direction.z,
+		matrix.row_1.x * direction.x + matrix.row_1.y * direction.y + matrix.row_1.z * direction.z,
+		matrix.row_2.x * direction.x + matrix.row_2.y * direction.y + matrix.row_2.z * direction.z
+	);
+}
+
 __device__ __constant__ int       * mesh_bvh_root_indices;
 __device__ __constant__ Matrix3x4 * mesh_transforms;
 __device__ __constant__ Matrix3x4 * mesh_transforms_inv;
 
-__device__ inline void mesh_transform_position_and_direction(int mesh_id, float3 & position, float3 & direction) {
-	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
-	float4 row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
-	float4 row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
+__device__ inline Matrix3x4 mesh_get_transform(int mesh_id) {
+	Matrix3x4 matrix;
+	matrix.row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
+	matrix.row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
+	matrix.row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
 
-	position = make_float3( // Transform as position (w = 1)
-		row_0.x * position.x + row_0.y * position.y + row_0.z * position.z + row_0.w,
-		row_1.x * position.x + row_1.y * position.y + row_1.z * position.z + row_1.w,
-		row_2.x * position.x + row_2.y * position.y + row_2.z * position.z + row_2.w
-	);
-	direction = make_float3( // Transform as direction (w = 0)
-		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
-		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
-		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
-	);
+	return matrix;
 }
 
-__device__ inline void mesh_transform_direction(int mesh_id, float3 & direction) {
-	float4 row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
-	float4 row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
-	float4 row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
+__device__ inline Matrix3x4 mesh_get_transform_inv(int mesh_id) {
+	Matrix3x4 matrix;
+	matrix.row_0 = __ldg(&mesh_transforms_inv[mesh_id].row_0);
+	matrix.row_1 = __ldg(&mesh_transforms_inv[mesh_id].row_1);
+	matrix.row_2 = __ldg(&mesh_transforms_inv[mesh_id].row_2);
 
-	direction = make_float3( // Transform as direction (w = 0)
-		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
-		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
-		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
-	);
-}
-
-__device__ inline void mesh_transform_inv_position_and_direction(int mesh_id, float3 & position, float3 & direction) {
-	float4 row_0 = __ldg(&mesh_transforms_inv[mesh_id].row_0);
-	float4 row_1 = __ldg(&mesh_transforms_inv[mesh_id].row_1);
-	float4 row_2 = __ldg(&mesh_transforms_inv[mesh_id].row_2);
-
-	position = make_float3( // Transform as position (w = 1)
-		row_0.x * position.x + row_0.y * position.y + row_0.z * position.z + row_0.w,
-		row_1.x * position.x + row_1.y * position.y + row_1.z * position.z + row_1.w,
-		row_2.x * position.x + row_2.y * position.y + row_2.z * position.z + row_2.w
-	);
-	direction = make_float3( // Transform as direction (w = 0)
-		row_0.x * direction.x + row_0.y * direction.y + row_0.z * direction.z,
-		row_1.x * direction.x + row_1.y * direction.y + row_1.z * direction.z,
-		row_2.x * direction.x + row_2.y * direction.y + row_2.z * direction.z
-	);
+	return matrix;
 }
 
 struct Triangle {
@@ -1017,7 +1007,10 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 					mesh_id = triangle_group.x + mesh_offset;
 
-					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+					matrix3x4_transform_position (transform_inv, ray.origin);
+					matrix3x4_transform_direction(transform_inv, ray.direction);
+
 					ray.calc_direction_inv();
 
 					// Ray octant, encoded in 3 bits
@@ -1190,7 +1183,10 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 					mesh_id = triangle_group.x + mesh_offset;
 
-					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+					matrix3x4_transform_position (transform_inv, ray.origin);
+					matrix3x4_transform_direction(transform_inv, ray.direction);
+
 					ray.calc_direction_inv();
 
 					// Ray octant, encoded in 3 bits
