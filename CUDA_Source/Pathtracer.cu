@@ -988,8 +988,7 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 	if (frames_accumulated > 0.0f) {
 		float4 colour_prev = accumulator.get(x, y);
 
-		// Take average over n samples by weighing the current content of the framebuffer by (n-1) and the new sample by 1
-		colour = (colour_prev * (frames_accumulated - 1.0f) + colour) / frames_accumulated;
+		colour = colour_prev + (colour - colour_prev) / frames_accumulated; // Online average
 	}
 
 	accumulator.set(x, y, colour);
