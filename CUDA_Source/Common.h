@@ -62,13 +62,6 @@ struct Settings {
 #define NUM_BOUNCES 5
 
 
-// Lighting
-#define LIGHT_SELECT_UNIFORM 0
-#define LIGHT_SELECT_AREA    1
-
-#define LIGHT_SELECTION LIGHT_SELECT_AREA
-
-
 // SVGF
 #define MAX_ATROUS_ITERATIONS 10
 

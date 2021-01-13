@@ -444,11 +444,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			
 			float brdf_pdf = ray_buffer_trace.last_pdf[index];
 
-#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-			float light_select_pdf = light_total_count_inv;
-#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 			float light_select_pdf = light_area / light_total_area;
-#endif
 			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 			float mis_pdf = brdf_pdf + light_pdf;
@@ -632,11 +628,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 				float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
 
-#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-				float light_select_pdf = light_total_count_inv; 
-#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 				float light_select_pdf = light_area / light_total_area;
-#endif
 				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
@@ -908,11 +900,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				
 				float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
 
-#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-				float light_select_pdf = light_total_count_inv;
-#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 				float light_select_pdf = light_area / light_total_area;
-#endif
 				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
 
 				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;

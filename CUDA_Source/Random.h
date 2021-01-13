@@ -80,16 +80,6 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 }
 
 __device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v, int & transform_id) {
-#if LIGHT_SELECTION == LIGHT_SELECT_UNIFORM
-	// Pick random light emitting Mesh uniformly
-	unsigned light_mesh_id = random_float_heitz(x, y, sample_index, bounce, 4, seed) % light_mesh_count;
-
-	// Pick random light emitting Triangle on the Mesh uniformly
-	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
-	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
-
-	int light_triangle_id = light_indices[triangle_first_index + random_float_heitz(x, y, sample_index, bounce, 5, seed) % triangle_count];
-#elif LIGHT_SELECTION == LIGHT_SELECT_AREA
 	// Pick random light emitting Mesh based on area
 	float random_value = random_float_heitz(x, y, sample_index, bounce, 4, seed) * light_total_area;
 
@@ -124,7 +114,7 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 			break;
 		}
 	}
-#endif
+
 	// Pick a random point on the triangle using random barycentric coordinates
 	u = random_float_heitz(x, y, sample_index, bounce, 6, seed);
 	v = random_float_heitz(x, y, sample_index, bounce, 7, seed);
