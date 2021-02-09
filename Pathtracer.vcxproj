@@ -114,7 +114,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Src;.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
@@ -170,7 +170,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Src;.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ExceptionHandling>false</ExceptionHandling>
@@ -191,55 +191,40 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="AABB.cpp" />
-    <ClCompile Include="BitArray.cpp" />
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="CUDAContext.cpp" />
-    <ClCompile Include="CUDAMemory.cpp" />
-    <ClCompile Include="CUDAModule.cpp" />
-    <ClCompile Include="CWBVHBuilder.cpp" />
-    <ClCompile Include="GBuffer.cpp" />
     <ClCompile Include="Imgui\imgui.cpp" />
     <ClCompile Include="Imgui\imgui_demo.cpp" />
     <ClCompile Include="Imgui\imgui_draw.cpp" />
     <ClCompile Include="Imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="Imgui\imgui_impl_sdl.cpp" />
     <ClCompile Include="Imgui\imgui_widgets.cpp" />
-    <ClCompile Include="Input.cpp" />
-    <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Mesh.cpp" />
-    <ClCompile Include="MeshData.cpp" />
-    <ClCompile Include="OBJLoader.cpp" />
-    <ClCompile Include="BVHOptimizer.cpp" />
-    <ClCompile Include="Pathtracer.cpp" />
-    <ClCompile Include="PerfTest.cpp" />
-    <ClCompile Include="QBVHBuilder.cpp" />
-    <ClCompile Include="Random.cpp" />
-    <ClCompile Include="SBVHBuilder.cpp" />
-    <ClCompile Include="Scene.cpp" />
-    <ClCompile Include="Shader.cpp" />
-    <ClCompile Include="Sky.cpp" />
-    <ClCompile Include="Texture.cpp" />
-    <ClCompile Include="Util.cpp" />
-    <ClCompile Include="Window.cpp" />
+    <ClCompile Include="Src\Assets\MeshData.cpp" />
+    <ClCompile Include="Src\Assets\OBJLoader.cpp" />
+    <ClCompile Include="Src\Assets\Texture.cpp" />
+    <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp" />
+    <ClCompile Include="Src\BVH\Builders\QBVHBuilder.cpp" />
+    <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp" />
+    <ClCompile Include="Src\BVH\BVHOptimizer.cpp" />
+    <ClCompile Include="Src\CUDA\CUDAContext.cpp" />
+    <ClCompile Include="Src\CUDA\CUDAMemory.cpp" />
+    <ClCompile Include="Src\CUDA\CUDAModule.cpp" />
+    <ClCompile Include="Src\Input.cpp" />
+    <ClCompile Include="Src\Main.cpp" />
+    <ClCompile Include="Src\Math\AABB.cpp" />
+    <ClCompile Include="Src\Pathtracer\Camera.cpp" />
+    <ClCompile Include="Src\Pathtracer\Mesh.cpp" />
+    <ClCompile Include="Src\Pathtracer\Pathtracer.cpp" />
+    <ClCompile Include="Src\Pathtracer\Scene.cpp" />
+    <ClCompile Include="Src\Pathtracer\Sky.cpp" />
+    <ClCompile Include="Src\Rasterization\GBuffer.cpp" />
+    <ClCompile Include="Src\Rasterization\Shader.cpp" />
+    <ClCompile Include="Src\Util\BitArray.cpp" />
+    <ClCompile Include="Src\Util\PerfTest.cpp" />
+    <ClCompile Include="Src\Util\Random.cpp" />
+    <ClCompile Include="Src\Util\Util.cpp" />
+    <ClCompile Include="Src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AABB.h" />
-    <ClInclude Include="BitArray.h" />
-    <ClInclude Include="BlueNoise.h" />
-    <ClInclude Include="BVH.h" />
-    <ClInclude Include="BVHBuilder.h" />
-    <ClInclude Include="BVHPartitions.h" />
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="CUDACall.h" />
-    <ClInclude Include="CUDAContext.h" />
-    <ClInclude Include="CUDAEvent.h" />
-    <ClInclude Include="CUDAKernel.h" />
-    <ClInclude Include="CUDAMemory.h" />
-    <ClInclude Include="CUDAModule.h" />
     <ClInclude Include="CUDA_Source\Common.h" />
-    <ClInclude Include="CWBVHBuilder.h" />
-    <ClInclude Include="GBuffer.h" />
     <ClInclude Include="Imgui\imconfig.h" />
     <ClInclude Include="Imgui\imgui.h" />
     <ClInclude Include="Imgui\imgui_impl_opengl3.h" />
@@ -248,31 +233,46 @@
     <ClInclude Include="Imgui\imstb_rectpack.h" />
     <ClInclude Include="Imgui\imstb_textedit.h" />
     <ClInclude Include="Imgui\imstb_truetype.h" />
-    <ClInclude Include="Input.h" />
-    <ClInclude Include="Material.h" />
-    <ClInclude Include="Math.h" />
-    <ClInclude Include="Matrix4.h" />
-    <ClInclude Include="Mesh.h" />
-    <ClInclude Include="OBJLoader.h" />
-    <ClInclude Include="MeshData.h" />
-    <ClInclude Include="BVHOptimizer.h" />
-    <ClInclude Include="Pathtracer.h" />
-    <ClInclude Include="PerfTest.h" />
-    <ClInclude Include="QBVHBuilder.h" />
-    <ClInclude Include="Quaternion.h" />
-    <ClInclude Include="Random.h" />
-    <ClInclude Include="SBVHBuilder.h" />
-    <ClInclude Include="Scene.h" />
-    <ClInclude Include="ScopeTimer.h" />
-    <ClInclude Include="Shader.h" />
-    <ClInclude Include="Sky.h" />
-    <ClInclude Include="Texture.h" />
-    <ClInclude Include="Triangle.h" />
-    <ClInclude Include="Util.h" />
-    <ClInclude Include="Vector2.h" />
-    <ClInclude Include="Vector3.h" />
-    <ClInclude Include="Vector4.h" />
-    <ClInclude Include="Window.h" />
+    <ClInclude Include="Src\Assets\Material.h" />
+    <ClInclude Include="Src\Assets\MeshData.h" />
+    <ClInclude Include="Src\Assets\OBJLoader.h" />
+    <ClInclude Include="Src\Assets\Texture.h" />
+    <ClInclude Include="Src\BVH\Builders\BVHBuilder.h" />
+    <ClInclude Include="Src\BVH\Builders\BVHPartitions.h" />
+    <ClInclude Include="Src\BVH\Builders\CWBVHBuilder.h" />
+    <ClInclude Include="Src\BVH\Builders\QBVHBuilder.h" />
+    <ClInclude Include="Src\BVH\Builders\SBVHBuilder.h" />
+    <ClInclude Include="Src\BVH\BVH.h" />
+    <ClInclude Include="Src\BVH\BVHOptimizer.h" />
+    <ClInclude Include="Src\CUDA\CUDACall.h" />
+    <ClInclude Include="Src\CUDA\CUDAContext.h" />
+    <ClInclude Include="Src\CUDA\CUDAEvent.h" />
+    <ClInclude Include="Src\CUDA\CUDAKernel.h" />
+    <ClInclude Include="Src\CUDA\CUDAMemory.h" />
+    <ClInclude Include="Src\CUDA\CUDAModule.h" />
+    <ClInclude Include="Src\Input.h" />
+    <ClInclude Include="Src\Math\AABB.h" />
+    <ClInclude Include="Src\Math\Math.h" />
+    <ClInclude Include="Src\Math\Matrix4.h" />
+    <ClInclude Include="Src\Math\Quaternion.h" />
+    <ClInclude Include="Src\Math\Vector2.h" />
+    <ClInclude Include="Src\Math\Vector3.h" />
+    <ClInclude Include="Src\Math\Vector4.h" />
+    <ClInclude Include="Src\Pathtracer\Camera.h" />
+    <ClInclude Include="Src\Pathtracer\Mesh.h" />
+    <ClInclude Include="Src\Pathtracer\Pathtracer.h" />
+    <ClInclude Include="Src\Pathtracer\Scene.h" />
+    <ClInclude Include="Src\Pathtracer\Sky.h" />
+    <ClInclude Include="Src\Pathtracer\Triangle.h" />
+    <ClInclude Include="Src\Rasterization\GBuffer.h" />
+    <ClInclude Include="Src\Rasterization\Shader.h" />
+    <ClInclude Include="Src\Util\BitArray.h" />
+    <ClInclude Include="Src\Util\BlueNoise.h" />
+    <ClInclude Include="Src\Util\PerfTest.h" />
+    <ClInclude Include="Src\Util\Random.h" />
+    <ClInclude Include="Src\Util\ScopeTimer.h" />
+    <ClInclude Include="Src\Util\Util.h" />
+    <ClInclude Include="Src\Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

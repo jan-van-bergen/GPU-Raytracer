@@ -1,35 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="CUDAModule.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Window.cpp" />
-    <ClCompile Include="Util.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
-    <ClCompile Include="AABB.cpp">
-      <Filter>BVH</Filter>
-    </ClCompile>
-    <ClCompile Include="Camera.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Pathtracer.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Sky.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Texture.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
-    <ClCompile Include="Shader.cpp">
-      <Filter>Rasterization</Filter>
-    </ClCompile>
-    <ClCompile Include="GBuffer.cpp">
-      <Filter>Rasterization</Filter>
-    </ClCompile>
     <ClCompile Include="Imgui\imgui.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
@@ -48,45 +19,74 @@
     <ClCompile Include="Imgui\imgui_widgets.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
-    <ClCompile Include="SBVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
-    <ClCompile Include="QBVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
-    <ClCompile Include="CWBVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
-    <ClCompile Include="CUDAMemory.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="CUDAContext.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="OBJLoader.cpp">
+    <ClCompile Include="Src\Assets\MeshData.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Input.cpp" />
-    <ClCompile Include="MeshData.cpp">
+    <ClCompile Include="Src\Assets\OBJLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Scene.cpp">
+    <ClCompile Include="Src\Assets\Texture.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Builders\QBVHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\CUDA\CUDAContext.cpp">
+      <Filter>CUDA</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\CUDA\CUDAMemory.cpp">
+      <Filter>CUDA</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\CUDA\CUDAModule.cpp">
+      <Filter>CUDA</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Pathtracer\Camera.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="Mesh.cpp">
+    <ClCompile Include="Src\Pathtracer\Mesh.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="Random.cpp">
+    <ClCompile Include="Src\Pathtracer\Pathtracer.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Pathtracer\Scene.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Pathtracer\Sky.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Rasterization\GBuffer.cpp">
+      <Filter>Rasterization</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Rasterization\Shader.cpp">
+      <Filter>Rasterization</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Util\BitArray.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="BVHOptimizer.cpp">
-      <Filter>BVH\Optimizers</Filter>
-    </ClCompile>
-    <ClCompile Include="PerfTest.cpp">
+    <ClCompile Include="Src\Util\PerfTest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="BitArray.cpp">
+    <ClCompile Include="Src\Util\Random.cpp">
       <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Util\Util.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Input.cpp" />
+    <ClCompile Include="Src\Main.cpp" />
+    <ClCompile Include="Src\Window.cpp" />
+    <ClCompile Include="Src\BVH\BVHOptimizer.cpp">
+      <Filter>BVH</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\AABB.cpp">
+      <Filter>Math</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -117,75 +117,8 @@
     <Filter Include="BVH\Builders">
       <UniqueIdentifier>{2a80c523-a358-438a-aead-602c959f8290}</UniqueIdentifier>
     </Filter>
-    <Filter Include="BVH\Optimizers">
-      <UniqueIdentifier>{d5616d7d-66fd-4abe-b35b-dceecbb51ec4}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CUDACall.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDAContext.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDAKernel.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDAMemory.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDAModule.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Window.h" />
-    <ClInclude Include="Math.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Matrix4.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Quaternion.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Vector2.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Vector3.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Util.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="AABB.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
-    <ClInclude Include="BVH.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Pathtracer.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Sky.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Material.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Texture.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Shader.h">
-      <Filter>Rasterization</Filter>
-    </ClInclude>
-    <ClInclude Include="GBuffer.h">
-      <Filter>Rasterization</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDAEvent.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
     <ClInclude Include="Imgui\imconfig.h">
       <Filter>Imgui</Filter>
     </ClInclude>
@@ -210,60 +143,124 @@
     <ClInclude Include="Imgui\imstb_truetype.h">
       <Filter>Imgui</Filter>
     </ClInclude>
-    <ClInclude Include="BVHPartitions.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
     <ClInclude Include="CUDA_Source\Common.h">
       <Filter>CUDA</Filter>
     </ClInclude>
-    <ClInclude Include="ScopeTimer.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="OBJLoader.h">
+    <ClInclude Include="Src\Assets\Material.h">
       <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="Input.h" />
-    <ClInclude Include="Triangle.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshData.h">
+    <ClInclude Include="Src\Assets\MeshData.h">
       <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="Mesh.h">
-      <Filter>Pathtracer</Filter>
+    <ClInclude Include="Src\Assets\OBJLoader.h">
+      <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="Scene.h">
-      <Filter>Pathtracer</Filter>
+    <ClInclude Include="Src\Assets\Texture.h">
+      <Filter>Assets</Filter>
     </ClInclude>
-    <ClInclude Include="BVHBuilder.h">
+    <ClInclude Include="Src\BVH\BVH.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Builders\BVHBuilder.h">
       <Filter>BVH\Builders</Filter>
     </ClInclude>
-    <ClInclude Include="SBVHBuilder.h">
+    <ClInclude Include="Src\BVH\Builders\BVHPartitions.h">
       <Filter>BVH\Builders</Filter>
     </ClInclude>
-    <ClInclude Include="QBVHBuilder.h">
+    <ClInclude Include="Src\BVH\Builders\CWBVHBuilder.h">
       <Filter>BVH\Builders</Filter>
     </ClInclude>
-    <ClInclude Include="CWBVHBuilder.h">
+    <ClInclude Include="Src\BVH\Builders\QBVHBuilder.h">
       <Filter>BVH\Builders</Filter>
     </ClInclude>
-    <ClInclude Include="BlueNoise.h">
-      <Filter>Util</Filter>
+    <ClInclude Include="Src\BVH\Builders\SBVHBuilder.h">
+      <Filter>BVH\Builders</Filter>
     </ClInclude>
-    <ClInclude Include="Random.h">
-      <Filter>Util</Filter>
+    <ClInclude Include="Src\CUDA\CUDACall.h">
+      <Filter>CUDA</Filter>
     </ClInclude>
-    <ClInclude Include="Vector4.h">
+    <ClInclude Include="Src\CUDA\CUDAContext.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\CUDA\CUDAEvent.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\CUDA\CUDAKernel.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\CUDA\CUDAMemory.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\CUDA\CUDAModule.h">
+      <Filter>CUDA</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Math.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="BVHOptimizer.h">
-      <Filter>BVH\Optimizers</Filter>
+    <ClInclude Include="Src\Math\Matrix4.h">
+      <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="PerfTest.h">
+    <ClInclude Include="Src\Math\Quaternion.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector2.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector3.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Vector4.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Camera.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Mesh.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Pathtracer.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Scene.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Sky.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Triangle.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Rasterization\GBuffer.h">
+      <Filter>Rasterization</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Rasterization\Shader.h">
+      <Filter>Rasterization</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\BitArray.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="BitArray.h">
+    <ClInclude Include="Src\Util\BlueNoise.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\PerfTest.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Random.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\ScopeTimer.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Util.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Input.h" />
+    <ClInclude Include="Src\Window.h" />
+    <ClInclude Include="Src\BVH\BVHOptimizer.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\AABB.h">
+      <Filter>Math</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
