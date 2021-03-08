@@ -11,7 +11,7 @@ static GLuint load_shader(const char * filename, GLuint shader_type) {
 	const char * source = Util::file_read(filename);
 
 	const GLchar * srcs[] = { source };
-	const GLint    lens[] = { strlen(source) };
+	const GLint    lens[] = { (int)strlen(source) };
 
 	glShaderSource(shader, 1, srcs, lens);
 	glCompileShader(shader);

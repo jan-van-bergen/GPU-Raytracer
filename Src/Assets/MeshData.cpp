@@ -227,7 +227,6 @@ int MeshData::load(const char * filename) {
 	qbvh_builder.init(&mesh_data->bvh, bvh);
 	qbvh_builder.build(bvh);
 	
-	delete [] bvh.indices;
 	delete [] bvh.nodes;
 #elif BVH_TYPE == BVH_CWBVH
 	// Collapse binary BVH into 8-way Compressed Wide BVH

@@ -453,6 +453,8 @@ CUarray_format Texture::get_cuda_array_format() const {
 		case Format::BC2:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;
 		case Format::BC3:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;
 		case Format::RGBA: return CUarray_format::CU_AD_FORMAT_FLOAT;
+
+		default: abort();
 	}
 }
 
@@ -462,6 +464,8 @@ CUresourceViewFormat Texture::get_cuda_resource_view_format() const {
 		case Texture::Format::BC2:  return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UNSIGNED_BC2;
 		case Texture::Format::BC3:  return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UNSIGNED_BC3;
 		case Texture::Format::RGBA: return CUresourceViewFormat::CU_RES_VIEW_FORMAT_FLOAT_4X32;
+
+		default: abort();
 	}
 }
 

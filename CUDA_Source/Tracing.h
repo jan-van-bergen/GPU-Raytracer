@@ -363,7 +363,10 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 
 						mesh_id = node.first;
 
-						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+						matrix3x4_transform_position (transform_inv, ray.origin);
+						matrix3x4_transform_direction(transform_inv, ray.direction);
+
 						ray.calc_direction_inv();
 
 						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
@@ -454,7 +457,10 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 
 						mesh_id = node.first;
 
-						mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+						Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+						matrix3x4_transform_position (transform_inv, ray.origin);
+						matrix3x4_transform_direction(transform_inv, ray.direction);
+
 						ray.calc_direction_inv();
 
 						int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
@@ -662,7 +668,10 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 					mesh_id = index;
 
-					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+					matrix3x4_transform_position (transform_inv, ray.origin);
+					matrix3x4_transform_direction(transform_inv, ray.direction);
+
 					ray.calc_direction_inv();
 
 					unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
@@ -760,7 +769,10 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 					mesh_id = index;
 
-					mesh_transform_inv_position_and_direction(mesh_id, ray.origin, ray.direction);
+					Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+					matrix3x4_transform_position (transform_inv, ray.origin);
+					matrix3x4_transform_direction(transform_inv, ray.direction);
+
 					ray.calc_direction_inv();
 
 					unsigned root_index = __ldg(&mesh_bvh_root_indices[mesh_id]) + 1;
