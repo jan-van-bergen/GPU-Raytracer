@@ -211,7 +211,7 @@ int main(int argument_count, char ** arguments) {
 			settings_changed |= ImGui::Checkbox("TAA",                    &pathtracer.settings.enable_taa);
 			settings_changed |= ImGui::Checkbox("Demodulate Albedo",      &pathtracer.settings.demodulate_albedo);
 
-			settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian");
+			settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
 
 			settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 
