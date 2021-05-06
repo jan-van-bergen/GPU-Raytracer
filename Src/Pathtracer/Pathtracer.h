@@ -31,8 +31,6 @@ struct Pathtracer {
 	Settings settings;
 	bool     settings_changed = true;
 
-	std::vector<const CUDAEvent *> events;
-
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
 
 	void resize_init(unsigned frame_buffer_handle, int width, int height); // Part of resize that initializes new size
@@ -98,21 +96,21 @@ private:
 	CUDAMemory::Ptr<float4> ptr_indirect_alt;
 
 	// Timing Events
-	CUDAEvent event_primary;
-	CUDAEvent event_trace[NUM_BOUNCES];
-	CUDAEvent event_sort [NUM_BOUNCES];
-	CUDAEvent event_shade_diffuse   [NUM_BOUNCES];
-	CUDAEvent event_shade_dielectric[NUM_BOUNCES];
-	CUDAEvent event_shade_glossy    [NUM_BOUNCES];
-	CUDAEvent event_shadow_trace[NUM_BOUNCES];
-	CUDAEvent event_svgf_temporal;
-	CUDAEvent event_svgf_variance;
-	CUDAEvent event_svgf_atrous[MAX_ATROUS_ITERATIONS];
-	CUDAEvent event_svgf_finalize;
-	CUDAEvent event_taa;
-	CUDAEvent event_reconstruct;
-	CUDAEvent event_accumulate;
-	CUDAEvent event_end;
+	CUDAEvent::Info event_info_primary;
+	CUDAEvent::Info event_info_trace[NUM_BOUNCES];
+	CUDAEvent::Info event_info_sort [NUM_BOUNCES];
+	CUDAEvent::Info event_info_shade_diffuse   [NUM_BOUNCES];
+	CUDAEvent::Info event_info_shade_dielectric[NUM_BOUNCES];
+	CUDAEvent::Info event_info_shade_glossy    [NUM_BOUNCES];
+	CUDAEvent::Info event_info_shadow_trace[NUM_BOUNCES];
+	CUDAEvent::Info event_info_svgf_temporal;
+	CUDAEvent::Info event_info_svgf_variance;
+	CUDAEvent::Info event_info_svgf_atrous[MAX_ATROUS_ITERATIONS];
+	CUDAEvent::Info event_info_svgf_finalize;
+	CUDAEvent::Info event_info_taa;
+	CUDAEvent::Info event_info_reconstruct;
+	CUDAEvent::Info event_info_accumulate;
+	CUDAEvent::Info event_info_end;
 
 	BVH        tlas_raw;
 	BVHBuilder tlas_bvh_builder;

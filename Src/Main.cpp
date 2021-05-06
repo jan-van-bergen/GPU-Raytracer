@@ -153,11 +153,35 @@ int main(int argument_count, char ** arguments) {
 			
 			ImGui::BeginChild("Performance Region", ImVec2(0, 150), true);
 
+			struct EventTiming {
+				CUDAEvent::Info info;
+				float           time;
+			};
+			
+			int           event_timing_count = CUDAEvent::event_pool_num_used - 1;
+			EventTiming * event_timings = new EventTiming[event_timing_count];
+
+			for (int i = 0; i < event_timing_count; i++) {
+				event_timings[i].info = CUDAEvent::event_pool[i].info;
+				event_timings[i].time = CUDAEvent::time_elapsed_between(CUDAEvent::event_pool[i], CUDAEvent::event_pool[i + 1]);
+			}
+
+			std::sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
+				if (a.info.display_order == b.info.display_order) {
+					int cmp_category = strcmp(a.info.category, b.info.category);
+					if (cmp_category == 0) {
+						return strcmp(a.info.name, b.info.name) < 0;
+					}
+					return cmp_category < 0;
+				}
+				return a.info.display_order < b.info.display_order;
+			});
+
 			bool category_changed = true;
 			int  padding;
 
 			// Display Profile timings per category
-			for (int i = 0; i < pathtracer.events.size() - 1; i++) {
+			for (int i = 0; i < event_timing_count; i++) {
 				if (category_changed) {
 					padding = 0;
 
@@ -165,16 +189,16 @@ int main(int argument_count, char ** arguments) {
 					float time_sum = 0.0f;
 
 					int j;
-					for (j = i; j < pathtracer.events.size() - 1; j++) {
-						int length = strlen(pathtracer.events[j]->name);
+					for (j = i; j < event_timing_count - 1; j++) {
+						int length = strlen(event_timings[j].info.name);
 						if (length > padding) padding = length;
 
-						time_sum += CUDAEvent::time_elapsed_between(*pathtracer.events[j], *pathtracer.events[j + 1]);
+						time_sum += event_timings[j].time;
 
-						if (strcmp(pathtracer.events[j]->category, pathtracer.events[j + 1]->category) != 0) break;
+						if (strcmp(event_timings[j].info.category, event_timings[j + 1].info.category) != 0) break;
 					}
 
-					bool category_visible = ImGui::TreeNode(pathtracer.events[i]->category, "%s: %.2f ms", pathtracer.events[i]->category, time_sum);
+					bool category_visible = ImGui::TreeNode(event_timings[i].info.category, "%s: %.2f ms", event_timings[i].info.category, time_sum);
 					if (!category_visible) {
 						// Skip ahead to next category
 						i = j;
@@ -183,20 +207,30 @@ int main(int argument_count, char ** arguments) {
 					}
 				}
 
-				const CUDAEvent * event_curr = pathtracer.events[i];
-				const CUDAEvent * event_next = pathtracer.events[i + 1];
+				// Add up all timings with the same name
+				float time = 0.0f;
 
-				float time = CUDAEvent::time_elapsed_between(*event_curr, *event_next);
+				while (true) {
+					time += event_timings[i].time;
 
-				ImGui::Text("%s: %*.2f ms", event_curr->name, 5 + padding - strlen(event_curr->name), time);
+					if (i == event_timing_count - 1 || strcmp(event_timings[i].info.name, event_timings[i+1].info.name) != 0) break;
 
-				category_changed = strcmp(pathtracer.events[i]->category, pathtracer.events[i + 1]->category);
+					i++;
+				};
+
+				ImGui::Text("%s: %*.2f ms", event_timings[i].info.name, 5 + padding - strlen(event_timings[i].info.name), time);
+
+				if (i == event_timing_count - 1) break;
+
+				category_changed = strcmp(event_timings[i].info.category, event_timings[i + 1].info.category);
 				if (category_changed) {
 					ImGui::TreePop();
 				}
 			}
 
 			ImGui::EndChild();
+
+			delete [] event_timings;
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {

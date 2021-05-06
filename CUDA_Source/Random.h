@@ -8,7 +8,8 @@ __device__ __constant__ unsigned char * ranking_tile;      // 128 * 128 * 4
 __device__ float random_heitz(int x, int y, int sample_index, int sample_dimension) {
 	x &= 127;
 	y &= 127;
-	
+	sample_dimension &= 7;
+
 	// xor index based on optimized ranking
 	int ranked_sample_index = sample_index ^ ranking_tile[(sample_dimension + (x + y * 128) * 8) >> 1];
 
@@ -16,7 +17,7 @@ __device__ float random_heitz(int x, int y, int sample_index, int sample_dimensi
 	int value = sobol_256spp_256d[sample_dimension + ranked_sample_index * 256];
 
 	// If the dimension is optimized, xor sequence value based on optimized scrambling
-	value = value ^ scrambling_tile[(sample_dimension & 7) + (x + y * 128) * 8];
+	value = value ^ scrambling_tile[sample_dimension + (x + y * 128) * 8];
 
 	// convert to float and return
 	return (value + 0.5f) * (1.0f / 256.0f);

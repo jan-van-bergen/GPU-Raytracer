@@ -4,20 +4,31 @@
 #include "CUDACall.h"
 
 struct CUDAEvent {
+	inline static std::vector<CUDAEvent> event_pool;
+	inline static int                    event_pool_num_used;
+	
 	CUevent event;
 
-	const char * category;
-	const char * name;
+	struct Info {
+		int display_order;
+		const char * category;
+		const char * name;
+	} info;
 
-	inline void init(const char * category, const char * name) {
-		CUDACALL(cuEventCreate(&event, CU_EVENT_DEFAULT));
+	inline static void record(const Info & info, CUstream stream = nullptr) {
+		if (event_pool_num_used == event_pool.size()) {
+			CUDAEvent event = { };
+			CUDACALL(cuEventCreate(&event.event, CU_EVENT_DEFAULT));
+			event_pool.push_back(event);
+		}
 
-		this->category = category;
-		this->name     = name;
+		CUDAEvent & event = event_pool[event_pool_num_used++];
+		event.info = info;
+		cuEventRecord(event.event, stream);
 	}
 
-	inline void record(CUstream stream = nullptr) const {
-		CUDACALL(cuEventRecord(event, stream));
+	inline static void reset_pool() {
+		event_pool_num_used = 0;
 	}
 
 	inline static float time_elapsed_between(const CUDAEvent & start, const CUDAEvent & end) {

@@ -622,38 +622,41 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	printf("\nConfiguration picked for Tracing kernels:\n    Block Size: %i x %i\n    Grid Size:  %i\n\n", block_x, block_y, grid);
 
 	// Initialize timers
-	event_primary.init("Primary", "Primary");
+	int display_order = 0;
+	event_info_primary = { display_order++, "Primary", "Primary" };
 
 	for (int i = 0; i < NUM_BOUNCES; i++) {
 		const int len = 16;
 		char    * category = new char[len];
 		sprintf_s(category, len, "Bounce %i", i);
 
-		event_trace           [i].init(category, "Trace");
-		event_sort            [i].init(category, "Sort");
-		event_shade_diffuse   [i].init(category, "Diffuse");
-		event_shade_dielectric[i].init(category, "Dielectric");
-		event_shade_glossy    [i].init(category, "Glossy");
-		event_shadow_trace    [i].init(category, "Shadow");
+		event_info_trace           [i] = { display_order, category, "Trace" };
+		event_info_sort            [i] = { display_order, category, "Sort" };
+		event_info_shade_diffuse   [i] = { display_order, category, "Diffuse" };
+		event_info_shade_dielectric[i] = { display_order, category, "Dielectric" };
+		event_info_shade_glossy    [i] = { display_order, category, "Glossy" };
+		event_info_shadow_trace    [i] = { display_order, category, "Shadow" };
+
+		display_order++;
 	}
 
-	event_svgf_temporal.init("SVGF", "Temporal");
-	event_svgf_variance.init("SVGF", "Variance");
+	event_info_svgf_temporal = { display_order, "SVGF", "Temporal" };
+	event_info_svgf_variance = { display_order, "SVGF", "Variance" };
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
 		const int len = 16;
 		char    * name = new char[len];
 		sprintf_s(name, len, "A Trous %i", i);
 
-		event_svgf_atrous[i].init("SVGF", name);
+		event_info_svgf_atrous[i] = { display_order, "SVGF", name };
 	}
-	event_svgf_finalize.init("SVGF", "Finalize");
+	event_info_svgf_finalize = { display_order++, "SVGF", "Finalize" };
 
-	event_taa        .init("Post", "TAA");
-	event_reconstruct.init("Post", "Reconstruct");
-	event_accumulate .init("Post", "Accumulate");
+	event_info_taa         = { display_order, "Post", "TAA" };
+	event_info_reconstruct = { display_order, "Post", "Reconstruct" };
+	event_info_accumulate  = { display_order, "Post", "Accumulate" };
 
-	event_end.init("END", "END");
-
+	event_info_end = { ++display_order, "END", "END" };
+	
 	resize_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
 	
 	// Realloc as pinned memory
@@ -891,10 +894,8 @@ void Pathtracer::update(float delta) {
 	}
 }
 
-#define RECORD_EVENT(e) (e.record(), events.push_back(&e))
-
 void Pathtracer::render() {
-	events.clear();
+	CUDAEvent::reset_pool();
 
 	if (settings.enable_rasterization) {
 		gbuffer.bind();
@@ -931,7 +932,7 @@ void Pathtracer::render() {
 		int pixel_offset = pixel_count - pixels_left;
 		int pixel_count  = pixels_left > batch_size ? batch_size : pixels_left;
 
-		RECORD_EVENT(event_primary);
+		CUDAEvent::record(event_info_primary);
 
 		if (settings.enable_rasterization) {
 			// Convert rasterized GBuffers into primary Rays
@@ -956,32 +957,33 @@ void Pathtracer::render() {
 			// When rasterizing primary rays we can skip tracing rays on bounce 0
 			if (!(bounce == 0 && settings.enable_rasterization)) {
 				// Extend all Rays that are still alive to their next Triangle intersection
-				RECORD_EVENT(event_trace[bounce]);
+				CUDAEvent::record(event_info_trace[bounce]);
+
 				kernel_trace.execute(bounce);
 			
-				RECORD_EVENT(event_sort[bounce]);
+				CUDAEvent::record(event_info_sort[bounce]);
 				kernel_sort.execute(Random::get_value(), bounce);
 			}
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
-				RECORD_EVENT(event_shade_diffuse[bounce]);
+				CUDAEvent::record(event_info_shade_diffuse[bounce]);
 				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			if (scene.has_dielectric) {
-				RECORD_EVENT(event_shade_dielectric[bounce]);
+				CUDAEvent::record(event_info_shade_dielectric[bounce]);
 				kernel_shade_dielectric.execute(Random::get_value(), bounce);
 			}
 
 			if (scene.has_glossy) {
-				RECORD_EVENT(event_shade_glossy[bounce]);
+				CUDAEvent::record(event_info_shade_glossy[bounce]);
 				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			// Trace shadow Rays
 			if (scene.has_lights) {
-				RECORD_EVENT(event_shadow_trace[bounce]);
+				CUDAEvent::record(event_info_shadow_trace[bounce]);
 				kernel_trace_shadow.execute(bounce);
 			}
 		}
@@ -997,7 +999,7 @@ void Pathtracer::render() {
 
 	if (settings.enable_svgf) {
 		// Integrate temporally
-		RECORD_EVENT(event_svgf_temporal);
+		CUDAEvent::record(event_info_svgf_temporal);
 		kernel_svgf_temporal.execute(scene.camera.jitter);
 
 		CUdeviceptr direct_in    = ptr_direct    .ptr;
@@ -1007,7 +1009,7 @@ void Pathtracer::render() {
 
 		if (settings.enable_spatial_variance) {
 			// Estimate Variance spatially
-			RECORD_EVENT(event_svgf_variance);
+			CUDAEvent::record(event_info_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
 		} else {
 			std::swap(direct_in,   direct_out);
@@ -1022,25 +1024,25 @@ void Pathtracer::render() {
 			std::swap(direct_in,   direct_out);
 			std::swap(indirect_in, indirect_out);
 
-			RECORD_EVENT(event_svgf_atrous[i]);
+			CUDAEvent::record(event_info_svgf_atrous[i]);
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
 
-		RECORD_EVENT(event_svgf_finalize);
+		CUDAEvent::record(event_info_svgf_finalize);
 		kernel_svgf_finalize.execute(scene.camera.jitter, direct_out, indirect_out);
 
 		if (settings.enable_taa) {
-			RECORD_EVENT(event_taa);
+			CUDAEvent::record(event_info_taa);
 
 			kernel_taa         .execute();
 			kernel_taa_finalize.execute();
 		}
 	} else {
-		RECORD_EVENT(event_accumulate);
+		CUDAEvent::record(event_info_accumulate);
 		kernel_accumulate.execute(float(frames_accumulated));
 	}
 
-	RECORD_EVENT(event_end);
+	CUDAEvent::record(event_info_end);
 	
 	// Reset buffer sizes to default for next frame
 	buffer_sizes->trace[0] = batch_size;
