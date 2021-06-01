@@ -31,7 +31,7 @@ void Camera::resize(int width, int height) {
 	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
 
 	// See equation 30 of "Texture Level of Detail Strategies for Real-Time Ray Tracing"
-	pixel_spread_angle = atanf(2.0f * tan_half_fov * inv_height);
+	pixel_spread_angle = atanf(2.0f * tan_half_fov * inv_width);
 }
 
 void Camera::update(float delta, const Settings & settings) {

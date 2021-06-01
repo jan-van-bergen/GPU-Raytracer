@@ -30,7 +30,7 @@ struct TraceBuffer {
 	CUDAVector3_SoA direction;
 
 #if ENABLE_MIPMAPPING
-	CUDAMemory::Ptr<float> cone_width;
+	CUDAMemory::Ptr<float2> cone;
 #endif
 	CUDAMemory::Ptr<float4> hits;
 
@@ -44,7 +44,7 @@ struct TraceBuffer {
 		direction.init(buffer_size);
 
 #if ENABLE_MIPMAPPING
-		cone_width = CUDAMemory::malloc<float>(buffer_size);
+		cone = CUDAMemory::malloc<float2>(buffer_size);
 #endif
 		hits = CUDAMemory::malloc<float4>(buffer_size);
 
@@ -59,7 +59,7 @@ struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 	
 #if ENABLE_MIPMAPPING
-	CUDAMemory::Ptr<float> cone_width;
+	CUDAMemory::Ptr<float2> cone;
 #endif
 	CUDAMemory::Ptr<float4> hits;
 
@@ -70,7 +70,7 @@ struct MaterialBuffer {
 		direction.init(buffer_size);
 		
 #if ENABLE_MIPMAPPING
-		cone_width = CUDAMemory::malloc<float>(buffer_size);
+		cone = CUDAMemory::malloc<float2>(buffer_size);
 #endif
 		hits = CUDAMemory::malloc<float4>(buffer_size);
 

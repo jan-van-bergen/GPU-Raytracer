@@ -1,69 +1,48 @@
-
-#if ENABLE_MIPMAPPING
-// Samples the given Material's albedo texture map at the appropriate LOD
-// The LOD is determined using ray differentials. The equations use some
-// simplifications that are only appropriate for primary rays.
-// For subsequent bounces the Ray Cones method is used.
-__device__ inline float3 mipmap_sample_ray_differentials(
-	const Material & material,
-	int mesh_id,
-	int triangle_id,
-	float3 & triangle_position_edge_1,
-	float3 & triangle_position_edge_2,
-	const float2 & triangle_tex_coord_edge_1,
-	const float2 & triangle_tex_coord_edge_2,
+__device__ inline void ray_cone_get_ellipse_axes(
 	const float3 & ray_direction,
-	float ray_t,
-	const float2 & tex_coord
-) {
-	// Transform Triangle edges into world space
-	Matrix3x4 world = mesh_get_transform(mesh_id);
-	matrix3x4_transform_direction(world, triangle_position_edge_1);
-	matrix3x4_transform_direction(world, triangle_position_edge_2);
-	
-	// Formulae based on Chapter 20 of Ray Tracing Gems "Texture Level of Detail Strategies for Real-Time Ray Tracing"
-	float one_over_k = 1.0f / dot(cross(triangle_position_edge_1, triangle_position_edge_2), ray_direction); 
-
-	// Formula simplified because we only do ray differentials for primary rays
-	// This means the differential of the ray origin is zero and
-	// the differential of the ray directon is simply the x/y axis
-	float3 q = ray_t * camera.x_axis;
-	float3 r = ray_t * camera.y_axis;
-
-	float3 c_u = cross(triangle_position_edge_2, ray_direction);
-	float3 c_v = cross(ray_direction, triangle_position_edge_1);
-
-	// Differentials of barycentric coordinates (u,v)
-	float du_dx = one_over_k * dot(c_u, q);
-	float du_dy = one_over_k * dot(c_u, r);
-	float dv_dx = one_over_k * dot(c_v, q);
-	float dv_dy = one_over_k * dot(c_v, r);
-
-	// Differentials of Texture coordinates (s,t)
-	float ds_dx = du_dx * triangle_tex_coord_edge_1.x + dv_dx * triangle_tex_coord_edge_2.x;
-	float ds_dy = du_dy * triangle_tex_coord_edge_1.x + dv_dy * triangle_tex_coord_edge_2.x;
-	float dt_dx = du_dx * triangle_tex_coord_edge_1.y + dv_dx * triangle_tex_coord_edge_2.y;
-	float dt_dy = du_dy * triangle_tex_coord_edge_1.y + dv_dy * triangle_tex_coord_edge_2.y;
-
-	float2 dx = make_float2(ds_dx, dt_dx);
-	float2 dy = make_float2(ds_dy, dt_dy);
-
-	return material.albedo(tex_coord.x, tex_coord.y, dx, dy); // Anisotropic filtering
-}
-
-// Samples the given Material's albedo texture map at the appropriate LOD
-// The LOD is determined using ray cones.
-__device__ inline float3 mipmap_sample_ray_cones(
-	const Material & material,
-	int triangle_id,
-	const float3 & ray_direction,
-	float ray_t,
+	const float3 & geometric_normal,
 	float cone_width,
-	const float3 & hit_normal,
-	const float2 & tex_coord
+	float3 & axis_1,
+	float3 & axis_2
 ) {
-	float lod = triangle_get_lod(triangle_id) + log2f(cone_width / fabsf(dot(ray_direction, hit_normal)));
-
-	return material.albedo(tex_coord.x, tex_coord.y, lod); // Trilinear filtering
+	float3 h_1 = ray_direction - dot(geometric_normal, ray_direction) * geometric_normal;
+	float3 h_2 = cross(geometric_normal, h_1);
+	
+	axis_1 = cone_width / max(0.0001f, length(h_1 - dot(ray_direction, h_1) * ray_direction)) * h_1;
+	axis_2 = cone_width / max(0.0001f, length(h_2 - dot(ray_direction, h_2) * ray_direction)) * h_2;
 }
-#endif
+
+__device__ inline void ray_cone_get_texture_gradients(
+	const float3 & geometric_normal,
+	const float3 & position_0,
+	const float3 & position_edge_1,
+	const float3 & position_edge_2,
+	const float2 & tex_coord_0,
+	const float2 & tex_coord_edge_1,
+	const float2 & tex_coord_edge_2,
+	const float3 & hit_point,
+	const float2 & hit_tex_coord,
+	const float3 & a_1,
+	const float3 & a_2,
+	float2 & g_1,
+	float2 & g_2
+) {
+	float triangle_area_inv = 1.0f / dot(geometric_normal, cross(position_edge_1, position_edge_2));
+
+	float3 e_p = hit_point + a_1 - position_0;
+
+	float u_1 = dot(geometric_normal, cross(e_p, position_edge_2)) * triangle_area_inv;
+	float v_1 = dot(geometric_normal, cross(position_edge_1, e_p)) * triangle_area_inv;
+	g_1 = barycentric(u_1, v_1, tex_coord_0, tex_coord_edge_1, tex_coord_edge_2) - hit_tex_coord;
+
+	e_p = hit_point + a_2 - position_0;
+
+	float u_2 = dot(geometric_normal, cross(e_p, position_edge_2)) * triangle_area_inv;
+	float v_2 = dot(geometric_normal, cross(position_edge_1, e_p)) * triangle_area_inv;
+	g_2 = barycentric(u_2, v_2, tex_coord_0, tex_coord_edge_1, tex_coord_edge_2) - hit_tex_coord;
+
+}
+
+__device__ inline float ray_cone_get_lod(const float3 & ray_direction, const float3 & geometric_normal, float cone_width) {
+	return log2f(cone_width / fabsf(dot(ray_direction, geometric_normal)));
+}

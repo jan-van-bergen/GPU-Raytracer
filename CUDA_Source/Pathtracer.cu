@@ -109,7 +109,7 @@ struct TraceBuffer {
 	Vector3_SoA direction;
 
 #if ENABLE_MIPMAPPING
-	float * cone_width;
+	float2 * cone;
 #endif
 
 	HitBuffer hits;
@@ -125,7 +125,7 @@ struct MaterialBuffer {
 	Vector3_SoA direction;	
 
 #if ENABLE_MIPMAPPING
-	float * cone_width;
+	float2 * cone;
 #endif
 
 	HitBuffer hits;
@@ -224,14 +224,14 @@ extern "C" __global__ void kernel_primary(
 
 	float2 pixel_coord = make_float2(u_screenspace + dx, v_screenspace + dy);
 
-	float3 ray_direction = camera.bottom_left_corner + pixel_coord.x * camera.x_axis + pixel_coord.y * camera.y_axis;
+	float3 ray_direction = normalize(camera.bottom_left_corner + pixel_coord.x * camera.x_axis + pixel_coord.y * camera.y_axis);
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
 		if (settings.demodulate_albedo || settings.enable_svgf) {
 			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 		}
-		frame_buffer_direct[pixel_index] = make_float4(sample_sky(normalize(ray_direction)));
+		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
 
 		return;
 	}
@@ -342,11 +342,11 @@ extern "C" __global__ void kernel_generate(
 	float x_jittered = float(x) + jitter.x;
 	float y_jittered = float(y) + jitter.y;
 
-	float3 direction_unnormalized = camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis;
+	float3 direction = normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
 
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
 	ray_buffer_trace.origin   .set(index, camera.position);
-	ray_buffer_trace.direction.set(index, direction_unnormalized);
+	ray_buffer_trace.direction.set(index, direction);
 
 	ray_buffer_trace.pixel_index_and_last_material[index] = pixel_index | int(Material::Type::DIELECTRIC) << 30;
 	ray_buffer_trace.throughput.set(index, make_float3(1.0f));
@@ -374,7 +374,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	
 	// If we didn't hit anything, sample the Sky
 	if (hit.triangle_id == -1) {
-		float3 illumination = ray_throughput * sample_sky(normalize(ray_direction));
+		float3 illumination = ray_throughput * sample_sky(ray_direction);
 
 		if (bounce == 0) {
 			if (settings.demodulate_albedo || settings.enable_svgf) {
@@ -478,7 +478,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_diffuse.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_diffuse.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+			if (bounce > 0) ray_buffer_shade_diffuse.cone[index_out] = ray_buffer_trace.cone[index];
 #endif
 			ray_buffer_shade_diffuse.hits.set(index_out, hit);
 			
@@ -494,7 +494,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_dielectric.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_dielectric.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+			if (bounce > 0) ray_buffer_shade_dielectric.cone[index_out] = ray_buffer_trace.cone[index];
 #endif
 			ray_buffer_shade_dielectric.hits.set(index_out, hit);
 
@@ -510,7 +510,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_glossy.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_glossy.cone_width[index_out] = ray_buffer_trace.cone_width[index];
+			if (bounce > 0) ray_buffer_shade_glossy.cone[index_out] = ray_buffer_trace.cone[index];
 #endif
 			ray_buffer_shade_glossy.hits.set(index_out, hit);
 
@@ -561,25 +561,44 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float3 albedo;
 
 #if ENABLE_MIPMAPPING
-	float cone_width;
+	float cone_angle, cone_width;
 
-	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
+	float3 geometric_normal = normalize(cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2));
+
 	if (bounce == 0) {
-		cone_width = camera.pixel_spread_angle * hit.t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
+		cone_angle = camera.pixel_spread_angle;
+		cone_width = cone_angle * hit.t;
 
-		albedo = mipmap_sample_ray_differentials(
-			material,
-			hit.mesh_id, hit.triangle_id,
-			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
-			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
-			ray_direction, hit.t,
-			hit_tex_coord
+		float3 a_1, a_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, a_1, a_2);
+
+		float2 g_1, g_2; ray_cone_get_texture_gradients(
+			geometric_normal,
+			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
+			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
+			hit_point, hit_tex_coord,
+			a_1, a_2,
+			g_1, g_2
 		);
-	} else {	
-		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
 
-		albedo = mipmap_sample_ray_cones(material, hit.triangle_id, ray_direction, hit.t, cone_width, hit_normal, hit_tex_coord);
+		// Anisotropic sampling
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, g_1, g_2);
+	} else {
+		float2 cone = ray_buffer_shade_diffuse.cone[index];
+		cone_angle = cone.x;
+		cone_width = cone.y + cone_angle * hit.t;
+
+		// Trilinear sampling
+		float lod = triangle_get_lod(hit.triangle_id) + ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
+
+	float curvature = triangle_get_curvature(
+		hit_triangle.position_edge_1,
+		hit_triangle.position_edge_2,
+		hit_triangle.normal_edge_1,
+		hit_triangle.normal_edge_2
+	);
+	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 #else
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 #endif
@@ -663,7 +682,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	ray_buffer_trace.direction.set(index_out, direction_world);
 	
 #if ENABLE_MIPMAPPING
-	ray_buffer_trace.cone_width[index_out] = cone_width;
+	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
 #endif
 
 	ray_buffer_trace.pixel_index_and_last_material[index_out] = ray_pixel_index | int(Material::Type::DIFFUSE) << 30;
@@ -678,14 +697,6 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.get(index);
 	RayHit hit           = ray_buffer_shade_dielectric.hits     .get(index);
-
-	// Primary Ray direction is not normalized because ray differentials need their original length
-	// This is not needed in this kernel so normalize the direction and correct t so that it is the actual distance along the ray
-	if (bounce == 0) {
-		float ray_direction_length_inv = 1.0f / length(ray_direction);
-		hit.t         *= ray_direction_length_inv;
-		ray_direction *= ray_direction_length_inv;
-	}
 
 	int    ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
 	float3 ray_throughput  = ray_buffer_shade_dielectric.throughput.get(index);
@@ -772,7 +783,20 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
 #if ENABLE_MIPMAPPING
-	ray_buffer_trace.cone_width[index_out] = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
+	float2 cone = ray_buffer_shade_dielectric.cone[index];
+	float  cone_angle = cone.x;
+	float  cone_width = cone.y + cone_angle * hit.t;
+	
+	float curvature = triangle_get_curvature(
+		hit_triangle.position_edge_1,
+		hit_triangle.position_edge_2,
+		hit_triangle.normal_edge_1,
+		hit_triangle.normal_edge_2
+	);
+	
+	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
+
+	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
 #endif
 	ray_buffer_trace.pixel_index_and_last_material[index_out] = ray_pixel_index | int(Material::Type::DIELECTRIC) << 30;
 	ray_buffer_trace.throughput.set(index_out, ray_throughput);
@@ -815,28 +839,55 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
+	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
+	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
+	
 	float3 albedo;
 
 #if ENABLE_MIPMAPPING
-	float cone_width;
+	float cone_angle, cone_width;
 
-	// Primary rays use ray differentials to determine mipmap LOD, subsequent bounces use ray cones
+	float3 geometric_normal = normalize(cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2));
+
 	if (bounce == 0) {
-		cone_width = camera.pixel_spread_angle * hit.t / length(ray_direction); // On bounce 0 Ray direction is non-normalized
+		cone_angle = camera.pixel_spread_angle;
+		cone_width = cone_angle * hit.t;
 
-		albedo = mipmap_sample_ray_differentials(
-			material,
-			hit.mesh_id, hit.triangle_id,
-			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
-			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
-			ray_direction, hit.t,
-			hit_tex_coord
+		float3 a_1, a_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, a_1, a_2);
+
+		float2 g_1, g_2; ray_cone_get_texture_gradients(
+			geometric_normal,
+			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
+			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
+			hit_point, hit_tex_coord,
+			a_1, a_2,
+			g_1, g_2
 		);
-	} else {	
-		cone_width = ray_buffer_shade_diffuse.cone_width[index] + camera.pixel_spread_angle * hit.t;
 
-		albedo = mipmap_sample_ray_cones(material, hit.triangle_id, ray_direction, hit.t, cone_width, hit_normal, hit_tex_coord);
+		// Anisotropic sampling
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, g_1, g_2);
+	} else {
+		float2 cone = ray_buffer_shade_glossy.cone[index];
+		cone_angle = cone.x;
+		cone_width = cone.y + cone_angle * hit.t;
+
+		// Trilinear sampling
+		float lod = triangle_get_lod(hit.triangle_id) + ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
+
+	float curvature = triangle_get_curvature(
+		hit_triangle.position_edge_1,
+		hit_triangle.position_edge_2,
+		hit_triangle.normal_edge_1,
+		hit_triangle.normal_edge_2
+	);
+
+	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
+
+	// Increase angle to account for roughness
+	float sigma_squared = 0.5f * (alpha * alpha / (1.0f - alpha * alpha)); // See Appendix A. of Akenine-Möller 2021
+	cone_angle += bounce == 0 ? 0.25f * sigma_squared : sigma_squared;
 #else
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 #endif
@@ -847,11 +898,6 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 throughput = ray_throughput * albedo;
 
-	float3 direction_in = -1.0f * normalize(ray_direction);
-
-	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = (1.2f - 0.2f * sqrtf(dot(direction_in, hit_normal))) * material.roughness;
-	
 	if (settings.enable_next_event_estimation) {
 		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
 		if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
@@ -885,10 +931,10 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 			// Only trace Shadow Ray if light transport is possible given the normals
 			if (cos_o > 0.0f && cos_i > 0.0f) {
-				float3 half_vector = normalize(to_light + direction_in);
+				float3 half_vector = normalize(to_light - ray_direction);
 
-				float i_dot_n = dot(direction_in, hit_normal);
-				float m_dot_n = dot(half_vector,  hit_normal);
+				float i_dot_n = -dot(ray_direction, hit_normal);
+				float m_dot_n =  dot(half_vector,   hit_normal);
 
 				float F = fresnel(material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
 				float D = microfacet_D(m_dot_n, alpha);
@@ -896,7 +942,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 				// NOTE: N dot L is omitted from the denominator here
 				float brdf     = (F * G * D) / (4.0f * i_dot_n);
-				float brdf_pdf = F * D * m_dot_n / (4.0f * dot(half_vector, direction_in));
+				float brdf_pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
 				
 				float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
 
@@ -940,13 +986,13 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float3 micro_normal_world = local_to_world(micro_normal_local, hit_tangent, hit_binormal, hit_normal);
 
 	// Apply perfect mirror reflection to world space normal
-	float3 direction_out = reflect(-direction_in, micro_normal_world);
+	float3 direction_out = reflect(ray_direction, micro_normal_world);
 
-	float i_dot_m = dot(direction_in,  micro_normal_world);
-	float o_dot_m = dot(direction_out, micro_normal_world);
-	float i_dot_n = dot(direction_in,       hit_normal);
-	float o_dot_n = dot(direction_out,      hit_normal);
-	float m_dot_n = dot(micro_normal_world, hit_normal);
+	float i_dot_m = -dot(ray_direction, micro_normal_world);
+	float o_dot_m =  dot(direction_out, micro_normal_world);
+	float i_dot_n = -dot(ray_direction,      hit_normal);
+	float o_dot_n =  dot(direction_out,      hit_normal);
+	float m_dot_n =  dot(micro_normal_world, hit_normal);
 
 	float F = fresnel(material.index_of_refraction, 1.0f, i_dot_m, i_dot_m);
 	float D = microfacet_D(m_dot_n, alpha);
