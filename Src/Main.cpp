@@ -80,9 +80,9 @@ int main(int argument_count, char ** arguments) {
 	int fps = 0;
 
 	const char * mesh_names[] = {
-		DATA_PATH("sponza/sponza_lit.obj"),
+//		DATA_PATH("sponza/sponza_lit.obj"),
 		DATA_PATH("Diamond.obj"),
-		DATA_PATH("Lantern.obj")
+//		DATA_PATH("Lantern.obj")
 	};
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 
@@ -176,11 +176,7 @@ int main(int argument_count, char ** arguments) {
 
 			std::sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
 				if (a.info.display_order == b.info.display_order) {
-					int cmp_category = strcmp(a.info.category, b.info.category);
-					if (cmp_category == 0) {
-						return strcmp(a.info.name, b.info.name) < 0;
-					}
-					return cmp_category < 0;
+					return strcmp(a.info.category, b.info.category) < 0;
 				}
 				return a.info.display_order < b.info.display_order;
 			});
@@ -197,13 +193,13 @@ int main(int argument_count, char ** arguments) {
 					float time_sum = 0.0f;
 
 					int j;
-					for (j = i; j < event_timing_count - 1; j++) {
+					for (j = i; j < event_timing_count; j++) {
 						int length = strlen(event_timings[j].info.name);
 						if (length > padding) padding = length;
 
 						time_sum += event_timings[j].time;
 
-						if (strcmp(event_timings[j].info.category, event_timings[j + 1].info.category) != 0) break;
+						if (j < event_timing_count - 1 && strcmp(event_timings[j].info.category, event_timings[j + 1].info.category) != 0) break;
 					}
 
 					bool category_visible = ImGui::TreeNode(event_timings[i].info.category, "%s: %.2f ms", event_timings[i].info.category, time_sum);
@@ -228,7 +224,10 @@ int main(int argument_count, char ** arguments) {
 
 				ImGui::Text("%s: %*.2f ms", event_timings[i].info.name, 5 + padding - strlen(event_timings[i].info.name), time);
 
-				if (i == event_timing_count - 1) break;
+				if (i == event_timing_count - 1) {
+					ImGui::TreePop();
+					break;
+				}
 
 				category_changed = strcmp(event_timings[i].info.category, event_timings[i + 1].info.category);
 				if (category_changed) {
