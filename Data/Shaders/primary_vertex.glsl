@@ -2,8 +2,7 @@
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
-layout (location = 2) in vec2 in_uv;
-layout (location = 3) in int  in_triangle_id;
+layout (location = 2) in int  in_triangle_id;
 
 layout (location = 0) out      vec3 out_normal;
 layout (location = 1) out      vec2 out_uv;
@@ -20,8 +19,17 @@ uniform mat4 transform;
 uniform mat4 transform_prev;
 
 void main() {
-	out_normal      = (transform * vec4(in_normal, 0.0f)).xyz;
-	out_uv          = in_uv;
+	out_normal = (transform * vec4(in_normal, 0.0f)).xyz;
+
+	int vertex_index = gl_VertexID % 3;
+	if (vertex_index == 0) {
+		out_uv = vec2(0.0f, 0.0f);
+	} else if (vertex_index == 1) {
+		out_uv = vec2(1.0f, 0.0f);
+	} else {
+		out_uv = vec2(0.0f, 1.0f);
+	}
+
 	out_triangle_id = in_triangle_id;
 
 	out_screen_position      = view_projection      * transform      * vec4(in_position, 1.0f);

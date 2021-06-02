@@ -40,8 +40,7 @@ struct BVHFileHeader {
 struct Vertex {
 	Vector3 position;
 	Vector3 normal;
-	Vector2 uv;
-	int     triangle_id;
+	int triangle_id;
 };
 
 static std::unordered_map<std::string, int> cache;
@@ -259,11 +258,6 @@ void MeshData::gl_init(int reverse_indices[]) const {
 		vertices[index_1].normal = triangles[t].normal_1;
 		vertices[index_2].normal = triangles[t].normal_2;
 
-		// Barycentric coordinates
-		vertices[index_0].uv = Vector2(0.0f, 0.0f);
-		vertices[index_1].uv = Vector2(1.0f, 0.0f);
-		vertices[index_2].uv = Vector2(0.0f, 1.0f);
-
 		vertices[index_0].triangle_id = reverse_indices[t];
 		vertices[index_1].triangle_id = reverse_indices[t];
 		vertices[index_2].triangle_id = reverse_indices[t];
@@ -275,17 +269,14 @@ void MeshData::gl_init(int reverse_indices[]) const {
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
-	glEnableVertexAttribArray(3);
 	
 	glVertexAttribFormat (0, 3, GL_FLOAT, false, offsetof(Vertex, position));
 	glVertexAttribFormat (1, 3, GL_FLOAT, false, offsetof(Vertex, normal));
-	glVertexAttribFormat (2, 2, GL_FLOAT, false, offsetof(Vertex, uv));
-	glVertexAttribIFormat(3, 1, GL_INT,          offsetof(Vertex, triangle_id));
+	glVertexAttribIFormat(2, 1, GL_INT,          offsetof(Vertex, triangle_id));
 
 	glVertexAttribBinding(0, 0);
 	glVertexAttribBinding(1, 0);
 	glVertexAttribBinding(2, 0);
-	glVertexAttribBinding(3, 0);
 
 	glGenBuffers(1, &gl_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
@@ -296,7 +287,6 @@ void MeshData::gl_init(int reverse_indices[]) const {
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 	glDisableVertexAttribArray(2);
-	glDisableVertexAttribArray(3);
 
 	delete [] vertices;
 }
