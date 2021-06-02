@@ -155,15 +155,15 @@ __device__ ShadowRayBuffer ray_buffer_shadow;
 // Sizes are stored for ALL bounces so we only have to reset these
 // values back to 0 after every frame, instead of after every bounce
 struct BufferSizes {
-	int trace     [NUM_BOUNCES];
-	int diffuse   [NUM_BOUNCES];
-	int dielectric[NUM_BOUNCES];
-	int glossy    [NUM_BOUNCES];
-	int shadow    [NUM_BOUNCES];
+	int trace     [MAX_BOUNCES];
+	int diffuse   [MAX_BOUNCES];
+	int dielectric[MAX_BOUNCES];
+	int glossy    [MAX_BOUNCES];
+	int shadow    [MAX_BOUNCES];
 
 	// Global counters for tracing kernels
-	int rays_retired       [NUM_BOUNCES];
-	int rays_retired_shadow[NUM_BOUNCES];
+	int rays_retired       [MAX_BOUNCES];
+	int rays_retired_shadow[MAX_BOUNCES];
 } __device__ buffer_sizes;
 
 struct Camera {
@@ -675,7 +675,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		}
 	}
 
-	if (bounce == NUM_BOUNCES - 1) return;
+	if (bounce == settings.num_bounces - 1) return;
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -699,7 +699,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.dielectric[bounce] || bounce == NUM_BOUNCES - 1) return;
+	if (index >= buffer_sizes.dielectric[bounce] || bounce == settings.num_bounces - 1) return;
 
 	float3 ray_direction = ray_buffer_shade_dielectric.direction.get(index);
 	RayHit hit           = ray_buffer_shade_dielectric.hits     .get(index);
@@ -973,7 +973,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		}
 	}
 
-	if (bounce == NUM_BOUNCES - 1) return;
+	if (bounce == settings.num_bounces - 1) return;
 
 	// Sample normal distribution in spherical coordinates
 	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 2, seed) + 1e-8f)));

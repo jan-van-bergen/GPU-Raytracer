@@ -97,12 +97,12 @@ private:
 
 	// Timing Events
 	CUDAEvent::Info event_info_primary;
-	CUDAEvent::Info event_info_trace[NUM_BOUNCES];
-	CUDAEvent::Info event_info_sort [NUM_BOUNCES];
-	CUDAEvent::Info event_info_shade_diffuse   [NUM_BOUNCES];
-	CUDAEvent::Info event_info_shade_dielectric[NUM_BOUNCES];
-	CUDAEvent::Info event_info_shade_glossy    [NUM_BOUNCES];
-	CUDAEvent::Info event_info_shadow_trace[NUM_BOUNCES];
+	CUDAEvent::Info event_info_trace[MAX_BOUNCES];
+	CUDAEvent::Info event_info_sort [MAX_BOUNCES];
+	CUDAEvent::Info event_info_shade_diffuse   [MAX_BOUNCES];
+	CUDAEvent::Info event_info_shade_dielectric[MAX_BOUNCES];
+	CUDAEvent::Info event_info_shade_glossy    [MAX_BOUNCES];
+	CUDAEvent::Info event_info_shadow_trace[MAX_BOUNCES];
 	CUDAEvent::Info event_info_svgf_temporal;
 	CUDAEvent::Info event_info_svgf_variance;
 	CUDAEvent::Info event_info_svgf_atrous[MAX_ATROUS_ITERATIONS];

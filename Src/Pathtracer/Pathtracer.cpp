@@ -100,14 +100,14 @@ struct ShadowRayBuffer {
 };
 
 struct BufferSizes {
-	int trace     [NUM_BOUNCES];
-	int diffuse   [NUM_BOUNCES];
-	int dielectric[NUM_BOUNCES];
-	int glossy    [NUM_BOUNCES];
-	int shadow    [NUM_BOUNCES];
+	int trace     [MAX_BOUNCES];
+	int diffuse   [MAX_BOUNCES];
+	int dielectric[MAX_BOUNCES];
+	int glossy    [MAX_BOUNCES];
+	int shadow    [MAX_BOUNCES];
 
-	int rays_retired       [NUM_BOUNCES];
-	int rays_retired_shadow[NUM_BOUNCES];
+	int rays_retired       [MAX_BOUNCES];
+	int rays_retired_shadow[MAX_BOUNCES];
 };
 static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)
 
@@ -625,7 +625,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	int display_order = 0;
 	event_info_primary = { display_order++, "Primary", "Primary" };
 
-	for (int i = 0; i < NUM_BOUNCES; i++) {
+	for (int i = 0; i < MAX_BOUNCES; i++) {
 		const int len = 16;
 		char    * category = new char[len];
 		sprintf_s(category, len, "Bounce %i", i);
@@ -953,7 +953,7 @@ void Pathtracer::render() {
 			);
 		}
 
-		for (int bounce = 0; bounce < NUM_BOUNCES; bounce++) {
+		for (int bounce = 0; bounce < settings.num_bounces; bounce++) {
 			// When rasterizing primary rays we can skip tracing rays on bounce 0
 			if (!(bounce == 0 && settings.enable_rasterization)) {
 				// Extend all Rays that are still alive to their next Triangle intersection

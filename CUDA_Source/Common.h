@@ -23,6 +23,8 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
+	int num_bounces = 5;
+
 	float camera_aperture       = 0.1f;
 	float camera_focal_distance = 10.0f;
 
@@ -62,7 +64,7 @@ struct Settings {
 // Raytracing
 #define EPSILON 0.001f
 
-#define NUM_BOUNCES 5
+#define MAX_BOUNCES 20
 
 
 // SVGF

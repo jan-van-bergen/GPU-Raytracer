@@ -80,9 +80,9 @@ int main(int argument_count, char ** arguments) {
 	int fps = 0;
 
 	const char * mesh_names[] = {
-//		DATA_PATH("sponza/sponza_lit.obj"),
+		DATA_PATH("sponza/sponza_lit.obj"),
 		DATA_PATH("Diamond.obj"),
-//		DATA_PATH("Lantern.obj")
+		DATA_PATH("Lantern.obj")
 	};
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 
@@ -242,6 +242,8 @@ int main(int argument_count, char ** arguments) {
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			bool settings_changed = false;
+			
+			settings_changed |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
 
 			settings_changed |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
 			settings_changed |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
