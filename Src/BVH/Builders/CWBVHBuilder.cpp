@@ -341,5 +341,5 @@ void CWBVHBuilder::build(const BVH & bvh) {
 
 	assert(cwbvh->index_count == bvh.index_count);
 
-	//printf("CWBVH Node Collapse: %i -> %i\n", bvh.node_count, cwbvh.node_count);
+	//printf("CWBVH Node Collapse: %i -> %i\n", bvh.node_count, cwbvh->node_count);
 }

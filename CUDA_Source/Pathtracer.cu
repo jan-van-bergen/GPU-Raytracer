@@ -316,8 +316,10 @@ extern "C" __global__ void kernel_generate(
 	int pixel_index = x + y * screen_pitch;
 	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
 
-	float u1 = random_float_heitz(x, y, sample_index, 0, 0, seed);
-	float u2 = random_float_heitz(x, y, sample_index, 0, 1, seed);
+	float u0 = random_float_xorshift(seed);
+	float u1 = random_float_xorshift(seed);
+	float u2 = random_float_heitz(x, y, sample_index, 0, 0, seed);
+	float u3 = random_float_heitz(x, y, sample_index, 0, 1, seed);
 
 	float2 jitter;
 
@@ -332,8 +334,8 @@ extern "C" __global__ void kernel_generate(
 		case ReconstructionFilter::GAUSSIAN: {
 			float2 gaussians = box_muller(u1, u2);
 
-			jitter.x =0.5f + 0.5f * gaussians.x;
-			jitter.y =0.5f + 0.5f * gaussians.y;
+			jitter.x = 0.5f + 0.5f * gaussians.x;
+			jitter.y = 0.5f + 0.5f * gaussians.y;
 		
 			break;
 		}
@@ -342,10 +344,14 @@ extern "C" __global__ void kernel_generate(
 	float x_jittered = float(x) + jitter.x;
 	float y_jittered = float(y) + jitter.y;
 
-	float3 direction = normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
+	float3 focal_point = settings.camera_focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
+	float2 lens_point = 0.5f * settings.camera_aperture * random_point_in_disk(u2, u3);
+
+	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
+	float3 direction = normalize(focal_point - offset);
 
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
-	ray_buffer_trace.origin   .set(index, camera.position);
+	ray_buffer_trace.origin   .set(index, camera.position + offset);
 	ray_buffer_trace.direction.set(index, direction);
 
 	ray_buffer_trace.pixel_index_and_last_material[index] = pixel_index | int(Material::Type::DIELECTRIC) << 30;
@@ -569,19 +575,19 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		cone_angle = camera.pixel_spread_angle;
 		cone_width = cone_angle * hit.t;
 
-		float3 a_1, a_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, a_1, a_2);
+		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
-		float2 g_1, g_2; ray_cone_get_texture_gradients(
+		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
 			geometric_normal,
 			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
 			hit_point, hit_tex_coord,
-			a_1, a_2,
-			g_1, g_2
+			ellipse_axis_1, ellipse_axis_2,
+			gradient_1, gradient_2
 		);
 
 		// Anisotropic sampling
-		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, g_1, g_2);
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, gradient_1, gradient_2);
 	} else {
 		float2 cone = ray_buffer_shade_diffuse.cone[index];
 		cone_angle = cone.x;
@@ -606,6 +612,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
+
 
 	float3 throughput = ray_throughput * albedo;
 	
@@ -672,8 +679,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
-	float3 tangent, binormal;
-	orthonormal_basis(hit_normal, tangent, binormal);
+	float3 tangent, binormal; orthonormal_basis(hit_normal, tangent, binormal);
 
 	float3 direction_local = random_cosine_weighted_direction(x, y, sample_index, bounce, seed);
 	float3 direction_world = local_to_world(direction_local, tangent, binormal, hit_normal);
@@ -853,19 +859,19 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		cone_angle = camera.pixel_spread_angle;
 		cone_width = cone_angle * hit.t;
 
-		float3 a_1, a_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, a_1, a_2);
+		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
-		float2 g_1, g_2; ray_cone_get_texture_gradients(
+		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
 			geometric_normal,
 			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
 			hit_point, hit_tex_coord,
-			a_1, a_2,
-			g_1, g_2
+			ellipse_axis_1, ellipse_axis_2,
+			gradient_1, gradient_2
 		);
 
 		// Anisotropic sampling
-		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, g_1, g_2);
+		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, gradient_1, gradient_2);
 	} else {
 		float2 cone = ray_buffer_shade_glossy.cone[index];
 		cone_angle = cone.x;
@@ -886,8 +892,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 
 	// Increase angle to account for roughness
-	float sigma_squared = 0.5f * (alpha * alpha / (1.0f - alpha * alpha)); // See Appendix A. of Akenine-Möller 2021
-	cone_angle += bounce == 0 ? 0.25f * sigma_squared : sigma_squared;
+//	float sigma_squared = 0.5f * (alpha * alpha / (1.0f - alpha * alpha)); // See Appendix A. of Akenine-Möller 2021
+//	cone_angle += bounce == 0 ? 0.25f * sigma_squared : sigma_squared;
 #else
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 #endif

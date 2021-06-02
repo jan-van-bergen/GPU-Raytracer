@@ -23,6 +23,9 @@ enum class ReconstructionFilter {
 };
 
 struct Settings {
+	float camera_aperture       = 0.1f;
+	float camera_focal_distance = 10.0f;
+
 	bool enable_rasterization                = false;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;

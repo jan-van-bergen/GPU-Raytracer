@@ -3,10 +3,9 @@
 
 newmtl None
 Ns 500
-Ni 1.450000
 Ka 0.8 0.8 0.8
 Kd 0.8 0.8 0.8
 Ks 0.8 0.8 0.8
+map_Kd floor.png
 d 1
-Kt 0.8 0.8 0.99
-illum 4
+illum 2

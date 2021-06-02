@@ -20,9 +20,9 @@ struct Camera {
 	float far;
 
 	Vector3 bottom_left_corner, bottom_left_corner_rotated;
-	Vector3 x_axis,             x_axis_rotated;
-	Vector3 y_axis,             y_axis_rotated;
-
+	Vector3 x_axis, x_axis_rotated;
+	Vector3 y_axis, y_axis_rotated;
+	
 	Matrix4 projection;
 	Matrix4 view_projection;
 	Matrix4 view_projection_prev;

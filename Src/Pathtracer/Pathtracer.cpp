@@ -797,7 +797,7 @@ void Pathtracer::build_tlas() {
 	tlas_converter.build(tlas_raw);
 #endif
 
-	CUDAMemory::memcpy<BVHNodeType>(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
+	CUDAMemory::memcpy(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
 
 	assert(tlas.index_count == scene.mesh_count);
 

@@ -19,20 +19,28 @@ extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
 
 static void capture_screen(const Window & window, const char * file_name) {
 	ScopeTimer timer("Screenshot");
+	
+	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+	int window_pitch = Math::divide_round_up(window.width * 3, pack_alignment) * pack_alignment;
 
-	unsigned char * data = new unsigned char[window.width * window.height * 3];
-	unsigned char * temp = new unsigned char[window.width * 3];
+	unsigned char * data = new unsigned char[window_pitch * window.height];
+	unsigned char * temp = new unsigned char[window_pitch];
 			
 	window.read_frame_buffer(data);
-
+	
 	// Flip image vertically
 	for (int j = 0; j < window.height / 2; j++) {
-		unsigned char * row_top    = data +                  j      * window.width * 3;
-		unsigned char * row_bottom = data + (window.height - j - 1) * window.width * 3;
+		unsigned char * row_top    = data +                  j      * window_pitch;
+		unsigned char * row_bottom = data + (window.height - j - 1) * window_pitch;
 
-		memcpy(temp,       row_top,    window.width * 3);
-		memcpy(row_top,    row_bottom, window.width * 3);
-		memcpy(row_bottom, temp,       window.width * 3);
+		memcpy(temp,       row_top,    window_pitch);
+		memcpy(row_top,    row_bottom, window_pitch);
+		memcpy(row_bottom, temp,       window_pitch);
+	}
+
+	// Remove pack alignment
+	for (int j = 1; j < window.height; j++) {
+		memmove(data + j * window.width * 3, data + j * window_pitch, window.width * 3);
 	}
 
 	Util::export_ppm(file_name, window.width, window.height, data);
@@ -70,7 +78,7 @@ int main(int argument_count, char ** arguments) {
 	float second = 0.0f;
 	int frames_this_second = 0;
 	int fps = 0;
-	
+
 	const char * mesh_names[] = {
 		DATA_PATH("sponza/sponza_lit.obj"),
 		DATA_PATH("Diamond.obj"),
@@ -235,6 +243,9 @@ int main(int argument_count, char ** arguments) {
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			bool settings_changed = false;
+
+			settings_changed |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
+			settings_changed |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
 
 			settings_changed |= ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.settings.enable_rasterization);
 			settings_changed |= ImGui::Checkbox("NEE",                    &pathtracer.settings.enable_next_event_estimation);

@@ -24,9 +24,9 @@ void Camera::resize(int width, int height) {
 
 	// Initialize viewing pyramid vectors
 	bottom_left_corner = Vector3(-half_width, -half_height, -d);
-	x_axis             = Vector3(1.0f, 0.0f, 0.0f);
-	y_axis             = Vector3(0.0f, 1.0f, 0.0f);
-
+	x_axis = Vector3(1.0f, 0.0f, 0.0f);
+	y_axis = Vector3(0.0f, 1.0f, 0.0f);
+	
 	// Projection matrix (for rasterization)
 	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
 
@@ -59,24 +59,32 @@ void Camera::update(float delta, const Settings & settings) {
 	// Move Camera around
 	moved = false;
 
-	const float MOVEMENT_SPEED = 10.0f;
-	const float ROTATION_SPEED =  3.0f;
+	constexpr float MOVEMENT_SPEED = 10.0f;
+	constexpr float ROTATION_SPEED =  3.0f;
+
+	float movement_speed = MOVEMENT_SPEED;
+	float rotation_speed = ROTATION_SPEED;
+	
+	if (Input::is_key_down(SDL_SCANCODE_Z)) { // Slow movement/rotation down
+		movement_speed *= 0.1f;
+		rotation_speed *= 0.1f;
+	}
 
 	Vector3 right   = rotation * Vector3(1.0f, 0.0f,  0.0f);
 	Vector3 forward = rotation * Vector3(0.0f, 0.0f, -1.0f);
 
-	if (Input::is_key_down(SDL_SCANCODE_W)) { position += forward * MOVEMENT_SPEED * delta; moved = true; }
-	if (Input::is_key_down(SDL_SCANCODE_A)) { position -= right   * MOVEMENT_SPEED * delta; moved = true; }
-	if (Input::is_key_down(SDL_SCANCODE_S)) { position -= forward * MOVEMENT_SPEED * delta; moved = true; }
-	if (Input::is_key_down(SDL_SCANCODE_D)) { position += right   * MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_W)) { position += forward * movement_speed * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_A)) { position -= right   * movement_speed * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_S)) { position -= forward * movement_speed * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_D)) { position += right   * movement_speed * delta; moved = true; }
 
-	if (Input::is_key_down(SDL_SCANCODE_LSHIFT)) { position.y -= MOVEMENT_SPEED * delta; moved = true; }
-	if (Input::is_key_down(SDL_SCANCODE_SPACE))  { position.y += MOVEMENT_SPEED * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_LSHIFT)) { position.y -= movement_speed * delta; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_SPACE))  { position.y += movement_speed * delta; moved = true; }
 
-	if (Input::is_key_down(SDL_SCANCODE_UP))    { rotation = Quaternion::axis_angle(right,                     +ROTATION_SPEED * delta) * rotation; moved = true; }
-	if (Input::is_key_down(SDL_SCANCODE_DOWN))  { rotation = Quaternion::axis_angle(right,                     -ROTATION_SPEED * delta) * rotation; moved = true; }
-	if (Input::is_key_down(SDL_SCANCODE_LEFT))  { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), +ROTATION_SPEED * delta) * rotation; moved = true; }
-	if (Input::is_key_down(SDL_SCANCODE_RIGHT)) { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), -ROTATION_SPEED * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_UP))    { rotation = Quaternion::axis_angle(right,                     +rotation_speed * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_DOWN))  { rotation = Quaternion::axis_angle(right,                     -rotation_speed * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_LEFT))  { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), +rotation_speed * delta) * rotation; moved = true; }
+	if (Input::is_key_down(SDL_SCANCODE_RIGHT)) { rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), -rotation_speed * delta) * rotation; moved = true; }
 
 	// For debugging purposes
 	if (Input::is_key_pressed(SDL_SCANCODE_F)) {

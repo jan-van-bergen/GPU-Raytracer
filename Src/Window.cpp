@@ -57,7 +57,7 @@ Window::Window(const char * title) {
 
 	width  = SCREEN_WIDTH;
 	height = SCREEN_HEIGHT;
-
+	
 	glGenTextures(1, &frame_buffer_handle);
 
 	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);

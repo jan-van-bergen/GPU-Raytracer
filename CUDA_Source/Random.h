@@ -66,6 +66,16 @@ __device__ float2 box_muller(float u1, float u2) {
 	return make_float2(f * cos_a, f * sin_a);
 }
 
+__device__ float2 random_point_in_disk(float u1, float u2) {
+	float r     = sqrt(u1);
+	float theta = TWO_PI * u2;
+
+	float sin_theta, cos_theta;
+	__sincosf(theta, &sin_theta, &cos_theta);
+
+	return r * make_float2(cos_theta, sin_theta);
+}
+
 __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_index, int bounce, unsigned & seed) {
 	float r0 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
 	float r1 = random_float_heitz(x, y, sample_index, bounce, 3, seed);
