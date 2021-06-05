@@ -36,7 +36,7 @@ struct Settings {
 	bool enable_spatial_variance             = true;
 	bool enable_taa                          = true;
 	
-	bool demodulate_albedo = false;
+	bool modulate_albedo = true;
 
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::GAUSSIAN;
 

@@ -56,11 +56,8 @@ extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 
 	int pixel_index = x + y * screen_pitch;
 
-	// Demodulate albedo
-	float4 albedo_inv = make_float4(1.0f) / fmaxf(frame_buffer_albedo[pixel_index], make_float4(1e-8f));
-
-	float4 direct   = frame_buffer_direct  [pixel_index] * albedo_inv;
-	float4 indirect = frame_buffer_indirect[pixel_index] * albedo_inv;
+	float4 direct   = frame_buffer_direct  [pixel_index];
+	float4 indirect = frame_buffer_indirect[pixel_index];
 
 	// First two raw moments of luminance
 	float4 moment;
@@ -519,7 +516,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 colour = direct + indirect;
 
-	if (!settings.demodulate_albedo) {
+	if (settings.modulate_albedo) {
 		colour *= frame_buffer_albedo[pixel_index];
 	}
 

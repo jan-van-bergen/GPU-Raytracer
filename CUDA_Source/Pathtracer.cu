@@ -228,7 +228,7 @@ extern "C" __global__ void kernel_primary(
 
 	// Triangle ID -1 means no hit
 	if (triangle_id == -1) {
-		if (settings.demodulate_albedo || settings.enable_svgf) {
+		if (settings.modulate_albedo || settings.enable_svgf) {
 			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 		}
 		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
@@ -249,7 +249,7 @@ extern "C" __global__ void kernel_primary(
 	switch (material.type) {
 		case Material::Type::LIGHT: {
 			// Terminate Path
-			if (settings.demodulate_albedo || settings.enable_svgf) {
+			if (settings.modulate_albedo || settings.enable_svgf) {
 				frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 			}
 			frame_buffer_direct[pixel_index] = make_float4(material.emission);
@@ -383,7 +383,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
 
 		if (bounce == 0) {
-			if (settings.demodulate_albedo || settings.enable_svgf) {
+			if (settings.modulate_albedo || settings.enable_svgf) {
 				frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 			}
 			frame_buffer_direct[ray_pixel_index] = make_float4(illumination);
@@ -411,7 +411,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float3 illumination = ray_throughput * material.emission;
 
 			if (bounce == 0) {
-				if (settings.demodulate_albedo || settings.enable_svgf) {
+				if (settings.modulate_albedo || settings.enable_svgf) {
 					frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 				}
 				frame_buffer_direct[ray_pixel_index] = make_float4(material.emission);
@@ -616,13 +616,14 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 #endif
 
-	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
+	float3 throughput = ray_throughput;
+	
+	if (bounce > 0) {
+		throughput *= albedo;
+	} else if (settings.modulate_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
-
-	float3 throughput = ray_throughput * albedo;
-	
 	if (settings.enable_next_event_estimation) {
 		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
 		if (scene_has_lights) {
@@ -788,7 +789,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		}
 	}
 
-	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
+	if (bounce == 0 && (settings.modulate_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
@@ -912,11 +913,13 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
 #endif
 
-	if (bounce == 0 && (settings.demodulate_albedo || settings.enable_svgf)) {
+	float3 throughput = ray_throughput;
+
+	if (bounce > 0) {
+		throughput *= albedo;
+	} else if (settings.modulate_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
-
-	float3 throughput = ray_throughput * albedo;
 
 	if (settings.enable_next_event_estimation) {
 		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
@@ -1047,8 +1050,8 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 
 	float4 colour = direct + indirect;
 
-	if (settings.demodulate_albedo) {
-		colour /= fmaxf(frame_buffer_albedo[pixel_index], make_float4(1e-8f));
+	if (settings.modulate_albedo) {
+		colour *= frame_buffer_albedo[pixel_index];
 	}	
 
 	if (frames_accumulated > 0.0f) {
@@ -1060,7 +1063,7 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 	accumulator.set(x, y, colour);
 
 	// Clear frame buffers for next frame
-	if (settings.demodulate_albedo) {
+	if (settings.modulate_albedo) {
 		frame_buffer_albedo[pixel_index] = make_float4(0.0f);
 	}
 	frame_buffer_direct  [pixel_index] = make_float4(0.0f);
