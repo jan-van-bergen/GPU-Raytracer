@@ -76,6 +76,37 @@ __device__ float2 random_point_in_disk(float u1, float u2) {
 	return r * make_float2(cos_theta, sin_theta);
 }
 
+template<int N>
+__device__ float2 random_point_in_regular_n_gon(float u1, float u2) {
+	static_assert(N >= 3, "Regular n-gon must at least be a triangle!");
+
+	constexpr float n = (float)N;
+	constexpr float theta = TWO_PI / n;
+
+	// Picks point in regular n-gon by first picking a random triangle,
+	// remapping u1 to compensate, and then pick a random point within the triangle
+	float t = floor(u1 * n);
+
+	float sin_t_theta,   cos_t_theta;
+	float sin_t_theta_1, cos_t_theta_1;
+	__sincosf((t)        * theta, &sin_t_theta,   &cos_t_theta);
+	__sincosf((t + 1.0f) * theta, &sin_t_theta_1, &cos_t_theta_1);
+
+	u1 = (u1 - t/n) * n; // Remap u1
+
+	// Make sure u1 and u2 are valid barycentric coordinates
+	if (u1 + u2 > 1.0f) {
+		u1 = 1.0f - u1;
+		u2 = 1.0f - u2;
+	}
+	
+//	float area_factor = PI / (0.5f * n * sin(theta));
+
+	return 
+		u1 * make_float2(cos_t_theta,   sin_t_theta) +
+		u2 * make_float2(cos_t_theta_1, sin_t_theta_1);
+}
+
 __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_index, int bounce, unsigned & seed) {
 	float r0 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
 	float r1 = random_float_heitz(x, y, sample_index, bounce, 3, seed);

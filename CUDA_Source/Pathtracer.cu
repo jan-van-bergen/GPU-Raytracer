@@ -345,7 +345,7 @@ extern "C" __global__ void kernel_generate(
 	float y_jittered = float(y) + jitter.y;
 
 	float3 focal_point = settings.camera_focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
-	float2 lens_point = 0.5f * settings.camera_aperture * random_point_in_disk(u2, u3);
+	float2 lens_point = 0.5f * settings.camera_aperture * random_point_in_regular_n_gon<5>(u2, u3);
 
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);
