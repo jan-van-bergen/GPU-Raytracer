@@ -171,6 +171,9 @@ struct Camera {
 	float  pixel_spread_angle;
 } __device__ __constant__ camera;
 
+__device__ __constant__ PixelQuery       pixel_query        = { -1, -1 };
+__device__              PixelQueryAnswer pixel_query_answer = { -1, -1 };
+
 #include "Tracing.h"
 #include "Mipmap.h"
 
@@ -255,10 +258,18 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	unsigned ray_pixel_index_and_last_material = ray_buffer_trace.pixel_index_and_last_material[index];
 	int      ray_pixel_index = ray_pixel_index_and_last_material & ~(0b11 << 30);
 
+	int x = ray_pixel_index % screen_pitch;
+	int y = ray_pixel_index / screen_pitch;
+
 	Material::Type last_material_type = Material::Type(ray_pixel_index_and_last_material >> 30);
 
 	float3 ray_throughput = ray_buffer_trace.throughput.get(index);
-	
+
+	if (bounce == 0 && pixel_query.x == x && pixel_query.y == y) {
+		pixel_query_answer.mesh_id     = hit.mesh_id;
+		pixel_query_answer.triangle_id = hit.triangle_id;
+	}
+
 	// If we didn't hit anything, sample the Sky
 	if (hit.triangle_id == -1) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
@@ -303,9 +314,6 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		matrix3x4_transform_direction(world, light_normal);
 
 		if (bounce == 0 && settings.enable_svgf) {
-			int x = ray_pixel_index % screen_pitch;
-			int y = ray_pixel_index / screen_pitch;
-
 			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 			matrix3x4_transform_position(world_prev, light_point_prev);
 

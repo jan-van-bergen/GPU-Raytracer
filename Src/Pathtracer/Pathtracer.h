@@ -24,10 +24,15 @@ struct Pathtracer {
 	bool camera_invalidated = true;
 	bool first_frame_after_stopped_updating = true;
 
+	bool read_pixel_query = false;
+
 	int frames_accumulated = -1;
 
 	Settings settings;
 	bool     settings_changed = true;
+
+	PixelQuery       pixel_query        = { -1, -1 };
+	PixelQueryAnswer pixel_query_answer = { -1, -1 };
 
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
 
@@ -38,6 +43,10 @@ struct Pathtracer {
 	void render();
 
 private:
+	int screen_width;
+	int screen_height;
+	int screen_pitch;
+
 	int pixel_count;
 	int batch_size;
 	
@@ -67,6 +76,9 @@ private:
 	CUDAModule::Global global_buffer_sizes;
 	CUDAModule::Global global_settings;
 	CUDAModule::Global global_svgf_data;
+
+	CUDAModule::Global global_pixel_query;
+	CUDAModule::Global global_pixel_query_answer;
 	
 	CUDAMemory::Ptr<float4> ptr_direct;
 	CUDAMemory::Ptr<float4> ptr_indirect;

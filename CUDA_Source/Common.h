@@ -123,3 +123,15 @@ static_assert(SHARED_STACK_SIZE < BVH_STACK_SIZE, "Shared Stack size must be str
 #define BVH_AXIS_Y_BITS (0b10 << 30)
 #define BVH_AXIS_Z_BITS (0b11 << 30)
 #define BVH_AXIS_MASK   (0b11 << 30)
+
+
+// Used to perform mouse interaction with objects in the scene
+struct PixelQuery {
+	int x;
+	int y;
+};
+
+struct PixelQueryAnswer {
+	int mesh_id;
+	int triangle_id;
+};

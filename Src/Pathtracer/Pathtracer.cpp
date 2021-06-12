@@ -11,6 +11,8 @@
 
 #include "Math/Vector4.h"
 
+#include "Input.h"
+
 #include "Util/Random.h"
 #include "Util/BlueNoise.h"
 
@@ -550,6 +552,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	global_svgf_data = module.get_global("svgf_data");
 
+	global_pixel_query        = module.get_global("pixel_query");
+	global_pixel_query_answer = module.get_global("pixel_query_answer");
+
 	kernel_generate        .init(&module, "kernel_generate");
 	kernel_trace           .init(&module, "kernel_trace");
 	kernel_sort            .init(&module, "kernel_sort");
@@ -661,32 +666,34 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 }
 
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {
+	screen_width  = width;
+	screen_height = height;
+	screen_pitch  = Math::divide_round_up(width, WARP_SIZE) * WARP_SIZE;
+
 	pixel_count = width * height;
 	batch_size  = Math::min(BATCH_SIZE, pixel_count);
 
-	int pitch = Math::divide_round_up(width, WARP_SIZE) * WARP_SIZE;
-
-	module.get_global("screen_width") .set_value(width);
-	module.get_global("screen_pitch") .set_value(pitch);
-	module.get_global("screen_height").set_value(height);
+	module.get_global("screen_width") .set_value(screen_width);
+	module.get_global("screen_pitch") .set_value(screen_pitch);
+	module.get_global("screen_height").set_value(screen_height);
 
 	// Resize GBuffers
-	CUsurfObject surf_gbuffer_normal_and_depth     = CUDAMemory::create_surface(CUDAMemory::create_array(pitch, height, 4, CU_AD_FORMAT_FLOAT));
-	CUsurfObject surf_gbuffer_triangle_id          = CUDAMemory::create_surface(CUDAMemory::create_array(pitch, height, 2, CU_AD_FORMAT_SIGNED_INT32));
-	CUsurfObject surf_gbuffer_screen_position_prev = CUDAMemory::create_surface(CUDAMemory::create_array(pitch, height, 2, CU_AD_FORMAT_FLOAT));
+	CUsurfObject surf_gbuffer_normal_and_depth     = CUDAMemory::create_surface(CUDAMemory::create_array(screen_pitch, height, 4, CU_AD_FORMAT_FLOAT));
+	CUsurfObject surf_gbuffer_triangle_id          = CUDAMemory::create_surface(CUDAMemory::create_array(screen_pitch, height, 2, CU_AD_FORMAT_SIGNED_INT32));
+	CUsurfObject surf_gbuffer_screen_position_prev = CUDAMemory::create_surface(CUDAMemory::create_array(screen_pitch, height, 2, CU_AD_FORMAT_FLOAT));
 	
 	module.get_global("gbuffer_normal_and_depth")       .set_value(surf_gbuffer_normal_and_depth);
 	module.get_global("gbuffer_mesh_id_and_triangle_id").set_value(surf_gbuffer_triangle_id);
 	module.get_global("gbuffer_screen_position_prev")   .set_value(surf_gbuffer_screen_position_prev);
 	
 	// Create Frame Buffers
-	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
-	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
+	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float4>(screen_pitch * height).ptr);
+	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float4>(screen_pitch * height).ptr);
 	
-	ptr_direct       = CUDAMemory::malloc<float4>(pitch * height);
-	ptr_indirect     = CUDAMemory::malloc<float4>(pitch * height);
-	ptr_direct_alt   = CUDAMemory::malloc<float4>(pitch * height);
-	ptr_indirect_alt = CUDAMemory::malloc<float4>(pitch * height);
+	ptr_direct       = CUDAMemory::malloc<float4>(screen_pitch * height);
+	ptr_indirect     = CUDAMemory::malloc<float4>(screen_pitch * height);
+	ptr_direct_alt   = CUDAMemory::malloc<float4>(screen_pitch * height);
+	ptr_indirect_alt = CUDAMemory::malloc<float4>(screen_pitch * height);
 
 	module.get_global("frame_buffer_direct")  .set_value(ptr_direct  .ptr);
 	module.get_global("frame_buffer_indirect").set_value(ptr_indirect.ptr);
@@ -696,26 +703,24 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	module.get_global("accumulator").set_value(CUDAMemory::create_surface(CUDAMemory::resource_get_array(resource_accumulator)));
 
 	// Create History Buffers for SVGF
-	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>   (pitch * height).ptr);
-	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
-	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
-	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
-	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
+	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>   (screen_pitch * height).ptr);
+	module.get_global("history_direct")          .set_value(CUDAMemory::malloc<float4>(screen_pitch * height).ptr);
+	module.get_global("history_indirect")        .set_value(CUDAMemory::malloc<float4>(screen_pitch * height).ptr);
+	module.get_global("history_moment")          .set_value(CUDAMemory::malloc<float4>(screen_pitch * height).ptr);
+	module.get_global("history_normal_and_depth").set_value(CUDAMemory::malloc<float4>(screen_pitch * height).ptr);
 	
 	// Create Frame Buffers for Temporal Anti-Aliasing
-	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float4>(pitch * height));
-	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float4>(pitch * height));
-
-
+	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float4>(screen_pitch * height));
+	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float4>(screen_pitch * height));
 
 	// Set Grid dimensions for screen size dependent Kernels
-	kernel_svgf_reproject.set_grid_dim(pitch / kernel_svgf_reproject.block_dim_x, Math::divide_round_up(height, kernel_svgf_reproject.block_dim_y), 1);
-	kernel_svgf_variance .set_grid_dim(pitch / kernel_svgf_variance .block_dim_x, Math::divide_round_up(height, kernel_svgf_variance .block_dim_y), 1);
-	kernel_svgf_atrous   .set_grid_dim(pitch / kernel_svgf_atrous   .block_dim_x, Math::divide_round_up(height, kernel_svgf_atrous   .block_dim_y), 1);
-	kernel_svgf_finalize .set_grid_dim(pitch / kernel_svgf_finalize .block_dim_x, Math::divide_round_up(height, kernel_svgf_finalize .block_dim_y), 1);
-	kernel_taa           .set_grid_dim(pitch / kernel_taa           .block_dim_x, Math::divide_round_up(height, kernel_taa           .block_dim_y), 1);
-	kernel_taa_finalize  .set_grid_dim(pitch / kernel_taa_finalize  .block_dim_x, Math::divide_round_up(height, kernel_taa_finalize  .block_dim_y), 1);
-	kernel_accumulate    .set_grid_dim(pitch / kernel_accumulate    .block_dim_x, Math::divide_round_up(height, kernel_accumulate    .block_dim_y), 1);
+	kernel_svgf_reproject.set_grid_dim(screen_pitch / kernel_svgf_reproject.block_dim_x, Math::divide_round_up(height, kernel_svgf_reproject.block_dim_y), 1);
+	kernel_svgf_variance .set_grid_dim(screen_pitch / kernel_svgf_variance .block_dim_x, Math::divide_round_up(height, kernel_svgf_variance .block_dim_y), 1);
+	kernel_svgf_atrous   .set_grid_dim(screen_pitch / kernel_svgf_atrous   .block_dim_x, Math::divide_round_up(height, kernel_svgf_atrous   .block_dim_y), 1);
+	kernel_svgf_finalize .set_grid_dim(screen_pitch / kernel_svgf_finalize .block_dim_x, Math::divide_round_up(height, kernel_svgf_finalize .block_dim_y), 1);
+	kernel_taa           .set_grid_dim(screen_pitch / kernel_taa           .block_dim_x, Math::divide_round_up(height, kernel_taa           .block_dim_y), 1);
+	kernel_taa_finalize  .set_grid_dim(screen_pitch / kernel_taa_finalize  .block_dim_x, Math::divide_round_up(height, kernel_taa_finalize  .block_dim_y), 1);
+	kernel_accumulate    .set_grid_dim(screen_pitch / kernel_accumulate    .block_dim_x, Math::divide_round_up(height, kernel_accumulate    .block_dim_y), 1);
 
 	kernel_generate        .set_grid_dim(Math::divide_round_up(batch_size, kernel_generate        .block_dim_x), 1, 1);
 	kernel_sort            .set_grid_dim(Math::divide_round_up(batch_size, kernel_sort            .block_dim_x), 1, 1);
@@ -856,6 +861,25 @@ void Pathtracer::update(float delta) {
 		global_camera.set_value(cuda_camera);
 
 		camera_invalidated = false;
+	}
+
+	if (read_pixel_query) {
+		read_pixel_query = false;
+
+		CUDAMemory::memcpy(&pixel_query_answer, CUDAMemory::Ptr<PixelQueryAnswer>(global_pixel_query_answer.ptr));
+
+		// Reset pixel query
+		PixelQuery pixel_query = { -1, -1 };
+		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
+	}
+
+	if (Input::is_mouse_released()) {
+		Input::mouse_position(&pixel_query.x, &pixel_query.y);
+		pixel_query.y = screen_height - pixel_query.y; // Y-coordinate is inverted
+
+		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
+
+		read_pixel_query = true; // Read pixel query next frame
 	}
 
 	if (settings.enable_svgf) {
