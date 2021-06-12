@@ -177,6 +177,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -215,11 +216,10 @@
     <ClCompile Include="Src\Pathtracer\Pathtracer.cpp" />
     <ClCompile Include="Src\Pathtracer\Scene.cpp" />
     <ClCompile Include="Src\Pathtracer\Sky.cpp" />
-    <ClCompile Include="Src\Rasterization\GBuffer.cpp" />
-    <ClCompile Include="Src\Rasterization\Shader.cpp" />
     <ClCompile Include="Src\Util\BitArray.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />
     <ClCompile Include="Src\Util\Random.cpp" />
+    <ClCompile Include="Src\Util\Shader.cpp" />
     <ClCompile Include="Src\Util\Util.cpp" />
     <ClCompile Include="Src\Window.cpp" />
   </ItemGroup>
@@ -264,13 +264,12 @@
     <ClInclude Include="Src\Pathtracer\Scene.h" />
     <ClInclude Include="Src\Pathtracer\Sky.h" />
     <ClInclude Include="Src\Pathtracer\Triangle.h" />
-    <ClInclude Include="Src\Rasterization\GBuffer.h" />
-    <ClInclude Include="Src\Rasterization\Shader.h" />
     <ClInclude Include="Src\Util\BitArray.h" />
     <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\Random.h" />
     <ClInclude Include="Src\Util\ScopeTimer.h" />
+    <ClInclude Include="Src\Util\Shader.h" />
     <ClInclude Include="Src\Util\Util.h" />
     <ClInclude Include="Src\Window.h" />
   </ItemGroup>

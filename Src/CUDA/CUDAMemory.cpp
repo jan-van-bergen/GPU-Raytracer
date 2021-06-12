@@ -45,6 +45,32 @@ void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, const
 	CUDACALL(cuMemcpy2D(&copy));
 }
 
+CUtexObject CUDAMemory::create_texture(CUarray array, CUfilter_mode filter) {	
+	CUDA_RESOURCE_DESC res_desc = { };
+	res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
+	res_desc.res.array.hArray = array;
+
+	CUDA_TEXTURE_DESC tex_desc = { };
+	tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+	tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+	tex_desc.filterMode = filter;
+	tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
+
+	CUtexObject tex_object; CUDACALL(cuTexObjectCreate(&tex_object, &res_desc, &tex_desc, nullptr));
+
+	return tex_object;
+}
+
+CUsurfObject CUDAMemory::create_surface(CUarray array) {
+	CUDA_RESOURCE_DESC desc = { };
+	desc.resType = CU_RESOURCE_TYPE_ARRAY;
+	desc.res.array.hArray = array;
+
+	CUsurfObject surf_object; CUDACALL(cuSurfObjectCreate(&surf_object, &desc));
+
+	return surf_object;
+}
+
 CUgraphicsResource CUDAMemory::resource_register(unsigned gl_texture, unsigned flags) {
 	CUgraphicsResource resource; 
 	CUDACALL(cuGraphicsGLRegisterImage(&resource, gl_texture, GL_TEXTURE_2D, flags));

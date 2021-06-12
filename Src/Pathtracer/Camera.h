@@ -29,15 +29,10 @@ struct Camera {
 
 	bool moved;
 
-	Vector2 jitter;
-	int     jitter_index;
-	
 	inline void init(float fov, float near = 0.1f, float far = 300.0f) {
 		this->fov = fov;
 		this->near = near;
 		this->far  = far;
-
-		jitter_index = 0;
 	}
 
 	void resize(int width, int height);

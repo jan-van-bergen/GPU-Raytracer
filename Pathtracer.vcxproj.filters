@@ -61,12 +61,6 @@
     <ClCompile Include="Src\Pathtracer\Sky.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Rasterization\GBuffer.cpp">
-      <Filter>Rasterization</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Rasterization\Shader.cpp">
-      <Filter>Rasterization</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Util\BitArray.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -88,6 +82,9 @@
     <ClCompile Include="Src\Math\AABB.cpp">
       <Filter>Math</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Util\Shader.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -107,9 +104,6 @@
     </Filter>
     <Filter Include="Assets">
       <UniqueIdentifier>{6f3338e2-ac89-4452-8dcb-2d4fb9144c6e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Rasterization">
-      <UniqueIdentifier>{94ec5997-5e22-435c-9755-99dc6ec96aa9}</UniqueIdentifier>
     </Filter>
     <Filter Include="Imgui">
       <UniqueIdentifier>{037b16ff-a350-4457-a943-8623a74530aa}</UniqueIdentifier>
@@ -230,12 +224,6 @@
     <ClInclude Include="Src\Pathtracer\Triangle.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Rasterization\GBuffer.h">
-      <Filter>Rasterization</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Rasterization\Shader.h">
-      <Filter>Rasterization</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\BitArray.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -261,6 +249,9 @@
     </ClInclude>
     <ClInclude Include="Src\Math\AABB.h">
       <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Shader.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,21 +1,79 @@
 #define epsilon 1e-8f // To avoid division by 0
 
-__device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth, float max_change_z) {
+struct Matrix4x4 {
+	float4 row_0;
+	float4 row_1;
+	float4 row_2;
+	float4 row_3;
+};
+
+__device__ inline void matrix4x4_transform(const Matrix4x4 & matrix, float4 & position) {
+	position = make_float4( 
+		matrix.row_0.x * position.x + matrix.row_0.y * position.y + matrix.row_0.z * position.z + matrix.row_0.w * position.w,
+		matrix.row_1.x * position.x + matrix.row_1.y * position.y + matrix.row_1.z * position.z + matrix.row_1.w * position.w,
+		matrix.row_2.x * position.x + matrix.row_2.y * position.y + matrix.row_2.z * position.z + matrix.row_2.w * position.w,
+		matrix.row_3.x * position.x + matrix.row_3.y * position.y + matrix.row_3.z * position.z + matrix.row_3.w * position.w
+	);
+}
+
+struct SVGFData {
+	Matrix4x4 view_projection;
+	Matrix4x4 view_projection_prev;
+};
+
+__device__ __constant__ SVGFData svgf_data;
+
+__device__ inline SVGFData svgf_get_data() {
+	SVGFData data;
+	data.view_projection     .row_0 = __ldg(&svgf_data.view_projection     .row_0);
+	data.view_projection     .row_1 = __ldg(&svgf_data.view_projection     .row_1);
+	data.view_projection     .row_2 = __ldg(&svgf_data.view_projection     .row_2);
+	data.view_projection     .row_3 = __ldg(&svgf_data.view_projection     .row_3);
+	data.view_projection_prev.row_0 = __ldg(&svgf_data.view_projection_prev.row_0);
+	data.view_projection_prev.row_1 = __ldg(&svgf_data.view_projection_prev.row_1);
+	data.view_projection_prev.row_2 = __ldg(&svgf_data.view_projection_prev.row_2);
+	data.view_projection_prev.row_3 = __ldg(&svgf_data.view_projection_prev.row_3);
+
+	return data;
+}
+
+__device__ inline void svgf_set_gbuffers(int x, int y, const RayHit & hit, const float3 & hit_point, const float3 & hit_normal, const float3 & hit_point_prev) {
+	float4 projected_hit_point      = make_float4(hit_point,      1.0f);
+	float4 projected_hit_point_prev = make_float4(hit_point_prev, 1.0f);
+
+	SVGFData svgf_data = svgf_get_data();
+
+	matrix4x4_transform(svgf_data.view_projection,      projected_hit_point);
+	matrix4x4_transform(svgf_data.view_projection_prev, projected_hit_point_prev);
+
+	float depth      = projected_hit_point     .z;
+	float depth_prev = projected_hit_point_prev.z;
+
+	float2 normal_oct = oct_encode_normal(hit_normal);
+
+	gbuffer_normal_and_depth       .set(x, y, make_float4(normal_oct.x, normal_oct.y, depth, depth_prev));
+	gbuffer_mesh_id_and_triangle_id.set(x, y, make_int2(hit.mesh_id, hit.triangle_id));
+	gbuffer_screen_position_prev   .set(x, y, make_float2(
+		projected_hit_point_prev.x / projected_hit_point_prev.w,
+		projected_hit_point_prev.y / projected_hit_point_prev.w
+	));
+}
+
+__device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth) {
 	if (x < 0 || x >= screen_width)  return false;
 	if (y < 0 || y >= screen_height) return false;
 
 	float4 prev_normal_and_depth = history_normal_and_depth[x + y * screen_pitch];
-	
 	float3 prev_normal = oct_decode_normal(make_float2(prev_normal_and_depth.x, prev_normal_and_depth.y));
-	float prev_depth = prev_normal_and_depth.z;
+	float  prev_depth  = prev_normal_and_depth.z;
 
-	const float threshold_normal = 0.95f;
-	const float threshold_depth  = 2.0f;
+	const float THRESHOLD_NORMAL = 0.95f;
+	const float THRESHOLD_DEPTH  = 2.0f;
 
-	bool consistent_normals = dot(normal, prev_normal)  > threshold_normal;
-	bool consistent_depth   = fabsf(depth - prev_depth) < threshold_depth;
+	bool consistent_normal = dot(normal, prev_normal)  > THRESHOLD_NORMAL;
+	bool consistent_depth  = fabsf(depth - prev_depth) < THRESHOLD_DEPTH;
 
-	return consistent_normals && consistent_depth;
+	return consistent_normal && consistent_depth;
 }
 
 __device__ inline float2 edge_stopping_weights(
@@ -48,7 +106,7 @@ __device__ inline float2 edge_stopping_weights(
 	return make_float2(w_l_direct, w_l_indirect);
 }
 
-extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
+extern "C" __global__ void kernel_svgf_reproject(int sample_index) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -66,15 +124,12 @@ extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 	moment.z = moment.x * moment.x;
 	moment.w = moment.y * moment.y;
 
-	float u = (float(x) + 0.5f) / float(screen_width)  - jitter.x;
-	float v = (float(y) + 0.5f) / float(screen_height) - jitter.y;
-
-	float4 normal_and_depth     = gbuffer_normal_and_depth    .get(u, v);
-	float2 screen_position_prev = gbuffer_screen_position_prev.get(u, v);
+	float4 normal_and_depth     = gbuffer_normal_and_depth    .get(x, y);
+	float2 screen_position_prev = gbuffer_screen_position_prev.get(x, y);
 
 	float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
-	float depth      = normal_and_depth.z;
-	float depth_prev = normal_and_depth.w;
+	float  depth      = normal_and_depth.z;
+	float  depth_prev = normal_and_depth.w;
 
 	// Check if this pixel belongs to the Skybox
 	if (depth == 0.0f) {
@@ -84,18 +139,15 @@ extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 		return;
 	}
 
-	float2 depth_gradient = gbuffer_depth_gradient.get(u, v);
-	float  max_change_z   = fmaxf(fabsf(depth_gradient.x), fabsf(depth_gradient.y)) + epsilon;
-
 	// Convert from [-1, 1] to [0, 1]
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
 	float v_prev = 0.5f + 0.5f * screen_position_prev.y;
 
-	float s_prev = u_prev * float(screen_width)  - 0.5f;
-	float t_prev = v_prev * float(screen_height) - 0.5f;
+	float s_prev = u_prev * float(screen_width) ;
+	float t_prev = v_prev * float(screen_height);
 	
-	int x_prev = int(s_prev);
-	int y_prev = int(t_prev);
+	int x_prev = int(s_prev - 0.5f);
+	int y_prev = int(t_prev - 0.5f);
 
 	// Calculate bilinear weights
 	float fractional_s = s_prev - floor(s_prev);
@@ -110,25 +162,19 @@ extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 	float w3 = 1.0f - w0 - w1 - w2;
 
 	float weights[4] = { w0, w1, w2, w3 };
-
-	float consistent_weights[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	float consistent_weights_sum = 0.0f;
 
-	const int2 offsets[4] = {
-		{ 0, 0 }, { 1, 0 },
-		{ 0, 1 }, { 1, 1 }
-	};
-
-	// For each tap in a 2x2 bilinear filter, check if the reprojection is consistent
+	// For each tap in a 2x2 bilinear filter, check if the re-projection is consistent
 	// We sum the consistent bilinear weights for normalization purposes later on (weights should always add up to 1)
-	for (int tap = 0; tap < 4; tap++) {
-		int2 offset = offsets[tap];
+	for (int j = 0; j < 2; j++) {
+		for (int i = 0; i < 2; i++) {
+			int tap = i + j * 2;
 
-		if (is_tap_consistent(x_prev + offset.x, y_prev + offset.y, normal, depth_prev, max_change_z)) {
-			float weight = weights[tap];
-
-			consistent_weights[tap] = weight;
-			consistent_weights_sum += weight;
+			if (is_tap_consistent(x_prev + i, y_prev + j, normal, depth_prev)) {
+				consistent_weights_sum += weights[tap];
+			} else {
+				weights[tap] = 0.0f;
+			}
 		}
 	}
 
@@ -139,22 +185,23 @@ extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 	// If we already found at least 1 consistent tap
 	if (consistent_weights_sum > 0.0f) {
 		// Add consistent taps using their bilinear weight
-		for (int tap = 0; tap < 4; tap++) {
-			if (consistent_weights[tap] != 0.0f) {
-				int2 offset = offsets[tap];
-				
-				int tap_x = x_prev + offset.x;
-				int tap_y = y_prev + offset.y;
+		for (int j = 0; j < 2; j++) {
+			for (int i = 0; i < 2; i++) {
+				int tap = i + j * 2;
 
-				int tap_index = tap_x + tap_y * screen_pitch;
+				if (weights[tap] != 0.0f) {
+					int tap_x = x_prev + i;
+					int tap_y = y_prev + j;
+					int tap_index = tap_x + tap_y * screen_pitch;
 
-				float4 tap_direct   = history_direct  [tap_index];
-				float4 tap_indirect = history_indirect[tap_index];
-				float4 tap_moment   = history_moment  [tap_index];
+					float4 tap_direct   = history_direct  [tap_index];
+					float4 tap_indirect = history_indirect[tap_index];
+					float4 tap_moment   = history_moment  [tap_index];
 
-				prev_direct   += consistent_weights[tap] * tap_direct;
-				prev_indirect += consistent_weights[tap] * tap_indirect;
-				prev_moment   += consistent_weights[tap] * tap_moment;
+					prev_direct   += weights[tap] * tap_direct;
+					prev_indirect += weights[tap] * tap_indirect;
+					prev_moment   += weights[tap] * tap_moment;
+				}
 			}
 		}
 	} else {
@@ -164,7 +211,7 @@ extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 				int tap_x = x_prev + i;
 				int tap_y = y_prev + j;
 
-				if (is_tap_consistent(tap_x, tap_y, normal, depth_prev, max_change_z)) {
+				if (is_tap_consistent(tap_x, tap_y, normal, depth_prev)) {
 					int tap_index = tap_x + tap_y * screen_pitch;
 
 					prev_direct   += history_direct  [tap_index];
@@ -190,15 +237,15 @@ extern "C" __global__ void kernel_svgf_temporal(float2 jitter) {
 		float alpha_moment = fmaxf(settings.alpha_moment, inv_history);
 
 		// Integrate using exponential moving average
-		direct   = alpha_colour * direct   + (1.0f - alpha_colour) * prev_direct;
-		indirect = alpha_colour * indirect + (1.0f - alpha_colour) * prev_indirect;
-		moment   = alpha_moment * moment   + (1.0f - alpha_moment) * prev_moment;
+		direct   = lerp(prev_direct,   direct,   alpha_colour);
+		indirect = lerp(prev_indirect, indirect, alpha_colour);
+		moment   = lerp(prev_moment,   moment,   alpha_moment);
 		
-		if (history >= 4) {
+		if (history >= 4 || !settings.enable_spatial_variance) {
 			float variance_direct   = fmaxf(0.0f, moment.z - moment.x * moment.x);
 			float variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
 			
-			// Store the Variance in the alpha channel
+			// Store the Variance in the alpha channels
 			direct  .w = variance_direct;
 			indirect.w = variance_indirect;
 		}
@@ -227,21 +274,16 @@ extern "C" __global__ void kernel_svgf_variance(
 
 	int pixel_index = x + y * screen_pitch;
 
-	float u = (float(x) + 0.5f) / float(screen_width);
-	float v = (float(y) + 0.5f) / float(screen_height);
-
 	int history = history_length[pixel_index];
 
 	if (history >= 4) {
-		// @SPEED
 		colour_direct_out  [pixel_index] = colour_direct_in  [pixel_index];
 		colour_indirect_out[pixel_index] = colour_indirect_in[pixel_index];
 
 		return;
 	}
 
-	float luminance_denom_direct   = 1.0f / settings.sigma_l;
-	float luminance_denom_indirect = 1.0f / settings.sigma_l;
+	float luminance_denom = 1.0f / settings.sigma_l;
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -249,11 +291,15 @@ extern "C" __global__ void kernel_svgf_variance(
 	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
 	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
 
-	float4 center_normal_and_depth = gbuffer_normal_and_depth.get(u, v);
-	float2 center_depth_gradient   = gbuffer_depth_gradient  .get(u, v);
+	float4 center_normal_and_depth = gbuffer_normal_and_depth.get(x, y);
 
 	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
-	float center_depth = center_normal_and_depth.z;
+	float  center_depth  = center_normal_and_depth.z;
+
+	float2 center_depth_gradient = make_float2(
+		gbuffer_normal_and_depth.get(x + 1, y    ).z - center_depth,
+		gbuffer_normal_and_depth.get(x,     y + 1).z - center_depth
+	);
 
 	// Check if this pixel belongs to the Skybox
 	if (center_depth == 0.0f) {
@@ -287,9 +333,6 @@ extern "C" __global__ void kernel_svgf_variance(
 
 			int tap_index = tap_x + tap_y * screen_pitch;
 
-			float tap_u = (float(tap_x) + 0.5f) / float(screen_width);
-			float tap_v = (float(tap_y) + 0.5f) / float(screen_height);
-
 			float4 colour_direct   = colour_direct_in   [tap_index];
 			float4 colour_indirect = colour_indirect_in [tap_index];
 			float4 moment          = frame_buffer_moment[tap_index];
@@ -297,7 +340,7 @@ extern "C" __global__ void kernel_svgf_variance(
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
 
-			float4 normal_and_depth = gbuffer_normal_and_depth.get(tap_u, tap_v);
+			float4 normal_and_depth = gbuffer_normal_and_depth.get(tap_x, tap_y);
 
 			float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 			float depth = normal_and_depth.z;
@@ -308,8 +351,8 @@ extern "C" __global__ void kernel_svgf_variance(
 				center_depth, depth,
 				center_normal, normal,
 				center_luminance_direct, center_luminance_indirect,
-				luminance_direct,       luminance_indirect,
-				luminance_denom_direct, luminance_denom_indirect
+				luminance_direct, luminance_indirect,
+				luminance_denom, luminance_denom
 			);
 
 			float w_direct   = w.x;
@@ -366,9 +409,6 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 	int pixel_index = x + y * screen_pitch;
 
-	float u = (float(x) + 0.5f) / float(screen_width);
-	float v = (float(y) + 0.5f) / float(screen_height);
-
 	float variance_blurred_direct   = 0.0f;
 	float variance_blurred_indirect = 0.0f;
 
@@ -406,14 +446,18 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float center_luminance_direct   = luminance(center_colour_direct.x,   center_colour_direct.y,   center_colour_direct.z);
 	float center_luminance_indirect = luminance(center_colour_indirect.x, center_colour_indirect.y, center_colour_indirect.z);
 
-	float4 center_normal_and_depth = gbuffer_normal_and_depth.get(u, v);
-	float2 center_depth_gradient   = gbuffer_depth_gradient  .get(u, v);
+	float4 center_normal_and_depth = gbuffer_normal_and_depth.get(x, y);
 
 	float3 center_normal = oct_decode_normal(make_float2(center_normal_and_depth.x, center_normal_and_depth.y));
-	float center_depth = center_normal_and_depth.z;
+	float  center_depth  = center_normal_and_depth.z;
 
 	// Check if the pixel belongs to the Skybox
 	if (center_depth == 0.0f) return;
+
+	float2 center_depth_gradient = make_float2(
+		gbuffer_normal_and_depth.get(x + 1, y    ).z - center_depth,
+		gbuffer_normal_and_depth.get(x,     y + 1).z - center_depth
+	);
 
 	float  sum_weight_direct   = 1.0f;
 	float  sum_weight_indirect = 1.0f;
@@ -435,16 +479,13 @@ extern "C" __global__ void kernel_svgf_atrous(
 			
 			if (i == 0 && j == 0) continue; // Center pixel is treated separately
 
-			float tap_u = (float(tap_x) + 0.5f) / float(screen_width);
-			float tap_v = (float(tap_y) + 0.5f) / float(screen_height);
-
 			float4 colour_direct   = colour_direct_in  [tap_x + tap_y * screen_pitch];
 			float4 colour_indirect = colour_indirect_in[tap_x + tap_y * screen_pitch];
 
 			float luminance_direct   = luminance(colour_direct.x,   colour_direct.y,   colour_direct.z);
 			float luminance_indirect = luminance(colour_indirect.x, colour_indirect.y, colour_indirect.z);
 
-			float4 normal_and_depth = gbuffer_normal_and_depth.get(tap_u, tap_v);
+			float4 normal_and_depth = gbuffer_normal_and_depth.get(tap_x, tap_y);
 
 			float3 normal = oct_decode_normal(make_float2(normal_and_depth.x, normal_and_depth.y));
 			float depth = normal_and_depth.z;
@@ -466,8 +507,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 			sum_weight_direct   += weight_direct;
 			sum_weight_indirect += weight_indirect;
 
-			// Filter Colour   using the weights
-			// Filter Variance using the square of the weights
+			// Filter Colour using the weights, filter Variance using the square of the weights
 			sum_colour_direct   += make_float4(weight_direct,   weight_direct,   weight_direct,   weight_direct   * weight_direct)   * colour_direct;
 			sum_colour_indirect += make_float4(weight_indirect, weight_indirect, weight_indirect, weight_indirect * weight_indirect) * colour_indirect;
 		}
@@ -500,7 +540,6 @@ extern "C" __global__ void kernel_svgf_atrous(
 // multiple pixels may read from the same texel,
 // thus we can only update it after all reads are done
 extern "C" __global__ void kernel_svgf_finalize(
-	float2 jitter,
 	const float4 * colour_direct,
 	const float4 * colour_indirect
 ) {
@@ -536,10 +575,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 moment = frame_buffer_moment[pixel_index];
 
-	float u = (float(x) + 0.5f) / float(screen_width)  - jitter.x;
-	float v = (float(y) + 0.5f) / float(screen_height) - jitter.y;
-
-	float4 normal_and_depth = gbuffer_normal_and_depth.get(u, v);
+	float4 normal_and_depth = gbuffer_normal_and_depth.get(x, y);
 
 	if (settings.atrous_iterations <= feedback_iteration) {
 		// Normally the à-trous filter copies the illumination history,
@@ -555,4 +591,11 @@ extern "C" __global__ void kernel_svgf_finalize(
 	frame_buffer_albedo  [pixel_index] = make_float4(0.0f);
 	frame_buffer_direct  [pixel_index] = make_float4(0.0f);
 	frame_buffer_indirect[pixel_index] = make_float4(0.0f);
+
+	gbuffer_normal_and_depth       .set(x, y, make_float4(0.0f));
+	gbuffer_mesh_id_and_triangle_id.set(x, y, make_int2(0));
+	if (!settings.enable_taa) {
+		// TAA previous screen space positions as well, don't clear here if TAA is enabled
+		gbuffer_screen_position_prev.set(x, y, make_float2(0.0f));
+	}
 }

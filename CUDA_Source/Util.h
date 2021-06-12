@@ -34,7 +34,7 @@ struct Surface {
 		// assert(y >= 0 && y < screen_height);
 		
 		T value;
-		surf2Dread<T>(&value, surface, x * sizeof(T), y);
+		surf2Dread<T>(&value, surface, x * sizeof(T), y, cudaBoundaryModeClamp);
 		return value;
 	}
 
@@ -64,6 +64,11 @@ __device__ inline float3 ycocg_to_rgb(const float3 & colour) {
 		saturate(colour.x            + colour.z),
 		saturate(colour.x - colour.y - colour.z)
 	);
+}
+
+template<typename T>
+__device__ T lerp(T const & a, T const & b, float t) {
+	return (1.0f - t) * a + t * b;
 }
 
 template<typename T>
@@ -112,6 +117,18 @@ __device__ inline int atomic_agg_inc(int * ctr) {
 }
 
 // Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
+__device__ inline float2 oct_encode_normal(float3 n) {
+	n /= (abs(n.x) + abs(n.y) + abs(n.z));
+
+	if (n.z < 0.0f) {
+		// Oct wrap
+		n.x = (1.0f - abs(n.y)) * (n.x >= 0.0f ? +1.0f : -1.0f);	
+		n.y = (1.0f - abs(n.x)) * (n.y >= 0.0f ? +1.0f : -1.0f);
+	}
+
+	return make_float2(0.5f + 0.5f * n.x, 0.5f + 0.5f * n.y);
+}
+
 __device__ inline float3 oct_decode_normal(float2 f) {
 	f = f * 2.0f - 1.0f;
 
@@ -160,7 +177,7 @@ __device__ unsigned extract_byte(unsigned x, unsigned i) {
 	return (x >> (i * 8)) & 0xff;
 }
 
-// VMIN, VMAX functions, see "Understanding the Efficiency of Ray Traversal on GPUs –Kepler and Fermi Addendum" by Aila et al.
+// VMIN, VMAX functions, see "Understanding the Efficiency of Ray Traversal on GPUs – Kepler and Fermi Addendum" by Aila et al.
 
 // Computes min(min(a, b), c)
 __device__ float vmin_min(float a, float b, float c) {

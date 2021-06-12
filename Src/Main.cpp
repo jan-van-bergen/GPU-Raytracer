@@ -248,14 +248,18 @@ int main(int argument_count, char ** arguments) {
 			settings_changed |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
 			settings_changed |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
 
-			settings_changed |= ImGui::Checkbox("Rasterize Primary Rays", &pathtracer.settings.enable_rasterization);
-			settings_changed |= ImGui::Checkbox("NEE",                    &pathtracer.settings.enable_next_event_estimation);
-			settings_changed |= ImGui::Checkbox("MIS",                    &pathtracer.settings.enable_multiple_importance_sampling);
-			settings_changed |= ImGui::Checkbox("Update Scene",           &pathtracer.settings.enable_scene_update);
-			settings_changed |= ImGui::Checkbox("SVGF",                   &pathtracer.settings.enable_svgf);
-			settings_changed |= ImGui::Checkbox("Spatial Variance",       &pathtracer.settings.enable_spatial_variance);
-			settings_changed |= ImGui::Checkbox("TAA",                    &pathtracer.settings.enable_taa);
-			settings_changed |= ImGui::Checkbox("Modulate Albedo",        &pathtracer.settings.modulate_albedo);
+			settings_changed |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
+			settings_changed |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
+			
+			if (ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update)) {
+				settings_changed = true;
+				pathtracer.first_frame_after_stopped_updating = true;
+			}
+
+			settings_changed |= ImGui::Checkbox("SVGF",              &pathtracer.settings.enable_svgf);
+			settings_changed |= ImGui::Checkbox("Spatial Variance",  &pathtracer.settings.enable_spatial_variance);
+			settings_changed |= ImGui::Checkbox("TAA",               &pathtracer.settings.enable_taa);
+			settings_changed |= ImGui::Checkbox("Modulate Albedo",   &pathtracer.settings.modulate_albedo);
 
 			settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
 

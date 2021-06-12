@@ -65,7 +65,7 @@ Window::Window(const char * title) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	shader = Shader::load(DATA_PATH("Shaders/screen_vertex.glsl"), DATA_PATH("Shaders/screen_fragment.glsl"));
+	shader = Shader::load("Shaders/screen_vertex.glsl", "Shaders/screen_fragment.glsl");
 	shader.bind();
 	
 	glUniform1i(shader.get_uniform("screen"), 0);

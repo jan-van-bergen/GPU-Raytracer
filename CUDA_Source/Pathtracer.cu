@@ -17,33 +17,38 @@ __device__ __constant__ Settings settings;
 #define INFINITY ((float)(1e+300 * 1e+300))
 
 // Frame Buffers
-__device__ float4 * frame_buffer_albedo;
-__device__ float4 * frame_buffer_direct;
-__device__ float4 * frame_buffer_indirect;
+__device__ __constant__ float4 * frame_buffer_albedo;
+__device__ __constant__ float4 * frame_buffer_direct;
+__device__ __constant__ float4 * frame_buffer_indirect;
 
-__device__ float4 * frame_buffer_moment;
+__device__ __constant__ float4 * frame_buffer_moment; // For SVGF
 
-// GBuffers (OpenGL resource-mapped textures)
-__device__ Texture<float4> gbuffer_normal_and_depth;
-__device__ Texture<float2> gbuffer_uv;
-__device__ Texture<float4> gbuffer_uv_gradient;
-__device__ Texture<int2>   gbuffer_mesh_id_and_triangle_id;
-__device__ Texture<float2> gbuffer_screen_position_prev;
-__device__ Texture<float2> gbuffer_depth_gradient;
+// GBuffers used by SVGF
+__device__ __constant__ Surface<float4> gbuffer_normal_and_depth;
+__device__ __constant__ Surface<int2>   gbuffer_mesh_id_and_triangle_id;
+__device__ __constant__ Surface<float2> gbuffer_screen_position_prev;
 
 // SVGF History Buffers (Temporally Integrated)
-__device__ int    * history_length;
-__device__ float4 * history_direct;
-__device__ float4 * history_indirect;
-__device__ float4 * history_moment;
-__device__ float4 * history_normal_and_depth;
+__device__ __constant__ int    * history_length;
+__device__ __constant__ float4 * history_direct;
+__device__ __constant__ float4 * history_indirect;
+__device__ __constant__ float4 * history_moment;
+__device__ __constant__ float4 * history_normal_and_depth;
 
-// Used for Temporal Anti-Aliasing
-__device__ float4 * taa_frame_curr;
-__device__ float4 * taa_frame_prev;
+// Used for TAA
+__device__ __constant__ float4 * taa_frame_curr;
+__device__ __constant__ float4 * taa_frame_prev;
 
-// Final Frame buffer, shared with OpenGL
-__device__ Surface<float4> accumulator; 
+// Final Frame Buffer, shared with OpenGL
+__device__ __constant__ Surface<float4> accumulator; 
+
+struct RayHit {
+	float t;
+	float u, v;
+
+	int mesh_id;
+	int triangle_id;
+};
 
 #include "SVGF.h"
 #include "TAA.h"
@@ -67,14 +72,6 @@ struct Vector3_SoA {
 			z[index]
 		);
 	}
-};
-
-struct RayHit {
-	float t;
-	float u, v;
-
-	int mesh_id;
-	int triangle_id;
 };
 
 struct HitBuffer {
@@ -145,11 +142,11 @@ struct ShadowRayBuffer {
 	Vector3_SoA illumination;
 };
 
-__device__ TraceBuffer     ray_buffer_trace;
-__device__ MaterialBuffer  ray_buffer_shade_diffuse;
-__device__ MaterialBuffer  ray_buffer_shade_dielectric;
-__device__ MaterialBuffer  ray_buffer_shade_glossy;
-__device__ ShadowRayBuffer ray_buffer_shadow;
+__device__ __constant__ TraceBuffer     ray_buffer_trace;
+__device__ __constant__ MaterialBuffer  ray_buffer_shade_diffuse;
+__device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric;
+__device__ __constant__ MaterialBuffer  ray_buffer_shade_glossy;
+__device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
 
 // Number of elements in each Buffer
 // Sizes are stored for ALL bounces so we only have to reset these
@@ -177,127 +174,6 @@ struct Camera {
 #include "Tracing.h"
 #include "Mipmap.h"
 
-// Sends the rasterized GBuffer to the right Material kernels,
-// as if the primary Rays they were Raytraced 
-extern "C" __global__ void kernel_primary(
-	int rand_seed,
-	int sample_index,
-	int pixel_offset,
-	int pixel_count,
-	bool jitter
-) {
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= pixel_count) return;
-
-	int index_offset = index + pixel_offset;
-	int x = index_offset % screen_width;
-	int y = index_offset / screen_width;
-
-	int pixel_index = x + y * screen_pitch;
-
-	unsigned seed = wang_hash(pixel_index ^ rand_seed);
-
-	float u_screenspace = float(x) + 0.5f;
-	float v_screenspace = float(y) + 0.5f;
-
-	float u = u_screenspace / float(screen_width);
-	float v = v_screenspace / float(screen_height);
-
-	float2 uv          = gbuffer_uv         .get(u, v);
-	float4 uv_gradient = gbuffer_uv_gradient.get(u, v);
-
-	int2 mesh_id_and_triangle_id = gbuffer_mesh_id_and_triangle_id.get(u, v);
-	int mesh_id     = mesh_id_and_triangle_id.x;
-	int triangle_id = mesh_id_and_triangle_id.y - 1;
-
-	float dx = 0.0f;
-	float dy = 0.0f;
-	
-	if (jitter) {
-		// Jitter the barycentric coordinates in screen space using their screen space differentials
-		dx = random_float_heitz(x, y, sample_index, 0, 0, seed) - 0.5f;
-		dy = random_float_heitz(x, y, sample_index, 0, 1, seed) - 0.5f;
-
-		uv.x = saturate(uv.x + uv_gradient.x * dx + uv_gradient.z * dy);
-		uv.y = saturate(uv.y + uv_gradient.y * dx + uv_gradient.w * dy);
-	}
-
-	float2 pixel_coord = make_float2(u_screenspace + dx, v_screenspace + dy);
-
-	float3 ray_direction = normalize(camera.bottom_left_corner + pixel_coord.x * camera.x_axis + pixel_coord.y * camera.y_axis);
-
-	// Triangle ID -1 means no hit
-	if (triangle_id == -1) {
-		if (settings.modulate_albedo || settings.enable_svgf) {
-			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
-		}
-		frame_buffer_direct[pixel_index] = make_float4(sample_sky(ray_direction));
-
-		return;
-	}
-
-	RayHit ray_hit;
-	ray_hit.mesh_id     = mesh_id;
-	ray_hit.triangle_id = triangle_id;
-	ray_hit.t = 0.0f;
-	ray_hit.u = uv.x;
-	ray_hit.v = uv.y;
-
-	const Material & material = materials[triangle_get_material_id(triangle_id)];
-
-	// Decide which Kernel to invoke, based on Material Type
-	switch (material.type) {
-		case Material::Type::LIGHT: {
-			// Terminate Path
-			if (settings.modulate_albedo || settings.enable_svgf) {
-				frame_buffer_albedo[pixel_index] = make_float4(1.0f);
-			}
-			frame_buffer_direct[pixel_index] = make_float4(material.emission);
-
-			break;
-		}
-		
-		case Material::Type::DIFFUSE: {
-			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[0]);
-
-			ray_buffer_shade_diffuse.direction.set(index_out, ray_direction);
-
-			ray_buffer_shade_diffuse.hits.set(index_out, ray_hit);
-
-			ray_buffer_shade_diffuse.pixel_index[index_out] = pixel_index;
-			ray_buffer_shade_diffuse.throughput.set(index_out, make_float3(1.0f));
-
-			break;
-		}
-
-		case Material::Type::DIELECTRIC: {
-			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[0]);
-
-			ray_buffer_shade_dielectric.direction.set(index_out, ray_direction);
-
-			ray_buffer_shade_dielectric.hits.set(index_out, ray_hit);
-
-			ray_buffer_shade_dielectric.pixel_index[index_out] = pixel_index;
-			ray_buffer_shade_dielectric.throughput.set(index_out, make_float3(1.0f));
-			
-			break;
-		}
-
-		case Material::Type::GLOSSY: {
-			int index_out = atomic_agg_inc(&buffer_sizes.glossy[0]);
-
-			ray_buffer_shade_glossy.direction.set(index_out, ray_direction);
-
-			ray_buffer_shade_glossy.hits.set(index_out, ray_hit);
-
-			ray_buffer_shade_glossy.pixel_index[index_out] = pixel_index;
-			ray_buffer_shade_glossy.throughput.set(index_out, make_float3(1.0f));
-			
-			break;
-		}
-	}
-}
-
 extern "C" __global__ void kernel_generate(
 	int rand_seed,
 	int sample_index,
@@ -323,21 +199,26 @@ extern "C" __global__ void kernel_generate(
 
 	float2 jitter;
 
-	switch (settings.reconstruction_filter) {
-		case ReconstructionFilter::BOX: {
-			jitter.x = u1;
-			jitter.y = u2;
+	if (settings.enable_svgf) {
+		jitter.x = taa_halton_x[sample_index & (TAA_HALTON_NUM_SAMPLES-1)];
+		jitter.y = taa_halton_y[sample_index & (TAA_HALTON_NUM_SAMPLES-1)];
+	} else {
+		switch (settings.reconstruction_filter) {
+			case ReconstructionFilter::BOX: {
+				jitter.x = u1;
+				jitter.y = u2;
 
-			break;
-		}
+				break;
+			}
 
-		case ReconstructionFilter::GAUSSIAN: {
-			float2 gaussians = box_muller(u1, u2);
+			case ReconstructionFilter::GAUSSIAN: {
+				float2 gaussians = box_muller(u1, u2);
 
-			jitter.x = 0.5f + 0.5f * gaussians.x;
-			jitter.y = 0.5f + 0.5f * gaussians.y;
-		
-			break;
+				jitter.x = 0.5f + 0.5f * gaussians.x;
+				jitter.y = 0.5f + 0.5f * gaussians.y;
+			
+				break;
+			}
 		}
 	}
 
@@ -407,6 +288,30 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 				(last_material_type == Material::Type::GLOSSY && material.roughness < ROUGHNESS_CUTOFF);
 		}
 
+		// Obtain the Light's position and normal
+		TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
+
+		float3 light_point;
+		float3 light_normal;
+		triangle_barycentric(light, hit.u, hit.v, light_point, light_normal);
+
+		float3 light_point_prev = light_point;
+
+		// Transform into world space
+		Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+		matrix3x4_transform_position (world, light_point);
+		matrix3x4_transform_direction(world, light_normal);
+
+		if (bounce == 0 && settings.enable_svgf) {
+			int x = ray_pixel_index % screen_pitch;
+			int y = ray_pixel_index / screen_pitch;
+
+			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
+			matrix3x4_transform_position(world_prev, light_point_prev);
+
+			svgf_set_gbuffers(x, y, hit, light_point, light_normal, light_point_prev);
+		}
+
 		if (no_mis) {
 			float3 illumination = ray_throughput * material.emission;
 
@@ -424,19 +329,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			return;
 		}
 
-		if (settings.enable_multiple_importance_sampling) {
-			// Obtain the Light's position and normal
-			TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
-
-			float3 light_point;
-			float3 light_normal;
-			triangle_barycentric(light, hit.u, hit.v, light_point, light_normal);
-
-			// Transform into world space
-			Matrix3x4 world = mesh_get_transform(hit.mesh_id);
-			matrix3x4_transform_position (world, light_point);
-			matrix3x4_transform_direction(world, light_normal);
-
+		if (settings.enable_multiple_importance_sampling) {		
 			float3 to_light = light_point - ray_origin;;
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
@@ -470,12 +363,18 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	unsigned seed = wang_hash(index ^ rand_seed);
 
 	// Russian Roulette
-	float p_survive = saturate(fmaxf(ray_throughput.x, fmaxf(ray_throughput.y, ray_throughput.z)));
-	if (random_float_xorshift(seed) > p_survive) {
-		return;
+	if (bounce > 0) {
+		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
+		// This deteriorates Russian Roulette performance, so albedo is included here
+		float3 throughput_with_albedo = ray_throughput * make_float3(frame_buffer_albedo[ray_pixel_index]);
+		
+		float survival_probability = saturate(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
+		if (random_float_xorshift(seed) > survival_probability) {
+			return;
+		}
+		
+		ray_throughput /= survival_probability;
 	}
-
-	ray_throughput /= p_survive;
 
 	switch (material.type) {
 		case Material::Type::DIFFUSE: {
@@ -557,6 +456,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float2 hit_tex_coord;
 	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
+	float3 hit_point_prev = hit_point;
+
 	float3 albedo;
 
 #if ENABLE_MIPMAPPING
@@ -622,6 +523,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		throughput *= albedo;
 	} else if (settings.modulate_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
+	}
+
+	if (bounce == 0 && settings.enable_svgf) {
+		Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
+		matrix3x4_transform_position(world_prev, hit_point_prev);
+
+		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
 	if (settings.enable_next_event_estimation) {
@@ -846,6 +754,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float2 hit_tex_coord;
 	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
+	float3 hit_point_prev = hit_point;
+
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
 	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
 	
@@ -919,6 +829,13 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		throughput *= albedo;
 	} else if (settings.modulate_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
+	}
+	
+	if (bounce == 0 && settings.enable_svgf) {
+		Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
+		matrix3x4_transform_position(world_prev, hit_point_prev);
+
+		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
 	if (settings.enable_next_event_estimation) {

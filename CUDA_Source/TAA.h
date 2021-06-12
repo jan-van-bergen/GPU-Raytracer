@@ -1,18 +1,26 @@
 
-extern "C" __global__ void kernel_taa() {
+constexpr int TAA_HALTON_NUM_SAMPLES = 4;
+
+__device__ __constant__ const float taa_halton_x[TAA_HALTON_NUM_SAMPLES] = { 0.3f, 0.7f, 0.2f, 0.8f };
+__device__ __constant__ const float taa_halton_y[TAA_HALTON_NUM_SAMPLES] = { 0.2f, 0.8f, 0.7f, 0.3f };
+
+extern "C" __global__ void kernel_taa(int sample_index) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if (x >= screen_width || y >= screen_height) return;
 
 	int pixel_index = x + y * screen_pitch;
-
 	float4 colour = taa_frame_curr[pixel_index];
 
-	float u = (float(x) + 0.5f) / float(screen_width);
-	float v = (float(y) + 0.5f) / float(screen_height);
+	if (sample_index == 0) {
+		// On the first frame the history buffer will be black,
+		// in this case we don't perform temporal accumulation
+		accumulator.set(x, y, colour);
+		return;
+	}
 
-	float2 screen_position_prev = gbuffer_screen_position_prev.get(u, v);
+	float2 screen_position_prev = gbuffer_screen_position_prev.get(x, y);
 
 	// Convert from [-1, 1] to [0, 1]
 	float u_prev = 0.5f + 0.5f * screen_position_prev.x;
@@ -21,19 +29,19 @@ extern "C" __global__ void kernel_taa() {
 	float s_prev = u_prev * float(screen_width);
 	float t_prev = v_prev * float(screen_height);
 
-	int x1 = int(s_prev + 0.5f) - 2;
-	int y1 = int(t_prev + 0.5f) - 2;
+	int x_prev = int(s_prev + 0.5f);
+	int y_prev = int(t_prev + 0.5f);
 
 	float  sum_weight = 0.0f;
-	float4 sum        = make_float4(0.0f);
+	float4 sum = make_float4(0.0f);
 
-	for (int j = y1; j < y1 + 4; j++) {
+	for (int j = y_prev - 2; j < y_prev + 2; j++) {
 		if (j < 0 || j >= screen_height) continue;
 
-		for (int i = x1; i < x1 + 4; i++) {
+		for (int i = x_prev - 2; i < x_prev + 2; i++) {
 			if (i < 0 || i >= screen_width) continue;
 
-			float weight = 
+			float weight =
 				mitchell_netravali(float(i) + 0.5f - s_prev) * 
 				mitchell_netravali(float(j) + 0.5f - t_prev);
 
@@ -43,10 +51,8 @@ extern "C" __global__ void kernel_taa() {
 	}
 
 	if (sum_weight > 0.0f) {
-		sum /= sum_weight;
-
 		float3 colour_curr = rgb_to_ycocg(make_float3(colour));
-		float3 colour_prev = rgb_to_ycocg(make_float3(sum));
+		float3 colour_prev = rgb_to_ycocg(make_float3(sum / sum_weight));
 
 		float3 colour_avg = colour_curr;
 		float3 colour_var = colour_curr * colour_curr;
@@ -125,9 +131,11 @@ extern "C" __global__ void kernel_taa() {
 
 		colour_prev = clamp(colour_prev, colour_min, colour_max);
 
+//		float contrast = length(colour_curr - colour_avg);
+
 		// Integrate temporally
-		const float alpha = 0.1f;
-		float3 integrated = ycocg_to_rgb(alpha * colour_curr + (1.0f - alpha) * colour_prev);
+		constexpr float ALPHA = 0.1f;
+		float3 integrated = ycocg_to_rgb(lerp(colour_prev, colour_curr, ALPHA));
 
 		colour.x = integrated.x;
 		colour.y = integrated.y;
@@ -156,4 +164,6 @@ extern "C" __global__ void kernel_taa_finalize() {
 	colour = colour / (1.0f - luminance(colour.x, colour.y, colour.z));
 
 	accumulator.set(x, y, colour);
+
+	gbuffer_screen_position_prev.set(x, y, make_float2(0.0f));
 }

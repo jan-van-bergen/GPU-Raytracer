@@ -41,6 +41,7 @@ __device__ inline void matrix3x4_transform_direction(const Matrix3x4 & matrix, f
 __device__ __constant__ int       * mesh_bvh_root_indices;
 __device__ __constant__ Matrix3x4 * mesh_transforms;
 __device__ __constant__ Matrix3x4 * mesh_transforms_inv;
+__device__ __constant__ Matrix3x4 * mesh_transforms_prev;
 
 __device__ inline Matrix3x4 mesh_get_transform(int mesh_id) {
 	Matrix3x4 matrix;
@@ -60,6 +61,15 @@ __device__ inline Matrix3x4 mesh_get_transform_inv(int mesh_id) {
 	return matrix;
 }
 
+__device__ inline Matrix3x4 mesh_get_transform_prev(int mesh_id) {
+	Matrix3x4 matrix;
+	matrix.row_0 = __ldg(&mesh_transforms_prev[mesh_id].row_0);
+	matrix.row_1 = __ldg(&mesh_transforms_prev[mesh_id].row_1);
+	matrix.row_2 = __ldg(&mesh_transforms_prev[mesh_id].row_2);
+
+	return matrix;
+}
+
 struct Triangle {
 	float4 part_0; // position_0       xyz and position_edge_1  x
 	float4 part_1; // position_edge_1   yz and position_edge_2  xy
@@ -74,11 +84,11 @@ __device__ __constant__ const int      * triangle_material_ids;
 __device__ __constant__ const float    * triangle_lods;
 
 __device__ inline int triangle_get_material_id(int index) {
-	return triangle_material_ids[index];
+	return __ldg(&triangle_material_ids[index]);
 }
 
 __device__ inline float triangle_get_lod(int index) {
-	return triangle_lods[index];
+	return __ldg(&triangle_lods[index]);
 }
 
 struct TrianglePos {

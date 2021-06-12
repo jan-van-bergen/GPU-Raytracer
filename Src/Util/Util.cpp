@@ -68,7 +68,7 @@ void Util::export_ppm(const char * file_path, int width, int height, const unsig
 	fopen_s(&file, file_path, "wb");
 
 	if (file == nullptr) {
-		printf("Failed to take export %s!\n", file_path);
+		printf("Failed to export '%s'!\n", file_path);
 
 		return;
 	}

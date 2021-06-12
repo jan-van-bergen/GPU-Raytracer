@@ -2,7 +2,7 @@
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
-#include "Rasterization/Shader.h"
+#include "Util/Shader.h"
 
 typedef void (*ResizeHandler)(unsigned frame_buffer_handle, int width, int height);
 

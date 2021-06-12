@@ -2,10 +2,14 @@
 
 #include <algorithm>
 
+#include <GL/glew.h>
+
 #include "CUDA/CUDAContext.h"
 
 #include "Assets/MeshData.h"
 #include "Assets/Material.h"
+
+#include "Math/Vector4.h"
 
 #include "Util/Random.h"
 #include "Util/BlueNoise.h"
@@ -263,16 +267,19 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	pinned_mesh_bvh_root_indices        = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
 	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
 	pinned_mesh_transforms_inv          = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
+	pinned_mesh_transforms_prev         = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
 	pinned_light_mesh_transform_indices = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
 	pinned_light_mesh_area_scaled       = CUDAMemory::malloc_pinned<float>    (scene.mesh_count);
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.mesh_count);
 	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
 	ptr_mesh_transforms_inv   = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
+	ptr_mesh_transforms_prev  = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
 
 	module.get_global("mesh_bvh_root_indices").set_value(ptr_mesh_bvh_root_indices);
 	module.get_global("mesh_transforms")      .set_value(ptr_mesh_transforms);
 	module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
+	module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 	
 	ptr_bvh_nodes = CUDAMemory::malloc<BVHNodeType>(global_bvh_node_count);
 	CUDAMemory::memcpy(ptr_bvh_nodes, global_bvh_nodes, global_bvh_node_count);
@@ -356,27 +363,6 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	module.get_global("triangle_lods").set_buffer(triangle_lods, global_index_count);
 	
-	// Init OpenGL MeshData for rasterization
-	for (int m = 0; m < mesh_data_count; m++) {
-		MeshData::mesh_datas[m]->gl_init(reverse_indices + mesh_data_triangle_offsets[m]);
-	}
-
-	// Initialize OpenGL Shaders
-	shader = Shader::load(
-		DATA_PATH("Shaders/primary_vertex.glsl"),
-		DATA_PATH("Shaders/primary_fragment.glsl")
-	);
-	shader.bind();
-
-	uniform_jitter               = shader.get_uniform("jitter");
-	uniform_view_projection      = shader.get_uniform("view_projection");
-	uniform_view_projection_prev = shader.get_uniform("view_projection_prev");
-
-	uniform_transform      = shader.get_uniform("transform");
-	uniform_transform_prev = shader.get_uniform("transform_prev");
-
-	uniform_mesh_id = shader.get_uniform("mesh_id");
-
 	if (scene.has_lights) {
 		// Initialize Lights
 		struct LightTriangle {
@@ -562,7 +548,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 	global_settings = module.get_global("settings");
 
-	kernel_primary         .init(&module, "kernel_primary");
+	global_svgf_data = module.get_global("svgf_data");
+
 	kernel_generate        .init(&module, "kernel_generate");
 	kernel_trace           .init(&module, "kernel_trace");
 	kernel_sort            .init(&module, "kernel_sort");
@@ -570,7 +557,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
 	kernel_shade_glossy    .init(&module, "kernel_shade_glossy");
 	kernel_trace_shadow    .init(&module, "kernel_trace_shadow");
-	kernel_svgf_temporal   .init(&module, "kernel_svgf_temporal");
+	kernel_svgf_reproject  .init(&module, "kernel_svgf_reproject");
 	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
 	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
 	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
@@ -579,15 +566,14 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	kernel_accumulate      .init(&module, "kernel_accumulate");
 
 	// Set Block dimensions for all Kernels
-	kernel_svgf_temporal.occupancy_max_block_size_2d();
-	kernel_svgf_variance.occupancy_max_block_size_2d();
-	kernel_svgf_atrous  .occupancy_max_block_size_2d();
-	kernel_svgf_finalize.occupancy_max_block_size_2d();
-	kernel_taa          .occupancy_max_block_size_2d();
-	kernel_taa_finalize .occupancy_max_block_size_2d();
-	kernel_accumulate   .occupancy_max_block_size_2d();
+	kernel_svgf_reproject.occupancy_max_block_size_2d();
+	kernel_svgf_variance .occupancy_max_block_size_2d();
+	kernel_svgf_atrous   .occupancy_max_block_size_2d();
+	kernel_svgf_finalize .occupancy_max_block_size_2d();
+	kernel_taa           .occupancy_max_block_size_2d();
+	kernel_taa_finalize  .occupancy_max_block_size_2d();
+	kernel_accumulate    .occupancy_max_block_size_2d();
 
-	kernel_primary         .set_block_dim(WARP_SIZE * 2, 1, 1);
 	kernel_generate        .set_block_dim(WARP_SIZE * 2, 1, 1);
 	kernel_sort            .set_block_dim(WARP_SIZE * 2, 1, 1);
 	kernel_shade_diffuse   .set_block_dim(WARP_SIZE * 2, 1, 1);
@@ -640,8 +626,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		display_order++;
 	}
 
-	event_info_svgf_temporal = { display_order, "SVGF", "Temporal" };
-	event_info_svgf_variance = { display_order, "SVGF", "Variance" };
+	event_info_svgf_reproject = { display_order, "SVGF", "Reproject" };
+	event_info_svgf_variance  = { display_order, "SVGF", "Variance" };
+
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
 		const int len = 16;
 		char    * name = new char[len];
@@ -662,10 +649,10 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	// Realloc as pinned memory
 	delete [] tlas.nodes;
 	tlas.nodes = CUDAMemory::malloc_pinned<BVHNodeType>(2 * mesh_count);
-
-	scene.update(0.0f);
-	build_tlas();
 	
+	scene.camera.update(0.0f, settings);
+	scene.update(0.0f);
+
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
 
@@ -684,22 +671,14 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	module.get_global("screen_height").set_value(height);
 
 	// Resize GBuffers
-	gbuffer.resize(width, height);
-
-	resource_gbuffer_normal_and_depth = CUDAMemory::resource_register(gbuffer.buffer_normal_and_depth,        CU_GRAPHICS_MAP_RESOURCE_FLAGS_READ_ONLY);
-	resource_gbuffer_uv               = CUDAMemory::resource_register(gbuffer.buffer_uv,                      CU_GRAPHICS_MAP_RESOURCE_FLAGS_READ_ONLY);
-	resource_gbuffer_uv_gradient      = CUDAMemory::resource_register(gbuffer.buffer_uv_gradient,             CU_GRAPHICS_MAP_RESOURCE_FLAGS_READ_ONLY);
-	resource_gbuffer_triangle_id      = CUDAMemory::resource_register(gbuffer.buffer_mesh_id_and_triangle_id, CU_GRAPHICS_MAP_RESOURCE_FLAGS_READ_ONLY);
-	resource_gbuffer_motion     	  = CUDAMemory::resource_register(gbuffer.buffer_motion,                  CU_GRAPHICS_MAP_RESOURCE_FLAGS_READ_ONLY);
-	resource_gbuffer_z_gradient    	  = CUDAMemory::resource_register(gbuffer.buffer_z_gradient,              CU_GRAPHICS_MAP_RESOURCE_FLAGS_READ_ONLY);
-
-	module.set_texture("gbuffer_normal_and_depth",        CUDAMemory::resource_get_array(resource_gbuffer_normal_and_depth), CU_TR_FILTER_MODE_POINT);
-	module.set_texture("gbuffer_uv",                      CUDAMemory::resource_get_array(resource_gbuffer_uv),               CU_TR_FILTER_MODE_POINT);
-	module.set_texture("gbuffer_uv_gradient",             CUDAMemory::resource_get_array(resource_gbuffer_uv_gradient),      CU_TR_FILTER_MODE_POINT);
-	module.set_texture("gbuffer_mesh_id_and_triangle_id", CUDAMemory::resource_get_array(resource_gbuffer_triangle_id),      CU_TR_FILTER_MODE_POINT);
-	module.set_texture("gbuffer_screen_position_prev",    CUDAMemory::resource_get_array(resource_gbuffer_motion),           CU_TR_FILTER_MODE_POINT);
-	module.set_texture("gbuffer_depth_gradient",          CUDAMemory::resource_get_array(resource_gbuffer_z_gradient),       CU_TR_FILTER_MODE_POINT);
-
+	CUsurfObject surf_gbuffer_normal_and_depth     = CUDAMemory::create_surface(CUDAMemory::create_array(pitch, height, 4, CU_AD_FORMAT_FLOAT));
+	CUsurfObject surf_gbuffer_triangle_id          = CUDAMemory::create_surface(CUDAMemory::create_array(pitch, height, 2, CU_AD_FORMAT_SIGNED_INT32));
+	CUsurfObject surf_gbuffer_screen_position_prev = CUDAMemory::create_surface(CUDAMemory::create_array(pitch, height, 2, CU_AD_FORMAT_FLOAT));
+	
+	module.get_global("gbuffer_normal_and_depth")       .set_value(surf_gbuffer_normal_and_depth);
+	module.get_global("gbuffer_mesh_id_and_triangle_id").set_value(surf_gbuffer_triangle_id);
+	module.get_global("gbuffer_screen_position_prev")   .set_value(surf_gbuffer_screen_position_prev);
+	
 	// Create Frame Buffers
 	module.get_global("frame_buffer_albedo").set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
 	module.get_global("frame_buffer_moment").set_value(CUDAMemory::malloc<float4>(pitch * height).ptr);
@@ -714,7 +693,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
-	module.set_surface("accumulator", CUDAMemory::resource_get_array(resource_accumulator));
+	module.get_global("accumulator").set_value(CUDAMemory::create_surface(CUDAMemory::resource_get_array(resource_accumulator)));
 
 	// Create History Buffers for SVGF
 	module.get_global("history_length")          .set_value(CUDAMemory::malloc<int>   (pitch * height).ptr);
@@ -727,16 +706,17 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	module.get_global("taa_frame_prev").set_value(CUDAMemory::malloc<float4>(pitch * height));
 	module.get_global("taa_frame_curr").set_value(CUDAMemory::malloc<float4>(pitch * height));
 
-	// Set Grid dimensions for screen size dependent Kernels
-	kernel_svgf_temporal.set_grid_dim(pitch / kernel_svgf_temporal.block_dim_x, Math::divide_round_up(height, kernel_svgf_temporal.block_dim_y), 1);
-	kernel_svgf_variance.set_grid_dim(pitch / kernel_svgf_variance.block_dim_x, Math::divide_round_up(height, kernel_svgf_variance.block_dim_y), 1);
-	kernel_svgf_atrous  .set_grid_dim(pitch / kernel_svgf_atrous  .block_dim_x, Math::divide_round_up(height, kernel_svgf_atrous  .block_dim_y), 1);
-	kernel_svgf_finalize.set_grid_dim(pitch / kernel_svgf_finalize.block_dim_x, Math::divide_round_up(height, kernel_svgf_finalize.block_dim_y), 1);
-	kernel_taa          .set_grid_dim(pitch / kernel_taa          .block_dim_x, Math::divide_round_up(height, kernel_taa          .block_dim_y), 1);
-	kernel_taa_finalize .set_grid_dim(pitch / kernel_taa_finalize .block_dim_x, Math::divide_round_up(height, kernel_taa_finalize .block_dim_y), 1);
-	kernel_accumulate   .set_grid_dim(pitch / kernel_accumulate   .block_dim_x, Math::divide_round_up(height, kernel_accumulate   .block_dim_y), 1);
 
-	kernel_primary         .set_grid_dim(Math::divide_round_up(batch_size, kernel_primary         .block_dim_x), 1, 1);
+
+	// Set Grid dimensions for screen size dependent Kernels
+	kernel_svgf_reproject.set_grid_dim(pitch / kernel_svgf_reproject.block_dim_x, Math::divide_round_up(height, kernel_svgf_reproject.block_dim_y), 1);
+	kernel_svgf_variance .set_grid_dim(pitch / kernel_svgf_variance .block_dim_x, Math::divide_round_up(height, kernel_svgf_variance .block_dim_y), 1);
+	kernel_svgf_atrous   .set_grid_dim(pitch / kernel_svgf_atrous   .block_dim_x, Math::divide_round_up(height, kernel_svgf_atrous   .block_dim_y), 1);
+	kernel_svgf_finalize .set_grid_dim(pitch / kernel_svgf_finalize .block_dim_x, Math::divide_round_up(height, kernel_svgf_finalize .block_dim_y), 1);
+	kernel_taa           .set_grid_dim(pitch / kernel_taa           .block_dim_x, Math::divide_round_up(height, kernel_taa           .block_dim_y), 1);
+	kernel_taa_finalize  .set_grid_dim(pitch / kernel_taa_finalize  .block_dim_x, Math::divide_round_up(height, kernel_taa_finalize  .block_dim_y), 1);
+	kernel_accumulate    .set_grid_dim(pitch / kernel_accumulate    .block_dim_x, Math::divide_round_up(height, kernel_accumulate    .block_dim_y), 1);
+
 	kernel_generate        .set_grid_dim(Math::divide_round_up(batch_size, kernel_generate        .block_dim_x), 1, 1);
 	kernel_sort            .set_grid_dim(Math::divide_round_up(batch_size, kernel_sort            .block_dim_x), 1, 1);
 	kernel_shade_diffuse   .set_grid_dim(Math::divide_round_up(batch_size, kernel_shade_diffuse   .block_dim_x), 1, 1);
@@ -749,19 +729,9 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 }
 
 void Pathtracer::resize_free() {
-	CUDAMemory::resource_unregister(resource_gbuffer_normal_and_depth);
-	CUDAMemory::resource_unregister(resource_gbuffer_uv);
-	CUDAMemory::resource_unregister(resource_gbuffer_uv_gradient);
-	CUDAMemory::resource_unregister(resource_gbuffer_triangle_id);
-	CUDAMemory::resource_unregister(resource_gbuffer_motion);
-	CUDAMemory::resource_unregister(resource_gbuffer_z_gradient);
-
-	CUDACALL(cuTexObjectDestroy(module.get_global("gbuffer_normal_and_depth")	    .get_value<CUtexObject>()));
-	CUDACALL(cuTexObjectDestroy(module.get_global("gbuffer_uv")					    .get_value<CUtexObject>()));
-	CUDACALL(cuTexObjectDestroy(module.get_global("gbuffer_uv_gradient")		    .get_value<CUtexObject>()));
-	CUDACALL(cuTexObjectDestroy(module.get_global("gbuffer_mesh_id_and_triangle_id").get_value<CUtexObject>()));
-	CUDACALL(cuTexObjectDestroy(module.get_global("gbuffer_screen_position_prev")   .get_value<CUtexObject>()));
-	CUDACALL(cuTexObjectDestroy(module.get_global("gbuffer_depth_gradient")         .get_value<CUtexObject>()));
+	CUDACALL(cuSurfObjectDestroy(module.get_global("gbuffer_normal_and_depth")	     .get_value<CUsurfObject>()));
+	CUDACALL(cuSurfObjectDestroy(module.get_global("gbuffer_mesh_id_and_triangle_id").get_value<CUsurfObject>()));
+	CUDACALL(cuSurfObjectDestroy(module.get_global("gbuffer_screen_position_prev")   .get_value<CUsurfObject>()));
 	
 	CUDAMemory::free(module.get_global("frame_buffer_albedo").get_value<CUDAMemory::Ptr<float4>>());
 	CUDAMemory::free(module.get_global("frame_buffer_moment").get_value<CUDAMemory::Ptr<float4>>());
@@ -809,8 +779,9 @@ void Pathtracer::build_tlas() {
 
 		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_index];
 
-		memcpy(pinned_mesh_transforms    [i].cells, mesh.transform    .cells, sizeof(Matrix3x4));
-		memcpy(pinned_mesh_transforms_inv[i].cells, mesh.transform_inv.cells, sizeof(Matrix3x4));
+		memcpy(pinned_mesh_transforms     [i].cells, mesh.transform     .cells, sizeof(Matrix3x4));
+		memcpy(pinned_mesh_transforms_inv [i].cells, mesh.transform_inv .cells, sizeof(Matrix3x4));
+		memcpy(pinned_mesh_transforms_prev[i].cells, mesh.transform_prev.cells, sizeof(Matrix3x4));
 
 		bool is_light = mesh.light_index != -1;
 		if (is_light) {
@@ -826,9 +797,10 @@ void Pathtracer::build_tlas() {
 		}
 	}
 
-	CUDAMemory::memcpy(ptr_mesh_bvh_root_indices, pinned_mesh_bvh_root_indices, scene.mesh_count);
-	CUDAMemory::memcpy(ptr_mesh_transforms,       pinned_mesh_transforms,       scene.mesh_count);
-	CUDAMemory::memcpy(ptr_mesh_transforms_inv,   pinned_mesh_transforms_inv,   scene.mesh_count);
+	CUDAMemory::memcpy(ptr_mesh_bvh_root_indices,  pinned_mesh_bvh_root_indices, scene.mesh_count);
+	CUDAMemory::memcpy(ptr_mesh_transforms,        pinned_mesh_transforms,       scene.mesh_count);
+	CUDAMemory::memcpy(ptr_mesh_transforms_inv,    pinned_mesh_transforms_inv,   scene.mesh_count);
+	CUDAMemory::memcpy(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.mesh_count);
 	
 	if (scene.has_lights) {
 		CUDAMemory::memcpy(ptr_light_total_area, &light_total_area);
@@ -838,6 +810,11 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
+	if (settings_changed && settings.enable_svgf && settings.camera_aperture > 0.0f) {
+		puts("WARNING: SVGF and DoF cannot simultaneously be enabled!");
+		settings.camera_aperture = 0.0f;
+	}
+
 	if (settings.enable_scene_update) {
 		scene.update(delta);
 
@@ -848,8 +825,14 @@ void Pathtracer::update(float delta) {
 		if (!settings.enable_svgf) {
 			frames_accumulated = 0;
 		}
-	} else {
-		scene.update(0.0f); // Update with 0 delta to make sure previous Transforms match current Transforms
+	} else if (first_frame_after_stopped_updating) {
+		first_frame_after_stopped_updating = false;
+
+		// Update with 0 delta to make sure previous Transforms match current Transforms
+		scene.camera.update(0.0f, settings);
+		scene.update(0.0f);
+
+		build_tlas();
 	}
 
 	scene.camera.update(delta, settings);
@@ -875,14 +858,20 @@ void Pathtracer::update(float delta) {
 		camera_invalidated = false;
 	}
 
+	if (settings.enable_svgf) {
+		struct SVGFData {
+			alignas(16) Matrix4 view_projection;
+			alignas(16) Matrix4 view_projection_prev;
+		} svgf_data;
+
+		svgf_data.view_projection      = scene.camera.view_projection;
+		svgf_data.view_projection_prev = scene.camera.view_projection_prev;
+
+		global_svgf_data.set_value(svgf_data);
+	}
+
 	if (settings_changed) {
 		frames_accumulated = 0;
-
-		if (settings.enable_svgf && !settings.enable_rasterization) {
-			puts("WARNING: SVGF only works with rasterization enabled!");
-
-			settings.enable_rasterization = true;
-		}
 
 		global_settings.set_value(settings);
 	} else if (settings.enable_svgf) {
@@ -897,34 +886,6 @@ void Pathtracer::update(float delta) {
 void Pathtracer::render() {
 	CUDAEvent::reset_pool();
 
-	if (settings.enable_rasterization) {
-		gbuffer.bind();
-
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		shader.bind();
-
-		glUniform2f(uniform_jitter, scene.camera.jitter.x, scene.camera.jitter.y);
-
-		glUniformMatrix4fv(uniform_view_projection,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection));
-		glUniformMatrix4fv(uniform_view_projection_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&scene.camera.view_projection_prev));
-		
-		for (int m = 0; m < scene.mesh_count; m++) {
-			const Mesh & mesh = scene.meshes[tlas.indices[m]];
-			
-			glUniformMatrix4fv(uniform_transform,      1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform));
-			glUniformMatrix4fv(uniform_transform_prev, 1, GL_TRUE, reinterpret_cast<const GLfloat *>(&mesh.transform_prev));
-
-			glUniform1i(uniform_mesh_id, m);
-
-			MeshData::mesh_datas[mesh.mesh_data_index]->gl_render();
-		}
-
-		gbuffer.unbind();
-
-		glFinish();
-	}
-
 	int pixels_left = pixel_count;
 
 	// Render in batches of BATCH_SIZE pixels at a time
@@ -934,36 +895,22 @@ void Pathtracer::render() {
 
 		CUDAEvent::record(event_info_primary);
 
-		if (settings.enable_rasterization) {
-			// Convert rasterized GBuffers into primary Rays
-			kernel_primary.execute(
-				Random::get_value(),
-				frames_accumulated,
-				pixel_offset,
-				pixel_count,
-				settings.enable_taa
-			);
-		} else {
-			// Generate primary Rays from the current Camera orientation
-			kernel_generate.execute(
-				Random::get_value(),
-				frames_accumulated,
-				pixel_offset,
-				pixel_count
-			);
-		}
+		// Generate primary Rays from the current Camera orientation
+		kernel_generate.execute(
+			Random::get_value(),
+			frames_accumulated,
+			pixel_offset,
+			pixel_count
+		);
 
 		for (int bounce = 0; bounce < settings.num_bounces; bounce++) {
-			// When rasterizing primary rays we can skip tracing rays on bounce 0
-			if (!(bounce == 0 && settings.enable_rasterization)) {
-				// Extend all Rays that are still alive to their next Triangle intersection
-				CUDAEvent::record(event_info_trace[bounce]);
+			// Extend all Rays that are still alive to their next Triangle intersection
+			CUDAEvent::record(event_info_trace[bounce]);
 
-				kernel_trace.execute(bounce);
+			kernel_trace.execute(bounce);
 			
-				CUDAEvent::record(event_info_sort[bounce]);
-				kernel_sort.execute(Random::get_value(), bounce);
-			}
+			CUDAEvent::record(event_info_sort[bounce]);
+			kernel_sort.execute(Random::get_value(), bounce);
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
@@ -998,9 +945,9 @@ void Pathtracer::render() {
 	}
 
 	if (settings.enable_svgf) {
-		// Integrate temporally
-		CUDAEvent::record(event_info_svgf_temporal);
-		kernel_svgf_temporal.execute(scene.camera.jitter);
+		// Temporal reprojection + integration
+		CUDAEvent::record(event_info_svgf_reproject);
+		kernel_svgf_reproject.execute(frames_accumulated);
 
 		CUdeviceptr direct_in    = ptr_direct    .ptr;
 		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
@@ -1011,7 +958,7 @@ void Pathtracer::render() {
 			// Estimate Variance spatially
 			CUDAEvent::record(event_info_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
-		} else {
+
 			std::swap(direct_in,   direct_out);
 			std::swap(indirect_in, indirect_out);
 		}
@@ -1019,22 +966,22 @@ void Pathtracer::render() {
 		// À-Trous Filter
 		for (int i = 0; i < settings.atrous_iterations; i++) {
 			int step_size = 1 << i;
-				
+			
+			CUDAEvent::record(event_info_svgf_atrous[i]);
+			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
+
 			// Ping-Pong the Frame Buffers
 			std::swap(direct_in,   direct_out);
 			std::swap(indirect_in, indirect_out);
-
-			CUDAEvent::record(event_info_svgf_atrous[i]);
-			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 		}
 
 		CUDAEvent::record(event_info_svgf_finalize);
-		kernel_svgf_finalize.execute(scene.camera.jitter, direct_out, indirect_out);
+		kernel_svgf_finalize.execute(direct_in, indirect_in);
 
 		if (settings.enable_taa) {
 			CUDAEvent::record(event_info_taa);
 
-			kernel_taa         .execute();
+			kernel_taa         .execute(frames_accumulated);
 			kernel_taa_finalize.execute();
 		}
 	} else {

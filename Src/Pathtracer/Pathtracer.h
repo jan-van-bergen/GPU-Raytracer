@@ -6,9 +6,6 @@
 #include "CUDA/CUDAMemory.h"
 #include "CUDA/CUDAEvent.h"
 
-#include "Rasterization/GBuffer.h"
-#include "Rasterization/Shader.h"
-
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"
 #include "BVH/Builders/QBVHBuilder.h"
@@ -25,6 +22,7 @@ struct Pathtracer {
 	Scene scene;
 
 	bool camera_invalidated = true;
+	bool first_frame_after_stopped_updating = true;
 
 	int frames_accumulated = -1;
 
@@ -43,11 +41,7 @@ private:
 	int pixel_count;
 	int batch_size;
 	
-	GBuffer gbuffer;
-
 	CUDAModule module;
-
-	CUDAKernel kernel_primary;
 
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace;
@@ -57,7 +51,7 @@ private:
 	CUDAKernel kernel_shade_glossy;
 	CUDAKernel kernel_trace_shadow;
 
-	CUDAKernel kernel_svgf_temporal;
+	CUDAKernel kernel_svgf_reproject;
 	CUDAKernel kernel_svgf_variance;
 	CUDAKernel kernel_svgf_atrous;
 	CUDAKernel kernel_svgf_finalize;
@@ -67,29 +61,13 @@ private:
 
 	CUDAKernel kernel_accumulate;
 
-	CUgraphicsResource resource_gbuffer_normal_and_depth;
-	CUgraphicsResource resource_gbuffer_uv;
-	CUgraphicsResource resource_gbuffer_uv_gradient;
-	CUgraphicsResource resource_gbuffer_triangle_id;
-	CUgraphicsResource resource_gbuffer_motion;
-	CUgraphicsResource resource_gbuffer_z_gradient;
-	CUgraphicsResource resource_gbuffer_depth;
-
 	CUgraphicsResource resource_accumulator;
 
 	CUDAModule::Global global_camera;
 	CUDAModule::Global global_buffer_sizes;
 	CUDAModule::Global global_settings;
+	CUDAModule::Global global_svgf_data;
 	
-	Shader shader;
-
-	GLuint uniform_jitter;
-	GLuint uniform_view_projection;
-	GLuint uniform_view_projection_prev;
-	GLuint uniform_transform;
-	GLuint uniform_transform_prev;
-	GLuint uniform_mesh_id;
-
 	CUDAMemory::Ptr<float4> ptr_direct;
 	CUDAMemory::Ptr<float4> ptr_indirect;
 	CUDAMemory::Ptr<float4> ptr_direct_alt;
@@ -103,7 +81,7 @@ private:
 	CUDAEvent::Info event_info_shade_dielectric[MAX_BOUNCES];
 	CUDAEvent::Info event_info_shade_glossy    [MAX_BOUNCES];
 	CUDAEvent::Info event_info_shadow_trace[MAX_BOUNCES];
-	CUDAEvent::Info event_info_svgf_temporal;
+	CUDAEvent::Info event_info_svgf_reproject;
 	CUDAEvent::Info event_info_svgf_variance;
 	CUDAEvent::Info event_info_svgf_atrous[MAX_ATROUS_ITERATIONS];
 	CUDAEvent::Info event_info_svgf_finalize;
@@ -131,6 +109,7 @@ private:
 	int       * pinned_mesh_bvh_root_indices;
 	Matrix3x4 * pinned_mesh_transforms;
 	Matrix3x4 * pinned_mesh_transforms_inv;
+	Matrix3x4 * pinned_mesh_transforms_prev;
 	int       * pinned_light_mesh_transform_indices;
 	float     * pinned_light_mesh_area_scaled;
 
@@ -138,6 +117,7 @@ private:
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
+	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_prev;
 
 	CUDAMemory::Ptr<float> ptr_light_total_area;
 	CUDAMemory::Ptr<float> ptr_light_mesh_area_scaled;

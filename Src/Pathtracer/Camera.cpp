@@ -35,27 +35,6 @@ void Camera::resize(int width, int height) {
 }
 
 void Camera::update(float delta, const Settings & settings) {
-	if (settings.enable_rasterization) {
-		if (settings.enable_svgf) {
-			static const float halton_x[4] = { 0.3f, 0.7f, 0.2f, 0.8f };
-			static const float halton_y[4] = { 0.2f, 0.8f, 0.7f, 0.3f };
-
-			jitter = Vector2(
-				(halton_x[jitter_index] - 0.5f) * inv_width, 
-				(halton_y[jitter_index] - 0.5f) * inv_height
-			);
-
-			jitter_index = (jitter_index + 1) % 4;
-		} else {
-			jitter = Vector2(
-				(float(Random::get_value()) / float(UINT32_MAX) - 0.5f) * inv_width, 
-				(float(Random::get_value()) / float(UINT32_MAX) - 0.5f) * inv_height
-			);
-		}
-	} else {
-		jitter = Vector2(0.0f);
-	}
-
 	// Move Camera around
 	moved = false;
 
