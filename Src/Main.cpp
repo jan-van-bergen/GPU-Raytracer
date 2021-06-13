@@ -298,6 +298,8 @@ int main(int argument_count, char ** arguments) {
 					mesh_changed = true;
 				}
 
+				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
+
 				if (mesh_changed) pathtracer.scene_invalidated = true;
 
 				ImGui::PopID();
