@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include "Vector3.h"
+#include "Vector4.h"
 #include "Quaternion.h"
 
 #include "Util/Util.h"
@@ -119,7 +120,16 @@ struct alignas(16) Matrix4 {
 			matrix(2, 0) * direction.x + matrix(2, 1) * direction.y + matrix(2, 2) * direction.z
 		);
 	}
-
+	
+	inline static Vector4 transform(const Matrix4 & matrix, const Vector4 & vector) {
+		return Vector4(
+			matrix(0, 0) * vector.x + matrix(0, 1) * vector.y + matrix(0, 2) * vector.z + matrix(0, 3) * vector.w,
+			matrix(1, 0) * vector.x + matrix(1, 1) * vector.y + matrix(1, 2) * vector.z + matrix(1, 3) * vector.w,
+			matrix(2, 0) * vector.x + matrix(2, 1) * vector.y + matrix(2, 2) * vector.z + matrix(2, 3) * vector.w,
+			matrix(3, 0) * vector.x + matrix(3, 1) * vector.y + matrix(3, 2) * vector.z + matrix(3, 3) * vector.w
+		);
+	}
+	
 	inline static Matrix4 transpose(const Matrix4 & matrix) {
 		Matrix4 result;
 

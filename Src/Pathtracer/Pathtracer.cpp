@@ -11,8 +11,6 @@
 
 #include "Math/Vector4.h"
 
-#include "Input.h"
-
 #include "Util/Random.h"
 #include "Util/BlueNoise.h"
 
@@ -131,7 +129,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
 	
 	// Set global Material table
-	module.get_global("materials").set_buffer(Material::materials);
+	ptr_materials = CUDAMemory::malloc<Material>(Material::materials.size());
+	CUDAMemory::memcpy(ptr_materials, Material::materials.data(), Material::materials.size());
+	module.get_global("materials").set_value(ptr_materials);
 	
 	Texture::wait_until_textures_loaded();
 
@@ -528,10 +528,10 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	
 	// Initialize buffers used by Wavefront kernels
 	TraceBuffer     ray_buffer_trace;                                      ray_buffer_trace           .init(batch_size);
-	MaterialBuffer  ray_buffer_shade_diffuse;    if (scene.has_diffuse)    ray_buffer_shade_diffuse   .init(batch_size);
-	MaterialBuffer  ray_buffer_shade_dielectric; if (scene.has_dielectric) ray_buffer_shade_dielectric.init(batch_size);
-	MaterialBuffer  ray_buffer_shade_glossy;     if (scene.has_glossy)     ray_buffer_shade_glossy    .init(batch_size);
-	ShadowRayBuffer ray_buffer_shadow;           if (scene.has_lights)     ray_buffer_shadow          .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_diffuse;    /*if (scene.has_diffuse)   */ ray_buffer_shade_diffuse   .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_dielectric; /*if (scene.has_dielectric)*/ ray_buffer_shade_dielectric.init(batch_size);
+	MaterialBuffer  ray_buffer_shade_glossy;     /*if (scene.has_glossy)    */ ray_buffer_shade_glossy    .init(batch_size);
+	ShadowRayBuffer ray_buffer_shadow;           /*if (scene.has_lights)    */ ray_buffer_shadow          .init(batch_size);
 
 	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
 	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
@@ -820,7 +820,13 @@ void Pathtracer::update(float delta) {
 		settings.camera_aperture = 0.0f;
 	}
 
-	if (settings.enable_scene_update) {
+	if (settings.enable_svgf) {
+		scene.camera.update(0.0f, settings);
+		scene.update(0.0f);
+
+		build_tlas();
+
+	} else if (settings.enable_scene_update || scene_invalidated) {
 		scene.update(delta);
 
 		build_tlas();
@@ -830,14 +836,15 @@ void Pathtracer::update(float delta) {
 		if (!settings.enable_svgf) {
 			frames_accumulated = 0;
 		}
-	} else if (first_frame_after_stopped_updating) {
-		first_frame_after_stopped_updating = false;
 
-		// Update with 0 delta to make sure previous Transforms match current Transforms
-		scene.camera.update(0.0f, settings);
-		scene.update(0.0f);
+		scene_invalidated = false;
+	}
 
-		build_tlas();
+	if (materials_invalidated) {
+		CUDAMemory::memcpy(ptr_materials, Material::materials.data(), Material::materials.size());
+
+		frames_accumulated = 0;
+		materials_invalidated = false;
 	}
 
 	scene.camera.update(delta, settings);
@@ -863,23 +870,15 @@ void Pathtracer::update(float delta) {
 		camera_invalidated = false;
 	}
 
-	if (read_pixel_query) {
-		read_pixel_query = false;
-
+	if (pixel_query_status == PixelQueryStatus::OUTPUT_READY) {
 		CUDAMemory::memcpy(&pixel_query_answer, CUDAMemory::Ptr<PixelQueryAnswer>(global_pixel_query_answer.ptr));
+		pixel_query_answer.mesh_id = tlas.indices[pixel_query_answer.mesh_id];
 
 		// Reset pixel query
 		PixelQuery pixel_query = { -1, -1 };
 		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
-	}
 
-	if (Input::is_mouse_released()) {
-		Input::mouse_position(&pixel_query.x, &pixel_query.y);
-		pixel_query.y = screen_height - pixel_query.y; // Y-coordinate is inverted
-
-		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
-
-		read_pixel_query = true; // Read pixel query next frame
+		pixel_query_status = PixelQueryStatus::INACTIVE;
 	}
 
 	if (settings.enable_svgf) {
@@ -937,26 +936,26 @@ void Pathtracer::render() {
 			kernel_sort.execute(Random::get_value(), bounce);
 
 			// Process the various Material types in different Kernels
-			if (scene.has_diffuse) {
+			//if (scene.has_diffuse) {
 				CUDAEvent::record(event_info_shade_diffuse[bounce]);
 				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_accumulated);
-			}
+			//}
 
-			if (scene.has_dielectric) {
+			//if (scene.has_dielectric) {
 				CUDAEvent::record(event_info_shade_dielectric[bounce]);
 				kernel_shade_dielectric.execute(Random::get_value(), bounce);
-			}
+			//}
 
-			if (scene.has_glossy) {
+			//if (scene.has_glossy) {
 				CUDAEvent::record(event_info_shade_glossy[bounce]);
 				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_accumulated);
-			}
+			//}
 
 			// Trace shadow Rays
-			if (scene.has_lights) {
+			//if (scene.has_lights) {
 				CUDAEvent::record(event_info_shadow_trace[bounce]);
 				kernel_trace_shadow.execute(bounce);
-			}
+			//}
 		}
 
 		pixels_left -= batch_size;
@@ -1018,4 +1017,18 @@ void Pathtracer::render() {
 	// Reset buffer sizes to default for next frame
 	buffer_sizes->trace[0] = batch_size;
 	global_buffer_sizes.set_value(*buffer_sizes);
+
+	// If a pixel query was previously pending, it has been resolved in the current frame
+	if (pixel_query_status == PixelQueryStatus::PENDING) {
+		pixel_query_status =  PixelQueryStatus::OUTPUT_READY;
+	}
+}
+
+void Pathtracer::set_pixel_query(int x, int y) {
+	pixel_query.x = x;
+	pixel_query.y = screen_height - y; // Y-coordinate is inverted
+
+	CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
+
+	pixel_query_status = PixelQueryStatus::PENDING;
 }

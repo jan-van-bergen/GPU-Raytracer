@@ -19,7 +19,7 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 	this->meshes     = new Mesh[mesh_count];
 	
 	for (int i = 0; i < mesh_count; i++) {
-		meshes[i].init(MeshData::load(mesh_names[i]));
+		meshes[i].init(mesh_names[i], MeshData::load(mesh_names[i]));
 	}
 	
 	has_diffuse    = false;
@@ -94,21 +94,6 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 }
 
 void Scene::update(float delta) {
-	static float time = 0.0f;
-	time += delta;
-
-	if (mesh_count > 1) {
-		meshes[1].position.z = 2.0f;
-		meshes[1].position.x = 5.0f * sinf(time * 0.2f);
-		meshes[1].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), 0.5f * time);
-
-		if (mesh_count > 2) {
-			meshes[2].position.z = 5.0f * sinf(time * 0.2f);
-			meshes[2].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), PI);
-			meshes[2].scale = 1.0f + 0.5f * sinf(time);
-		}
-	}
-
 	for (int i = 0; i < mesh_count; i++) {
 		meshes[i].update();
 	}

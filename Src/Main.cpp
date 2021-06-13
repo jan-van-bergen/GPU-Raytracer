@@ -149,134 +149,253 @@ int main(int argument_count, char ** arguments) {
 		// Draw GUI
 		window.gui_begin();
 
-		ImGui::Begin("Pathtracer");
-
-		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_accumulated);
-			ImGui::Text("Delta: %.2f ms", 1000.0f * delta_time);
-			ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
-			ImGui::Text("Min:   %.2f ms", 1000.0f * min);
-			ImGui::Text("Max:   %.2f ms", 1000.0f * max);
-			ImGui::Text("FPS: %i", fps);
+		if (ImGui::Begin("Pathtracer")) {
+			if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::Text("Frame: %i - Index: %i", current_frame, pathtracer.frames_accumulated);
+				ImGui::Text("Delta: %.2f ms", 1000.0f * delta_time);
+				ImGui::Text("Avg:   %.2f ms", 1000.0f * avg);
+				ImGui::Text("Min:   %.2f ms", 1000.0f * min);
+				ImGui::Text("Max:   %.2f ms", 1000.0f * max);
+				ImGui::Text("FPS: %i", fps);
 			
-			ImGui::BeginChild("Performance Region", ImVec2(0, 150), true);
+				ImGui::BeginChild("Performance Region", ImVec2(0, 150), true);
 
-			struct EventTiming {
-				CUDAEvent::Info info;
-				float           time;
-			};
+				struct EventTiming {
+					CUDAEvent::Info info;
+					float           time;
+				};
 			
-			int           event_timing_count = CUDAEvent::event_pool_num_used - 1;
-			EventTiming * event_timings = new EventTiming[event_timing_count];
+				int           event_timing_count = CUDAEvent::event_pool_num_used - 1;
+				EventTiming * event_timings = new EventTiming[event_timing_count];
 
-			for (int i = 0; i < event_timing_count; i++) {
-				event_timings[i].info = CUDAEvent::event_pool[i].info;
-				event_timings[i].time = CUDAEvent::time_elapsed_between(CUDAEvent::event_pool[i], CUDAEvent::event_pool[i + 1]);
+				for (int i = 0; i < event_timing_count; i++) {
+					event_timings[i].info = CUDAEvent::event_pool[i].info;
+					event_timings[i].time = CUDAEvent::time_elapsed_between(CUDAEvent::event_pool[i], CUDAEvent::event_pool[i + 1]);
+				}
+
+				std::sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
+					if (a.info.display_order == b.info.display_order) {
+						return strcmp(a.info.category, b.info.category) < 0;
+					}
+					return a.info.display_order < b.info.display_order;
+				});
+
+				bool category_changed = true;
+				int  padding;
+
+				// Display Profile timings per category
+				for (int i = 0; i < event_timing_count; i++) {
+					if (category_changed) {
+						padding = 0;
+
+						// Sum the times of all events in the new Category so it can be displayed in the header
+						float time_sum = 0.0f;
+
+						int j;
+						for (j = i; j < event_timing_count; j++) {
+							int length = strlen(event_timings[j].info.name);
+							if (length > padding) padding = length;
+
+							time_sum += event_timings[j].time;
+
+							if (j < event_timing_count - 1 && strcmp(event_timings[j].info.category, event_timings[j + 1].info.category) != 0) break;
+						}
+
+						bool category_visible = ImGui::TreeNode(event_timings[i].info.category, "%s: %.2f ms", event_timings[i].info.category, time_sum);
+						if (!category_visible) {
+							// Skip ahead to next category
+							i = j;
+
+							continue;
+						}
+					}
+
+					// Add up all timings with the same name
+					float time = 0.0f;
+
+					while (true) {
+						time += event_timings[i].time;
+
+						if (i == event_timing_count - 1 || strcmp(event_timings[i].info.name, event_timings[i+1].info.name) != 0) break;
+
+						i++;
+					};
+
+					ImGui::Text("%s: %*.2f ms", event_timings[i].info.name, 5 + padding - strlen(event_timings[i].info.name), time);
+
+					if (i == event_timing_count - 1) {
+						ImGui::TreePop();
+						break;
+					}
+
+					category_changed = strcmp(event_timings[i].info.category, event_timings[i + 1].info.category);
+					if (category_changed) {
+						ImGui::TreePop();
+					}
+				}
+
+				ImGui::EndChild();
+
+				delete [] event_timings;
 			}
 
-			std::sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
-				if (a.info.display_order == b.info.display_order) {
-					return strcmp(a.info.category, b.info.category) < 0;
-				}
-				return a.info.display_order < b.info.display_order;
-			});
+			if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+				bool settings_changed = false;
+			
+				settings_changed |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
 
-			bool category_changed = true;
-			int  padding;
+				settings_changed |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
+				settings_changed |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
 
-			// Display Profile timings per category
-			for (int i = 0; i < event_timing_count; i++) {
-				if (category_changed) {
-					padding = 0;
+				settings_changed |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
+				settings_changed |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
+			
+				settings_changed |= ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update);
 
-					// Sum the times of all events in the new Category so it can be displayed in the header
-					float time_sum = 0.0f;
+				settings_changed |= ImGui::Checkbox("SVGF",              &pathtracer.settings.enable_svgf);
+				settings_changed |= ImGui::Checkbox("Spatial Variance",  &pathtracer.settings.enable_spatial_variance);
+				settings_changed |= ImGui::Checkbox("TAA",               &pathtracer.settings.enable_taa);
+				settings_changed |= ImGui::Checkbox("Modulate Albedo",   &pathtracer.settings.modulate_albedo);
 
-					int j;
-					for (j = i; j < event_timing_count; j++) {
-						int length = strlen(event_timings[j].info.name);
-						if (length > padding) padding = length;
+				settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
 
-						time_sum += event_timings[j].time;
+				settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 
-						if (j < event_timing_count - 1 && strcmp(event_timings[j].info.category, event_timings[j + 1].info.category) != 0) break;
+				settings_changed |= ImGui::SliderFloat("Alpha colour", &pathtracer.settings.alpha_colour, 0.0f, 1.0f);
+				settings_changed |= ImGui::SliderFloat("Alpha moment", &pathtracer.settings.alpha_moment, 0.0f, 1.0f);
+
+				pathtracer.settings_changed = settings_changed;
+			}
+		}
+		ImGui::End();
+
+		if (ImGui::Begin("Scene")) {
+			for (int i = 0; i < pathtracer.scene.mesh_count; i++) {
+				ImGui::PushID(i);
+
+				Mesh & mesh = pathtracer.scene.meshes[i];
+				ImGui::TextUnformatted(mesh.name);
+
+				bool mesh_changed = false;
+				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
+
+				static int dragging = -1;
+				
+				if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
+					mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
+					mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
+					mesh.euler_angles.z = Math::wrap(mesh.euler_angles.z, 0.0f, 360.0f);
+
+					if (dragging == -1) {
+						mesh.euler_angles = Quaternion::to_euler(mesh.rotation);
+						mesh.euler_angles.x = Math::rad_to_deg(mesh.euler_angles.x);
+						mesh.euler_angles.y = Math::rad_to_deg(mesh.euler_angles.y);
+						mesh.euler_angles.z = Math::rad_to_deg(mesh.euler_angles.z);
+						dragging = i;
 					}
 
-					bool category_visible = ImGui::TreeNode(event_timings[i].info.category, "%s: %.2f ms", event_timings[i].info.category, time_sum);
-					if (!category_visible) {
-						// Skip ahead to next category
-						i = j;
-
-						continue;
-					}
+					mesh.rotation = Quaternion::from_euler(Math::deg_to_rad(mesh.euler_angles.x), Math::deg_to_rad(mesh.euler_angles.y), Math::deg_to_rad(mesh.euler_angles.z));
+					mesh_changed = true;
 				}
 
-				// Add up all timings with the same name
-				float time = 0.0f;
+				if (mesh_changed) pathtracer.scene_invalidated = true;
 
-				while (true) {
-					time += event_timings[i].time;
+				ImGui::PopID();
+				ImGui::Separator();
+			}
 
-					if (i == event_timing_count - 1 || strcmp(event_timings[i].info.name, event_timings[i+1].info.name) != 0) break;
+			if (Input::is_mouse_released(Input::MouseButton::RIGHT)) {
+				// Deselect current object
+				pathtracer.pixel_query_answer.mesh_id     = -1;
+				pathtracer.pixel_query_answer.triangle_id = -1;
+				pathtracer.pixel_query_answer.material_id = -1;
+			}
 
-					i++;
+			//ImGui::TextUnformatted("Selected:");
+			//ImGui::Text("Mesh:     %i", pathtracer.pixel_query_answer.mesh_id);
+			//ImGui::Text("Triangle: %i", pathtracer.pixel_query_answer.triangle_id);
+			//ImGui::Text("Material: %i", pathtracer.pixel_query_answer.material_id);
+
+			if (pathtracer.pixel_query_answer.mesh_id != -1) {
+				Mesh const & mesh = pathtracer.scene.meshes[pathtracer.pixel_query_answer.mesh_id];
+
+				ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
+
+				Vector4 aabb_corners[8] = {
+					Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
+					Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
+					Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
+					Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
+					Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
+					Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
+					Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f),
+					Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f)
 				};
 
-				ImGui::Text("%s: %*.2f ms", event_timings[i].info.name, 5 + padding - strlen(event_timings[i].info.name), time);
-
-				if (i == event_timing_count - 1) {
-					ImGui::TreePop();
-					break;
+				// Transform from world space to homogeneous clip space
+				for (int i = 0; i < 8; i++) {
+					aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
 				}
 
-				category_changed = strcmp(event_timings[i].info.category, event_timings[i + 1].info.category);
-				if (category_changed) {
-					ImGui::TreePop();
-				}
+				auto draw_line_clipped = [draw_list, &window](Vector4 a, Vector4 b) {
+					if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
+
+					// Clip against near plane only
+					if (a.z < pathtracer.scene.camera.near) a = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
+					if (b.z < pathtracer.scene.camera.near) b = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
+
+					// Clip space to NDC to window
+					ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };
+					ImVec2 b_window = { (0.5f + 0.5f * b.x / b.w) * window.width, (0.5f - 0.5f * b.y / b.w) * window.height };
+					
+					const ImColor COLOUR = ImColor(0.2f, 0.8f, 0.2f);
+					const float THICKNESS = 1.0f;
+
+					draw_list->AddLine(a_window, b_window, COLOUR, THICKNESS);
+				};
+
+				draw_line_clipped(aabb_corners[0], aabb_corners[1]);
+				draw_line_clipped(aabb_corners[1], aabb_corners[2]);
+				draw_line_clipped(aabb_corners[2], aabb_corners[3]);
+				draw_line_clipped(aabb_corners[3], aabb_corners[0]);
+				draw_line_clipped(aabb_corners[4], aabb_corners[5]);
+				draw_line_clipped(aabb_corners[5], aabb_corners[6]);
+				draw_line_clipped(aabb_corners[6], aabb_corners[7]);
+				draw_line_clipped(aabb_corners[7], aabb_corners[4]);
+				draw_line_clipped(aabb_corners[0], aabb_corners[4]);
+				draw_line_clipped(aabb_corners[1], aabb_corners[5]);
+				draw_line_clipped(aabb_corners[2], aabb_corners[6]);
+				draw_line_clipped(aabb_corners[3], aabb_corners[7]);
 			}
 
-			ImGui::EndChild();
+			if (pathtracer.pixel_query_answer.material_id != -1) {
+				Material & material = Material::materials[pathtracer.pixel_query_answer.material_id];
 
-			delete [] event_timings;
-		}
+				bool material_changed = false;				
+				material_changed |= ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
+				material_changed |= ImGui::SliderFloat3("Diffuse",    &material.diffuse.x, 0.0f, 1.0f);
+				material_changed |= ImGui::SliderInt   ("Texture",    &material.texture_id, -1, Texture::textures.size() - 1);
+				material_changed |= ImGui::DragFloat3  ("Emission",   &material.emission.x, 0.1f, 0.0f, INFINITY);
+				material_changed |= ImGui::SliderFloat ("IOR",        &material.index_of_refraction, 0.0f, 5.0f);
+				material_changed |= ImGui::SliderFloat3("Absorption", &material.absorption.x, -1.0f, 0.0f);
+				material_changed |= ImGui::SliderFloat ("Roughness",  &material.roughness, 0.0f, 1.0f);
 
-		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-			bool settings_changed = false;
-			
-			settings_changed |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
-
-			settings_changed |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
-			settings_changed |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
-
-			settings_changed |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
-			settings_changed |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
-			
-			if (ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update)) {
-				settings_changed = true;
-				pathtracer.first_frame_after_stopped_updating = true;
+				if (material_changed) pathtracer.materials_invalidated = true;
 			}
 
-			settings_changed |= ImGui::Checkbox("SVGF",              &pathtracer.settings.enable_svgf);
-			settings_changed |= ImGui::Checkbox("Spatial Variance",  &pathtracer.settings.enable_spatial_variance);
-			settings_changed |= ImGui::Checkbox("TAA",               &pathtracer.settings.enable_taa);
-			settings_changed |= ImGui::Checkbox("Modulate Albedo",   &pathtracer.settings.modulate_albedo);
-
-			settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
-
-			settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
-
-			settings_changed |= ImGui::SliderFloat("Alpha colour", &pathtracer.settings.alpha_colour, 0.0f, 1.0f);
-			settings_changed |= ImGui::SliderFloat("Alpha moment", &pathtracer.settings.alpha_moment, 0.0f, 1.0f);
-
-			pathtracer.settings_changed = settings_changed;
 		}
-
 		ImGui::End();
+		
+		if (!ImGui::GetIO().WantCaptureMouse && Input::is_mouse_released()) {
+			int mouse_x, mouse_y;			
+			Input::mouse_position(&mouse_x, &mouse_y);
+
+			pathtracer.set_pixel_query(mouse_x, mouse_y);
+		}
 
 		if (perf_test.frame_end(delta_time)) break;
 
-		// Save Keyboard State of this frame before SDL_PumpEvents
-		Input::update();
+		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
 
 		window.gui_end();
 		window.swap();

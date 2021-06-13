@@ -6,6 +6,8 @@
 #include "CUDA/CUDAMemory.h"
 #include "CUDA/CUDAEvent.h"
 
+#include "Assets/Material.h"
+
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"
 #include "BVH/Builders/QBVHBuilder.h"
@@ -21,10 +23,15 @@ struct alignas(16) float4 { float x, y, z, w; };
 struct Pathtracer {
 	Scene scene;
 
-	bool camera_invalidated = true;
-	bool first_frame_after_stopped_updating = true;
-
-	bool read_pixel_query = false;
+	bool scene_invalidated     = true;
+	bool materials_invalidated = false;
+	bool camera_invalidated    = true;
+	
+	enum struct PixelQueryStatus {
+		INACTIVE,
+		PENDING,
+		OUTPUT_READY
+	} pixel_query_status = PixelQueryStatus::INACTIVE;
 
 	int frames_accumulated = -1;
 
@@ -32,7 +39,7 @@ struct Pathtracer {
 	bool     settings_changed = true;
 
 	PixelQuery       pixel_query        = { -1, -1 };
-	PixelQueryAnswer pixel_query_answer = { -1, -1 };
+	PixelQueryAnswer pixel_query_answer = { -1, -1, -1 };
 
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
 
@@ -41,6 +48,8 @@ struct Pathtracer {
 
 	void update(float delta);
 	void render();
+
+	void set_pixel_query(int x, int y);
 
 private:
 	int screen_width;
@@ -84,6 +93,8 @@ private:
 	CUDAMemory::Ptr<float4> ptr_indirect;
 	CUDAMemory::Ptr<float4> ptr_direct_alt;
 	CUDAMemory::Ptr<float4> ptr_indirect_alt;
+
+	CUDAMemory::Ptr<Material> ptr_materials;
 
 	// Timing Events
 	CUDAEvent::Info event_info_primary;

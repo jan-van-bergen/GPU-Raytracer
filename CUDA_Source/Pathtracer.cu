@@ -172,7 +172,7 @@ struct Camera {
 } __device__ __constant__ camera;
 
 __device__ __constant__ PixelQuery       pixel_query        = { -1, -1 };
-__device__              PixelQueryAnswer pixel_query_answer = { -1, -1 };
+__device__              PixelQueryAnswer pixel_query_answer = { -1, -1, -1 };
 
 #include "Tracing.h"
 #include "Mipmap.h"
@@ -265,11 +265,6 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	float3 ray_throughput = ray_buffer_trace.throughput.get(index);
 
-	if (bounce == 0 && pixel_query.x == x && pixel_query.y == y) {
-		pixel_query_answer.mesh_id     = hit.mesh_id;
-		pixel_query_answer.triangle_id = hit.triangle_id;
-	}
-
 	// If we didn't hit anything, sample the Sky
 	if (hit.triangle_id == -1) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
@@ -289,7 +284,14 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	}
 
 	// Get the Material of the Triangle we hit
-	const Material & material = materials[triangle_get_material_id(hit.triangle_id)];
+	int hit_material_id = triangle_get_material_id(hit.triangle_id);
+	const Material & material = materials[hit_material_id];
+
+	if (bounce == 0 && pixel_query.x == x && pixel_query.y == y) {
+		pixel_query_answer.mesh_id     = hit.mesh_id;
+		pixel_query_answer.triangle_id = hit.triangle_id;
+		pixel_query_answer.material_id = hit_material_id;
+	}
 
 	if (material.type == Material::Type::LIGHT) {
 		bool no_mis = true;

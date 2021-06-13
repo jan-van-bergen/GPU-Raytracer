@@ -1,6 +1,7 @@
 #include "Mesh.h"
 
-void Mesh::init(int mesh_data_index) {
+void Mesh::init(const char * name, int mesh_data_index) {
+	this->name = name;
 	this->mesh_data_index = mesh_data_index;
 
 	const MeshData * mesh_data = MeshData::mesh_datas[mesh_data_index];

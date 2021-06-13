@@ -1,6 +1,8 @@
 #pragma once
 #include "Math/Vector3.h"
 
+#include "../CUDA_Source/Common.h"
+
 // Various math util functions
 namespace Math {
 	// Clamps the value between a smallest and largest allowed value
@@ -13,12 +15,30 @@ namespace Math {
 	}
 
 	template<typename T>
+	inline constexpr T wrap(T value, T min, T max) {
+		while (value < min) value += max - min;
+		while (value > max) value -= max - min;
+
+		return value;
+	}
+
+	template<typename T>
 	inline constexpr T divide_round_up(T numerator, T denominator) {
 		return (numerator + denominator - 1) / denominator;
 	}
 
 	template<typename T> inline constexpr T min(T a, T b) { return a < b ? a : b;}
 	template<typename T> inline constexpr T max(T a, T b) { return a > b ? a : b;}
+
+	template<typename T>
+	inline constexpr T lerp(const T & a, const T & b, float t) {
+		return (1.0f - t) * a + t * b;
+	}
+
+	template<typename T>
+	inline T inv_lerp(const T & value, const T & min, const T & max) {
+		return (value - min) / (max - min);
+	}
 
 	inline constexpr float linear_to_gamma(float x) {
 		if (x <= 0.0f) {
@@ -43,6 +63,9 @@ namespace Math {
 			return powf((x + 0.055f) / 1.055f, 2.4f);
 		}
 	}
+
+	inline constexpr float rad_to_deg(float rad) { return rad * ONE_OVER_PI * 180.0f; }
+	inline constexpr float deg_to_rad(float deg) { return deg / 180.0f * PI; }
 
 	// Checks if n is a power of two
 	inline constexpr bool is_power_of_two(int n) {
