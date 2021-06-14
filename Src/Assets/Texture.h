@@ -3,6 +3,8 @@
 
 #include <cuda.h>
 
+struct Scene;
+
 struct Texture {
 	enum class Format {
 		BC1,
@@ -31,9 +33,5 @@ struct Texture {
 
 	int get_width_in_bytes(int mip_level = 0) const;
 
-	static int load(const char * file_path);
-
-	static void wait_until_textures_loaded();
-
-	inline static std::vector<Texture> textures;
+	static int load(const char * file_path, Scene & scene);
 };

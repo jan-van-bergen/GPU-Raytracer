@@ -129,12 +129,12 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
 	
 	// Set global Material table
-	module.get_global("materials").set_buffer(Material::materials);
+	module.get_global("materials").set_buffer(scene.materials);
 	
-	Texture::wait_until_textures_loaded();
+	scene.wait_until_textures_loaded();
 
 	// Set global Texture table
-	int texture_count = Texture::textures.size();
+	int texture_count = scene.textures.size();
 	if (texture_count > 0) {
 		CUtexObject * tex_objects = new CUtexObject[texture_count];
 		
@@ -142,7 +142,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		int max_aniso; glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso);
 
 		for (int i = 0; i < texture_count; i++) {
-			Texture & texture = Texture::textures[i];
+			Texture & texture = scene.textures[i];
 
 			// Create mipmapped CUDA array
 			CUmipmappedArray array = CUDAMemory::create_array_mipmap(
@@ -200,7 +200,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		delete [] tex_objects;
 	}
 
-	int mesh_data_count = MeshData::mesh_datas.size();
+	int mesh_data_count = scene.mesh_datas.size();
 
 	mesh_data_bvh_offsets = new int[mesh_data_count];
 
@@ -216,9 +216,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		mesh_data_index_offsets   [i] = global_index_count;
 		mesh_data_triangle_offsets[i] = global_triangle_count;
 
-		global_bvh_node_count += MeshData::mesh_datas[i]->bvh.node_count;
-		global_index_count    += MeshData::mesh_datas[i]->bvh.index_count;
-		global_triangle_count += MeshData::mesh_datas[i]->triangle_count;
+		global_bvh_node_count += scene.mesh_datas[i]->bvh.node_count;
+		global_index_count    += scene.mesh_datas[i]->bvh.index_count;
+		global_triangle_count += scene.mesh_datas[i]->triangle_count;
 	}
 
 	BVHNodeType * global_bvh_nodes = new BVHNodeType[global_bvh_node_count];
@@ -226,7 +226,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	Triangle    * global_triangles = new Triangle   [global_triangle_count];
 
 	for (int m = 0; m < mesh_data_count; m++) {
-		const MeshData * mesh_data = MeshData::mesh_datas[m];
+		const MeshData * mesh_data = scene.mesh_datas[m];
 
 		for (int n = 0; n < mesh_data->bvh.node_count; n++) {
 			BVHNodeType & node = global_bvh_nodes[mesh_data_bvh_offsets[m] + n];
@@ -339,9 +339,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 		int material_id = global_triangles[index].material_id;
 		triangle_material_ids[i] = material_id;
 
-		int texture_id = Material::materials[material_id].texture_id;
+		int texture_id = scene.materials[material_id].texture_id;
 		if (texture_id != INVALID) {
-			const Texture & texture = Texture::textures[texture_id];
+			const Texture & texture = scene.textures[texture_id];
 
 			// Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 			float t_a = float(texture.width * texture.height) * fabsf(
@@ -384,7 +384,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 		// Loop over every MeshData and check whether it has at least 1 Triangle that is a Light
 		for (int m = 0; m < mesh_data_count; m++) {
-			const MeshData * mesh_data = MeshData::mesh_datas[m];
+			const MeshData * mesh_data = scene.mesh_datas[m];
 
 			LightMesh * light_mesh = nullptr;
 
@@ -392,7 +392,7 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 			for (int t = 0; t < mesh_data->triangle_count; t++) {
 				const Triangle & triangle = mesh_data->triangles[t];
 
-				if (Material::materials[mesh_data->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
+				if (scene.materials[mesh_data->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
 					float area = 0.5f * Vector3::length(Vector3::cross(
 						triangle.position_1 - triangle.position_0,
 						triangle.position_2 - triangle.position_0
@@ -519,9 +519,9 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	module.get_global("ranking_tile").set_buffer(ranking_tile);
 	
 	for (int m = 0; m < mesh_data_count; m++) {
-		delete [] MeshData::mesh_datas[m]->bvh.indices;
-		delete [] MeshData::mesh_datas[m]->bvh.nodes;
-		delete [] MeshData::mesh_datas[m]->triangles;
+		delete [] scene.mesh_datas[m]->bvh.indices;
+		delete [] scene.mesh_datas[m]->bvh.nodes;
+		delete [] scene.mesh_datas[m]->triangles;
 	}
 	
 	// Initialize buffers used by Wavefront kernels

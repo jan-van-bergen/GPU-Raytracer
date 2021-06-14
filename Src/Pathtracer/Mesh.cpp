@@ -1,9 +1,11 @@
 #include "Mesh.h"
 
-void Mesh::init(int mesh_data_index) {
+#include "Pathtracer/Scene.h"
+
+void Mesh::init(int mesh_data_index, Scene & scene) {
 	this->mesh_data_index = mesh_data_index;
 
-	const MeshData * mesh_data = MeshData::mesh_datas[mesh_data_index];
+	const MeshData * mesh_data = scene.mesh_datas[mesh_data_index];
 
 	aabb_untransformed = AABB::create_empty();
 	for (int i = 0; i < mesh_data->triangle_count; i++) {

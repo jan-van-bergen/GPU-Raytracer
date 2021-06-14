@@ -8,17 +8,19 @@
 #include "Assets/Texture.h"
 #include "Assets/Material.h"
 
+#include "Pathtracer/Scene.h"
+
 #include "Util/Util.h"
 #include "Util/ScopeTimer.h"
 
 // Converts 'tinyobj::material_t' to 'Material'
 // Returns offset into Material table to convert relative Material indices to global ones
-static void load_materials(const std::vector<tinyobj::material_t> & materials, MeshData * mesh_data, const char * path) {
-	mesh_data->material_offset = Material::materials.size();
+static void load_materials(const std::vector<tinyobj::material_t> & materials, MeshData * mesh_data, const char * path, Scene & scene) {
+	mesh_data->material_offset = scene.materials.size();
 
 	if (materials.size() == 0) {
 		// Add default Material
-		Material & default_material = Material::materials.emplace_back();
+		Material & default_material = scene.materials.emplace_back();
 		default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
 
 		return;
@@ -27,7 +29,7 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 	for (int i = 0; i < materials.size(); i++) {
 		const tinyobj::material_t & material = materials[i];
 
-		Material & new_material = Material::materials.emplace_back();
+		Material & new_material = scene.materials.emplace_back();
 
 		switch (material.illum) {
 			case 0: case 3:                 new_material.type = Material::Type::GLOSSY;     break;
@@ -41,10 +43,10 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 		if (material.diffuse_texname.length() > 0) {
 			if (Util::file_exists(material.diffuse_texname.c_str())) {
 				// Load as absolute path
-				new_material.texture_id = Texture::load(material.diffuse_texname.c_str());
+				new_material.texture_id = Texture::load(material.diffuse_texname.c_str(), scene);
 			} else {
 				// Load as relative path
-				new_material.texture_id = Texture::load((std::string(path) + material.diffuse_texname).c_str());
+				new_material.texture_id = Texture::load((std::string(path) + material.diffuse_texname).c_str(), scene);
 			}
 		}
 
@@ -60,7 +62,7 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 	}
 }
 
-void OBJLoader::load_mtl(const char * filename, MeshData * mesh_data) {
+void OBJLoader::load_mtl(const char * filename, MeshData * mesh_data, Scene & scene) {
 	// Load only the mtl file
 	std::map<std::string, int> material_map;
 	std::vector<tinyobj::material_t> materials;
@@ -82,12 +84,12 @@ void OBJLoader::load_mtl(const char * filename, MeshData * mesh_data) {
 	char * path = MALLOCA(char, strlen(filename) + 1);
 	Util::get_path(filename, path);
 
-	load_materials(materials, mesh_data, path);
+	load_materials(materials, mesh_data, path, scene);
 
 	FREEA(path);
 }
 
-void OBJLoader::load_obj(const char * filename, MeshData * mesh_data) {
+void OBJLoader::load_obj(const char * filename, MeshData * mesh_data, Scene & scene) {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -104,7 +106,7 @@ void OBJLoader::load_obj(const char * filename, MeshData * mesh_data) {
 		abort();
 	}
 
-	load_materials(materials, mesh_data, path);
+	load_materials(materials, mesh_data, path, scene);
 
 	FREEA(path);
 	

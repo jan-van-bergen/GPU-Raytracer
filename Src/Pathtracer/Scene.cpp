@@ -19,7 +19,7 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 	this->meshes     = new Mesh[mesh_count];
 	
 	for (int i = 0; i < mesh_count; i++) {
-		meshes[i].init(MeshData::load(mesh_names[i]));
+		meshes[i].init(MeshData::load(mesh_names[i], *this), *this);
 	}
 	
 	has_diffuse    = false;
@@ -28,8 +28,8 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 	has_lights     = false;
 
 	// Check properties of the Scene, so we know which kernels are required
-	for (int i = 0; i < Material::materials.size(); i++) {
-		switch (Material::materials[i].type) {
+	for (int i = 0; i < materials.size(); i++) {
+		switch (materials[i].type) {
 			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
 			case Material::Type::DIELECTRIC: has_dielectric = true; break;
 			case Material::Type::GLOSSY:     has_glossy     = true; break;
@@ -91,6 +91,14 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 	}
 
 	FREEA(scene_name_lower);
+}
+
+void Scene::wait_until_textures_loaded() {
+	using namespace std::chrono_literals;
+
+	while (num_textures_finished < textures.size()) {
+		std::this_thread::sleep_for(100ms);
+	}
 }
 
 void Scene::update(float delta) {

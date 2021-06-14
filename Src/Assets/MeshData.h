@@ -1,6 +1,4 @@
 #pragma once
-#include <vector>
-
 #include "Pathtracer/Triangle.h"
 
 #include "BVH/BVH.h"
@@ -13,7 +11,5 @@ struct MeshData {
 
 	int material_offset;
 	
-	static int load(const char * filename);
-
-	inline static std::vector<const MeshData *> mesh_datas;
+	static int load(const char * filename, struct Scene & scene);
 };

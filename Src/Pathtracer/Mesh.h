@@ -1,6 +1,8 @@
 #pragma once
 #include "Assets/MeshData.h"
 
+struct Scene;
+
 struct Mesh {
 	AABB aabb_untransformed;
 	AABB aabb;
@@ -18,7 +20,7 @@ struct Mesh {
 	int   light_index = -1;
 	float light_area = 0.0f;
 
-	void init(int mesh_data_index);
+	void init(int mesh_data_index, Scene & scene);
 
 	void update();
 
