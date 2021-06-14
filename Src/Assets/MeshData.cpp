@@ -12,6 +12,8 @@
 #include "BVH/Builders/CWBVHBuilder.h"
 #include "BVH/BVHOptimizer.h"
 
+#include "Pathtracer/Scene.h"
+
 #include "Util/Util.h"
 #include "Util/ScopeTimer.h"
 
@@ -161,16 +163,16 @@ exit:
 	return success;
 }
 
-int MeshData::load(const char * filename) {
+int MeshData::load(const char * filename, struct Scene & scene) {
 	int & mesh_data_index = cache[filename];
 
 	// If the cache already contains this Model Data simply return it
 	if (mesh_data_index != 0) return mesh_data_index - 1;
 
-	mesh_data_index = mesh_datas.size() + 1;
+	mesh_data_index = scene.mesh_datas.size() + 1;
 
 	MeshData * mesh_data = new MeshData();
-	mesh_datas.push_back(mesh_data);
+	scene.mesh_datas.push_back(mesh_data);
 	
 	BVH bvh;
 	bool bvh_loaded = try_to_load_from_disk(bvh, mesh_data, filename);
@@ -185,11 +187,11 @@ int MeshData::load(const char * filename) {
 		strcpy_s(mtl_filename, filename_length + 1, filename);
 		memcpy(mtl_filename + filename_length - 4, ".mtl", 4);
 
-		OBJLoader::load_mtl(mtl_filename, mesh_data);
+		OBJLoader::load_mtl(mtl_filename, mesh_data, scene);
 
 		FREEA(mtl_filename);
 	} else {
-		OBJLoader::load_obj(filename, mesh_data);
+		OBJLoader::load_obj(filename, mesh_data, scene);
 		
 #if BVH_TYPE == BVH_SBVH // All other BVH types use standard BVH as a starting point
 		{

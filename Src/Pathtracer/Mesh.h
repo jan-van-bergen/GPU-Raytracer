@@ -1,6 +1,8 @@
 #pragma once
 #include "Assets/MeshData.h"
 
+struct Scene;
+
 struct Mesh {
 	const char * name;
 
@@ -22,7 +24,7 @@ struct Mesh {
 	int   light_index = -1;
 	float light_area = 0.0f;
 
-	void init(const char * name, int mesh_data_index);
+	void init(const char * name, int mesh_data_index, Scene & scene);
 
 	void update();
 

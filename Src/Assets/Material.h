@@ -1,5 +1,4 @@
 #pragma once
-#include <vector>
 
 #include "Math/Vector3.h"
 
@@ -22,6 +21,4 @@ struct Material {
 	Vector3 absorption = Vector3(0.0f);
 
 	float roughness = 0.5f;
-
-	inline static std::vector<Material> materials;
 };

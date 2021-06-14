@@ -1,16 +1,15 @@
 #include "Texture.h"
 
-#include <unordered_map>
 #include <ctype.h>
-
-#include <mutex>
-#include <thread>
+#include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
 
 #include "Math/Math.h"
 #include "Math/Vector4.h"
+
+#include "Pathtracer/Scene.h"
 
 #include "../CUDA_Source/Common.h"
 
@@ -353,23 +352,18 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 
 static std::unordered_map<std::string, int> cache;
 
-static std::mutex       textures_mutex; // Protects Texture::textures
-static std::atomic<int> textures_finished;
-
-static void load_texture(std::string filename, int texture_id) {
-	const char * file_path = filename.c_str();
-
-	int    file_path_length = strlen(file_path);
+static void load_texture(char * filename, int texture_id, Scene & scene) {
+	int    file_path_length = strlen(filename);
 	char * file_extension   = nullptr;
 
 	// Extract file extension from path
 	for (int i = file_path_length - 1; i >= 0; i--) {
-		if (file_path[i] == '.') {
+		if (filename[i] == '.') {
 			int file_extension_length = file_path_length - i;
 			file_extension = new char[file_extension_length];
 
 			for (int j = 0; j < file_extension_length; j++) {
-				file_extension[j] = tolower(file_path[i + 1 + j]);
+				file_extension[j] = tolower(filename[i + 1 + j]);
 			}
 
 			break;
@@ -381,14 +375,14 @@ static void load_texture(std::string filename, int texture_id) {
 
 	if (file_extension) {
 		if (strcmp(file_extension, "dds") == 0) {
-			success = load_dds(texture, file_path); // DDS is loaded using custom code
+			success = load_dds(texture, filename); // DDS is loaded using custom code
 		} else {
-			success = load_stbi(texture, file_path); // other file formats use stb_image
+			success = load_stbi(texture, filename); // other file formats use stb_image
 		}
 	}
 
 	if (!success) {
-		printf("WARNING: Failed to load Texture '%s'!\n", file_path);
+		printf("WARNING: Failed to load Texture '%s'!\n", filename);
 
 		if (texture.data) delete [] texture.data;
 
@@ -403,43 +397,36 @@ static void load_texture(std::string filename, int texture_id) {
 	}
 	
 	{
-		std::lock_guard<std::mutex> lock(textures_mutex);
+		std::lock_guard<std::mutex> lock(scene.textures_mutex);
 
-		Texture::textures[texture_id] = texture;
+		scene.textures[texture_id] = texture;
 	}
 
-	textures_finished++;
+	scene.num_textures_finished++;
 
 	delete [] file_extension;
+	free(filename); // Allocated by strdup
 }
 
-int Texture::load(const char * file_path) {
+int Texture::load(const char * file_path, Scene & scene) {
 	int & texture_id = cache[file_path];
 
 	// If the cache already contains this Texture simply return its index
 	if (texture_id != 0) return texture_id - 1;
 	
 	// Otherwise, create new Texture and load it from disk
-	texture_id = textures.size() + 1;
+	texture_id = scene.textures.size() + 1;
 
 	{
-		std::lock_guard<std::mutex> lock(textures_mutex);
+		std::lock_guard<std::mutex> lock(scene.textures_mutex);
 
-		textures.emplace_back();
+		scene.textures.emplace_back();
 	}
 
-	std::thread loader(load_texture, std::string(file_path), texture_id - 1);
+	std::thread loader(load_texture, _strdup(file_path), texture_id - 1, std::ref(scene));
 	loader.detach();
 
 	return texture_id - 1;
-}
-
-void Texture::wait_until_textures_loaded() {
-	using namespace std::chrono_literals;
-
-	while (textures_finished < textures.size()) {
-		std::this_thread::sleep_for(100ms);
-	}
 }
 
 void Texture::free() {
