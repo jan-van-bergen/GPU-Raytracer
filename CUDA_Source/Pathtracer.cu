@@ -144,8 +144,7 @@ struct ShadowRayBuffer {
 
 __device__ __constant__ TraceBuffer     ray_buffer_trace;
 __device__ __constant__ MaterialBuffer  ray_buffer_shade_diffuse;
-__device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric;
-__device__ __constant__ MaterialBuffer  ray_buffer_shade_glossy;
+__device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric_and_glossy;
 __device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
 
 // Number of elements in each Buffer
@@ -161,6 +160,8 @@ struct BufferSizes {
 	// Global counters for tracing kernels
 	int rays_retired       [MAX_BOUNCES];
 	int rays_retired_shadow[MAX_BOUNCES];
+
+	int last_index;
 } __device__ buffer_sizes;
 
 struct Camera {
@@ -396,31 +397,32 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		case Material::Type::DIELECTRIC: {
 			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[bounce]);
 
-			ray_buffer_shade_dielectric.direction.set(index_out, ray_direction);
+			ray_buffer_shade_dielectric_and_glossy.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_dielectric.cone[index_out] = ray_buffer_trace.cone[index];
+			if (bounce > 0) ray_buffer_shade_dielectric_and_glossy.cone[index_out] = ray_buffer_trace.cone[index];
 #endif
-			ray_buffer_shade_dielectric.hits.set(index_out, hit);
+			ray_buffer_shade_dielectric_and_glossy.hits.set(index_out, hit);
 
-			ray_buffer_shade_dielectric.pixel_index[index_out] = ray_pixel_index;
-			ray_buffer_shade_dielectric.throughput.set(index_out, ray_throughput);
+			ray_buffer_shade_dielectric_and_glossy.pixel_index[index_out] = ray_pixel_index;
+			ray_buffer_shade_dielectric_and_glossy.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
 
 		case Material::Type::GLOSSY: {
-			int index_out = atomic_agg_inc(&buffer_sizes.glossy[bounce]);
+			// Glossy material buffer is shared with Dielectric material buffer but grows in the opposite direction
+			int index_out = buffer_sizes.last_index - atomic_agg_inc(&buffer_sizes.glossy[bounce]);
 
-			ray_buffer_shade_glossy.direction.set(index_out, ray_direction);
+			ray_buffer_shade_dielectric_and_glossy.direction.set(index_out, ray_direction);
 
 #if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_glossy.cone[index_out] = ray_buffer_trace.cone[index];
+			if (bounce > 0) ray_buffer_shade_dielectric_and_glossy.cone[index_out] = ray_buffer_trace.cone[index];
 #endif
-			ray_buffer_shade_glossy.hits.set(index_out, hit);
+			ray_buffer_shade_dielectric_and_glossy.hits.set(index_out, hit);
 
-			ray_buffer_shade_glossy.pixel_index[index_out] = ray_pixel_index;
-			ray_buffer_shade_glossy.throughput.set(index_out, ray_throughput);
+			ray_buffer_shade_dielectric_and_glossy.pixel_index[index_out] = ray_pixel_index;
+			ray_buffer_shade_dielectric_and_glossy.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -617,11 +619,11 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.dielectric[bounce] || bounce == settings.num_bounces - 1) return;
 
-	float3 ray_direction = ray_buffer_shade_dielectric.direction.get(index);
-	RayHit hit           = ray_buffer_shade_dielectric.hits     .get(index);
+	float3 ray_direction = ray_buffer_shade_dielectric_and_glossy.direction.get(index);
+	RayHit hit           = ray_buffer_shade_dielectric_and_glossy.hits     .get(index);
 
-	int    ray_pixel_index = ray_buffer_shade_dielectric.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_dielectric.throughput.get(index);
+	int    ray_pixel_index = ray_buffer_shade_dielectric_and_glossy.pixel_index[index];
+	float3 ray_throughput  = ray_buffer_shade_dielectric_and_glossy.throughput.get(index);
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -705,7 +707,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
 #if ENABLE_MIPMAPPING
-	float2 cone = ray_buffer_shade_dielectric.cone[index];
+	float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
 	float  cone_angle = cone.x;
 	float  cone_width = cone.y + cone_angle * hit.t;
 	
@@ -728,15 +730,17 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
-	float3 ray_direction = ray_buffer_shade_glossy.direction.get(index);
+	index = buffer_sizes.last_index - index;
 
-	RayHit hit = ray_buffer_shade_glossy.hits.get(index);
+	float3 ray_direction = ray_buffer_shade_dielectric_and_glossy.direction.get(index);
 
-	int ray_pixel_index = ray_buffer_shade_glossy.pixel_index[index];
+	RayHit hit = ray_buffer_shade_dielectric_and_glossy.hits.get(index);
+
+	int ray_pixel_index = ray_buffer_shade_dielectric_and_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
 	int y = ray_pixel_index / screen_pitch; 
 
-	float3 ray_throughput = ray_buffer_shade_glossy.throughput.get(index);
+	float3 ray_throughput = ray_buffer_shade_dielectric_and_glossy.throughput.get(index);
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -784,7 +788,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		// Anisotropic sampling
 		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, gradient_1, gradient_2);
 	} else {
-		float2 cone = ray_buffer_shade_glossy.cone[index];
+		float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
 		cone_angle = cone.x;
 		cone_width = cone.y + cone_angle * hit.t;
 
