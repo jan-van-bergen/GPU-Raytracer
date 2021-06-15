@@ -112,6 +112,16 @@ struct BufferSizes {
 
 	int rays_retired       [MAX_BOUNCES];
 	int rays_retired_shadow[MAX_BOUNCES];
+
+	int last_index;
+
+	void reset(int batch_size) {
+		memset(this, 0, sizeof(BufferSizes));
+
+		trace[0] = batch_size;
+
+		this->last_index = batch_size - 1;
+	}
 };
 static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)
 
@@ -527,22 +537,19 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	}
 	
 	// Initialize buffers used by Wavefront kernels
-	TraceBuffer     ray_buffer_trace;                                      ray_buffer_trace           .init(batch_size);
-	MaterialBuffer  ray_buffer_shade_diffuse;    /*if (scene.has_diffuse)   */ ray_buffer_shade_diffuse   .init(batch_size);
-	MaterialBuffer  ray_buffer_shade_dielectric; /*if (scene.has_dielectric)*/ ray_buffer_shade_dielectric.init(batch_size);
-	MaterialBuffer  ray_buffer_shade_glossy;     /*if (scene.has_glossy)    */ ray_buffer_shade_glossy    .init(batch_size);
-	ShadowRayBuffer ray_buffer_shadow;           /*if (scene.has_lights)    */ ray_buffer_shadow          .init(batch_size);
+	TraceBuffer     ray_buffer_trace;                                                                         ray_buffer_trace                      .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_diffuse;               /*if (scene.has_diffuse)                       */ ray_buffer_shade_diffuse              .init(batch_size);
+	MaterialBuffer  ray_buffer_shade_dielectric_and_glossy; /*if (scene.has_dielectric || scene.has_glossy)*/ ray_buffer_shade_dielectric_and_glossy.init(batch_size);
+	ShadowRayBuffer ray_buffer_shadow;                      /*if (scene.has_lights)                        */ ray_buffer_shadow                     .init(batch_size);
 
-	module.get_global("ray_buffer_trace")           .set_value(ray_buffer_trace);
-	module.get_global("ray_buffer_shade_diffuse")   .set_value(ray_buffer_shade_diffuse);
-	module.get_global("ray_buffer_shade_dielectric").set_value(ray_buffer_shade_dielectric);
-	module.get_global("ray_buffer_shade_glossy")    .set_value(ray_buffer_shade_glossy);
-	module.get_global("ray_buffer_shadow")          .set_value(ray_buffer_shadow);
+	module.get_global("ray_buffer_trace")                      .set_value(ray_buffer_trace);
+	module.get_global("ray_buffer_shade_diffuse")              .set_value(ray_buffer_shade_diffuse);
+	module.get_global("ray_buffer_shade_dielectric_and_glossy").set_value(ray_buffer_shade_dielectric_and_glossy);
+	module.get_global("ray_buffer_shadow")                     .set_value(ray_buffer_shadow);
 
 	buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
-	memset(buffer_sizes, 0, sizeof(BufferSizes));
-	buffer_sizes->trace[0] = batch_size;
-
+	buffer_sizes->reset(batch_size);
+	
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(*buffer_sizes);
 
@@ -962,7 +969,7 @@ void Pathtracer::render() {
 
 		if (pixels_left > 0) {
 			// Set buffer sizes to appropriate pixel count for next Batch
-			buffer_sizes->trace[0] = Math::min(batch_size, pixels_left);
+			buffer_sizes->reset(Math::min(batch_size, pixels_left));
 			global_buffer_sizes.set_value(*buffer_sizes);
 		}
 	}
@@ -1015,7 +1022,7 @@ void Pathtracer::render() {
 	CUDAEvent::record(event_info_end);
 	
 	// Reset buffer sizes to default for next frame
-	buffer_sizes->trace[0] = batch_size;
+	buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*buffer_sizes);
 
 	// If a pixel query was previously pending, it has been resolved in the current frame
