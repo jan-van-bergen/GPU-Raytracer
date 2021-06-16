@@ -113,14 +113,10 @@ struct BufferSizes {
 	int rays_retired       [MAX_BOUNCES];
 	int rays_retired_shadow[MAX_BOUNCES];
 
-	int last_index;
-
 	void reset(int batch_size) {
 		memset(this, 0, sizeof(BufferSizes));
 
 		trace[0] = batch_size;
-
-		this->last_index = batch_size - 1;
 	}
 };
 static BufferSizes * buffer_sizes; // Pinned memory (Non-Pageable)

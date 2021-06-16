@@ -116,20 +116,6 @@ __device__ inline int atomic_agg_inc(int * ctr) {
 	return res + __popc(mask & ((1 << laneid) - 1));
 }
 
-__device__ inline int atomic_agg_dec(int * ctr) {
-	int mask   = active_thread_mask();
-	int leader = __ffs(mask) - 1;
-	int laneid = threadIdx.x & 31;
-	
-	int res;
-	if (laneid == leader) {
-		res = atomicSub(ctr, __popc(mask));
-	}
-
-	res = __shfl_sync(mask, res, leader);
-	return res - __popc(mask & ((1 << laneid) - 1));
-}
-
 // Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
 __device__ inline float2 oct_encode_normal(float3 n) {
 	n /= (abs(n.x) + abs(n.y) + abs(n.z));

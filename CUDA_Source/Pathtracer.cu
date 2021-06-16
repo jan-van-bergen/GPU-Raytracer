@@ -160,8 +160,6 @@ struct BufferSizes {
 	// Global counters for tracing kernels
 	int rays_retired       [MAX_BOUNCES];
 	int rays_retired_shadow[MAX_BOUNCES];
-
-	int last_index;
 } __device__ buffer_sizes;
 
 struct Camera {
@@ -422,7 +420,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 		case Material::Type::GLOSSY: {
 			// Glossy material buffer is shared with Dielectric material buffer but grows in the opposite direction
-			int index_out = buffer_sizes.last_index - atomic_agg_inc(&buffer_sizes.glossy[bounce]);
+			int index_out = (BATCH_SIZE - 1) - atomic_agg_inc(&buffer_sizes.glossy[bounce]);
 
 			ray_buffer_shade_dielectric_and_glossy.direction.set(index_out, ray_direction);
 
@@ -740,7 +738,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
-	index = buffer_sizes.last_index - index;
+	index = (BATCH_SIZE - 1) - index;
 
 	float3 ray_direction = ray_buffer_shade_dielectric_and_glossy.direction.get(index);
 
