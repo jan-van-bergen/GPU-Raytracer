@@ -263,7 +263,11 @@ CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {
 	Global global;
 
 	size_t size;
-	CUDACALL(cuModuleGetGlobal(&global.ptr, &size, module, variable_name));
+	CUresult result = cuModuleGetGlobal(&global.ptr, &size, module, variable_name);
+	if (result == CUDA_ERROR_NOT_FOUND) {
+		printf("ERROR: Global CUDA variable '%s' not found!\n", variable_name);
+	}
+	CUDACALL(result);
 
 	return global;
 }
