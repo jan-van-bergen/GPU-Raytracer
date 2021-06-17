@@ -6,11 +6,11 @@
 #include "CUDAModule.h"
 
 struct CUDAKernel {
-	static const int PARAMETER_BUFFER_SIZE = 32 * 64; // In bytes
+	static constexpr int PARAMETER_BUFFER_SIZE = 256; // In bytes
 
 	CUfunction kernel;
 
-	unsigned char * parameter_buffer;
+	mutable unsigned char parameter_buffer[PARAMETER_BUFFER_SIZE];
 	
 	int  grid_dim_x = 64,  grid_dim_y = 1,  grid_dim_z = 1;
 	int block_dim_x = 64, block_dim_y = 1, block_dim_z = 1;
@@ -22,8 +22,6 @@ struct CUDAKernel {
 		
 		CUDACALL(cuFuncSetCacheConfig    (kernel, CU_FUNC_CACHE_PREFER_L1));
 		CUDACALL(cuFuncSetSharedMemConfig(kernel, CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE));
-
-		parameter_buffer = new unsigned char[PARAMETER_BUFFER_SIZE];
 	}
 
 	// Execute kernel without parameters
