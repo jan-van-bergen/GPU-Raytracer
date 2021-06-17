@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+
 #include "CUDACall.h"
 
 namespace CUDAMemory {
@@ -30,6 +32,30 @@ namespace CUDAMemory {
 
 		return Ptr<T>(ptr);
 	}
+	
+	template<typename T>
+	inline Ptr<T> malloc(const T * data, int count) {
+		Ptr<T> ptr = malloc<T>(count);
+		memcpy(ptr, data, count);
+
+		return ptr;
+	}
+	
+	template<typename T, int N>
+	inline Ptr<T> malloc(const T (& data)[N]) {
+		return malloc(data, N);
+	}
+	
+	template<typename T>
+	inline Ptr<T> malloc(const std::vector<T> & data) {
+		return malloc(data.data(), data.size());
+	}
+	
+	template<typename T>
+	inline void free_pinned(T * ptr) {
+		assert(ptr);
+		CUDACALL(cuMemFreeHost(ptr));
+	}
 
 	template<typename T>
 	inline void free(Ptr<T> ptr) {
@@ -58,11 +84,17 @@ namespace CUDAMemory {
 	CUarray          create_array       (int width, int height, int channels, CUarray_format format);
 	CUmipmappedArray create_array_mipmap(int width, int height, int channels, CUarray_format format, int level_count);
 
+	void free_array(CUarray array);
+	void free_array(CUmipmappedArray array);
+
 	// Copies data from the Host Texture to the Device Array
 	void copy_array(CUarray array, int width_in_bytes, int height, const void * data);
 	
 	CUtexObject  create_texture(CUarray array, CUfilter_mode filter);
 	CUsurfObject create_surface(CUarray array);
+
+	void free_texture(CUtexObject  texture);
+	void free_surface(CUsurfObject surface);
 
 	// Graphics Resource management (for OpenGL interop)
 	CUgraphicsResource resource_register(unsigned gl_texture, unsigned flags);

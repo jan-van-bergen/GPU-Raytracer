@@ -259,6 +259,10 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	FREEA(ptx_filename);
 }
 
+void CUDAModule::free() {
+	CUDACALL(cuModuleUnload(module));
+}
+
 CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {
 	Global global;
 

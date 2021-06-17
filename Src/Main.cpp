@@ -85,14 +85,18 @@ int main(int argument_count, char ** arguments) {
 		DATA_PATH("Lantern.obj")
 	};
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
-
-	pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
-
-	perf_test.init(&pathtracer, false, mesh_names[0]);
+	
+	{
+		ScopeTimer timer("Initialization");
+	
+		CUDAContext::init();
+		pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
+	
+		perf_test.init(&pathtracer, false, mesh_names[0]);	
+		Random::init(1337);
+	}
 
 	window.resize_handler = &window_resize;
-
-	Random::init(1337);
 
 	last = SDL_GetPerformanceCounter();
 
@@ -272,6 +276,13 @@ int main(int argument_count, char ** arguments) {
 		}
 
 		ImGui::End();
+
+		if (Input::is_key_released(SDL_SCANCODE_F5)) {
+			ScopeTimer timer("Hot Reload");
+
+			pathtracer.cuda_free();
+			pathtracer.cuda_init(window.frame_buffer_handle, window.width, window.height);
+		}
 
 		if (perf_test.frame_end(delta_time)) break;
 

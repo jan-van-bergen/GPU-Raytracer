@@ -31,6 +31,14 @@ CUmipmappedArray CUDAMemory::create_array_mipmap(int width, int height, int chan
 	return mipmap;
 }
 
+void CUDAMemory::free_array(CUarray array) {
+	CUDACALL(cuArrayDestroy(array));
+}
+
+void CUDAMemory::free_array(CUmipmappedArray array) {
+	CUDACALL(cuMipmappedArrayDestroy(array));
+}
+
 // Copies data from the Host Texture to the Device Array
 void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, const void * data) {
 	CUDA_MEMCPY2D copy = { };
@@ -69,6 +77,14 @@ CUsurfObject CUDAMemory::create_surface(CUarray array) {
 	CUsurfObject surf_object; CUDACALL(cuSurfObjectCreate(&surf_object, &desc));
 
 	return surf_object;
+}
+
+void CUDAMemory::free_texture(CUtexObject texture) {
+	CUDACALL(cuTexObjectDestroy(texture));
+}
+
+void CUDAMemory::free_surface(CUsurfObject surface) {
+	CUDACALL(cuSurfObjectDestroy(surface));
 }
 
 CUgraphicsResource CUDAMemory::resource_register(unsigned gl_texture, unsigned flags) {
