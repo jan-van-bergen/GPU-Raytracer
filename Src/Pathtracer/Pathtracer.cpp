@@ -164,29 +164,29 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	int * mesh_data_index_offsets    = MALLOCA(int, mesh_data_count);
 	int * mesh_data_triangle_offsets = MALLOCA(int, mesh_data_count);
 
-	int global_bvh_node_count = 2 * scene.mesh_count; // Reserve 2 times Mesh count for TLAS
-	int global_index_count    = 0;
-	int global_triangle_count = 0;
+	int aggregated_bvh_node_count = 2 * scene.mesh_count; // Reserve 2 times Mesh count for TLAS
+	int aggregated_index_count    = 0;
+	int aggregated_triangle_count = 0;
 
 	for (int i = 0; i < mesh_data_count; i++) {
-		mesh_data_bvh_offsets     [i] = global_bvh_node_count;
-		mesh_data_index_offsets   [i] = global_index_count;
-		mesh_data_triangle_offsets[i] = global_triangle_count;
+		mesh_data_bvh_offsets     [i] = aggregated_bvh_node_count;
+		mesh_data_index_offsets   [i] = aggregated_index_count;
+		mesh_data_triangle_offsets[i] = aggregated_triangle_count;
 
-		global_bvh_node_count += scene.mesh_datas[i]->bvh.node_count;
-		global_index_count    += scene.mesh_datas[i]->bvh.index_count;
-		global_triangle_count += scene.mesh_datas[i]->triangle_count;
+		aggregated_bvh_node_count += scene.mesh_datas[i]->bvh.node_count;
+		aggregated_index_count    += scene.mesh_datas[i]->bvh.index_count;
+		aggregated_triangle_count += scene.mesh_datas[i]->triangle_count;
 	}
 
-	BVHNodeType * global_bvh_nodes = new BVHNodeType[global_bvh_node_count];
-	int         * global_indices   = new int        [global_index_count];
-	Triangle    * global_triangles = new Triangle   [global_triangle_count];
+	BVHNodeType * aggregated_bvh_nodes = new BVHNodeType[aggregated_bvh_node_count];
+	int         * aggregated_indices   = new int        [aggregated_index_count];
+	Triangle    * aggregated_triangles = new Triangle   [aggregated_triangle_count];
 
 	for (int m = 0; m < mesh_data_count; m++) {
 		const MeshData * mesh_data = scene.mesh_datas[m];
 
 		for (int n = 0; n < mesh_data->bvh.node_count; n++) {
-			BVHNodeType & node = global_bvh_nodes[mesh_data_bvh_offsets[m] + n];
+			BVHNodeType & node = aggregated_bvh_nodes[mesh_data_bvh_offsets[m] + n];
 
 			node = mesh_data->bvh.nodes[n];
 
@@ -212,12 +212,12 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		}
 
 		for (int i = 0; i < mesh_data->bvh.index_count; i++) {
-			global_indices[mesh_data_index_offsets[m] + i] = mesh_data->bvh.indices[i] + mesh_data_triangle_offsets[m];
+			aggregated_indices[mesh_data_index_offsets[m] + i] = mesh_data->bvh.indices[i] + mesh_data_triangle_offsets[m];
 		}
 
 		for (int t = 0; t < mesh_data->triangle_count; t++) {
-			global_triangles[mesh_data_triangle_offsets[m] + t]              = mesh_data->triangles[t];
-			global_triangles[mesh_data_triangle_offsets[m] + t].material_id += mesh_data->material_offset;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + t]              = mesh_data->triangles[t];
+			aggregated_triangles[mesh_data_triangle_offsets[m] + t].material_id += mesh_data->material_offset;
 		}
 	}
 
@@ -238,7 +238,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
 	module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 	
-	ptr_bvh_nodes = CUDAMemory::malloc<BVHNodeType>(global_bvh_nodes, global_bvh_node_count);
+	ptr_bvh_nodes = CUDAMemory::malloc<BVHNodeType>(aggregated_bvh_nodes, aggregated_bvh_node_count);
 
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
 	module.get_global("bvh_nodes").set_value(ptr_bvh_nodes);
@@ -255,30 +255,30 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	tlas_converter.init(&tlas, tlas_raw);
 #endif
 
-	CUDATriangle * triangles             = new CUDATriangle[global_index_count];
-	int          * triangle_material_ids = new int         [global_index_count];
-	float        * triangle_lods         = new float       [global_index_count];
+	CUDATriangle * triangles             = new CUDATriangle[aggregated_index_count];
+	int          * triangle_material_ids = new int         [aggregated_index_count];
+	float        * triangle_lods         = new float       [aggregated_index_count];
 
-	int * reverse_indices = new int[global_index_count];
+	int * reverse_indices = new int[aggregated_index_count];
 
-	for (int i = 0; i < global_index_count; i++) {
-		int index = global_indices[i];
+	for (int i = 0; i < aggregated_index_count; i++) {
+		int index = aggregated_indices[i];
 
-		assert(index < global_triangle_count);
+		assert(index < aggregated_triangle_count);
 
-		triangles[i].position_0      = global_triangles[index].position_0;
-		triangles[i].position_edge_1 = global_triangles[index].position_1 - global_triangles[index].position_0;
-		triangles[i].position_edge_2 = global_triangles[index].position_2 - global_triangles[index].position_0;
+		triangles[i].position_0      = aggregated_triangles[index].position_0;
+		triangles[i].position_edge_1 = aggregated_triangles[index].position_1 - aggregated_triangles[index].position_0;
+		triangles[i].position_edge_2 = aggregated_triangles[index].position_2 - aggregated_triangles[index].position_0;
 
-		triangles[i].normal_0      = global_triangles[index].normal_0;
-		triangles[i].normal_edge_1 = global_triangles[index].normal_1 - global_triangles[index].normal_0;
-		triangles[i].normal_edge_2 = global_triangles[index].normal_2 - global_triangles[index].normal_0;
+		triangles[i].normal_0      = aggregated_triangles[index].normal_0;
+		triangles[i].normal_edge_1 = aggregated_triangles[index].normal_1 - aggregated_triangles[index].normal_0;
+		triangles[i].normal_edge_2 = aggregated_triangles[index].normal_2 - aggregated_triangles[index].normal_0;
 
-		triangles[i].tex_coord_0      = global_triangles[index].tex_coord_0;
-		triangles[i].tex_coord_edge_1 = global_triangles[index].tex_coord_1 - global_triangles[index].tex_coord_0;
-		triangles[i].tex_coord_edge_2 = global_triangles[index].tex_coord_2 - global_triangles[index].tex_coord_0;
+		triangles[i].tex_coord_0      = aggregated_triangles[index].tex_coord_0;
+		triangles[i].tex_coord_edge_1 = aggregated_triangles[index].tex_coord_1 - aggregated_triangles[index].tex_coord_0;
+		triangles[i].tex_coord_edge_2 = aggregated_triangles[index].tex_coord_2 - aggregated_triangles[index].tex_coord_0;
 
-		int material_id = global_triangles[index].material_id;
+		int material_id = aggregated_triangles[index].material_id;
 		triangle_material_ids[i] = material_id;
 
 		int texture_id = scene.materials[material_id].texture_id;
@@ -300,9 +300,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		reverse_indices[index] = i;
 	}
 
-	ptr_triangles             = CUDAMemory::malloc(triangles,             global_index_count);
-	ptr_triangle_material_ids = CUDAMemory::malloc(triangle_material_ids, global_index_count);
-	ptr_triangle_lods         = CUDAMemory::malloc(triangle_lods,         global_index_count);
+	ptr_triangles             = CUDAMemory::malloc(triangles,             aggregated_index_count);
+	ptr_triangle_material_ids = CUDAMemory::malloc(triangle_material_ids, aggregated_index_count);
+	ptr_triangle_lods         = CUDAMemory::malloc(triangle_lods,         aggregated_index_count);
 
 	module.get_global("triangles")            .set_value(ptr_triangles);
 	module.get_global("triangle_material_ids").set_value(ptr_triangle_material_ids);
@@ -449,9 +449,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		module.get_global("light_total_count_inv").set_value(INFINITY); // 1 / 0
 	}
 
-	delete [] global_bvh_nodes;
-	delete [] global_indices;
-	delete [] global_triangles;
+	delete [] aggregated_bvh_nodes;
+	delete [] aggregated_indices;
+	delete [] aggregated_triangles;
 
 	delete [] triangles;
 	delete [] triangle_lods;
