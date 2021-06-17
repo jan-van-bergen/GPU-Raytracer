@@ -491,9 +491,11 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_buffer_sizes = module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	global_camera    = module.get_global("camera");
-	global_settings  = module.get_global("settings");
-	global_svgf_data = module.get_global("svgf_data");
+	global_camera             = module.get_global("camera");
+	global_settings           = module.get_global("settings");
+	global_svgf_data          = module.get_global("svgf_data");
+	global_pixel_query        = module.get_global("pixel_query");
+	global_pixel_query_answer = module.get_global("pixel_query_answer");
 
 	// Initialize timers
 	int display_order = 0;
