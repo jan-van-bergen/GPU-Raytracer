@@ -597,11 +597,11 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_sobol_256spp_256d);
 	CUDAMemory::free(ptr_scrambling_tile);
 	CUDAMemory::free(ptr_ranking_tile);
-	                                              ray_buffer_trace                      .free();
-	if (scene.has_diffuse)                        ray_buffer_shade_diffuse              .free();
-	if (scene.has_dielectric || scene.has_glossy) ray_buffer_shade_dielectric_and_glossy.free();
-	if (scene.has_lights)                         ray_buffer_shadow                     .free();
-
+	                                                  ray_buffer_trace                      .free();
+	/*if (scene.has_diffuse)                       */ ray_buffer_shade_diffuse              .free();
+	/*if (scene.has_dielectric || scene.has_glossy)*/ ray_buffer_shade_dielectric_and_glossy.free();
+	/*if (scene.has_lights)                        */ ray_buffer_shadow                     .free();
+	
 	tlas_bvh_builder.free();
 #if BVH_TYPE == BVH_QBVH || BVH_TYPE == BVH_CWBVH
 	tlas_converter.free();
