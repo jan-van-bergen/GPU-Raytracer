@@ -348,12 +348,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float cos_o = fabsf(dot(to_light, light_normal));
 			// if (cos_o <= 0.0f) return;
 
-			float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
-			
-			float brdf_pdf = ray_buffer_trace.last_pdf[index];
-
-			float light_select_pdf = light_area / light_total_area;
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
+			float brdf_pdf  = ray_buffer_trace.last_pdf[index];
+			float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
 
 			float mis_pdf = brdf_pdf + light_pdf;
 
@@ -578,11 +574,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 				float brdf     = cos_i * ONE_OVER_PI;
 				float brdf_pdf = cos_i * ONE_OVER_PI;
 
-				float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
-
-				float light_select_pdf = light_area / light_total_area;
-				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
-
+				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
+				
 				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
 
 				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
@@ -896,10 +889,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				float brdf     = (F * G * D) / (4.0f * i_dot_n);
 				float brdf_pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
 				
-				float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
-
-				float light_select_pdf = light_area / light_total_area;
-				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
+				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
 
 				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
 
