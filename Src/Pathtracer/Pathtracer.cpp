@@ -25,22 +25,22 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	// Init CUDA Module and its Kernels
-	module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
+	cuda_module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
 	
-	kernel_generate        .init(&module, "kernel_generate");
-	kernel_trace           .init(&module, "kernel_trace");
-	kernel_sort            .init(&module, "kernel_sort");
-	kernel_shade_diffuse   .init(&module, "kernel_shade_diffuse");
-	kernel_shade_dielectric.init(&module, "kernel_shade_dielectric");
-	kernel_shade_glossy    .init(&module, "kernel_shade_glossy");
-	kernel_trace_shadow    .init(&module, "kernel_trace_shadow");
-	kernel_svgf_reproject  .init(&module, "kernel_svgf_reproject");
-	kernel_svgf_variance   .init(&module, "kernel_svgf_variance");
-	kernel_svgf_atrous     .init(&module, "kernel_svgf_atrous");
-	kernel_svgf_finalize   .init(&module, "kernel_svgf_finalize");
-	kernel_taa             .init(&module, "kernel_taa");
-	kernel_taa_finalize    .init(&module, "kernel_taa_finalize");
-	kernel_accumulate      .init(&module, "kernel_accumulate");
+	kernel_generate        .init(&cuda_module, "kernel_generate");
+	kernel_trace           .init(&cuda_module, "kernel_trace");
+	kernel_sort            .init(&cuda_module, "kernel_sort");
+	kernel_shade_diffuse   .init(&cuda_module, "kernel_shade_diffuse");
+	kernel_shade_dielectric.init(&cuda_module, "kernel_shade_dielectric");
+	kernel_shade_glossy    .init(&cuda_module, "kernel_shade_glossy");
+	kernel_trace_shadow    .init(&cuda_module, "kernel_trace_shadow");
+	kernel_svgf_reproject  .init(&cuda_module, "kernel_svgf_reproject");
+	kernel_svgf_variance   .init(&cuda_module, "kernel_svgf_variance");
+	kernel_svgf_atrous     .init(&cuda_module, "kernel_svgf_atrous");
+	kernel_svgf_finalize   .init(&cuda_module, "kernel_svgf_finalize");
+	kernel_taa             .init(&cuda_module, "kernel_taa");
+	kernel_taa_finalize    .init(&cuda_module, "kernel_taa_finalize");
+	kernel_accumulate      .init(&cuda_module, "kernel_accumulate");
 
 	// Set Block dimensions for all Kernels
 	kernel_svgf_reproject.occupancy_max_block_size_2d();
@@ -88,7 +88,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	
 	// Set global Material table
 	ptr_materials = CUDAMemory::malloc(scene.materials);
-	module.get_global("materials").set_value(ptr_materials);
+	cuda_module.get_global("materials").set_value(ptr_materials);
 	
 	scene.wait_until_textures_loaded();
 
@@ -154,33 +154,32 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		}
 
 		ptr_textures = CUDAMemory::malloc(tex_objects, texture_count);
-		module.get_global("textures").set_value(ptr_textures);
+		cuda_module.get_global("textures").set_value(ptr_textures);
 	}
 
 	int mesh_data_count = scene.mesh_datas.size();
 
-	mesh_data_bvh_offsets = new int[mesh_data_count];
-
-	int * mesh_data_index_offsets    = MALLOCA(int, mesh_data_count);
-	int * mesh_data_triangle_offsets = MALLOCA(int, mesh_data_count);
+	mesh_data_bvh_offsets      = new int[mesh_data_count];
+	mesh_data_triangle_offsets = new int[mesh_data_count];
+	int * mesh_data_index_offsets = MALLOCA(int, mesh_data_count);
 
 	int aggregated_bvh_node_count = 2 * scene.mesh_count; // Reserve 2 times Mesh count for TLAS
-	int aggregated_index_count    = 0;
 	int aggregated_triangle_count = 0;
+	int aggregated_index_count    = 0;
 
 	for (int i = 0; i < mesh_data_count; i++) {
 		mesh_data_bvh_offsets     [i] = aggregated_bvh_node_count;
-		mesh_data_index_offsets   [i] = aggregated_index_count;
 		mesh_data_triangle_offsets[i] = aggregated_triangle_count;
+		mesh_data_index_offsets   [i] = aggregated_index_count;
 
 		aggregated_bvh_node_count += scene.mesh_datas[i]->bvh.node_count;
-		aggregated_index_count    += scene.mesh_datas[i]->bvh.index_count;
 		aggregated_triangle_count += scene.mesh_datas[i]->triangle_count;
+		aggregated_index_count    += scene.mesh_datas[i]->bvh.index_count;
 	}
 
 	BVHNodeType * aggregated_bvh_nodes = new BVHNodeType[aggregated_bvh_node_count];
-	int         * aggregated_indices   = new int        [aggregated_index_count];
 	Triangle    * aggregated_triangles = new Triangle   [aggregated_triangle_count];
+	int         * aggregated_indices   = new int        [aggregated_index_count];
 
 	for (int m = 0; m < mesh_data_count; m++) {
 		const MeshData * mesh_data = scene.mesh_datas[m];
@@ -211,15 +210,17 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 #endif
 		}
 
-		for (int i = 0; i < mesh_data->bvh.index_count; i++) {
-			aggregated_indices[mesh_data_index_offsets[m] + i] = mesh_data->bvh.indices[i] + mesh_data_triangle_offsets[m];
-		}
-
 		for (int t = 0; t < mesh_data->triangle_count; t++) {
 			aggregated_triangles[mesh_data_triangle_offsets[m] + t]              = mesh_data->triangles[t];
 			aggregated_triangles[mesh_data_triangle_offsets[m] + t].material_id += mesh_data->material_offset;
 		}
+
+		for (int i = 0; i < mesh_data->bvh.index_count; i++) {
+			aggregated_indices[mesh_data_index_offsets[m] + i] = mesh_data->bvh.indices[i] + mesh_data_triangle_offsets[m];
+		}
 	}
+
+	FREEA(mesh_data_index_offsets);
 
 	pinned_mesh_bvh_root_indices        = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
 	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
@@ -233,10 +234,10 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	ptr_mesh_transforms_inv   = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
 	ptr_mesh_transforms_prev  = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
 
-	module.get_global("mesh_bvh_root_indices").set_value(ptr_mesh_bvh_root_indices);
-	module.get_global("mesh_transforms")      .set_value(ptr_mesh_transforms);
-	module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
-	module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
+	cuda_module.get_global("mesh_bvh_root_indices").set_value(ptr_mesh_bvh_root_indices);
+	cuda_module.get_global("mesh_transforms")      .set_value(ptr_mesh_transforms);
+	cuda_module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
+	cuda_module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 	
 	ptr_bvh_nodes = CUDAMemory::malloc<BVHNodeType>(aggregated_bvh_nodes, aggregated_bvh_node_count);
 
@@ -245,7 +246,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 #elif BVH_TYPE == BVH_QBVH
 	module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes);
 #elif BVH_TYPE == BVH_CWBVH
-	module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes);
+	cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes);
 #endif
 
 	tlas_bvh_builder.init(&tlas_raw, scene.mesh_count, 1);
@@ -259,7 +260,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	int          * triangle_material_ids = new int         [aggregated_index_count];
 	float        * triangle_lods         = new float       [aggregated_index_count];
 
-	int * reverse_indices = new int[aggregated_index_count];
+	reverse_indices = new int[aggregated_index_count];
 
 	for (int i = 0; i < aggregated_index_count; i++) {
 		int index = aggregated_indices[i];
@@ -304,151 +305,10 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	ptr_triangle_material_ids = CUDAMemory::malloc(triangle_material_ids, aggregated_index_count);
 	ptr_triangle_lods         = CUDAMemory::malloc(triangle_lods,         aggregated_index_count);
 
-	module.get_global("triangles")            .set_value(ptr_triangles);
-	module.get_global("triangle_material_ids").set_value(ptr_triangle_material_ids);
-	module.get_global("triangle_lods")        .set_value(ptr_triangle_lods);
+	cuda_module.get_global("triangles")            .set_value(ptr_triangles);
+	cuda_module.get_global("triangle_material_ids").set_value(ptr_triangle_material_ids);
+	cuda_module.get_global("triangle_lods")        .set_value(ptr_triangle_lods);
 	
-	if (scene.has_lights) {
-		// Initialize Lights
-		struct LightTriangle {
-			int   index;
-			float area;
-		};
-		std::vector<LightTriangle> light_triangles;
-
-		struct LightMesh {
-			int triangle_first_index;
-			int triangle_count;
-
-			float area;
-		};
-		std::vector<LightMesh> light_meshes;
-
-		int * light_mesh_data_indices = MALLOCA(int, mesh_data_count);
-		memset(light_mesh_data_indices, -1, mesh_data_count * sizeof(int));
-
-		// Loop over every MeshData and check whether it has at least 1 Triangle that is a Light
-		for (int m = 0; m < mesh_data_count; m++) {
-			const MeshData * mesh_data = scene.mesh_datas[m];
-
-			LightMesh * light_mesh = nullptr;
-
-			// For every Triangle, check whether it is a Light based on its Material
-			for (int t = 0; t < mesh_data->triangle_count; t++) {
-				const Triangle & triangle = mesh_data->triangles[t];
-
-				if (scene.materials[mesh_data->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
-					float area = 0.5f * Vector3::length(Vector3::cross(
-						triangle.position_1 - triangle.position_0,
-						triangle.position_2 - triangle.position_0
-					));
-
-					if (light_mesh == nullptr) {
-						light_mesh_data_indices[m] = light_meshes.size();
-
-						light_mesh = &light_meshes.emplace_back();
-						light_mesh->triangle_first_index = light_triangles.size();
-						light_mesh->triangle_count = 0;
-					}
-
-					light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], area });
-
-					light_mesh->triangle_count++;
-				}
-			}
-
-			if (light_mesh) {		
-				// Sort Lights on area within each Mesh
-				LightTriangle * triangles_begin = light_triangles.data() + light_mesh->triangle_first_index;
-				LightTriangle * triangles_end   = triangles_begin        + light_mesh->triangle_count;
-
-				assert(triangles_end > triangles_begin);
-
-				std::sort(triangles_begin, triangles_end, [](const LightTriangle & a, const LightTriangle & b) { return a.area < b.area; });
-			}
-		}
-
-		int   * light_indices          = new int  [light_triangles.size()];
-		float * light_areas_cumulative = new float[light_triangles.size()];
-
-		for (int m = 0; m < light_meshes.size(); m++) {
-			LightMesh & light_mesh = light_meshes[m];
-
-			float cumulative_area = 0.0f;
-
-			for (int i = light_mesh.triangle_first_index; i < light_mesh.triangle_first_index + light_mesh.triangle_count; i++) {
-				light_indices[i] = light_triangles[i].index;
-
-				cumulative_area += light_triangles[i].area;
-				light_areas_cumulative[i] = cumulative_area;
-			}
-
-			light_mesh.area = cumulative_area;
-		}
-
-		ptr_light_indices          = CUDAMemory::malloc(light_indices,          light_triangles.size());
-		ptr_light_areas_cumulative = CUDAMemory::malloc(light_areas_cumulative, light_triangles.size());
-
-		module.get_global("light_indices")         .set_value(ptr_light_indices);
-		module.get_global("light_areas_cumulative").set_value(ptr_light_areas_cumulative);
-
-		delete [] light_indices;
-		delete [] light_areas_cumulative;
-
-		float * light_mesh_area_unscaled        = MALLOCA(float, scene.mesh_count);
-		int   * light_mesh_triangle_count       = MALLOCA(int,   scene.mesh_count);
-		int   * light_mesh_triangle_first_index = MALLOCA(int,   scene.mesh_count);
-		
-		int light_total_count = 0;
-		int light_mesh_count  = 0;
-		
-		for (int m = 0; m < scene.mesh_count; m++) {
-			int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_index];
-
-			if (light_mesh_data_index != -1) {
-				const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
-
-				scene.meshes[m].light_index = light_mesh_count;
-				scene.meshes[m].light_area  = light_mesh.area;
-
-				int mesh_index = light_mesh_count++;
-				assert(mesh_index < scene.mesh_count);
-
-				light_mesh_area_unscaled       [mesh_index] = light_mesh.area;
-				light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
-				light_mesh_triangle_count      [mesh_index] = light_mesh.triangle_count;
-
-				light_total_count += light_mesh.triangle_count;
-			}
-		}
-		
-		module.get_global("light_total_count_inv").set_value(1.0f / float(light_total_count));
-		module.get_global("light_mesh_count")     .set_value(light_mesh_count);
-
-		ptr_light_mesh_area_unscaled        = CUDAMemory::malloc(light_mesh_area_unscaled,        light_mesh_count);    
-		ptr_light_mesh_triangle_count       = CUDAMemory::malloc(light_mesh_triangle_count,       light_mesh_count);
-		ptr_light_mesh_triangle_first_index = CUDAMemory::malloc(light_mesh_triangle_first_index, light_mesh_count);
-
-		module.get_global("light_mesh_area_unscaled")       .set_value(ptr_light_mesh_area_unscaled);
-		module.get_global("light_mesh_triangle_count")      .set_value(ptr_light_mesh_triangle_count);
-		module.get_global("light_mesh_triangle_first_index").set_value(ptr_light_mesh_triangle_first_index);
-
-		ptr_light_total_area = module.get_global("light_total_area").ptr;
-		ptr_light_mesh_area_scaled       = CUDAMemory::malloc<float>(light_mesh_count);
-		ptr_light_mesh_transform_indices = CUDAMemory::malloc<int>  (light_mesh_count);
-
-		module.get_global("light_mesh_area_scaled")      .set_value(ptr_light_mesh_area_scaled);
-		module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
-
-		FREEA(light_mesh_area_unscaled);
-		FREEA(light_mesh_triangle_count);
-		FREEA(light_mesh_triangle_first_index);
-
-		FREEA(light_mesh_data_indices);
-	} else {
-		module.get_global("light_total_count_inv").set_value(INFINITY); // 1 / 0
-	}
-
 	delete [] aggregated_bvh_nodes;
 	delete [] aggregated_indices;
 	delete [] aggregated_triangles;
@@ -457,45 +317,39 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	delete [] triangle_lods;
 	delete [] triangle_material_ids;
 
-	delete [] reverse_indices;
-
 	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
 
-	module.get_global("sky_width") .set_value(scene.sky.width);
-	module.get_global("sky_height").set_value(scene.sky.height);
-	module.get_global("sky_data")  .set_value(ptr_sky_data);
+	cuda_module.get_global("sky_width") .set_value(scene.sky.width);
+	cuda_module.get_global("sky_height").set_value(scene.sky.height);
+	cuda_module.get_global("sky_data")  .set_value(ptr_sky_data);
 	
 	// Set Blue Noise Sampler globals
 	ptr_sobol_256spp_256d = CUDAMemory::malloc(sobol_256spp_256d);
 	ptr_scrambling_tile   = CUDAMemory::malloc(scrambling_tile);
 	ptr_ranking_tile      = CUDAMemory::malloc(ranking_tile);
 
-	module.get_global("sobol_256spp_256d").set_value(ptr_sobol_256spp_256d);
-	module.get_global("scrambling_tile")  .set_value(ptr_scrambling_tile);
-	module.get_global("ranking_tile")     .set_value(ptr_ranking_tile);
+	cuda_module.get_global("sobol_256spp_256d").set_value(ptr_sobol_256spp_256d);
+	cuda_module.get_global("scrambling_tile")  .set_value(ptr_scrambling_tile);
+	cuda_module.get_global("ranking_tile")     .set_value(ptr_ranking_tile);
 	
-	// Initialize buffers used by Wavefront kernels
-	                                                  ray_buffer_trace                      .init(batch_size);
-	/*if (scene.has_diffuse)                       */ ray_buffer_shade_diffuse              .init(batch_size);
-	/*if (scene.has_dielectric || scene.has_glossy)*/ ray_buffer_shade_dielectric_and_glossy.init(batch_size);
-	/*if (scene.has_lights)                        */ ray_buffer_shadow                     .init(batch_size);
-
-	module.get_global("ray_buffer_trace")                      .set_value(ray_buffer_trace);
-	module.get_global("ray_buffer_shade_diffuse")              .set_value(ray_buffer_shade_diffuse);
-	module.get_global("ray_buffer_shade_dielectric_and_glossy").set_value(ray_buffer_shade_dielectric_and_glossy);
-	module.get_global("ray_buffer_shadow")                     .set_value(ray_buffer_shadow);
+	ray_buffer_trace.init(batch_size);
+	cuda_module.get_global("ray_buffer_trace").set_value(ray_buffer_trace);
+	
+	global_ray_buffer_shade_diffuse               = cuda_module.get_global("ray_buffer_shade_diffuse");
+	global_ray_buffer_shade_dielectric_and_glossy = cuda_module.get_global("ray_buffer_shade_dielectric_and_glossy");
+	global_ray_buffer_shadow                      = cuda_module.get_global("ray_buffer_shadow");
 
 	pinned_buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
 	pinned_buffer_sizes->reset(batch_size);
 	
-	global_buffer_sizes = module.get_global("buffer_sizes");
+	global_buffer_sizes = cuda_module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	global_camera             = module.get_global("camera");
-	global_settings           = module.get_global("settings");
-	global_svgf_data          = module.get_global("svgf_data");
-	global_pixel_query        = module.get_global("pixel_query");
-	global_pixel_query_answer = module.get_global("pixel_query_answer");
+	global_camera             = cuda_module.get_global("camera");
+	global_settings           = cuda_module.get_global("settings");
+	global_svgf_data          = cuda_module.get_global("svgf_data");
+	global_pixel_query        = cuda_module.get_global("pixel_query");
+	global_pixel_query_answer = cuda_module.get_global("pixel_query_answer");
 
 	// Initialize timers
 	int display_order = 0;
@@ -541,7 +395,13 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	scene.camera.update(0.0f, settings);
 	scene.update(0.0f);
 
-	scene_invalidated = true;
+	scene.has_diffuse    = false;
+	scene.has_dielectric = false;
+	scene.has_glossy     = false;
+	scene.has_lights     = false;
+
+	scene_invalidated     = true;
+	materials_invalidated = true;
 
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
@@ -586,30 +446,40 @@ void Pathtracer::cuda_free() {
 
 	CUDAMemory::free(ptr_light_indices);
 	CUDAMemory::free(ptr_light_areas_cumulative);
-	CUDAMemory::free(ptr_light_mesh_area_unscaled);
-	CUDAMemory::free(ptr_light_mesh_triangle_count);
-	CUDAMemory::free(ptr_light_mesh_triangle_first_index);
-	CUDAMemory::free(ptr_light_mesh_area_scaled);
-	CUDAMemory::free(ptr_light_mesh_transform_indices);
-
+	
 	CUDAMemory::free(ptr_sky_data);
 
 	CUDAMemory::free(ptr_sobol_256spp_256d);
 	CUDAMemory::free(ptr_scrambling_tile);
 	CUDAMemory::free(ptr_ranking_tile);
-	                                                  ray_buffer_trace                      .free();
-	/*if (scene.has_diffuse)                       */ ray_buffer_shade_diffuse              .free();
-	/*if (scene.has_dielectric || scene.has_glossy)*/ ray_buffer_shade_dielectric_and_glossy.free();
-	/*if (scene.has_lights)                        */ ray_buffer_shadow                     .free();
+
+	if (scene.has_lights) {	
+		CUDAMemory::free(ptr_light_mesh_area_unscaled);
+		CUDAMemory::free(ptr_light_mesh_triangle_count);
+		CUDAMemory::free(ptr_light_mesh_triangle_first_index);
+
+		CUDAMemory::free(ptr_light_mesh_area_scaled);
+		CUDAMemory::free(ptr_light_mesh_transform_indices);
+	}
+
+                                                  ray_buffer_trace                      .free();
+	if (scene.has_diffuse)                        ray_buffer_shade_diffuse              .free();
+	if (scene.has_dielectric || scene.has_glossy) ray_buffer_shade_dielectric_and_glossy.free();
+	if (scene.has_lights)                         ray_buffer_shadow                     .free();
 	
 	tlas_bvh_builder.free();
 #if BVH_TYPE == BVH_QBVH || BVH_TYPE == BVH_CWBVH
 	tlas_converter.free();
 #endif
 
+	delete [] reverse_indices;
+
+	delete [] mesh_data_bvh_offsets;
+	delete [] mesh_data_triangle_offsets;
+
 	resize_free();
 
-	module.free();
+	cuda_module.free();
 }
 
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {
@@ -620,9 +490,9 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	pixel_count = width * height;
 	batch_size  = Math::min(BATCH_SIZE, pixel_count);
 
-	module.get_global("screen_width") .set_value(screen_width);
-	module.get_global("screen_pitch") .set_value(screen_pitch);
-	module.get_global("screen_height").set_value(screen_height);
+	cuda_module.get_global("screen_width") .set_value(screen_width);
+	cuda_module.get_global("screen_pitch") .set_value(screen_pitch);
+	cuda_module.get_global("screen_height").set_value(screen_height);
 
 	// Allocate GBuffers
 	array_gbuffer_normal_and_depth        = CUDAMemory::create_array(screen_pitch, height, 4, CU_AD_FORMAT_FLOAT);
@@ -633,9 +503,9 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	surf_gbuffer_mesh_id_and_triangle_id = CUDAMemory::create_surface(array_gbuffer_mesh_id_and_triangle_id);
 	surf_gbuffer_screen_position_prev    = CUDAMemory::create_surface(array_gbuffer_screen_position_prev);
 
-	module.get_global("gbuffer_normal_and_depth")       .set_value(surf_gbuffer_normal_and_depth);
-	module.get_global("gbuffer_mesh_id_and_triangle_id").set_value(surf_gbuffer_mesh_id_and_triangle_id);
-	module.get_global("gbuffer_screen_position_prev")   .set_value(surf_gbuffer_screen_position_prev);
+	cuda_module.get_global("gbuffer_normal_and_depth")       .set_value(surf_gbuffer_normal_and_depth);
+	cuda_module.get_global("gbuffer_mesh_id_and_triangle_id").set_value(surf_gbuffer_mesh_id_and_triangle_id);
+	cuda_module.get_global("gbuffer_screen_position_prev")   .set_value(surf_gbuffer_screen_position_prev);
 	
 	// Create Frame Buffers
 	ptr_frame_buffer_albedo = CUDAMemory::malloc<float4>(screen_pitch * height);
@@ -646,15 +516,15 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	ptr_direct_alt   = CUDAMemory::malloc<float4>(screen_pitch * height);
 	ptr_indirect_alt = CUDAMemory::malloc<float4>(screen_pitch * height);
 	
-	module.get_global("frame_buffer_albedo")  .set_value(ptr_frame_buffer_albedo);
-	module.get_global("frame_buffer_moment")  .set_value(ptr_frame_buffer_moment);
-	module.get_global("frame_buffer_direct")  .set_value(ptr_direct);
-	module.get_global("frame_buffer_indirect").set_value(ptr_indirect);
+	cuda_module.get_global("frame_buffer_albedo")  .set_value(ptr_frame_buffer_albedo);
+	cuda_module.get_global("frame_buffer_moment")  .set_value(ptr_frame_buffer_moment);
+	cuda_module.get_global("frame_buffer_direct")  .set_value(ptr_direct);
+	cuda_module.get_global("frame_buffer_indirect").set_value(ptr_indirect);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
 	surf_accumulator     = CUDAMemory::create_surface(CUDAMemory::resource_get_array(resource_accumulator));
-	module.get_global("accumulator").set_value(surf_accumulator);
+	cuda_module.get_global("accumulator").set_value(surf_accumulator);
 
 	// Create History Buffers for SVGF
 	ptr_history_length           = CUDAMemory::malloc<int>   (screen_pitch * height);
@@ -663,18 +533,18 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	ptr_history_moment           = CUDAMemory::malloc<float4>(screen_pitch * height);
 	ptr_history_normal_and_depth = CUDAMemory::malloc<float4>(screen_pitch * height);
 
-	module.get_global("history_length")          .set_value(ptr_history_length);
-	module.get_global("history_direct")          .set_value(ptr_history_direct);
-	module.get_global("history_indirect")        .set_value(ptr_history_indirect);
-	module.get_global("history_moment")          .set_value(ptr_history_moment);
-	module.get_global("history_normal_and_depth").set_value(ptr_history_normal_and_depth);
+	cuda_module.get_global("history_length")          .set_value(ptr_history_length);
+	cuda_module.get_global("history_direct")          .set_value(ptr_history_direct);
+	cuda_module.get_global("history_indirect")        .set_value(ptr_history_indirect);
+	cuda_module.get_global("history_moment")          .set_value(ptr_history_moment);
+	cuda_module.get_global("history_normal_and_depth").set_value(ptr_history_normal_and_depth);
 	
 	// Create Frame Buffers for Temporal Anti-Aliasing
 	ptr_taa_frame_prev = CUDAMemory::malloc<float4>(screen_pitch * height);
 	ptr_taa_frame_curr = CUDAMemory::malloc<float4>(screen_pitch * height);
 
-	module.get_global("taa_frame_prev").set_value(ptr_taa_frame_prev);
-	module.get_global("taa_frame_curr").set_value(ptr_taa_frame_curr);
+	cuda_module.get_global("taa_frame_prev").set_value(ptr_taa_frame_prev);
+	cuda_module.get_global("taa_frame_curr").set_value(ptr_taa_frame_curr);
 
 	// Set Grid dimensions for screen size dependent Kernels
 	kernel_svgf_reproject.set_grid_dim(screen_pitch / kernel_svgf_reproject.block_dim_x, Math::divide_round_up(height, kernel_svgf_reproject.block_dim_y), 1);
@@ -727,6 +597,159 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free(ptr_taa_frame_curr);
 }
 
+void Pathtracer::calc_light_areas() {
+	struct LightTriangle {
+		int   index;
+		float area;
+	};
+	std::vector<LightTriangle> light_triangles;
+
+	struct LightMesh {
+		int triangle_first_index;
+		int triangle_count;
+
+		float area;
+	};
+	std::vector<LightMesh> light_meshes;
+
+	int mesh_data_count = scene.mesh_datas.size();
+
+	int * light_mesh_data_indices = MALLOCA(int, mesh_data_count);
+	memset(light_mesh_data_indices, -1, mesh_data_count * sizeof(int));
+
+	// Loop over every MeshData and check whether it has at least 1 Triangle that is a Light
+	for (int m = 0; m < mesh_data_count; m++) {
+		const MeshData * mesh_data = scene.mesh_datas[m];
+
+		LightMesh * light_mesh = nullptr;
+
+		// For every Triangle, check whether it is a Light based on its Material
+		for (int t = 0; t < mesh_data->triangle_count; t++) {
+			const Triangle & triangle = mesh_data->triangles[t];
+
+			if (scene.materials[mesh_data->material_offset + triangle.material_id].type == Material::Type::LIGHT) {
+				float area = 0.5f * Vector3::length(Vector3::cross(
+					triangle.position_1 - triangle.position_0,
+					triangle.position_2 - triangle.position_0
+				));
+
+				if (light_mesh == nullptr) {
+					light_mesh_data_indices[m] = light_meshes.size();
+
+					light_mesh = &light_meshes.emplace_back();
+					light_mesh->triangle_first_index = light_triangles.size();
+					light_mesh->triangle_count = 0;
+				}
+
+				light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], area });
+
+				light_mesh->triangle_count++;
+			}
+		}
+
+		if (light_mesh) {		
+			// Sort Lights on area within each Mesh
+			LightTriangle * triangles_begin = light_triangles.data() + light_mesh->triangle_first_index;
+			LightTriangle * triangles_end   = triangles_begin        + light_mesh->triangle_count;
+
+			assert(triangles_end > triangles_begin);
+
+			std::sort(triangles_begin, triangles_end, [](const LightTriangle & a, const LightTriangle & b) { return a.area < b.area; });
+		}
+	}
+
+	int   * light_indices          = new int  [light_triangles.size()];
+	float * light_areas_cumulative = new float[light_triangles.size()];
+
+	for (int m = 0; m < light_meshes.size(); m++) {
+		LightMesh & light_mesh = light_meshes[m];
+
+		float cumulative_area = 0.0f;
+
+		for (int i = light_mesh.triangle_first_index; i < light_mesh.triangle_first_index + light_mesh.triangle_count; i++) {
+			light_indices[i] = light_triangles[i].index;
+
+			cumulative_area += light_triangles[i].area;
+			light_areas_cumulative[i] = cumulative_area;
+		}
+
+		light_mesh.area = cumulative_area;
+	}
+
+	ptr_light_indices          = CUDAMemory::malloc(light_indices,          light_triangles.size());
+	ptr_light_areas_cumulative = CUDAMemory::malloc(light_areas_cumulative, light_triangles.size());
+
+	cuda_module.get_global("light_indices")         .set_value(ptr_light_indices);
+	cuda_module.get_global("light_areas_cumulative").set_value(ptr_light_areas_cumulative);
+
+	delete [] light_indices;
+	delete [] light_areas_cumulative;
+
+	float * light_mesh_area_unscaled        = MALLOCA(float, scene.mesh_count);
+	int   * light_mesh_triangle_count       = MALLOCA(int,   scene.mesh_count);
+	int   * light_mesh_triangle_first_index = MALLOCA(int,   scene.mesh_count);
+		
+	int light_total_count = 0;
+	int light_mesh_count  = 0;
+		
+	for (int m = 0; m < scene.mesh_count; m++) {
+		int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_index];
+
+		if (light_mesh_data_index != INVALID) {
+			const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
+
+			scene.meshes[m].light_index = light_mesh_count;
+			scene.meshes[m].light_area  = light_mesh.area;
+
+			int mesh_index = light_mesh_count++;
+			assert(mesh_index < scene.mesh_count);
+
+			light_mesh_area_unscaled       [mesh_index] = light_mesh.area;
+			light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
+			light_mesh_triangle_count      [mesh_index] = light_mesh.triangle_count;
+
+			light_total_count += light_mesh.triangle_count;
+		} else {
+			scene.meshes[m].light_index = INVALID;
+		}
+	}
+
+	cuda_module.get_global("light_total_count_inv").set_value(1.0f / float(light_total_count));
+	cuda_module.get_global("light_mesh_count")     .set_value(light_mesh_count);
+
+	if (ptr_light_mesh_area_unscaled       .ptr != NULL) CUDAMemory::free(ptr_light_mesh_area_unscaled);
+	if (ptr_light_mesh_triangle_count      .ptr != NULL) CUDAMemory::free(ptr_light_mesh_triangle_count);
+	if (ptr_light_mesh_triangle_first_index.ptr != NULL) CUDAMemory::free(ptr_light_mesh_triangle_first_index);
+	if (ptr_light_mesh_area_scaled         .ptr != NULL) CUDAMemory::free(ptr_light_mesh_area_scaled);
+	if (ptr_light_mesh_transform_indices   .ptr != NULL) CUDAMemory::free(ptr_light_mesh_transform_indices);
+
+	ptr_light_mesh_area_unscaled        = CUDAMemory::malloc(light_mesh_area_unscaled,        light_mesh_count);    
+	ptr_light_mesh_triangle_count       = CUDAMemory::malloc(light_mesh_triangle_count,       light_mesh_count);
+	ptr_light_mesh_triangle_first_index = CUDAMemory::malloc(light_mesh_triangle_first_index, light_mesh_count);
+
+	cuda_module.get_global("light_mesh_area_unscaled")       .set_value(ptr_light_mesh_area_unscaled);
+	cuda_module.get_global("light_mesh_triangle_count")      .set_value(ptr_light_mesh_triangle_count);
+	cuda_module.get_global("light_mesh_triangle_first_index").set_value(ptr_light_mesh_triangle_first_index);
+
+	// These pointers are only filled in and copied to the GPU once the TLAS is constructed, 
+	// therefore the scene_invalidated flag is required to be set.
+	ptr_light_mesh_area_scaled       = CUDAMemory::malloc<float>(light_mesh_count);
+	ptr_light_mesh_transform_indices = CUDAMemory::malloc<int>  (light_mesh_count);
+	scene_invalidated = true;
+
+	cuda_module.get_global("light_mesh_area_scaled")      .set_value(ptr_light_mesh_area_scaled);
+	cuda_module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
+
+	global_light_total_area = cuda_module.get_global("light_total_area");
+
+	FREEA(light_mesh_area_unscaled);
+	FREEA(light_mesh_triangle_count);
+	FREEA(light_mesh_triangle_first_index);
+
+	FREEA(light_mesh_data_indices);
+}
+
+// Construct Top Level Acceleration Structure (TLAS) over the Meshes in the Scene
 void Pathtracer::build_tlas() {
 	tlas_bvh_builder.build(scene.meshes, scene.mesh_count);
 
@@ -743,7 +766,7 @@ void Pathtracer::build_tlas() {
 	assert(tlas.index_count == scene.mesh_count);
 	CUDAMemory::memcpy(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
 
-	int   light_count = 0;
+	int   light_mesh_count = 0;
 	float light_total_area = 0.0f;
 
 	for (int i = 0; i < scene.mesh_count; i++) {
@@ -755,7 +778,7 @@ void Pathtracer::build_tlas() {
 		memcpy(pinned_mesh_transforms_inv [i].cells, mesh.transform_inv .cells, sizeof(Matrix3x4));
 		memcpy(pinned_mesh_transforms_prev[i].cells, mesh.transform_prev.cells, sizeof(Matrix3x4));
 
-		bool is_light = mesh.light_index != -1;
+		bool is_light = mesh.light_index != INVALID;
 		if (is_light) {
 			float light_area_scaled = mesh.light_area * mesh.scale * mesh.scale;
 
@@ -764,7 +787,7 @@ void Pathtracer::build_tlas() {
 			pinned_light_mesh_transform_indices[mesh.light_index] = i;
 			pinned_light_mesh_area_scaled      [mesh.light_index] = light_area_scaled;
 			
-			light_count++;
+			light_mesh_count++;
 			light_total_area += light_area_scaled;
 		}
 	}
@@ -775,9 +798,10 @@ void Pathtracer::build_tlas() {
 	CUDAMemory::memcpy(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.mesh_count);
 	
 	if (scene.has_lights) {
-		CUDAMemory::memcpy(ptr_light_total_area, &light_total_area);
-		CUDAMemory::memcpy(ptr_light_mesh_transform_indices, pinned_light_mesh_transform_indices, light_count);
-		CUDAMemory::memcpy(ptr_light_mesh_area_scaled,       pinned_light_mesh_area_scaled,       light_count);
+		CUDAMemory::memcpy(ptr_light_mesh_transform_indices, pinned_light_mesh_transform_indices, light_mesh_count);
+		CUDAMemory::memcpy(ptr_light_mesh_area_scaled,       pinned_light_mesh_area_scaled,       light_mesh_count);
+
+		global_light_total_area.set_value(light_total_area);
 	}
 }
 
@@ -787,35 +811,93 @@ void Pathtracer::update(float delta) {
 		settings.camera_aperture = 0.0f;
 	}
 
-	if (settings.enable_svgf) {
+	if (lights_invalidated) {
+		calc_light_areas();
+		lights_invalidated = false;
+	}
+
+	if (materials_invalidated) {
+		CUDAMemory::memcpy(ptr_materials, scene.materials.data(), scene.materials.size());
+
+		bool had_diffuse    = scene.has_diffuse;
+		bool had_dielectric = scene.has_dielectric;
+		bool had_glossy     = scene.has_glossy;
+		bool had_lights     = scene.has_lights;
+
+		scene.check_materials();
+
+		bool diffuse_changed              =  had_diffuse                   ^  scene.has_diffuse;
+		bool dielectric_or_glossy_changed = (had_dielectric || had_glossy) ^ (scene.has_dielectric || scene.has_glossy);
+		bool lights_changed               =  had_lights                    ^  scene.has_lights;
+
+		// Handle (dis)appearance of Diffuse materials
+		if (diffuse_changed) {
+			if (scene.has_diffuse) {
+				ray_buffer_shade_diffuse.init(batch_size);
+			} else {
+				ray_buffer_shade_diffuse.free();
+			}
+			global_ray_buffer_shade_diffuse.set_value(ray_buffer_shade_diffuse);
+		}
+		
+		// Handle (dis)appearance of Dielectric OR Glossy materials (they share the same Material buffer)
+		if (dielectric_or_glossy_changed) {
+			if (scene.has_dielectric || scene.has_glossy) {
+				ray_buffer_shade_dielectric_and_glossy.init(batch_size);
+			} else {
+				ray_buffer_shade_dielectric_and_glossy.free();
+			}
+			global_ray_buffer_shade_dielectric_and_glossy.set_value(ray_buffer_shade_dielectric_and_glossy);
+		}
+
+		// Handle (dis)appearance of Light materials
+		if (lights_changed) {	
+			if (scene.has_lights) {
+				ray_buffer_shadow.init(batch_size);
+				
+				calc_light_areas();
+			} else {
+				ray_buffer_shadow.free();
+
+				CUDAMemory::free(ptr_light_mesh_area_unscaled);
+				CUDAMemory::free(ptr_light_mesh_triangle_count);
+				CUDAMemory::free(ptr_light_mesh_triangle_first_index);
+				
+				CUDAMemory::free(ptr_light_mesh_area_scaled);
+				CUDAMemory::free(ptr_light_mesh_transform_indices);
+
+				cuda_module.get_global("light_total_count_inv").set_value(INFINITY); // 1 / 0
+				cuda_module.get_global("light_mesh_count")     .set_value(0);
+			}
+			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
+		}
+
+		frames_accumulated = 0;
+		materials_invalidated = false;
+	}
+
+	if (settings.enable_scene_update) {
+		scene.update(delta);
+		scene_invalidated = true;
+	} else if (settings.enable_svgf || scene_invalidated) {
 		scene.camera.update(0.0f, settings);
 		scene.update(0.0f);
+	} 
 
-		build_tlas();
-
-	} else if (settings.enable_scene_update || scene_invalidated) {
-		scene.update(delta);
-
+	if (scene_invalidated) {
 		build_tlas();
 
 		// If SVGF is enabled we can handle Scene updates using reprojection,
-		// otherwise 'frames_since_camera_moved' needs to be reset in order to avoid ghosting
+		// otherwise 'frames_accumulated' needs to be reset in order to avoid ghosting
 		if (!settings.enable_svgf) {
 			frames_accumulated = 0;
 		}
 
 		scene_invalidated = false;
 	}
-
-	if (materials_invalidated) {
-		CUDAMemory::memcpy(ptr_materials, scene.materials.data(), scene.materials.size());
-
-		frames_accumulated = 0;
-		materials_invalidated = false;
-	}
-
+	
 	scene.camera.update(delta, settings);
-
+	
 	if (scene.camera.moved || camera_invalidated) {
 		// Upload Camera
 		struct CUDACamera {
@@ -842,7 +924,7 @@ void Pathtracer::update(float delta) {
 		pixel_query_answer.mesh_id = tlas.indices[pixel_query_answer.mesh_id];
 
 		// Reset pixel query
-		PixelQuery pixel_query = { -1, -1 };
+		PixelQuery pixel_query = { INVALID, INVALID };
 		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
 
 		pixel_query_status = PixelQueryStatus::INACTIVE;
@@ -903,26 +985,26 @@ void Pathtracer::render() {
 			kernel_sort.execute(Random::get_value(), bounce);
 
 			// Process the various Material types in different Kernels
-			//if (scene.has_diffuse) {
+			if (scene.has_diffuse) {
 				CUDAEvent::record(event_info_shade_diffuse[bounce]);
 				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_accumulated);
-			//}
+			}
 
-			//if (scene.has_dielectric) {
+			if (scene.has_dielectric) {
 				CUDAEvent::record(event_info_shade_dielectric[bounce]);
 				kernel_shade_dielectric.execute(Random::get_value(), bounce);
-			//}
+			}
 
-			//if (scene.has_glossy) {
+			if (scene.has_glossy) {
 				CUDAEvent::record(event_info_shade_glossy[bounce]);
 				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_accumulated);
-			//}
+			}
 
 			// Trace shadow Rays
-			//if (scene.has_lights) {
+			if (scene.has_lights && settings.enable_next_event_estimation) {
 				CUDAEvent::record(event_info_shadow_trace[bounce]);
 				kernel_trace_shadow.execute(bounce);
-			//}
+			}
 		}
 
 		pixels_left -= batch_size;
@@ -985,7 +1067,7 @@ void Pathtracer::render() {
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	// If a pixel query was previously pending, it has been resolved in the current frame
+	// If a pixel query was previously pending, it has just been resolved in the current frame
 	if (pixel_query_status == PixelQueryStatus::PENDING) {
 		pixel_query_status =  PixelQueryStatus::OUTPUT_READY;
 	}

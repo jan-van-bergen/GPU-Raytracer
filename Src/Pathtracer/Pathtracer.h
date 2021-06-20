@@ -169,7 +169,8 @@ struct Pathtracer {
 	Scene scene;
 
 	bool scene_invalidated     = true;
-	bool materials_invalidated = false;
+	bool lights_invalidated    = false;
+	bool materials_invalidated = true;
 	bool camera_invalidated    = true;
 	
 	enum struct PixelQueryStatus {
@@ -185,6 +186,11 @@ struct Pathtracer {
 
 	PixelQuery       pixel_query        = { -1, -1 };
 	PixelQueryAnswer pixel_query_answer = { -1, -1, -1 };
+	
+	int * reverse_indices;
+
+	int * mesh_data_bvh_offsets;
+	int * mesh_data_triangle_offsets;
 
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
 
@@ -217,9 +223,7 @@ private:
 	CWBVHBuilder tlas_converter;
 #endif
 	
-	int * mesh_data_bvh_offsets;
-
-	CUDAModule module;
+	CUDAModule cuda_module;
 
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace;
@@ -246,6 +250,10 @@ private:
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric_and_glossy;
 	ShadowRayBuffer ray_buffer_shadow;
+
+	CUDAModule::Global global_ray_buffer_shade_diffuse;
+	CUDAModule::Global global_ray_buffer_shade_dielectric_and_glossy;
+	CUDAModule::Global global_ray_buffer_shadow; 
 
 	BufferSizes * pinned_buffer_sizes;
 
@@ -330,9 +338,10 @@ private:
 	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_count;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_first_index;
 
-	CUDAMemory::Ptr<float> ptr_light_total_area;
 	CUDAMemory::Ptr<float> ptr_light_mesh_area_scaled;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
+	
+	CUDAModule::Global global_light_total_area;
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
 
@@ -356,6 +365,8 @@ private:
 	CUDAEvent::Info event_info_reconstruct;
 	CUDAEvent::Info event_info_accumulate;
 	CUDAEvent::Info event_info_end;
+
+	void calc_light_areas();
 
 	void build_tlas();
 };

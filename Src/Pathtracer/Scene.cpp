@@ -22,28 +22,6 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 		meshes[i].init(mesh_names[i], MeshData::load(mesh_names[i], *this), *this);
 	}
 	
-	has_diffuse    = false;
-	has_dielectric = false;
-	has_glossy     = false;
-	has_lights     = false;
-
-	// Check properties of the Scene, so we know which kernels are required
-	for (int i = 0; i < materials.size(); i++) {
-		switch (materials[i].type) {
-			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
-			case Material::Type::DIELECTRIC: has_dielectric = true; break;
-			case Material::Type::GLOSSY:     has_glossy     = true; break;
-			case Material::Type::LIGHT:      has_lights     = true; break;
-		}
-	}
-
-	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
-		has_diffuse    ? "yes" : "no",
-		has_dielectric ? "yes" : "no",
-		has_glossy     ? "yes" : "no",
-		has_lights     ? "yes" : "no"
-	);
-
 	// Initialize Sky
 	sky.init(sky_name);
 	
@@ -99,6 +77,30 @@ void Scene::wait_until_textures_loaded() {
 	while (num_textures_finished < textures.size()) {
 		std::this_thread::sleep_for(100ms);
 	}
+}
+
+void Scene::check_materials() {
+	has_diffuse    = false;
+	has_dielectric = false;
+	has_glossy     = false;
+	has_lights     = false;
+
+	// Check properties of the Scene, so we know which kernels are required
+	for (int i = 0; i < materials.size(); i++) {
+		switch (materials[i].type) {
+			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
+			case Material::Type::DIELECTRIC: has_dielectric = true; break;
+			case Material::Type::GLOSSY:     has_glossy     = true; break;
+			case Material::Type::LIGHT:      has_lights     = true; break;
+		}
+	}
+
+	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
+		has_diffuse    ? "yes" : "no",
+		has_dielectric ? "yes" : "no",
+		has_glossy     ? "yes" : "no",
+		has_lights     ? "yes" : "no"
+	);
 }
 
 void Scene::update(float delta) {

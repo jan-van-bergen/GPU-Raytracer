@@ -283,14 +283,14 @@ int main(int argument_count, char ** arguments) {
 				bool mesh_changed = false;
 				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
 
-				static int dragging = -1;
+				static int dragging = INVALID;
 				
 				if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
 					mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
 					mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
 					mesh.euler_angles.z = Math::wrap(mesh.euler_angles.z, 0.0f, 360.0f);
 
-					if (dragging == -1) {
+					if (dragging == INVALID) {
 						mesh.euler_angles = Quaternion::to_euler(mesh.rotation);
 						mesh.euler_angles.x = Math::rad_to_deg(mesh.euler_angles.x);
 						mesh.euler_angles.y = Math::rad_to_deg(mesh.euler_angles.y);
@@ -302,7 +302,12 @@ int main(int argument_count, char ** arguments) {
 					mesh_changed = true;
 				}
 
-				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
+				if (ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY)) {
+					if (mesh.light_index != INVALID) {
+						pathtracer.lights_invalidated = true; // If this Mesh is a Light, the light areas will need to be recalculated
+					}
+					mesh_changed = true;
+				}
 
 				if (mesh_changed) pathtracer.scene_invalidated = true;
 
@@ -312,9 +317,9 @@ int main(int argument_count, char ** arguments) {
 
 			if (Input::is_mouse_released(Input::MouseButton::RIGHT)) {
 				// Deselect current object
-				pathtracer.pixel_query_answer.mesh_id     = -1;
-				pathtracer.pixel_query_answer.triangle_id = -1;
-				pathtracer.pixel_query_answer.material_id = -1;
+				pathtracer.pixel_query_answer.mesh_id     = INVALID;
+				pathtracer.pixel_query_answer.triangle_id = INVALID;
+				pathtracer.pixel_query_answer.material_id = INVALID;
 			}
 
 			//ImGui::TextUnformatted("Selected:");
@@ -322,8 +327,8 @@ int main(int argument_count, char ** arguments) {
 			//ImGui::Text("Triangle: %i", pathtracer.pixel_query_answer.triangle_id);
 			//ImGui::Text("Material: %i", pathtracer.pixel_query_answer.material_id);
 
-			if (pathtracer.pixel_query_answer.mesh_id != -1) {
-				Mesh const & mesh = pathtracer.scene.meshes[pathtracer.pixel_query_answer.mesh_id];
+			if (pathtracer.pixel_query_answer.mesh_id != INVALID) {
+				const Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query_answer.mesh_id];
 
 				ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
 
@@ -343,38 +348,60 @@ int main(int argument_count, char ** arguments) {
 					aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
 				}
 
-				auto draw_line_clipped = [draw_list, &window](Vector4 a, Vector4 b) {
+				auto draw_line_clipped = [draw_list, &window](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
 					if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
 
 					// Clip against near plane only
 					if (a.z < pathtracer.scene.camera.near) a = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
 					if (b.z < pathtracer.scene.camera.near) b = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
 
-					// Clip space to NDC to window
+					// Clip space to NDC to Window coordinates
 					ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };
 					ImVec2 b_window = { (0.5f + 0.5f * b.x / b.w) * window.width, (0.5f - 0.5f * b.y / b.w) * window.height };
 					
-					const ImColor COLOUR = ImColor(0.2f, 0.8f, 0.2f);
-					const float THICKNESS = 1.0f;
-
-					draw_list->AddLine(a_window, b_window, COLOUR, THICKNESS);
+					draw_list->AddLine(a_window, b_window, colour, thickness);
 				};
 
-				draw_line_clipped(aabb_corners[0], aabb_corners[1]);
-				draw_line_clipped(aabb_corners[1], aabb_corners[2]);
-				draw_line_clipped(aabb_corners[2], aabb_corners[3]);
-				draw_line_clipped(aabb_corners[3], aabb_corners[0]);
-				draw_line_clipped(aabb_corners[4], aabb_corners[5]);
-				draw_line_clipped(aabb_corners[5], aabb_corners[6]);
-				draw_line_clipped(aabb_corners[6], aabb_corners[7]);
-				draw_line_clipped(aabb_corners[7], aabb_corners[4]);
-				draw_line_clipped(aabb_corners[0], aabb_corners[4]);
-				draw_line_clipped(aabb_corners[1], aabb_corners[5]);
-				draw_line_clipped(aabb_corners[2], aabb_corners[6]);
-				draw_line_clipped(aabb_corners[3], aabb_corners[7]);
+				ImColor aabb_colour = ImColor(0.2f, 0.8f, 0.2f);
+
+				draw_line_clipped(aabb_corners[0], aabb_corners[1], aabb_colour);
+				draw_line_clipped(aabb_corners[1], aabb_corners[2], aabb_colour);
+				draw_line_clipped(aabb_corners[2], aabb_corners[3], aabb_colour);
+				draw_line_clipped(aabb_corners[3], aabb_corners[0], aabb_colour);
+				draw_line_clipped(aabb_corners[4], aabb_corners[5], aabb_colour);
+				draw_line_clipped(aabb_corners[5], aabb_corners[6], aabb_colour);
+				draw_line_clipped(aabb_corners[6], aabb_corners[7], aabb_colour);
+				draw_line_clipped(aabb_corners[7], aabb_corners[4], aabb_colour);
+				draw_line_clipped(aabb_corners[0], aabb_corners[4], aabb_colour);
+				draw_line_clipped(aabb_corners[1], aabb_corners[5], aabb_colour);
+				draw_line_clipped(aabb_corners[2], aabb_corners[6], aabb_colour);
+				draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
+
+				if (pathtracer.pixel_query_answer.triangle_id != INVALID) {
+					const MeshData * mesh_data = pathtracer.scene.mesh_datas[mesh.mesh_data_index];
+
+					int              index    = mesh_data->bvh.indices[pathtracer.pixel_query_answer.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_index]];
+					const Triangle & triangle = mesh_data->triangles[index];
+
+					Vector4 triangle_positions[3] = {
+						Vector4(triangle.position_0.x, triangle.position_0.y, triangle.position_0.z, 1.0f),
+						Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
+						Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
+					};
+
+					for (int i = 0; i < 3; i++) {
+						triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, triangle_positions[i]);
+					}
+
+					ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);
+
+					draw_line_clipped(triangle_positions[0], triangle_positions[1], triangle_colour);
+					draw_line_clipped(triangle_positions[1], triangle_positions[2], triangle_colour);
+					draw_line_clipped(triangle_positions[2], triangle_positions[0], triangle_colour);
+				}
 			}
 
-			if (pathtracer.pixel_query_answer.material_id != -1) {
+			if (pathtracer.pixel_query_answer.material_id != INVALID) {
 				Material & material = pathtracer.scene.materials[pathtracer.pixel_query_answer.material_id];
 
 				bool material_changed = false;				
