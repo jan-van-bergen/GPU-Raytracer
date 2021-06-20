@@ -345,7 +345,7 @@ int main(int argument_count, char ** arguments) {
 
 				// Transform from world space to homogeneous clip space
 				for (int i = 0; i < 8; i++) {
-					aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
+					aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, aabb_corners[i]);
 				}
 
 				auto draw_line_clipped = [draw_list, &window](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
