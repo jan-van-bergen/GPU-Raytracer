@@ -399,14 +399,26 @@ int main(int argument_count, char ** arguments) {
 			if (pathtracer.pixel_query_answer.material_id != INVALID) {
 				Material & material = pathtracer.scene.materials[pathtracer.pixel_query_answer.material_id];
 
+				// Absorption is stored as transmittance - 1 for efficiency, but should be displayed in a more user-friendly way
+				float transmittance[3] = {
+					material.absorption.x + 1.0f,
+					material.absorption.y + 1.0f,
+					material.absorption.z + 1.0f
+				};
+
 				bool material_changed = false;				
 				material_changed |= ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
-				material_changed |= ImGui::SliderFloat3("Diffuse",    &material.diffuse.x, 0.0f, 1.0f);
-				material_changed |= ImGui::SliderInt   ("Texture",    &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
-				material_changed |= ImGui::DragFloat3  ("Emission",   &material.emission.x, 0.1f, 0.0f, INFINITY);
-				material_changed |= ImGui::SliderFloat ("IOR",        &material.index_of_refraction, 0.0f, 5.0f);
-				material_changed |= ImGui::SliderFloat3("Absorption", &material.absorption.x, -1.0f, 0.0f);
-				material_changed |= ImGui::SliderFloat ("Roughness",  &material.roughness, 0.0f, 1.0f);
+				material_changed |= ImGui::SliderFloat3("Diffuse",  &material.diffuse.x, 0.0f, 1.0f);
+				material_changed |= ImGui::SliderInt   ("Texture",  &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
+				material_changed |= ImGui::DragFloat3  ("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
+				material_changed |= ImGui::SliderFloat ("IOR",      &material.index_of_refraction, 0.0f, 5.0f);
+				if (ImGui::SliderFloat3("Transmittance", transmittance, 0.0f, 1.0f)) {
+					material.absorption.x = transmittance[0] - 1.0f;
+					material.absorption.y = transmittance[1] - 1.0f;
+					material.absorption.z = transmittance[2] - 1.0f;
+					material_changed = true;
+				}
+				material_changed |= ImGui::SliderFloat ("Roughness", &material.roughness, 0.0f, 1.0f);
 
 				if (material_changed) pathtracer.materials_invalidated = true;
 			}

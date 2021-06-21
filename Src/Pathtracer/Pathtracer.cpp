@@ -902,7 +902,8 @@ void Pathtracer::update(float delta) {
 		pixel_query_answer.mesh_id = tlas.indices[pixel_query_answer.mesh_id];
 
 		// Reset pixel query
-		PixelQuery pixel_query = { INVALID, INVALID };
+		pixel_query.x = INVALID;
+		pixel_query.y = INVALID;
 		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
 
 		pixel_query_status = PixelQueryStatus::INACTIVE;
