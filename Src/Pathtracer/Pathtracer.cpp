@@ -826,6 +826,8 @@ void Pathtracer::update(float delta) {
 		if (lights_changed) {	
 			if (scene.has_lights) {
 				ray_buffer_shadow.init(batch_size);
+
+				scene_invalidated = true;
 			} else {
 				ray_buffer_shadow.free();
 
@@ -842,9 +844,8 @@ void Pathtracer::update(float delta) {
 					scene.meshes[i].light_index = INVALID;
 				}
 			}
-			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
 
-			scene_invalidated = true;
+			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
 		}
 
 		if (scene.has_lights) calc_light_areas();
