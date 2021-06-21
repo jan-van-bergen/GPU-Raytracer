@@ -150,55 +150,65 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	FREEA(path);
 
 	if (should_recompile) {
-		int num_includes = includes.size();
-
-		const char ** include_names   = MALLOCA(const char *, num_includes);
-		const char ** include_sources = MALLOCA(const char *, num_includes);
-		
-		for (int i = 0; i < num_includes; i++) {
-			include_names  [i] = includes[i].filename;
-			include_sources[i] = includes[i].source;
-		}
-
-		// Create NVRTC Program from the source and all includes
 		nvrtcProgram program;
-		NVRTC_CALL(nvrtcCreateProgram(&program, source, "Pathtracer", num_includes, include_sources, include_names));
 
-		FREEA(include_names);
-		FREEA(include_sources);
+		while (true) {
+			int num_includes = includes.size();
 
-		// Configure options
-		char compute    [64]; sprintf_s(compute,     "--gpu-architecture=compute_%i", compute_capability);
-		char maxregcount[64]; sprintf_s(maxregcount, "--maxrregcount=%i", max_registers);
+			const char ** include_names   = MALLOCA(const char *, num_includes);
+			const char ** include_sources = MALLOCA(const char *, num_includes);
+		
+			for (int i = 0; i < num_includes; i++) {
+				include_names  [i] = includes[i].filename;
+				include_sources[i] = includes[i].source;
+			}
 
-		const char * options[] = {
-			"--std=c++17",
-			compute,
-			maxregcount,
-			"--use_fast_math",
-			"--extra-device-vectorization",
-			//"--device-debug",
-			"-lineinfo",
-			"-restrict"
-		};
+			// Create NVRTC Program from the source and all includes
+			NVRTC_CALL(nvrtcCreateProgram(&program, source, "Pathtracer", num_includes, include_sources, include_names));
 
-		// Compile to PTX
-		nvrtcResult result = nvrtcCompileProgram(program, Util::array_element_count(options), options);
+			FREEA(include_names);
+			FREEA(include_sources);
 
-		size_t log_size;
-		NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
+			// Configure options
+			char compute    [64]; sprintf_s(compute,     "--gpu-architecture=compute_%i", compute_capability);
+			char maxregcount[64]; sprintf_s(maxregcount, "--maxrregcount=%i", max_registers);
 
-		if (log_size > 1) {
-			char * log = new char[log_size];
-			NVRTC_CALL(nvrtcGetProgramLog(program, log));
+			const char * options[] = {
+				"--std=c++17",
+				compute,
+				maxregcount,
+				"--use_fast_math",
+				"--extra-device-vectorization",
+				//"--device-debug",
+				"-lineinfo",
+				"-restrict"
+			};
 
-			puts("NVRTC output:");
-			puts(log);
+			// Compile to PTX
+			nvrtcResult result = nvrtcCompileProgram(program, Util::array_element_count(options), options);
 
-			delete [] log;
+			size_t log_size;
+			NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
+
+			if (log_size > 1) {
+				char * log = new char[log_size];
+				NVRTC_CALL(nvrtcGetProgramLog(program, log));
+
+				puts("NVRTC output:");
+				puts(log);
+
+				delete [] log;
+			}
+
+			if (result == NVRTC_SUCCESS) break;
+
+			__debugbreak(); // Compile error
+
+			// Reload file and try again
+			delete [] source;
+			includes.clear();
+			source = scan_includes_recursive(filename, path, includes, ptx_filename, should_recompile);
 		}
-
-		if (result != NVRTC_SUCCESS) abort();
 
 		// Obtain PTX from NVRTC
 		size_t ptx_size;                 NVRTC_CALL(nvrtcGetPTXSize(program, &ptx_size));

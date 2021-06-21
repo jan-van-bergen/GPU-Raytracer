@@ -9,6 +9,8 @@
 #define TWO_PI          6.28318530718f
 #define ONE_OVER_TWO_PI 0.15915494309f
 
+#define INVALID -1
+
 
 // CUDA
 #define WARP_SIZE 32

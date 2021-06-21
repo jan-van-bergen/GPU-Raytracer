@@ -390,7 +390,7 @@ int main(int argument_count, char ** arguments) {
 					};
 
 					for (int i = 0; i < 3; i++) {
-						triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, triangle_positions[i]);
+						triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
 					}
 
 					ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);

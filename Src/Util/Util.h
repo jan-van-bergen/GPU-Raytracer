@@ -1,7 +1,5 @@
 #pragma once
 
-#define INVALID -1
-
 #define DATA_PATH(file_name) "./Data/" file_name
 
 #define DEG_TO_RAD(angle) ((angle) * PI / 180.0f)

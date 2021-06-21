@@ -469,7 +469,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #if ENABLE_MIPMAPPING
 	float cone_angle, cone_width;
 
-	float3 geometric_normal = normalize(cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2));
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float  triangle_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_area_inv; // Normalize
+
+	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
 	if (bounce == 0) {
 		cone_angle = camera.pixel_spread_angle;
@@ -478,7 +482,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
 		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
+			mesh_scale,
 			geometric_normal,
+			triangle_area_inv,
 			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
 			hit_point, hit_tex_coord,
@@ -493,8 +499,17 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		cone_angle = cone.x;
 		cone_width = cone.y + cone_angle * hit.t;
 
+		float2 tex_size = material.get_texture_size();
+
+		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(
+			mesh_scale,
+			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
+			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2	
+		);
+		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float lod = log2f(lod_triangle * lod_ray_cone);
+
 		// Trilinear sampling
-		float lod = triangle_get_lod(hit.triangle_id) + ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
 		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
 
@@ -769,7 +784,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 #if ENABLE_MIPMAPPING
 	float cone_angle, cone_width;
 
-	float3 geometric_normal = normalize(cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2));
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float  triangle_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_area_inv; // Normalize
+
+	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
 	if (bounce == 0) {
 		cone_angle = camera.pixel_spread_angle;
@@ -778,7 +797,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
 		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
+			mesh_scale,
 			geometric_normal,
+			triangle_area_inv,
 			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
 			hit_point, hit_tex_coord,
@@ -793,8 +814,16 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		cone_angle = cone.x;
 		cone_width = cone.y + cone_angle * hit.t;
 
-		// Trilinear sampling
-		float lod = triangle_get_lod(hit.triangle_id) + ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float2 tex_size = material.get_texture_size();
+
+		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(
+			mesh_scale,
+			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
+			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2	
+		);
+		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float lod = log2f(lod_triangle * lod_ray_cone);
+
 		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
 

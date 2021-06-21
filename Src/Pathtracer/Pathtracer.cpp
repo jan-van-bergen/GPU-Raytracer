@@ -95,8 +95,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	// Set global Texture table
 	int texture_count = scene.textures.size();
 	if (texture_count > 0) {
-		tex_objects = new CUtexObject     [texture_count];
-		tex_arrays  = new CUmipmappedArray[texture_count];
+		textures       = new CUDATexture     [texture_count];
+		texture_arrays = new CUmipmappedArray[texture_count];
 		
 		// Get maximum anisotropy from OpenGL
 		int max_aniso; glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso);
@@ -105,7 +105,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 			const Texture & texture = scene.textures[i];
 
 			// Create mipmapped CUDA array
-			tex_arrays[i] = CUDAMemory::create_array_mipmap(
+			texture_arrays[i] = CUDAMemory::create_array_mipmap(
 				texture.width,
 				texture.height,
 				texture.channels,
@@ -116,7 +116,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 			// Upload each level of the mipmap
 			for (int level = 0; level < texture.mip_levels; level++) {
 				CUarray level_array;
-				CUDACALL(cuMipmappedArrayGetLevel(&level_array, tex_arrays[i], level));
+				CUDACALL(cuMipmappedArrayGetLevel(&level_array, texture_arrays[i], level));
 
 				int level_width_in_bytes = texture.get_width_in_bytes(level);
 				int level_height         = texture.height >> level;
@@ -127,7 +127,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 			// Describe the Array to read from
 			CUDA_RESOURCE_DESC res_desc = { };
 			res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_MIPMAPPED_ARRAY;
-			res_desc.res.mipmap.hMipmappedArray = tex_arrays[i];
+			res_desc.res.mipmap.hMipmappedArray = texture_arrays[i];
 
 			// Describe how to sample the Texture
 			CUDA_TEXTURE_DESC tex_desc = { };
@@ -150,10 +150,13 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 			view_desc.firstMipmapLevel = 0;
 			view_desc.lastMipmapLevel  = texture.mip_levels - 1;
 
-			CUDACALL(cuTexObjectCreate(tex_objects + i, &res_desc, &tex_desc, &view_desc));
+			CUDACALL(cuTexObjectCreate(&textures[i].texture, &res_desc, &tex_desc, &view_desc));
+
+			textures[i].size.x = texture.width;
+			textures[i].size.y = texture.height;
 		}
 
-		ptr_textures = CUDAMemory::malloc(tex_objects, texture_count);
+		ptr_textures = CUDAMemory::malloc(textures, texture_count);
 		cuda_module.get_global("textures").set_value(ptr_textures);
 	}
 
@@ -258,8 +261,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	CUDATriangle * triangles             = new CUDATriangle[aggregated_index_count];
 	int          * triangle_material_ids = new int         [aggregated_index_count];
-	float        * triangle_lods         = new float       [aggregated_index_count];
-
+	
 	reverse_indices = new int[aggregated_index_count];
 
 	for (int i = 0; i < aggregated_index_count; i++) {
@@ -282,39 +284,20 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		int material_id = aggregated_triangles[index].material_id;
 		triangle_material_ids[i] = material_id;
 
-		int texture_id = scene.materials[material_id].texture_id;
-		if (texture_id != INVALID) {
-			const Texture & texture = scene.textures[texture_id];
-
-			// Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
-			float t_a = float(texture.width * texture.height) * fabsf(
-				triangles[i].tex_coord_edge_1.x * triangles[i].tex_coord_edge_2.y -
-				triangles[i].tex_coord_edge_2.x * triangles[i].tex_coord_edge_1.y
-			); 
-			float p_a = Vector3::length(Vector3::cross(triangles[i].position_edge_1, triangles[i].position_edge_2));
-
-			triangle_lods[i] = 0.5f * log2f(t_a / p_a);
-		} else {
-			triangle_lods[i] = 0.0f;
-		}
-
 		reverse_indices[index] = i;
 	}
 
 	ptr_triangles             = CUDAMemory::malloc(triangles,             aggregated_index_count);
 	ptr_triangle_material_ids = CUDAMemory::malloc(triangle_material_ids, aggregated_index_count);
-	ptr_triangle_lods         = CUDAMemory::malloc(triangle_lods,         aggregated_index_count);
-
+	
 	cuda_module.get_global("triangles")            .set_value(ptr_triangles);
 	cuda_module.get_global("triangle_material_ids").set_value(ptr_triangle_material_ids);
-	cuda_module.get_global("triangle_lods")        .set_value(ptr_triangle_lods);
 	
 	delete [] aggregated_bvh_nodes;
 	delete [] aggregated_indices;
 	delete [] aggregated_triangles;
 
 	delete [] triangles;
-	delete [] triangle_lods;
 	delete [] triangle_material_ids;
 
 	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
@@ -417,12 +400,12 @@ void Pathtracer::cuda_free() {
 		CUDAMemory::free(ptr_textures);
 
 		for (int i = 0; i < scene.textures.size(); i++) {
-			CUDAMemory::free_array(tex_arrays[i]);
-			CUDAMemory::free_texture(tex_objects[i]);
+			CUDAMemory::free_array(texture_arrays[i]);
+			CUDAMemory::free_texture(textures[i].texture);
 		}
-	
-		delete [] tex_objects;
-		delete [] tex_arrays;
+
+		delete [] textures;
+		delete [] texture_arrays;
 	}
 
 	CUDAMemory::free_pinned(pinned_buffer_sizes);
@@ -442,8 +425,7 @@ void Pathtracer::cuda_free() {
 
 	CUDAMemory::free(ptr_triangles);
 	CUDAMemory::free(ptr_triangle_material_ids);
-	CUDAMemory::free(ptr_triangle_lods);
-
+	
 	CUDAMemory::free(ptr_light_indices);
 	CUDAMemory::free(ptr_light_areas_cumulative);
 	
@@ -1074,10 +1056,11 @@ void Pathtracer::render() {
 }
 
 void Pathtracer::set_pixel_query(int x, int y) {
+	if (x < 0 || y < 0 || x >= screen_width || y >= screen_height) return;
+
 	pixel_query.x = x;
 	pixel_query.y = screen_height - y; // Y-coordinate is inverted
-
-	CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
+	global_pixel_query.set_value(pixel_query);
 
 	pixel_query_status = PixelQueryStatus::PENDING;
 }

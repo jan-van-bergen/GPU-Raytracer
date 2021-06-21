@@ -301,11 +301,16 @@ private:
 	int       * pinned_light_mesh_transform_indices;
 	float     * pinned_light_mesh_area_scaled;
 
-	CUtexObject      * tex_objects;
-	CUmipmappedArray * tex_arrays;
+	struct CUDATexture {
+		CUtexObject texture;
+		float2 size;
+	};
+
+	CUDATexture      * textures;
+	CUmipmappedArray * texture_arrays;
 
 	CUDAMemory::Ptr<Material>    ptr_materials;
-	CUDAMemory::Ptr<CUtexObject> ptr_textures;
+	CUDAMemory::Ptr<CUDATexture> ptr_textures;
 	
 	struct CUDATriangle {
 		Vector3 position_0;
@@ -323,8 +328,7 @@ private:
 	
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
 	CUDAMemory::Ptr<int>          ptr_triangle_material_ids;
-	CUDAMemory::Ptr<float>        ptr_triangle_lods;
-
+	
 	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;

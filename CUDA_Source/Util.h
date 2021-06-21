@@ -11,6 +11,9 @@ template<typename T>
 struct Texture {
 	cudaTextureObject_t texture;
 
+	// Width and height are required for Mipmap LOD calculations
+	float2 size;
+
 	__device__ inline T get(float s, float t) const {
 		return tex2D<T>(texture, s, t);
 	}
