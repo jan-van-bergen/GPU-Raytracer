@@ -70,6 +70,12 @@ __device__ inline Matrix3x4 mesh_get_transform_prev(int mesh_id) {
 	return matrix;
 }
 
+__device__ inline float mesh_get_scale(int mesh_id) {
+	// Scale is stored along the diagonal of the transformation matrix
+	// We only care about uniform scale, so the first value is sufficient
+	return __ldg(&mesh_transforms[mesh_id].row_0.x);
+}
+
 struct Triangle {
 	float4 part_0; // position_0       xyz and position_edge_1  x
 	float4 part_1; // position_edge_1   yz and position_edge_2  xy
@@ -81,14 +87,9 @@ struct Triangle {
 
 __device__ __constant__ const Triangle * triangles;
 __device__ __constant__ const int      * triangle_material_ids;
-__device__ __constant__ const float    * triangle_lods;
 
 __device__ inline int triangle_get_material_id(int index) {
 	return __ldg(&triangle_material_ids[index]);
-}
-
-__device__ inline float triangle_get_lod(int index) {
-	return __ldg(&triangle_lods[index]);
 }
 
 struct TrianglePos {
@@ -180,6 +181,21 @@ __device__ inline TrianglePosNorTex triangle_get_positions_normals_and_tex_coord
 	return triangle;
 }
 
+// Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
+__device__ inline float triangle_get_lod(
+	float          mesh_scale,
+	float          triangle_area_inv,
+	const float2 & tex_coord_edge_1,
+	const float2 & tex_coord_edge_2
+) {
+	float t_a = fabsf(
+		tex_coord_edge_1.x * tex_coord_edge_2.y -
+		tex_coord_edge_2.x * tex_coord_edge_1.y
+	); 
+
+	return sqrtf(t_a * triangle_area_inv / (mesh_scale * mesh_scale));
+}
+
 __device__ inline float triangle_get_curvature(
 	const float3 & position_edge_1,
 	const float3 & position_edge_2,
@@ -193,14 +209,14 @@ __device__ inline float triangle_get_curvature(
 	float k_02 = dot(normal_edge_2, position_edge_2) / dot(position_edge_2, position_edge_2);
 	float k_12 = dot(normal_edge_0, position_edge_0) / dot(position_edge_0, position_edge_0);
 
-	return (k_01 + k_02 + k_12) * 0.333333333333333f; // Eq. 6 (Akenine-Möller 2021)
+	return (k_01 + k_02 + k_12) * (1.0f / 3.0f); // Eq. 6 (Akenine-Möller 2021)
 }
 
 __device__ inline void triangle_barycentric(const TrianglePosNor & triangle, float u, float v, float3 & position, float3 & normal) {
 	position = barycentric(u, v, triangle.position_0,  triangle.position_edge_1,  triangle.position_edge_2);
 	normal   = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
 
-	normal = normalize(normal);
+//	normal = normalize(normal);
 }
 
 __device__ inline void triangle_barycentric(const TrianglePosNorTex & triangle, float u, float v, float3 & position, float3 & normal, float2 & tex_coord) {
@@ -208,7 +224,7 @@ __device__ inline void triangle_barycentric(const TrianglePosNorTex & triangle, 
 	normal    = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
 	tex_coord = barycentric(u, v, triangle.tex_coord_0, triangle.tex_coord_edge_1, triangle.tex_coord_edge_2);
 
-	normal = normalize(normal);
+//	normal = normalize(normal);
 }
 
 __device__ inline void triangle_trace(int mesh_id, int triangle_id, const Ray & ray, RayHit & ray_hit) {

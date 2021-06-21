@@ -4,6 +4,8 @@
 struct Scene;
 
 struct Mesh {
+	const char * name;
+
 	AABB aabb_untransformed;
 	AABB aabb;
 
@@ -13,6 +15,8 @@ struct Mesh {
 	Quaternion rotation;
 	float      scale = 1.0f;
 
+	Vector3 euler_angles; // For editor only
+
 	Matrix4 transform;
 	Matrix4 transform_inv;
 	Matrix4 transform_prev;
@@ -20,7 +24,7 @@ struct Mesh {
 	int   light_index = -1;
 	float light_area = 0.0f;
 
-	void init(int mesh_data_index, Scene & scene);
+	void init(const char * name, int mesh_data_index, Scene & scene);
 
 	void update();
 

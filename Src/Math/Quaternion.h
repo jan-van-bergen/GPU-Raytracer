@@ -103,6 +103,52 @@ struct Quaternion {
 		return quaternion;
 	}
 
+	// Based on: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+	inline static Quaternion from_euler(float yaw, float pitch, float roll) {
+		float cos_yaw   = cosf(yaw   * 0.5f);
+		float sin_yaw   = sinf(yaw   * 0.5f);
+		float cos_pitch = cosf(pitch * 0.5f);
+		float sin_pitch = sinf(pitch * 0.5f);
+		float cos_roll  = cosf(roll  * 0.5f);
+		float sin_roll  = sinf(roll  * 0.5f);
+
+		return {
+			sin_roll * cos_pitch * cos_yaw - cos_roll * sin_pitch * sin_yaw,
+			cos_roll * sin_pitch * cos_yaw + sin_roll * cos_pitch * sin_yaw,
+			cos_roll * cos_pitch * sin_yaw - sin_roll * sin_pitch * cos_yaw,
+			cos_roll * cos_pitch * cos_yaw + sin_roll * sin_pitch * sin_yaw
+		};
+	}
+
+	// Based on: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+	inline static Vector3 to_euler(const Quaternion & q) {
+		Vector3 euler;
+
+		// Roll
+		float sinr_cosp = 2.0f        * (q.w * q.x + q.y * q.z);
+		float cosr_cosp = 1.0f - 2.0f * (q.x * q.x + q.y * q.y);
+		euler.z = atan2f(sinr_cosp, cosr_cosp);
+
+		// Pitch
+		float sinp = 2.0f * (q.w * q.y - q.z * q.x);
+		if (fabsf(sinp) >= 1.0f) {
+			euler.y = copysignf(0.5f * PI, sinp); // Use 90 degrees if out of range
+		} else {
+			euler.y = asinf(sinp);
+		}
+
+		// Yaw
+		float siny_cosp = 2.0f        * (q.w * q.z + q.x * q.y);
+		float cosy_cosp = 1.0f - 2.0f * (q.y * q.y + q.z * q.z);
+		euler.x = atan2f(siny_cosp, cosy_cosp);
+
+		// atan2f returns in the range [-pi, pi], remap this to [0, 2pi]
+		if (euler.x < 0.0f) euler.x += TWO_PI;
+		if (euler.z < 0.0f) euler.z += TWO_PI;
+
+		return euler;
+	}
+
 	inline static Quaternion nlerp(const Quaternion & a, const Quaternion & b, float t) {
 		float one_minus_t = 1.0f - t;
 

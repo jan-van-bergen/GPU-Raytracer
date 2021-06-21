@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Math/Vector3.h"
+
 struct Material {
 	enum class Type : char {
 		LIGHT      = 0,

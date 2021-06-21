@@ -6,6 +6,8 @@
 #include "CUDA/CUDAMemory.h"
 #include "CUDA/CUDAEvent.h"
 
+#include "Assets/Material.h"
+
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"
 #include "BVH/Builders/QBVHBuilder.h"
@@ -157,26 +159,37 @@ struct BufferSizes {
 	int rays_retired       [MAX_BOUNCES];
 	int rays_retired_shadow[MAX_BOUNCES];
 
-	int last_index;
-
 	void reset(int batch_size) {
 		memset(this, 0, sizeof(BufferSizes));
-
-		trace[0]   = batch_size;
-		last_index = batch_size - 1;
+		trace[0] = batch_size;
 	}
 };
 
 struct Pathtracer {
 	Scene scene;
+
+	bool scene_invalidated     = true;
+	bool materials_invalidated = true;
+	bool camera_invalidated    = true;
 	
-	bool camera_invalidated = true;
-	bool first_frame_after_stopped_updating = true;
+	enum struct PixelQueryStatus {
+		INACTIVE,
+		PENDING,
+		OUTPUT_READY
+	} pixel_query_status = PixelQueryStatus::INACTIVE;
 
 	int frames_accumulated = -1;
 
 	Settings settings;
 	bool     settings_changed = true;
+
+	PixelQuery       pixel_query        = { -1, -1 };
+	PixelQueryAnswer pixel_query_answer = { -1, -1, -1 };
+	
+	int * reverse_indices;
+
+	int * mesh_data_bvh_offsets;
+	int * mesh_data_triangle_offsets;
 
 	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
 
@@ -189,7 +202,13 @@ struct Pathtracer {
 	void update(float delta);
 	void render();
 
+	void set_pixel_query(int x, int y);
+
 private:
+	int screen_width;
+	int screen_height;
+	int screen_pitch;
+
 	int pixel_count;
 	int batch_size;
 	
@@ -203,9 +222,7 @@ private:
 	CWBVHBuilder tlas_converter;
 #endif
 	
-	int * mesh_data_bvh_offsets;
-
-	CUDAModule module;
+	CUDAModule cuda_module;
 
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace;
@@ -233,12 +250,19 @@ private:
 	MaterialBuffer  ray_buffer_shade_dielectric_and_glossy;
 	ShadowRayBuffer ray_buffer_shadow;
 
+	CUDAModule::Global global_ray_buffer_shade_diffuse;
+	CUDAModule::Global global_ray_buffer_shade_dielectric_and_glossy;
+	CUDAModule::Global global_ray_buffer_shadow; 
+
 	BufferSizes * pinned_buffer_sizes;
 
 	CUDAModule::Global global_camera;
 	CUDAModule::Global global_buffer_sizes;
 	CUDAModule::Global global_settings;
 	CUDAModule::Global global_svgf_data;
+
+	CUDAModule::Global global_pixel_query;
+	CUDAModule::Global global_pixel_query_answer;
 	
 	CUarray array_gbuffer_normal_and_depth;
 	CUarray array_gbuffer_mesh_id_and_triangle_id;
@@ -276,11 +300,16 @@ private:
 	int       * pinned_light_mesh_transform_indices;
 	float     * pinned_light_mesh_area_scaled;
 
-	CUtexObject      * tex_objects;
-	CUmipmappedArray * tex_arrays;
+	struct CUDATexture {
+		CUtexObject texture;
+		float2 size;
+	};
+
+	CUDATexture      * textures;
+	CUmipmappedArray * texture_arrays;
 
 	CUDAMemory::Ptr<Material>    ptr_materials;
-	CUDAMemory::Ptr<CUtexObject> ptr_textures;
+	CUDAMemory::Ptr<CUDATexture> ptr_textures;
 	
 	struct CUDATriangle {
 		Vector3 position_0;
@@ -298,8 +327,7 @@ private:
 	
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
 	CUDAMemory::Ptr<int>          ptr_triangle_material_ids;
-	CUDAMemory::Ptr<float>        ptr_triangle_lods;
-
+	
 	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
@@ -313,9 +341,10 @@ private:
 	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_count;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_first_index;
 
-	CUDAMemory::Ptr<float> ptr_light_total_area;
 	CUDAMemory::Ptr<float> ptr_light_mesh_area_scaled;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
+	
+	CUDAModule::Global global_light_total_area;
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
 
@@ -339,6 +368,8 @@ private:
 	CUDAEvent::Info event_info_reconstruct;
 	CUDAEvent::Info event_info_accumulate;
 	CUDAEvent::Info event_info_end;
+
+	void calc_light_areas();
 
 	void build_tlas();
 };

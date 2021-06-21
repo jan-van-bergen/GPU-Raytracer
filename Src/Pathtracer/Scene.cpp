@@ -19,31 +19,9 @@ void Scene::init(int mesh_count, const char * mesh_names[], const char * sky_nam
 	this->meshes     = new Mesh[mesh_count];
 	
 	for (int i = 0; i < mesh_count; i++) {
-		meshes[i].init(MeshData::load(mesh_names[i], *this), *this);
+		meshes[i].init(mesh_names[i], MeshData::load(mesh_names[i], *this), *this);
 	}
 	
-	has_diffuse    = false;
-	has_dielectric = false;
-	has_glossy     = false;
-	has_lights     = false;
-
-	// Check properties of the Scene, so we know which kernels are required
-	for (int i = 0; i < materials.size(); i++) {
-		switch (materials[i].type) {
-			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
-			case Material::Type::DIELECTRIC: has_dielectric = true; break;
-			case Material::Type::GLOSSY:     has_glossy     = true; break;
-			case Material::Type::LIGHT:      has_lights     = true; break;
-		}
-	}
-
-	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
-		has_diffuse    ? "yes" : "no",
-		has_dielectric ? "yes" : "no",
-		has_glossy     ? "yes" : "no",
-		has_lights     ? "yes" : "no"
-	);
-
 	// Initialize Sky
 	sky.init(sky_name);
 	
@@ -101,22 +79,31 @@ void Scene::wait_until_textures_loaded() {
 	}
 }
 
-void Scene::update(float delta) {
-	static float time = 0.0f;
-	time += delta;
+void Scene::check_materials() {
+	has_diffuse    = false;
+	has_dielectric = false;
+	has_glossy     = false;
+	has_lights     = false;
 
-	if (mesh_count > 1) {
-		meshes[1].position.z = 2.0f;
-		meshes[1].position.x = 5.0f * sinf(time * 0.2f);
-		meshes[1].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), 0.5f * time);
-
-		if (mesh_count > 2) {
-			meshes[2].position.z = 5.0f * sinf(time * 0.2f);
-			meshes[2].rotation = Quaternion::axis_angle(Vector3(0.0f, 1.0f, 0.0f), PI);
-			meshes[2].scale = 1.0f + 0.5f * sinf(time);
+	// Check properties of the Scene, so we know which kernels are required
+	for (int i = 0; i < materials.size(); i++) {
+		switch (materials[i].type) {
+			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
+			case Material::Type::DIELECTRIC: has_dielectric = true; break;
+			case Material::Type::GLOSSY:     has_glossy     = true; break;
+			case Material::Type::LIGHT:      has_lights     = true; break;
 		}
 	}
 
+	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
+		has_diffuse    ? "yes" : "no",
+		has_dielectric ? "yes" : "no",
+		has_glossy     ? "yes" : "no",
+		has_lights     ? "yes" : "no"
+	);
+}
+
+void Scene::update(float delta) {
 	for (int i = 0; i < mesh_count; i++) {
 		meshes[i].update();
 	}

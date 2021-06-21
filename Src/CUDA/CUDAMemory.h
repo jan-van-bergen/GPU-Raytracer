@@ -58,9 +58,10 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void free(Ptr<T> ptr) {
+	inline void free(Ptr<T> & ptr) {
 		assert(ptr.ptr);
 		CUDACALL(cuMemFree(ptr.ptr));
+		ptr.ptr = NULL;
 	}
 
 	template<typename T>
@@ -80,7 +81,7 @@ namespace CUDAMemory {
 
 		CUDACALL(cuMemcpyDtoH(data, ptr.ptr, count * sizeof(T)));
 	}
-
+	
 	CUarray          create_array       (int width, int height, int channels, CUarray_format format);
 	CUmipmappedArray create_array_mipmap(int width, int height, int channels, CUarray_format format, int level_count);
 

@@ -2,7 +2,8 @@
 
 #include "Pathtracer/Scene.h"
 
-void Mesh::init(int mesh_data_index, Scene & scene) {
+void Mesh::init(const char * name, int mesh_data_index, Scene & scene) {
+	this->name = name;
 	this->mesh_data_index = mesh_data_index;
 
 	const MeshData * mesh_data = scene.mesh_datas[mesh_data_index];

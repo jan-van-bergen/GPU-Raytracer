@@ -160,8 +160,6 @@ struct BufferSizes {
 	// Global counters for tracing kernels
 	int rays_retired       [MAX_BOUNCES];
 	int rays_retired_shadow[MAX_BOUNCES];
-
-	int last_index;
 } __device__ buffer_sizes;
 
 struct Camera {
@@ -171,6 +169,9 @@ struct Camera {
 	float3 y_axis;
 	float  pixel_spread_angle;
 } __device__ __constant__ camera;
+
+__device__ __constant__ PixelQuery       pixel_query        = { -1, -1 };
+__device__              PixelQueryAnswer pixel_query_answer = { -1, -1, -1 };
 
 #include "Tracing.h"
 #include "Mipmap.h"
@@ -256,10 +257,13 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	unsigned ray_pixel_index_and_last_material = ray_buffer_trace.pixel_index_and_last_material[index];
 	int      ray_pixel_index = ray_pixel_index_and_last_material & ~(0b11 << 30);
 
+	int x = ray_pixel_index % screen_pitch;
+	int y = ray_pixel_index / screen_pitch;
+
 	Material::Type last_material_type = Material::Type(ray_pixel_index_and_last_material >> 30);
 
 	float3 ray_throughput = ray_buffer_trace.throughput.get(index);
-	
+
 	// If we didn't hit anything, sample the Sky
 	if (hit.triangle_id == -1) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
@@ -279,7 +283,14 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	}
 
 	// Get the Material of the Triangle we hit
-	const Material & material = materials[triangle_get_material_id(hit.triangle_id)];
+	int hit_material_id = triangle_get_material_id(hit.triangle_id);
+	const Material & material = materials[hit_material_id];
+
+	if (bounce == 0 && pixel_query.x == x && pixel_query.y == y) {
+		pixel_query_answer.mesh_id     = hit.mesh_id;
+		pixel_query_answer.triangle_id = hit.triangle_id;
+		pixel_query_answer.material_id = hit_material_id;
+	}
 
 	if (material.type == Material::Type::LIGHT) {
 		bool no_mis = true;
@@ -303,10 +314,9 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		matrix3x4_transform_position (world, light_point);
 		matrix3x4_transform_direction(world, light_normal);
 
-		if (bounce == 0 && settings.enable_svgf) {
-			int x = ray_pixel_index % screen_pitch;
-			int y = ray_pixel_index / screen_pitch;
+		light_normal = normalize(light_normal);
 
+		if (bounce == 0 && settings.enable_svgf) {
 			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 			matrix3x4_transform_position(world_prev, light_point_prev);
 
@@ -340,12 +350,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float cos_o = fabsf(dot(to_light, light_normal));
 			// if (cos_o <= 0.0f) return;
 
-			float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
-			
-			float brdf_pdf = ray_buffer_trace.last_pdf[index];
-
-			float light_select_pdf = light_area / light_total_area;
-			float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
+			float brdf_pdf  = ray_buffer_trace.last_pdf[index];
+			float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
 
 			float mis_pdf = brdf_pdf + light_pdf;
 
@@ -412,7 +418,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 		case Material::Type::GLOSSY: {
 			// Glossy material buffer is shared with Dielectric material buffer but grows in the opposite direction
-			int index_out = buffer_sizes.last_index - atomic_agg_inc(&buffer_sizes.glossy[bounce]);
+			int index_out = (BATCH_SIZE - 1) - atomic_agg_inc(&buffer_sizes.glossy[bounce]);
 
 			ray_buffer_shade_dielectric_and_glossy.direction.set(index_out, ray_direction);
 
@@ -465,7 +471,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #if ENABLE_MIPMAPPING
 	float cone_angle, cone_width;
 
-	float3 geometric_normal = normalize(cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2));
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float  triangle_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_area_inv; // Normalize
+
+	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
 	if (bounce == 0) {
 		cone_angle = camera.pixel_spread_angle;
@@ -474,7 +484,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
 		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
+			mesh_scale,
 			geometric_normal,
+			triangle_area_inv,
 			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
 			hit_point, hit_tex_coord,
@@ -489,8 +501,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		cone_angle = cone.x;
 		cone_width = cone.y + cone_angle * hit.t;
 
+		float2 tex_size = material.get_texture_size();
+
+		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
+		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float lod = log2f(lod_triangle * lod_ray_cone);
+
 		// Trilinear sampling
-		float lod = triangle_get_lod(hit.triangle_id) + ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
 		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
 
@@ -499,6 +516,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float curvature = triangle_get_curvature(
@@ -514,6 +532,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -535,7 +554,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+		bool scene_has_lights = light_total_area > 0.0f;
 		if (scene_has_lights) {
 			// Trace Shadow Ray
 			float light_u, light_v;
@@ -554,6 +573,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			matrix3x4_transform_position (light_world, light_point);
 			matrix3x4_transform_direction(light_world, light_normal);
 
+			light_normal = normalize(light_normal);
+
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
@@ -570,15 +591,17 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 				float brdf     = cos_i * ONE_OVER_PI;
 				float brdf_pdf = cos_i * ONE_OVER_PI;
 
-				float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
-
-				float light_select_pdf = light_area / light_total_area;
-				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
-
-				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
+				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
+				
+				float pdf;
+				if (settings.enable_multiple_importance_sampling) {
+					pdf = brdf_pdf + light_pdf;
+				} else {
+					pdf = light_pdf;
+				}
 
 				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
-				float3 illumination = throughput * brdf * emission / mis_pdf;
+				float3 illumination = throughput * brdf * emission / pdf;
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
@@ -644,6 +667,8 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
+
+	hit_normal = normalize(hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -730,7 +755,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
-	index = buffer_sizes.last_index - index;
+	index = (BATCH_SIZE - 1) - index;
 
 	float3 ray_direction = ray_buffer_shade_dielectric_and_glossy.direction.get(index);
 
@@ -760,15 +785,16 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 hit_point_prev = hit_point;
 
-	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
-	
 	float3 albedo;
 
 #if ENABLE_MIPMAPPING
 	float cone_angle, cone_width;
 
-	float3 geometric_normal = normalize(cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2));
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float  triangle_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_area_inv; // Normalize
+
+	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
 	if (bounce == 0) {
 		cone_angle = camera.pixel_spread_angle;
@@ -777,7 +803,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
 		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
+			mesh_scale,
 			geometric_normal,
+			triangle_area_inv,
 			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
 			hit_point, hit_tex_coord,
@@ -792,8 +820,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		cone_angle = cone.x;
 		cone_width = cone.y + cone_angle * hit.t;
 
-		// Trilinear sampling
-		float lod = triangle_get_lod(hit.triangle_id) + ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float2 tex_size = material.get_texture_size();
+
+		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
+		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float lod = log2f(lod_triangle * lod_ray_cone);
+
 		albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
 
@@ -802,6 +834,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float curvature = triangle_get_curvature(
@@ -822,6 +855,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -842,8 +876,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
+	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
+	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
+	
 	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+		bool scene_has_lights = light_total_area > 0.0f;
 		if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
 			// Trace Shadow Ray
 			float light_u;
@@ -862,6 +899,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			Matrix3x4 light_world = mesh_get_transform(light_transform_id);
 			matrix3x4_transform_position (light_world, light_point);
 			matrix3x4_transform_direction(light_world, light_normal);
+
+			light_normal = normalize(light_normal);
 
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);
@@ -888,15 +927,17 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				float brdf     = (F * G * D) / (4.0f * i_dot_n);
 				float brdf_pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
 				
-				float light_area = 0.5f * length(cross(light.position_edge_1, light.position_edge_2));
+				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
 
-				float light_select_pdf = light_area / light_total_area;
-				float light_pdf = light_select_pdf * distance_to_light_squared / (cos_o * light_area); // Convert solid angle measure
-
-				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
+				float pdf;
+				if (settings.enable_multiple_importance_sampling) {
+					pdf = brdf_pdf + light_pdf;
+				} else {
+					pdf = light_pdf;
+				}
 
 				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
-				float3 illumination = throughput * brdf * emission / mis_pdf;
+				float3 illumination = throughput * brdf * emission / pdf;
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 

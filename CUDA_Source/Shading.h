@@ -26,36 +26,41 @@ struct Material {
 	float roughness;
 
 	__device__ inline float3 albedo(float s, float t) const {
-		if (texture_id == -1) return diffuse;
+		if (texture_id == INVALID) return diffuse;
 
 		float4 tex_colour = textures[texture_id].get(s, t);
 		return diffuse * make_float3(tex_colour);
 	}
 
 	__device__ inline float3 albedo(float s, float t, float lod) const {
-		if (texture_id == -1) return diffuse;
+		if (texture_id == INVALID) return diffuse;
 
 		float4 tex_colour = textures[texture_id].get_lod(s, t, lod);
 		return diffuse * make_float3(tex_colour);
 	}
 
 	__device__ inline float3 albedo(float s, float t, float2 dx, float2 dy) const {
-		if (texture_id == -1) return diffuse;
+		if (texture_id == INVALID) return diffuse;
 
 		float4 tex_colour = textures[texture_id].get_grad(s, t, dx, dy);
 		return diffuse * make_float3(tex_colour);
+	}
+
+	__device__ inline float2 get_texture_size() const {
+		if (texture_id == INVALID) {
+			return make_float2(0.0f, 0.0f);
+		} else {
+			return textures[texture_id].size;
+		}
 	}
 };
 
 __device__ __constant__ const Material * materials;
 
-__device__ __constant__ float light_total_count_inv;
 __device__ __constant__ float light_total_area;
 
 __device__ __constant__ const int   * light_indices;
 __device__ __constant__ const float * light_areas_cumulative;
-
-__device__ __constant__ int light_mesh_count;
 
 __device__ __constant__ const int   * light_mesh_triangle_count;
 __device__ __constant__ const int   * light_mesh_triangle_first_index;

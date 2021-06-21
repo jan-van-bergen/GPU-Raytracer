@@ -26,14 +26,16 @@ struct Scene {
 
 	Sky sky;
 	
-	bool has_diffuse;
-	bool has_dielectric;
-	bool has_glossy;
-	bool has_lights;
+	bool has_diffuse    = false;
+	bool has_dielectric = false;
+	bool has_glossy     = false;
+	bool has_lights     = false;
 
 	void init(int mesh_count, const char * mesh_names[], const char * sky_name);
 
 	void wait_until_textures_loaded();
+
+	void check_materials();
 
 	void update(float delta);
 };
