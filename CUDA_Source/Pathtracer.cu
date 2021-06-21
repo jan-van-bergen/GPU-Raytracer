@@ -501,11 +501,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 		float2 tex_size = material.get_texture_size();
 
-		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(
-			mesh_scale,
-			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
-			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2	
-		);
+		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
 		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
 		float lod = log2f(lod_triangle * lod_ray_cone);
 
@@ -821,11 +817,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 		float2 tex_size = material.get_texture_size();
 
-		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(
-			mesh_scale,
-			hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
-			hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2	
-		);
+		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
 		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
 		float lod = log2f(lod_triangle * lod_ray_cone);
 

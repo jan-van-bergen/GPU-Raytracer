@@ -184,8 +184,7 @@ __device__ inline TrianglePosNorTex triangle_get_positions_normals_and_tex_coord
 // Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 __device__ inline float triangle_get_lod(
 	float          mesh_scale,
-	const float3 & position_edge_1,
-	const float3 & position_edge_2,
+	float          triangle_area_inv,
 	const float2 & tex_coord_edge_1,
 	const float2 & tex_coord_edge_2
 ) {
@@ -193,9 +192,8 @@ __device__ inline float triangle_get_lod(
 		tex_coord_edge_1.x * tex_coord_edge_2.y -
 		tex_coord_edge_2.x * tex_coord_edge_1.y
 	); 
-	float p_a = mesh_scale * mesh_scale * length(cross(position_edge_1, position_edge_2));
 
-	return sqrtf(t_a / p_a);
+	return sqrtf(t_a * triangle_area_inv / (mesh_scale * mesh_scale));
 }
 
 __device__ inline float triangle_get_curvature(
