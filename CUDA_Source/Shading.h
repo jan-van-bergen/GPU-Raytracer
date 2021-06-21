@@ -62,8 +62,6 @@ __device__ __constant__ float light_total_area;
 __device__ __constant__ const int   * light_indices;
 __device__ __constant__ const float * light_areas_cumulative;
 
-__device__ __constant__ int light_mesh_count;
-
 __device__ __constant__ const int   * light_mesh_triangle_count;
 __device__ __constant__ const int   * light_mesh_triangle_first_index;
 __device__ __constant__ const float * light_mesh_area_scaled;

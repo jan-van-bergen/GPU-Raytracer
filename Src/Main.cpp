@@ -302,12 +302,7 @@ int main(int argument_count, char ** arguments) {
 					mesh_changed = true;
 				}
 
-				if (ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY)) {
-					if (mesh.light_index != INVALID) {
-						pathtracer.lights_invalidated = true; // If this Mesh is a Light, the light areas will need to be recalculated
-					}
-					mesh_changed = true;
-				}
+				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
 
 				if (mesh_changed) pathtracer.scene_invalidated = true;
 

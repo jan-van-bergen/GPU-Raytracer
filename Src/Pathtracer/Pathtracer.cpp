@@ -678,12 +678,12 @@ void Pathtracer::calc_light_areas() {
 
 		if (light_mesh_data_index != INVALID) {
 			const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
-
-			scene.meshes[m].light_index = light_mesh_count;
-			scene.meshes[m].light_area  = light_mesh.area;
-
+			
 			int mesh_index = light_mesh_count++;
 			assert(mesh_index < scene.mesh_count);
+
+			scene.meshes[m].light_index = mesh_index;
+			scene.meshes[m].light_area  = light_mesh.area;
 
 			light_mesh_area_unscaled       [mesh_index] = light_mesh.area;
 			light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
@@ -692,8 +692,6 @@ void Pathtracer::calc_light_areas() {
 			scene.meshes[m].light_index = INVALID;
 		}
 	}
-
-	cuda_module.get_global("light_mesh_count").set_value(light_mesh_count);
 
 	if (ptr_light_mesh_area_unscaled       .ptr != NULL) CUDAMemory::free(ptr_light_mesh_area_unscaled);
 	if (ptr_light_mesh_triangle_count      .ptr != NULL) CUDAMemory::free(ptr_light_mesh_triangle_count);
@@ -756,8 +754,8 @@ void Pathtracer::build_tlas() {
 		memcpy(pinned_mesh_transforms_inv [i].cells, mesh.transform_inv .cells, sizeof(Matrix3x4));
 		memcpy(pinned_mesh_transforms_prev[i].cells, mesh.transform_prev.cells, sizeof(Matrix3x4));
 
-		bool is_light = mesh.light_index != INVALID;
-		if (is_light) {
+		bool mesh_is_light = mesh.light_index != INVALID;
+		if (mesh_is_light) {
 			float light_area_scaled = mesh.light_area * mesh.scale * mesh.scale;
 
 			assert(mesh.light_index < scene.mesh_count);
@@ -787,11 +785,6 @@ void Pathtracer::update(float delta) {
 	if (settings_changed && settings.enable_svgf && settings.camera_aperture > 0.0f) {
 		puts("WARNING: SVGF and DoF cannot simultaneously be enabled!");
 		settings.camera_aperture = 0.0f;
-	}
-
-	if (scene_invalidated) {
-		calc_light_areas();
-		lights_invalidated = false;
 	}
 
 	if (materials_invalidated) {
@@ -832,8 +825,6 @@ void Pathtracer::update(float delta) {
 		if (lights_changed) {	
 			if (scene.has_lights) {
 				ray_buffer_shadow.init(batch_size);
-				
-				calc_light_areas();
 			} else {
 				ray_buffer_shadow.free();
 
@@ -843,12 +834,13 @@ void Pathtracer::update(float delta) {
 				
 				CUDAMemory::free(ptr_light_mesh_area_scaled);
 				CUDAMemory::free(ptr_light_mesh_transform_indices);
-
-				cuda_module.get_global("light_total_count_inv").set_value(INFINITY); // 1 / 0
-				cuda_module.get_global("light_mesh_count")     .set_value(0);
+				
+				cuda_module.get_global("light_total_area").set_value(0.0f);
 			}
 			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
 		}
+
+		if (scene.has_lights) calc_light_areas();
 
 		frames_accumulated = 0;
 		materials_invalidated = false;

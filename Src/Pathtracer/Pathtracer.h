@@ -169,7 +169,6 @@ struct Pathtracer {
 	Scene scene;
 
 	bool scene_invalidated     = true;
-	bool lights_invalidated    = false;
 	bool materials_invalidated = true;
 	bool camera_invalidated    = true;
 	
