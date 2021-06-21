@@ -595,7 +595,7 @@ void Pathtracer::calc_light_areas() {
 	std::vector<LightMesh> light_meshes;
 
 	int mesh_data_count = scene.mesh_datas.size();
-
+	
 	int * light_mesh_data_indices = MALLOCA(int, mesh_data_count);
 	memset(light_mesh_data_indices, -1, mesh_data_count * sizeof(int));
 
@@ -670,8 +670,7 @@ void Pathtracer::calc_light_areas() {
 	float * light_mesh_area_unscaled        = MALLOCA(float, scene.mesh_count);
 	int   * light_mesh_triangle_count       = MALLOCA(int,   scene.mesh_count);
 	int   * light_mesh_triangle_first_index = MALLOCA(int,   scene.mesh_count);
-		
-	int light_total_count = 0;
+	
 	int light_mesh_count  = 0;
 		
 	for (int m = 0; m < scene.mesh_count; m++) {
@@ -689,15 +688,12 @@ void Pathtracer::calc_light_areas() {
 			light_mesh_area_unscaled       [mesh_index] = light_mesh.area;
 			light_mesh_triangle_first_index[mesh_index] = light_mesh.triangle_first_index;
 			light_mesh_triangle_count      [mesh_index] = light_mesh.triangle_count;
-
-			light_total_count += light_mesh.triangle_count;
 		} else {
 			scene.meshes[m].light_index = INVALID;
 		}
 	}
 
-	cuda_module.get_global("light_total_count_inv").set_value(1.0f / float(light_total_count));
-	cuda_module.get_global("light_mesh_count")     .set_value(light_mesh_count);
+	cuda_module.get_global("light_mesh_count").set_value(light_mesh_count);
 
 	if (ptr_light_mesh_area_unscaled       .ptr != NULL) CUDAMemory::free(ptr_light_mesh_area_unscaled);
 	if (ptr_light_mesh_triangle_count      .ptr != NULL) CUDAMemory::free(ptr_light_mesh_triangle_count);
@@ -782,9 +778,9 @@ void Pathtracer::build_tlas() {
 	if (scene.has_lights) {
 		CUDAMemory::memcpy(ptr_light_mesh_transform_indices, pinned_light_mesh_transform_indices, light_mesh_count);
 		CUDAMemory::memcpy(ptr_light_mesh_area_scaled,       pinned_light_mesh_area_scaled,       light_mesh_count);
-
-		global_light_total_area.set_value(light_total_area);
 	}
+
+	global_light_total_area.set_value(light_total_area);
 }
 
 void Pathtracer::update(float delta) {
@@ -793,7 +789,7 @@ void Pathtracer::update(float delta) {
 		settings.camera_aperture = 0.0f;
 	}
 
-	if (lights_invalidated) {
+	if (scene_invalidated) {
 		calc_light_areas();
 		lights_invalidated = false;
 	}

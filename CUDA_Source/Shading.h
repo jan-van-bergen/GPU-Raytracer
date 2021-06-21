@@ -57,7 +57,6 @@ struct Material {
 
 __device__ __constant__ const Material * materials;
 
-__device__ __constant__ float light_total_count_inv;
 __device__ __constant__ float light_total_area;
 
 __device__ __constant__ const int   * light_indices;

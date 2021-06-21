@@ -314,6 +314,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		matrix3x4_transform_position (world, light_point);
 		matrix3x4_transform_direction(world, light_normal);
 
+		light_normal = normalize(light_normal);
+
 		if (bounce == 0 && settings.enable_svgf) {
 			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 			matrix3x4_transform_position(world_prev, light_point_prev);
@@ -514,6 +516,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float curvature = triangle_get_curvature(
@@ -529,6 +532,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -550,7 +554,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+		bool scene_has_lights = light_total_area > 0.0f;
 		if (scene_has_lights) {
 			// Trace Shadow Ray
 			float light_u, light_v;
@@ -568,6 +572,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 			Matrix3x4 light_world = mesh_get_transform(light_transform_id);
 			matrix3x4_transform_position (light_world, light_point);
 			matrix3x4_transform_direction(light_world, light_normal);
+
+			light_normal = normalize(light_normal);
 
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);
@@ -661,6 +667,8 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
+
+	hit_normal = normalize(hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -777,9 +785,6 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	float3 hit_point_prev = hit_point;
 
-	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
-	
 	float3 albedo;
 
 #if ENABLE_MIPMAPPING
@@ -829,6 +834,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float curvature = triangle_get_curvature(
@@ -849,6 +855,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	matrix3x4_transform_position (world, hit_point);
 	matrix3x4_transform_direction(world, hit_normal);
 
+	hit_normal = normalize(hit_normal);
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	albedo = material.albedo(hit_tex_coord.x, hit_tex_coord.y);
@@ -869,8 +876,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
+	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
+	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
+	
 	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = light_total_count_inv < INFINITY; // 1 / light_count < INF means light_count > 0
+		bool scene_has_lights = light_total_area > 0.0f;
 		if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
 			// Trace Shadow Ray
 			float light_u;
@@ -889,6 +899,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			Matrix3x4 light_world = mesh_get_transform(light_transform_id);
 			matrix3x4_transform_position (light_world, light_point);
 			matrix3x4_transform_direction(light_world, light_normal);
+
+			light_normal = normalize(light_normal);
 
 			float3 to_light = light_point - hit_point;
 			float distance_to_light_squared = dot(to_light, to_light);

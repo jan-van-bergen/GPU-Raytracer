@@ -216,7 +216,7 @@ __device__ inline void triangle_barycentric(const TrianglePosNor & triangle, flo
 	position = barycentric(u, v, triangle.position_0,  triangle.position_edge_1,  triangle.position_edge_2);
 	normal   = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
 
-	normal = normalize(normal);
+//	normal = normalize(normal);
 }
 
 __device__ inline void triangle_barycentric(const TrianglePosNorTex & triangle, float u, float v, float3 & position, float3 & normal, float2 & tex_coord) {
@@ -224,7 +224,7 @@ __device__ inline void triangle_barycentric(const TrianglePosNorTex & triangle, 
 	normal    = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
 	tex_coord = barycentric(u, v, triangle.tex_coord_0, triangle.tex_coord_edge_1, triangle.tex_coord_edge_2);
 
-	normal = normalize(normal);
+//	normal = normalize(normal);
 }
 
 __device__ inline void triangle_trace(int mesh_id, int triangle_id, const Ray & ray, RayHit & ray_hit) {
