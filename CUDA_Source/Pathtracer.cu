@@ -591,10 +591,15 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
 				
-				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
+				float pdf;
+				if (settings.enable_multiple_importance_sampling) {
+					pdf = brdf_pdf + light_pdf;
+				} else {
+					pdf = light_pdf;
+				}
 
 				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
-				float3 illumination = throughput * brdf * emission / mis_pdf;
+				float3 illumination = throughput * brdf * emission / pdf;
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
@@ -920,10 +925,15 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				
 				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
 
-				float mis_pdf = settings.enable_multiple_importance_sampling ? brdf_pdf + light_pdf : light_pdf;
+				float pdf;
+				if (settings.enable_multiple_importance_sampling) {
+					pdf = brdf_pdf + light_pdf;
+				} else {
+					pdf = light_pdf;
+				}
 
 				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
-				float3 illumination = throughput * brdf * emission / mis_pdf;
+				float3 illumination = throughput * brdf * emission / pdf;
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
