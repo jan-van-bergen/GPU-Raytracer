@@ -334,6 +334,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_pixel_query        = cuda_module.get_global("pixel_query");
 	global_pixel_query_answer = cuda_module.get_global("pixel_query_answer");
 
+	global_light_total_area = cuda_module.get_global("light_total_area");
+	global_light_total_area.set_value(0.0f);
+
 	// Initialize timers
 	int display_order = 0;
 	event_info_primary = { display_order++, "Primary", "Primary" };
@@ -716,8 +719,6 @@ void Pathtracer::calc_light_areas() {
 	cuda_module.get_global("light_mesh_area_scaled")      .set_value(ptr_light_mesh_area_scaled);
 	cuda_module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
 
-	global_light_total_area = cuda_module.get_global("light_total_area");
-
 	FREEA(light_mesh_area_unscaled);
 	FREEA(light_mesh_triangle_count);
 	FREEA(light_mesh_triangle_first_index);
@@ -835,9 +836,15 @@ void Pathtracer::update(float delta) {
 				CUDAMemory::free(ptr_light_mesh_area_scaled);
 				CUDAMemory::free(ptr_light_mesh_transform_indices);
 				
-				cuda_module.get_global("light_total_area").set_value(0.0f);
+				global_light_total_area.set_value(0.0f);
+
+				for (int i = 0; i < scene.mesh_count; i++) {
+					scene.meshes[i].light_index = INVALID;
+				}
 			}
 			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
+
+			scene_invalidated = true;
 		}
 
 		if (scene.has_lights) calc_light_areas();
