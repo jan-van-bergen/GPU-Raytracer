@@ -1,3 +1,6 @@
+#pragma once
+#include "../Buffers.h"
+
 #define epsilon 1e-8f // To avoid division by 0
 
 struct Matrix4x4 {

@@ -1,3 +1,5 @@
+#pragma once
+#include "../Buffers.h"
 
 constexpr int TAA_HALTON_NUM_SAMPLES = 4;
 

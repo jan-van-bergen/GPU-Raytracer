@@ -1,283 +1,8 @@
 #pragma once
+#include "Mesh.h"
+#include "Triangle.h"
 
-struct Ray {
-	float3 origin;
-	float3 direction;
-	float3 direction_inv;
-
-	__device__ inline void calc_direction_inv() {
-		direction_inv = make_float3(
-			1.0f / direction.x, 
-			1.0f / direction.y, 
-			1.0f / direction.z
-		);
-	}
-};
-
-struct Matrix3x4 {
-	float4 row_0;
-	float4 row_1;
-	float4 row_2;
-};
-
-// Transform vector as position (w = 1)
-__device__ inline void matrix3x4_transform_position(const Matrix3x4 & matrix, float3 & position) {
-	position = make_float3( 
-		matrix.row_0.x * position.x + matrix.row_0.y * position.y + matrix.row_0.z * position.z + matrix.row_0.w,
-		matrix.row_1.x * position.x + matrix.row_1.y * position.y + matrix.row_1.z * position.z + matrix.row_1.w,
-		matrix.row_2.x * position.x + matrix.row_2.y * position.y + matrix.row_2.z * position.z + matrix.row_2.w
-	);
-}
-
-// Transform vector as direction (w = 0)
-__device__ inline void matrix3x4_transform_direction(const Matrix3x4 & matrix, float3 & direction) {
-	direction = make_float3(
-		matrix.row_0.x * direction.x + matrix.row_0.y * direction.y + matrix.row_0.z * direction.z,
-		matrix.row_1.x * direction.x + matrix.row_1.y * direction.y + matrix.row_1.z * direction.z,
-		matrix.row_2.x * direction.x + matrix.row_2.y * direction.y + matrix.row_2.z * direction.z
-	);
-}
-
-__device__ __constant__ int       * mesh_bvh_root_indices;
-__device__ __constant__ Matrix3x4 * mesh_transforms;
-__device__ __constant__ Matrix3x4 * mesh_transforms_inv;
-__device__ __constant__ Matrix3x4 * mesh_transforms_prev;
-
-__device__ inline Matrix3x4 mesh_get_transform(int mesh_id) {
-	Matrix3x4 matrix;
-	matrix.row_0 = __ldg(&mesh_transforms[mesh_id].row_0);
-	matrix.row_1 = __ldg(&mesh_transforms[mesh_id].row_1);
-	matrix.row_2 = __ldg(&mesh_transforms[mesh_id].row_2);
-
-	return matrix;
-}
-
-__device__ inline Matrix3x4 mesh_get_transform_inv(int mesh_id) {
-	Matrix3x4 matrix;
-	matrix.row_0 = __ldg(&mesh_transforms_inv[mesh_id].row_0);
-	matrix.row_1 = __ldg(&mesh_transforms_inv[mesh_id].row_1);
-	matrix.row_2 = __ldg(&mesh_transforms_inv[mesh_id].row_2);
-
-	return matrix;
-}
-
-__device__ inline Matrix3x4 mesh_get_transform_prev(int mesh_id) {
-	Matrix3x4 matrix;
-	matrix.row_0 = __ldg(&mesh_transforms_prev[mesh_id].row_0);
-	matrix.row_1 = __ldg(&mesh_transforms_prev[mesh_id].row_1);
-	matrix.row_2 = __ldg(&mesh_transforms_prev[mesh_id].row_2);
-
-	return matrix;
-}
-
-__device__ inline float mesh_get_scale(int mesh_id) {
-	// Scale is stored along the diagonal of the transformation matrix
-	// We only care about uniform scale, so the first value is sufficient
-	return __ldg(&mesh_transforms[mesh_id].row_0.x);
-}
-
-struct Triangle {
-	float4 part_0; // position_0       xyz and position_edge_1  x
-	float4 part_1; // position_edge_1   yz and position_edge_2  xy
-	float4 part_2; // position_edge_2    z and normal_0         xyz
-	float4 part_3; // normal_edge_1    xyz and normal_edge_2    x
-	float4 part_4; // normal_edge_2     yz and tex_coord_0      xy
-	float4 part_5; // tex_coord_edge_1 xy  and tex_coord_edge_2 xy
-};
-
-__device__ __constant__ const Triangle * triangles;
-__device__ __constant__ const int      * triangle_material_ids;
-
-__device__ inline int triangle_get_material_id(int index) {
-	return __ldg(&triangle_material_ids[index]);
-}
-
-struct TrianglePos {
-	float3 position_0;
-	float3 position_edge_1;
-	float3 position_edge_2;
-};
-
-__device__ inline TrianglePos triangle_get_positions(int index) {
-	float4 part_0 = __ldg(&triangles[index].part_0);
-	float4 part_1 = __ldg(&triangles[index].part_1);
-	float4 part_2 = __ldg(&triangles[index].part_2);
-
-	TrianglePos triangle;
-
-	triangle.position_0      = make_float3(part_0.x, part_0.y, part_0.z);
-	triangle.position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
-	triangle.position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
-
-	return triangle;
-}
-
-struct TrianglePosNor {
-	float3 position_0;
-	float3 position_edge_1;
-	float3 position_edge_2;
-
-	float3 normal_0;
-	float3 normal_edge_1;
-	float3 normal_edge_2;
-};
-
-__device__ inline TrianglePosNor triangle_get_positions_and_normals(int index) {
-	float4 part_0 = __ldg(&triangles[index].part_0);
-	float4 part_1 = __ldg(&triangles[index].part_1);
-	float4 part_2 = __ldg(&triangles[index].part_2);
-	float4 part_3 = __ldg(&triangles[index].part_3);
-	float4 part_4 = __ldg(&triangles[index].part_4);
-
-	TrianglePosNor triangle;
-
-	triangle.position_0      = make_float3(part_0.x, part_0.y, part_0.z);
-	triangle.position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
-	triangle.position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
-
-	triangle.normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
-	triangle.normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
-	triangle.normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
-
-	return triangle;
-};
-
-struct TrianglePosNorTex {
-	float3 position_0;
-	float3 position_edge_1;
-	float3 position_edge_2;
-
-	float3 normal_0;
-	float3 normal_edge_1;
-	float3 normal_edge_2;
-
-	float2 tex_coord_0;
-	float2 tex_coord_edge_1;
-	float2 tex_coord_edge_2;
-};
-
-__device__ inline TrianglePosNorTex triangle_get_positions_normals_and_tex_coords(int index) {
-	float4 part_0 = __ldg(&triangles[index].part_0);
-	float4 part_1 = __ldg(&triangles[index].part_1);
-	float4 part_2 = __ldg(&triangles[index].part_2);
-	float4 part_3 = __ldg(&triangles[index].part_3);
-	float4 part_4 = __ldg(&triangles[index].part_4);
-	float4 part_5 = __ldg(&triangles[index].part_5);
-
-	TrianglePosNorTex triangle;
-
-	triangle.position_0      = make_float3(part_0.x, part_0.y, part_0.z);
-	triangle.position_edge_1 = make_float3(part_0.w, part_1.x, part_1.y);
-	triangle.position_edge_2 = make_float3(part_1.z, part_1.w, part_2.x);
-
-	triangle.normal_0      = make_float3(part_2.y, part_2.z, part_2.w);
-	triangle.normal_edge_1 = make_float3(part_3.x, part_3.y, part_3.z);
-	triangle.normal_edge_2 = make_float3(part_3.w, part_4.x, part_4.y);
-
-	triangle.tex_coord_0      = make_float2(part_4.z, part_4.w);
-	triangle.tex_coord_edge_1 = make_float2(part_5.x, part_5.y);
-	triangle.tex_coord_edge_2 = make_float2(part_5.z, part_5.w);
-
-	return triangle;
-}
-
-// Triangle texture base LOD as described in "Texture Level of Detail Strategies for Real-Time Ray Tracing"
-__device__ inline float triangle_get_lod(
-	float          mesh_scale,
-	float          triangle_area_inv,
-	const float2 & tex_coord_edge_1,
-	const float2 & tex_coord_edge_2
-) {
-	float t_a = fabsf(
-		tex_coord_edge_1.x * tex_coord_edge_2.y -
-		tex_coord_edge_2.x * tex_coord_edge_1.y
-	); 
-
-	return sqrtf(t_a * triangle_area_inv / (mesh_scale * mesh_scale));
-}
-
-__device__ inline float triangle_get_curvature(
-	const float3 & position_edge_1,
-	const float3 & position_edge_2,
-	const float3 & normal_edge_1,
-	const float3 & normal_edge_2
-) {
-	float3 normal_edge_0   = normal_edge_1   - normal_edge_2;
-	float3 position_edge_0 = position_edge_1 - position_edge_2;
-
-	float k_01 = dot(normal_edge_1, position_edge_1) / dot(position_edge_1, position_edge_1);
-	float k_02 = dot(normal_edge_2, position_edge_2) / dot(position_edge_2, position_edge_2);
-	float k_12 = dot(normal_edge_0, position_edge_0) / dot(position_edge_0, position_edge_0);
-
-	return (k_01 + k_02 + k_12) * (1.0f / 3.0f); // Eq. 6 (Akenine-Möller 2021)
-}
-
-__device__ inline void triangle_barycentric(const TrianglePosNor & triangle, float u, float v, float3 & position, float3 & normal) {
-	position = barycentric(u, v, triangle.position_0,  triangle.position_edge_1,  triangle.position_edge_2);
-	normal   = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
-
-//	normal = normalize(normal);
-}
-
-__device__ inline void triangle_barycentric(const TrianglePosNorTex & triangle, float u, float v, float3 & position, float3 & normal, float2 & tex_coord) {
-	position  = barycentric(u, v, triangle.position_0,  triangle.position_edge_1,  triangle.position_edge_2);
-	normal    = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);
-	tex_coord = barycentric(u, v, triangle.tex_coord_0, triangle.tex_coord_edge_1, triangle.tex_coord_edge_2);
-
-//	normal = normalize(normal);
-}
-
-__device__ inline void triangle_trace(int mesh_id, int triangle_id, const Ray & ray, RayHit & ray_hit) {
-	TrianglePos triangle = triangle_get_positions(triangle_id);
-
-	float3 h = cross(ray.direction, triangle.position_edge_2);
-	float  a = dot(triangle.position_edge_1, h);
-
-	float  f = 1.0f / a;
-	float3 s = ray.origin - triangle.position_0;
-	float  u = f * dot(s, h);
-
-	if (u >= 0.0f && u <= 1.0f) {
-		float3 q = cross(s, triangle.position_edge_1);
-		float  v = f * dot(ray.direction, q);
-
-		if (v >= 0.0f && u + v <= 1.0f) {
-			float t = f * dot(triangle.position_edge_2, q);
-
-			if (t > EPSILON && t < ray_hit.t) {
-				ray_hit.t = t;
-				ray_hit.u = u;
-				ray_hit.v = v;
-				ray_hit.mesh_id     = mesh_id;
-				ray_hit.triangle_id = triangle_id;
-			}
-		}
-	}
-}
-
-__device__ inline bool triangle_trace_shadow(int triangle_id, const Ray & ray, float max_distance) {
-	TrianglePos triangle = triangle_get_positions(triangle_id);
-
-	float3 h = cross(ray.direction, triangle.position_edge_2);
-	float  a = dot(triangle.position_edge_1, h);
-
-	float  f = 1.0f / a;
-	float3 s = ray.origin - triangle.position_0;
-	float  u = f * dot(s, h);
-
-	if (u >= 0.0f && u <= 1.0f) {
-		float3 q = cross(s, triangle.position_edge_1);
-		float  v = f * dot(ray.direction, q);
-
-		if (v >= 0.0f && u + v <= 1.0f) {
-			float t = f * dot(triangle.position_edge_2, q);
-
-			if (t > EPSILON && t < max_distance) return true;
-		}
-	}
-
-	return false;
-}
+#include "../Buffers.h"
 
 #define SHARED_STACK_INDEX(offset) ((threadIdx.y * SHARED_STACK_SIZE + offset) * WARP_SIZE + threadIdx.x)
 
@@ -415,7 +140,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 						stack_push(shared_stack, stack, stack_size, root_index);
 					} else {
 						for (int i = node.first; i < node.first + node.count; i++) {
-							triangle_trace(mesh_id, i, ray, ray_hit);
+							triangle_intersect(mesh_id, i, ray, ray_hit);
 						}
 					}
 				} else {
@@ -511,7 +236,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 						bool hit = false;
 
 						for (int i = node.first; i < node.first + node.count; i++) {
-							if (triangle_trace_shadow(i, ray, max_distance)) {
+							if (triangle_intersect_shadow(i, ray, max_distance)) {
 								hit = true;
 
 								break;
@@ -720,7 +445,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 					stack_push(shared_stack, stack, stack_size, root_index);
 				} else {
 					for (int j = index; j < index + count; j++) {
-						triangle_trace(mesh_id, j, ray, ray_hit);
+						triangle_intersect(mesh_id, j, ray, ray_hit);
 					}
 				}
 			} else {
@@ -823,7 +548,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 					bool hit = false;
 
 					for (int j = index; j < index + count; j++) {
-						if (triangle_trace_shadow(j, ray, max_distance)) {
+						if (triangle_intersect_shadow(j, ray, max_distance)) {
 							hit = true;
 
 							break;
@@ -1097,7 +822,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 					int triangle_index = msb(triangle_group.y);
 					triangle_group.y &= ~(1 << triangle_index);
 
-					triangle_trace(mesh_id, triangle_group.x + triangle_index, ray, ray_hit);
+					triangle_intersect(mesh_id, triangle_group.x + triangle_index, ray, ray_hit);
 				}
 			}
 
@@ -1273,7 +998,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 					int triangle_index = msb(triangle_group.y);
 					triangle_group.y &= ~(1 << triangle_index);
 
-					if (triangle_trace_shadow(triangle_group.x + triangle_index, ray, max_distance)) {
+					if (triangle_intersect_shadow(triangle_group.x + triangle_index, ray, max_distance)) {
 						hit = true;
 
 						break;
