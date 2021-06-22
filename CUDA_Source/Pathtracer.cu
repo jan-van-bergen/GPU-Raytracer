@@ -918,7 +918,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				float i_dot_n = -dot(ray_direction, hit_normal);
 				float m_dot_n =  dot(half_vector,   hit_normal);
 
-				float F = fresnel(material.index_of_refraction, 1.0f, i_dot_n, i_dot_n);
+				float F = fresnel(material.index_of_refraction, 1.0f, i_dot_n);
 				float D = microfacet_D(m_dot_n, alpha);
 				float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
 
@@ -978,7 +978,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float o_dot_n =  dot(direction_out,      hit_normal);
 	float m_dot_n =  dot(micro_normal_world, hit_normal);
 
-	float F = fresnel(material.index_of_refraction, 1.0f, i_dot_m, i_dot_m);
+	float F = fresnel(material.index_of_refraction, 1.0f, i_dot_m);
 	float D = microfacet_D(m_dot_n, alpha);
 	float G = microfacet_G(i_dot_m, o_dot_m, i_dot_n, o_dot_n, m_dot_n, alpha);
 	float weight = fabsf(i_dot_m) * F * G / fabsf(i_dot_n * m_dot_n);
