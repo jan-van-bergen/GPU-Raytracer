@@ -523,7 +523,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		hit_triangle.position_edge_2,
 		hit_triangle.normal_edge_1,
 		hit_triangle.normal_edge_2
-	);
+	) / mesh_scale;
+	
 	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 #else
 	// Transform into world space
@@ -735,12 +736,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float  cone_angle = cone.x;
 	float  cone_width = cone.y + cone_angle * hit.t;
 	
+	float mesh_scale = mesh_get_scale(hit.mesh_id);
+
 	float curvature = triangle_get_curvature(
 		hit_triangle.position_edge_1,
 		hit_triangle.position_edge_2,
 		hit_triangle.normal_edge_1,
 		hit_triangle.normal_edge_2
-	);
+	) / mesh_scale;
 	
 	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 
@@ -841,7 +844,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		hit_triangle.position_edge_2,
 		hit_triangle.normal_edge_1,
 		hit_triangle.normal_edge_2
-	);
+	) / mesh_scale;
 
 	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 
