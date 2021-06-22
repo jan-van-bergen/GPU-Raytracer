@@ -76,11 +76,11 @@ __device__ inline float fresnel(float eta_1, float eta_2, float cos_theta_i, flo
 	return 0.5f * (s*s + p*p);
 }
 
-__device__ inline float fresnel(float eta_1, float eta_2, float cos_theta_i) {
-	float eta = eta_1 / eta_2; 
-	float cos_theta_t = sqrtf(1.0f - eta * eta * (1.0f - cos_theta_i * cos_theta_i));
+__device__ inline float fresnel_schlick(float eta_1, float eta_2, float cos_theta_i) {
+	float r_0 = (eta_1 - eta_2) / (eta_1 + eta_2);
+	r_0 *= r_0;
 
-	return fresnel(eta_1, eta_2, cos_theta_i, cos_theta_t);
+	return r_0 + (1.0f - r_0) * (cos_theta_i * cos_theta_i * cos_theta_i * cos_theta_i * cos_theta_i);
 }
 
 // Distribution of Normals term D for the Beckmann microfacet model
