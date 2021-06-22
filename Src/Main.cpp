@@ -177,7 +177,7 @@ int main(int argument_count, char ** arguments) {
 					event_timings[i].time = CUDAEvent::time_elapsed_between(CUDAEvent::event_pool[i], CUDAEvent::event_pool[i + 1]);
 				}
 
-				std::sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
+				std::stable_sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
 					if (a.info.display_order == b.info.display_order) {
 						return strcmp(a.info.category, b.info.category) < 0;
 					}

@@ -337,7 +337,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_light_total_area = cuda_module.get_global("light_total_area");
 	global_light_total_area.set_value(0.0f);
 
-	// Initialize timers
+	// Initialize CUDA Events used for timing
+	CUDAEvent::event_pool_num_used = 0;
+
 	int display_order = 0;
 	event_info_primary = { display_order++, "Primary", "Primary" };
 
