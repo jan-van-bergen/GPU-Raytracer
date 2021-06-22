@@ -328,12 +328,11 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_buffer_sizes = cuda_module.get_global("buffer_sizes");
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	global_camera             = cuda_module.get_global("camera");
-	global_settings           = cuda_module.get_global("settings");
-	global_svgf_data          = cuda_module.get_global("svgf_data");
-	global_pixel_query        = cuda_module.get_global("pixel_query");
-	global_pixel_query_answer = cuda_module.get_global("pixel_query_answer");
-
+	global_camera      = cuda_module.get_global("camera");
+	global_settings    = cuda_module.get_global("settings");
+	global_svgf_data   = cuda_module.get_global("svgf_data");
+	global_pixel_query = cuda_module.get_global("pixel_query");
+	
 	global_light_total_area = cuda_module.get_global("light_total_area");
 	global_light_total_area.set_value(0.0f);
 
@@ -900,12 +899,14 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (pixel_query_status == PixelQueryStatus::OUTPUT_READY) {
-		CUDAMemory::memcpy(&pixel_query_answer, CUDAMemory::Ptr<PixelQueryAnswer>(global_pixel_query_answer.ptr));
-		pixel_query_answer.mesh_id = tlas.indices[pixel_query_answer.mesh_id];
+		CUDAMemory::memcpy(&pixel_query, CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr));
+		
+		if (pixel_query.mesh_id != INVALID) {
+			pixel_query.mesh_id = tlas.indices[pixel_query.mesh_id];
+		}
 
 		// Reset pixel query
-		pixel_query.x = INVALID;
-		pixel_query.y = INVALID;
+		pixel_query.pixel_index = INVALID;
 		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
 
 		pixel_query_status = PixelQueryStatus::INACTIVE;
@@ -1057,9 +1058,13 @@ void Pathtracer::render() {
 void Pathtracer::set_pixel_query(int x, int y) {
 	if (x < 0 || y < 0 || x >= screen_width || y >= screen_height) return;
 
-	pixel_query.x = x;
-	pixel_query.y = screen_height - y; // Y-coordinate is inverted
-	global_pixel_query.set_value(pixel_query);
+	y = screen_height - y; // Y-coordinate is inverted
 
+	pixel_query.pixel_index = x + y * screen_pitch; 
+	pixel_query.mesh_id     = INVALID;
+	pixel_query.triangle_id = INVALID;
+	pixel_query.material_id = INVALID;
+	global_pixel_query.set_value(pixel_query);
+	
 	pixel_query_status = PixelQueryStatus::PENDING;
 }

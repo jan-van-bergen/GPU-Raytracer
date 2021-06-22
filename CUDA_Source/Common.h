@@ -129,11 +129,8 @@ static_assert(SHARED_STACK_SIZE < BVH_STACK_SIZE, "Shared Stack size must be str
 
 // Used to perform mouse interaction with objects in the scene
 struct PixelQuery {
-	int x;
-	int y;
-};
+	int pixel_index; // x + y * screen_pitch
 
-struct PixelQueryAnswer {
 	int mesh_id;
 	int triangle_id;
 	int material_id;

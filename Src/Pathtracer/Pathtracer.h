@@ -183,9 +183,8 @@ struct Pathtracer {
 	Settings settings;
 	bool     settings_changed = true;
 
-	PixelQuery       pixel_query        = { -1, -1 };
-	PixelQueryAnswer pixel_query_answer = { -1, -1, -1 };
-	
+	PixelQuery pixel_query;
+
 	int * reverse_indices;
 
 	int * mesh_data_bvh_offsets;
@@ -262,7 +261,6 @@ private:
 	CUDAModule::Global global_svgf_data;
 
 	CUDAModule::Global global_pixel_query;
-	CUDAModule::Global global_pixel_query_answer;
 	
 	CUarray array_gbuffer_normal_and_depth;
 	CUarray array_gbuffer_mesh_id_and_triangle_id;
