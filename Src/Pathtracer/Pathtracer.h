@@ -183,7 +183,7 @@ struct Pathtracer {
 	Settings settings;
 	bool     settings_changed = true;
 
-	PixelQuery pixel_query;
+	PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
 	int * reverse_indices;
 
