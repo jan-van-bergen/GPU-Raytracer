@@ -662,6 +662,8 @@ void Pathtracer::calc_light_areas() {
 		light_mesh.area = cumulative_area;
 	}
 
+	if (light_triangles.size() == 0) return;
+
 	ptr_light_indices          = CUDAMemory::malloc(light_indices,          light_triangles.size());
 	ptr_light_areas_cumulative = CUDAMemory::malloc(light_areas_cumulative, light_triangles.size());
 
