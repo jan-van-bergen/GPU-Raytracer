@@ -214,8 +214,10 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			float cos_o = fabsf(dot(to_light, light_normal));
 			// if (cos_o <= 0.0f) return;
 
+			float power = material.emission.x + material.emission.y + material.emission.z;
+
 			float brdf_pdf  = ray_buffer_trace.last_pdf[index];
-			float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
+			float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
 
 			float mis_pdf = brdf_pdf + light_pdf;
 
@@ -419,7 +421,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = light_total_area > 0.0f;
+		bool scene_has_lights = lights_total_power > 0.0f;
 		if (scene_has_lights) {
 			// Trace Shadow Ray
 			float light_u, light_v;
@@ -452,11 +454,14 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		
 			// Only trace Shadow Ray if light transport is possible given the normals
 			if (cos_o > 0.0f && cos_i > 0.0f) {
+				float3 emission = materials[triangle_get_material_id(light_id)].emission;
+				float power = emission.x + emission.y + emission.z;
+
 				// NOTE: N dot L is included here
 				float brdf     = cos_i * ONE_OVER_PI;
 				float brdf_pdf = cos_i * ONE_OVER_PI;
 
-				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
+				float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
 				
 				float pdf;
 				if (settings.enable_multiple_importance_sampling) {
@@ -465,7 +470,6 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 					pdf = light_pdf;
 				}
 
-				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
 				float3 illumination = throughput * brdf * emission / pdf;
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
@@ -747,7 +751,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
 	
 	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = light_total_area > 0.0f;
+		bool scene_has_lights = lights_total_power > 0.0f;
 		if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
 			// Trace Shadow Ray
 			float light_u;
@@ -794,7 +798,10 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 				float brdf     = (F * G * D) / (4.0f * i_dot_n);
 				float brdf_pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
 				
-				float light_pdf = distance_to_light_squared / (cos_o * light_total_area);
+				float3 emission = materials[triangle_get_material_id(light_id)].emission;
+				float power = emission.x + emission.y + emission.z;
+
+				float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
 
 				float pdf;
 				if (settings.enable_multiple_importance_sampling) {
@@ -803,7 +810,6 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 					pdf = light_pdf;
 				}
 
-				float3 emission     = materials[triangle_get_material_id(light_id)].emission;
 				float3 illumination = throughput * brdf * emission / pdf;
 
 				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);

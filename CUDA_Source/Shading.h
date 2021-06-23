@@ -57,15 +57,15 @@ struct Material {
 
 __device__ __constant__ const Material * materials;
 
-__device__ __constant__ float light_total_area;
+__device__ __constant__ float lights_total_power;
 
 __device__ __constant__ const int   * light_indices;
-__device__ __constant__ const float * light_areas_cumulative;
+__device__ __constant__ const float * light_power_cumulative;
 
 __device__ __constant__ const int   * light_mesh_triangle_count;
 __device__ __constant__ const int   * light_mesh_triangle_first_index;
-__device__ __constant__ const float * light_mesh_area_scaled;
-__device__ __constant__ const float * light_mesh_area_unscaled;
+__device__ __constant__ const float * light_mesh_power_scaled;
+__device__ __constant__ const float * light_mesh_power_unscaled;
 __device__ __constant__ const int   * light_mesh_transform_indices;
 
 // Assumes no Total Internal Reflection

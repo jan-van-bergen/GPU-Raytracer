@@ -95,12 +95,12 @@ void Scene::check_materials() {
 		}
 	}
 
-	printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
-		has_diffuse    ? "yes" : "no",
-		has_dielectric ? "yes" : "no",
-		has_glossy     ? "yes" : "no",
-		has_lights     ? "yes" : "no"
-	);
+	//printf("\nScene info:\ndiffuse:    %s\ndielectric: %s\nglossy:     %s\nlights:     %s\n\n", 
+	//	has_diffuse    ? "yes" : "no",
+	//	has_dielectric ? "yes" : "no",
+	//	has_glossy     ? "yes" : "no",
+	//	has_lights     ? "yes" : "no"
+	//);
 }
 
 void Scene::update(float delta) {

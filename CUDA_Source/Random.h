@@ -122,33 +122,33 @@ __device__ float3 random_cosine_weighted_direction(int x, int y, int sample_inde
 }
 
 __device__ int random_point_on_random_light(int x, int y, int sample_index, int bounce, unsigned & seed, float & u, float & v, int & transform_id) {
-	// Pick random light emitting Mesh based on area
-	float random_value = random_float_heitz(x, y, sample_index, bounce, 4, seed) * light_total_area;
+	// Pick random light emitting Mesh based on power
+	float random_value = random_float_heitz(x, y, sample_index, bounce, 4, seed) * lights_total_power;
 
 	int   light_mesh_id = 0;
-	float light_area_cumulative = light_mesh_area_scaled[0];
+	float light_power = light_mesh_power_scaled[0];
 
-	while (random_value > light_area_cumulative) {
-		light_area_cumulative += light_mesh_area_scaled[++light_mesh_id];
+	while (random_value > light_power) {
+		light_power += light_mesh_power_scaled[++light_mesh_id];
 	}
 
-	// Pick random light emitting Triangle on the Mesh based on area
+	// Pick random light emitting Triangle on the Mesh based on power
 	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
 	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
 
 	int index_left  = triangle_first_index;
 	int index_right = triangle_first_index + triangle_count - 1;
 
-	random_value = random_float_heitz(x, y, sample_index, bounce, 5, seed) * light_mesh_area_unscaled[light_mesh_id];
+	random_value = random_float_heitz(x, y, sample_index, bounce, 5, seed) * light_mesh_power_unscaled[light_mesh_id];
 
 	// Binary search
 	int light_triangle_id;
 	while (true) {
 		int index_middle = (index_left + index_right) / 2;
 
-		if (index_middle > triangle_first_index && random_value <= light_areas_cumulative[index_middle - 1]) {
+		if (index_middle > triangle_first_index && random_value <= light_power_cumulative[index_middle - 1]) {
 			index_right = index_middle - 1;
-		} else if (random_value > light_areas_cumulative[index_middle]) {
+		} else if (random_value > light_power_cumulative[index_middle]) {
 			index_left = index_middle + 1;
 		} else {
 			light_triangle_id = light_indices[index_middle];

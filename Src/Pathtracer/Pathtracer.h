@@ -335,14 +335,14 @@ private:
 	CUDAMemory::Ptr<int>   ptr_light_indices;
 	CUDAMemory::Ptr<float> ptr_light_areas_cumulative;
 
-	CUDAMemory::Ptr<float> ptr_light_mesh_area_unscaled;
+	CUDAMemory::Ptr<float> ptr_light_mesh_power_unscaled;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_count;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_first_index;
 
-	CUDAMemory::Ptr<float> ptr_light_mesh_area_scaled;
+	CUDAMemory::Ptr<float> ptr_light_mesh_power_scaled;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
 	
-	CUDAModule::Global global_light_total_area;
+	CUDAModule::Global global_lights_total_power;
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
 
@@ -367,7 +367,7 @@ private:
 	CUDAEvent::Info event_info_accumulate;
 	CUDAEvent::Info event_info_end;
 
-	void calc_light_areas();
+	void calc_light_power();
 
 	void build_tlas();
 };

@@ -22,7 +22,7 @@ struct Mesh {
 	Matrix4 transform_prev;
 
 	int   light_index = -1;
-	float light_area = 0.0f;
+	float light_power = 0.0f;
 
 	void init(const char * name, int mesh_data_index, Scene & scene);
 
