@@ -379,6 +379,8 @@ int main(int argument_count, char ** arguments) {
 					int              index    = mesh_data->bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_index]];
 					const Triangle & triangle = mesh_data->triangles[index];
 
+					ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
+
 					Vector4 triangle_positions[3] = {
 						Vector4(triangle.position_0.x, triangle.position_0.y, triangle.position_0.z, 1.0f),
 						Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
@@ -400,27 +402,45 @@ int main(int argument_count, char ** arguments) {
 			if (pathtracer.pixel_query.material_id != INVALID) {
 				Material & material = pathtracer.scene.materials[pathtracer.pixel_query.material_id];
 
-				bool material_changed = false;				
-				material_changed |= ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
-				material_changed |= ImGui::SliderFloat3("Diffuse",  &material.diffuse.x, 0.0f, 1.0f);
-				material_changed |= ImGui::SliderInt   ("Texture",  &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
-				material_changed |= ImGui::DragFloat3  ("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
-				material_changed |= ImGui::SliderFloat ("IOR",      &material.index_of_refraction, 0.0f, 5.0f);
-				
-				// Absorption is stored as transmittance - 1 for efficiency, but should be displayed in a more user-friendly way
-				float transmittance[3] = {
-					material.absorption.x + 1.0f,
-					material.absorption.y + 1.0f,
-					material.absorption.z + 1.0f
-				};
-				if (ImGui::SliderFloat3("Transmittance", transmittance, 0.0f, 1.0f)) {
-					material.absorption.x = transmittance[0] - 1.0f;
-					material.absorption.y = transmittance[1] - 1.0f;
-					material.absorption.z = transmittance[2] - 1.0f;
-					material_changed = true;
+				bool material_changed = ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
+
+				switch (material.type) {
+					case Material::Type::DIFFUSE: {
+						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
+						break;
+					}
+					case Material::Type::DIELECTRIC: {
+						material_changed |= ImGui::SliderFloat("IOR", &material.index_of_refraction, 1.0f, 5.0f);
+
+						// Absorption is stored as transmittance - 1 for efficiency, but should be displayed in a more user-friendly way
+						float transmittance[3] = {
+							material.absorption.x + 1.0f,
+							material.absorption.y + 1.0f,
+							material.absorption.z + 1.0f
+						};
+						if (ImGui::SliderFloat3("Transmittance", transmittance, 0.0f, 1.0f)) {
+							material.absorption.x = transmittance[0] - 1.0f;
+							material.absorption.y = transmittance[1] - 1.0f;
+							material.absorption.z = transmittance[2] - 1.0f;
+							material_changed = true;
+						}
+						break;
+					}
+					case Material::Type::GLOSSY: {
+						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
+						material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderFloat ("Roughness", &material.roughness, 0.0f, 1.0f);
+						break;
+					}
+					case Material::Type::LIGHT: {
+						material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
+						break;
+					}
+
+					default: abort();
 				}
-				
-				material_changed |= ImGui::SliderFloat ("Roughness", &material.roughness, 0.0f, 1.0f);
 
 				if (material_changed) pathtracer.materials_invalidated = true;
 			}
