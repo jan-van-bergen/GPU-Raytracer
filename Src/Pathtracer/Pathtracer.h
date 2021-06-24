@@ -303,15 +303,25 @@ private:
 	struct CUDAMaterial {
 		Material::Type type;
 
-		Vector3 diffuse;
-		int texture_id;
-
-		Vector3 emission;
-
-		float index_of_refraction;
-		Vector3 negative_absorption;
-
-		float roughness;
+		union {
+			struct {
+				Vector3 emission;
+			} light;
+			struct {
+				Vector3 alignas(float4) diffuse;
+				int                     texture_id;
+			} diffuse;
+			struct {
+				Vector3 alignas(float4) negative_absorption;
+				float                   index_of_refraction;
+			} dielectric;
+			struct {
+				Vector3 alignas(float4) diffuse;
+				int                     texture_id;
+				float   alignas(float2) index_of_refraction;
+				float                   roughness;
+			} glossy;
+		};
 	};
 
 	struct CUDATexture {

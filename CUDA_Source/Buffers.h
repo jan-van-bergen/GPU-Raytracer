@@ -77,7 +77,7 @@ struct TraceBuffer {
 
 	HitBuffer hits;
 
-	int       * pixel_index_and_last_material; // Last material in 2 highest bits, pixel index in lowest 30
+	int       * pixel_index_and_mis_eligable; // mis_eligable is a single bit (most significant bit) that indicates the previous Material has a BRDF that supports MIS
 	Vector3_SoA throughput;
 
 	float * last_pdf;

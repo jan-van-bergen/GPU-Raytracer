@@ -395,14 +395,18 @@ int main(int argument_count, char ** arguments) {
 				bool material_changed = ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
 
 				switch (material.type) {
+					case Material::Type::LIGHT: {
+						material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
+						break;
+					}
 					case Material::Type::DIFFUSE: {
 						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
 						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
-						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
+						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 5.0f);
 						break;
 					}
 					case Material::Type::GLOSSY: {
@@ -410,10 +414,6 @@ int main(int argument_count, char ** arguments) {
 						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
 						material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.roughness, 0.0f, 1.0f);
-						break;
-					}
-					case Material::Type::LIGHT: {
-						material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
 						break;
 					}
 

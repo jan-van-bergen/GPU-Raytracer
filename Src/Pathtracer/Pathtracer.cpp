@@ -799,21 +799,40 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (materials_invalidated) {
-		CUDAMaterial * cuda_materials = new CUDAMaterial[scene.materials.size()];
+		CUDAMaterial * cuda_materials = reinterpret_cast<CUDAMaterial *>(new unsigned char[scene.materials.size() * sizeof(CUDAMaterial)]);
 		
 		for (int i = 0; i < scene.materials.size(); i++) {
 			const Material & material = scene.materials[i];
-			cuda_materials[i].type                = material.type;
-			cuda_materials[i].diffuse             = material.diffuse;
-			cuda_materials[i].texture_id          = material.texture_id;
-			cuda_materials[i].emission            = material.emission;
-			cuda_materials[i].index_of_refraction = material.index_of_refraction;
-			cuda_materials[i].negative_absorption = Vector3( // Absorption = -log(Transmittance)
-				log2f(material.transmittance.x), 
-				log2f(material.transmittance.y), 
-				log2f(material.transmittance.z)
-			);
-			cuda_materials[i].roughness = material.roughness;
+
+			cuda_materials[i].type = material.type;
+			switch (material.type) {
+				case Material::Type::LIGHT: {
+					cuda_materials[i].light.emission = material.emission;
+					break;
+				}
+				case Material::Type::DIFFUSE: {
+					cuda_materials[i].diffuse.diffuse    = material.diffuse;
+					cuda_materials[i].diffuse.texture_id = material.texture_id;
+					break;
+				}
+				case Material::Type::DIELECTRIC: {
+					cuda_materials[i].dielectric.negative_absorption = Vector3( // Absorption = -log(Transmittance), so -A = log(T)
+						log2f(material.transmittance.x), 
+						log2f(material.transmittance.y), 
+						log2f(material.transmittance.z)
+					);
+					cuda_materials[i].dielectric.index_of_refraction = material.index_of_refraction;
+					break;
+				}
+				case Material::Type::GLOSSY: {
+					cuda_materials[i].glossy.diffuse             = material.diffuse;
+					cuda_materials[i].glossy.texture_id          = material.texture_id;
+					cuda_materials[i].glossy.index_of_refraction = material.index_of_refraction;
+					cuda_materials[i].glossy.roughness           = material.roughness;
+					break;
+				}
+				default: abort();
+			}
 		}
 
 		CUDAMemory::memcpy(ptr_materials, cuda_materials, scene.materials.size());

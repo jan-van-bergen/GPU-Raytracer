@@ -5,8 +5,16 @@
 
 __device__ const Texture<float4> * textures;
 
+__device__ inline float2 texture_get_size(int texture_id) {
+	if (texture_id == INVALID) {
+		return make_float2(0.0f, 0.0f);
+	} else {
+		return textures[texture_id].size;
+	}
+}
+
 struct Material {
-	enum class Type : char {
+	enum struct Type : char {
 		LIGHT      = 0,
 		DIFFUSE    = 1,
 		DIELECTRIC = 2,
@@ -15,47 +23,108 @@ struct Material {
 
 	Type type;
 
-	float3 diffuse;
-	int texture_id;
-
-	float3 emission;
-
-	float index_of_refraction;
-	float3 negative_absorption;
-
-	float roughness;
-
-	__device__ inline float3 albedo(float s, float t) const {
-		if (texture_id == INVALID) return diffuse;
-
-		float4 tex_colour = textures[texture_id].get(s, t);
-		return diffuse * make_float3(tex_colour);
-	}
-
-	__device__ inline float3 albedo(float s, float t, float lod) const {
-		if (texture_id == INVALID) return diffuse;
-
-		float4 tex_colour = textures[texture_id].get_lod(s, t, lod);
-		return diffuse * make_float3(tex_colour);
-	}
-
-	__device__ inline float3 albedo(float s, float t, float2 dx, float2 dy) const {
-		if (texture_id == INVALID) return diffuse;
-
-		float4 tex_colour = textures[texture_id].get_grad(s, t, dx, dy);
-		return diffuse * make_float3(tex_colour);
-	}
-
-	__device__ inline float2 get_texture_size() const {
-		if (texture_id == INVALID) {
-			return make_float2(0.0f, 0.0f);
-		} else {
-			return textures[texture_id].size;
-		}
-	}
+	union {
+		struct {
+			float4 emission;
+		} light;
+		struct {
+			float4 diffuse_and_texture_id;
+		} diffuse;
+		struct {
+			float4 negative_absorption_and_ior;
+		} dielectric;
+		struct {
+			float4 diffuse_and_texture_id;
+			float2 ior_and_roughness;
+		} glossy;
+	};
 };
 
 __device__ __constant__ const Material * materials;
+
+__device__ inline Material::Type material_get_type(int material_id) {
+	return materials[material_id].type;
+}
+
+struct MaterialLight {
+	float3 emission;
+};
+
+struct MaterialDiffuse {
+	float3 diffuse;
+	int    texture_id;
+};
+
+struct MaterialDielectric {
+	float3 negative_absorption;
+	float  index_of_refraction;
+};
+
+struct MaterialGlossy {
+	float3 diffuse;
+	int    texture_id;
+	float  index_of_refraction;
+	float  roughness; 
+};
+
+__device__ inline MaterialLight material_as_light(int material_id) {
+	float4 emission = __ldg(&materials[material_id].light.emission);
+
+	MaterialLight material;
+	material.emission = make_float3(emission);
+	return material;
+}
+
+__device__ inline MaterialDiffuse material_as_diffuse(int material_id) {
+	float4 diffuse_and_texture_id = __ldg(&materials[material_id].diffuse.diffuse_and_texture_id);
+
+	MaterialDiffuse material;
+	material.diffuse    = make_float3(diffuse_and_texture_id);
+	material.texture_id = __float_as_int(diffuse_and_texture_id.w);
+	return material;
+}
+
+__device__ inline MaterialDielectric material_as_dielectric(int material_id) {
+	float4 negative_absorption_and_ior = __ldg(&materials[material_id].dielectric.negative_absorption_and_ior);
+
+	MaterialDielectric material;
+	material.negative_absorption = make_float3(negative_absorption_and_ior);
+	material.index_of_refraction = negative_absorption_and_ior.w;
+	return material;
+}
+
+__device__ inline MaterialGlossy material_as_glossy(int material_id) {
+	float4 diffuse_and_texture_id = __ldg(&materials[material_id].glossy.diffuse_and_texture_id);
+	float2 ior_and_roughness      = __ldg(&materials[material_id].glossy.ior_and_roughness);
+
+	MaterialGlossy material;
+	material.diffuse             = make_float3(diffuse_and_texture_id);
+	material.texture_id          = __float_as_int(diffuse_and_texture_id.w);
+	material.index_of_refraction = ior_and_roughness.x;
+	material.roughness           = ior_and_roughness.y;
+	return material;
+}
+
+__device__ inline float3 material_get_albedo(const float3 & diffuse, int texture_id, float s, float t) {
+	if (texture_id == INVALID) return diffuse;
+
+	float4 tex_colour = textures[texture_id].get(s, t);
+	return diffuse * make_float3(tex_colour);
+}
+
+__device__ inline float3 material_get_albedo(const float3 & diffuse, int texture_id, float s, float t, float lod) {
+	if (texture_id == INVALID) return diffuse;
+
+	float4 tex_colour = textures[texture_id].get_lod(s, t, lod);
+	return diffuse * make_float3(tex_colour);
+}
+
+__device__ inline float3 material_get_albedo(const float3 & diffuse, int texture_id, float s, float t, float2 dx, float2 dy) {
+	if (texture_id == INVALID) return diffuse;
+
+	float4 tex_colour = textures[texture_id].get_grad(s, t, dx, dy);
+	return diffuse * make_float3(tex_colour);
+}
 
 __device__ __constant__ float lights_total_power;
 

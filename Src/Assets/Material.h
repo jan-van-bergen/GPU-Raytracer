@@ -13,14 +13,14 @@ struct Material {
 	};
 
 	Type type = Type::DIFFUSE;
+	
+	Vector3 emission;
 
 	Vector3 diffuse = Vector3(1.0f, 1.0f, 1.0f);	
 	int texture_id = -1;
 
-	Vector3 emission;
-
-	float index_of_refraction = 1.0f;
 	Vector3 transmittance = Vector3(0.0f);
+	float index_of_refraction = 1.0f;
 
 	float roughness = 0.5f;
 };
