@@ -3,6 +3,8 @@
 #include "Math/Vector3.h"
 
 struct Material {
+	const char * name;
+
 	enum class Type : char {
 		LIGHT      = 0,
 		DIFFUSE    = 1,
@@ -18,7 +20,7 @@ struct Material {
 	Vector3 emission;
 
 	float index_of_refraction = 1.0f;
-	Vector3 absorption = Vector3(0.0f);
+	Vector3 transmittance = Vector3(0.0f);
 
 	float roughness = 0.5f;
 };

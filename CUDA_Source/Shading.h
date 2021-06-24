@@ -21,7 +21,7 @@ struct Material {
 	float3 emission;
 
 	float index_of_refraction;
-	float3 absorption;
+	float3 negative_absorption;
 
 	float roughness;
 

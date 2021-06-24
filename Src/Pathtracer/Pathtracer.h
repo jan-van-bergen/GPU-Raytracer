@@ -300,6 +300,20 @@ private:
 	int       * pinned_light_mesh_transform_indices;
 	float     * pinned_light_mesh_area_scaled;
 
+	struct CUDAMaterial {
+		Material::Type type;
+
+		Vector3 diffuse;
+		int texture_id;
+
+		Vector3 emission;
+
+		float index_of_refraction;
+		Vector3 negative_absorption;
+
+		float roughness;
+	};
+
 	struct CUDATexture {
 		CUtexObject texture;
 		float2 size;
@@ -308,8 +322,8 @@ private:
 	CUDATexture      * textures;
 	CUmipmappedArray * texture_arrays;
 
-	CUDAMemory::Ptr<Material>    ptr_materials;
-	CUDAMemory::Ptr<CUDATexture> ptr_textures;
+	CUDAMemory::Ptr<CUDAMaterial> ptr_materials;
+	CUDAMemory::Ptr<CUDATexture>  ptr_textures;
 	
 	struct CUDATriangle {
 		Vector3 position_0;

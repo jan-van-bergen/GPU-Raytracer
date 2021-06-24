@@ -566,11 +566,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 		// Lambert-Beer Law
 		// NOTE: does not take into account nested dielectrics!
-		if (dot(material.absorption, material.absorption) > EPSILON) {
-			ray_throughput.x *= expf(material.absorption.x * hit.t);
-			ray_throughput.y *= expf(material.absorption.y * hit.t);
-			ray_throughput.z *= expf(material.absorption.z * hit.t);
-		}
+		ray_throughput.x *= expf(material.negative_absorption.x * hit.t);
+		ray_throughput.y *= expf(material.negative_absorption.y * hit.t);
+		ray_throughput.z *= expf(material.negative_absorption.z * hit.t);
 	}
 
 	float eta = eta_1 / eta_2;

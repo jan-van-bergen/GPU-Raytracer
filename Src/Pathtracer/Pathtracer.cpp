@@ -89,7 +89,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	resize_init(frame_buffer_handle, screen_width, screen_height);
 	
 	// Set global Material table
-	ptr_materials = CUDAMemory::malloc(scene.materials);
+	ptr_materials = CUDAMemory::malloc<CUDAMaterial>(scene.materials.size());
 	cuda_module.get_global("materials").set_value(ptr_materials);
 	
 	scene.wait_until_textures_loaded();
@@ -799,7 +799,26 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (materials_invalidated) {
-		CUDAMemory::memcpy(ptr_materials, scene.materials.data(), scene.materials.size());
+		CUDAMaterial * cuda_materials = new CUDAMaterial[scene.materials.size()];
+		
+		for (int i = 0; i < scene.materials.size(); i++) {
+			const Material & material = scene.materials[i];
+			cuda_materials[i].type                = material.type;
+			cuda_materials[i].diffuse             = material.diffuse;
+			cuda_materials[i].texture_id          = material.texture_id;
+			cuda_materials[i].emission            = material.emission;
+			cuda_materials[i].index_of_refraction = material.index_of_refraction;
+			cuda_materials[i].negative_absorption = Vector3( // Absorption = -log(Transmittance)
+				log2f(material.transmittance.x), 
+				log2f(material.transmittance.y), 
+				log2f(material.transmittance.z)
+			);
+			cuda_materials[i].roughness = material.roughness;
+		}
+
+		CUDAMemory::memcpy(ptr_materials, cuda_materials, scene.materials.size());
+
+		delete [] cuda_materials;
 
 		bool had_diffuse    = scene.has_diffuse;
 		bool had_dielectric = scene.has_dielectric;

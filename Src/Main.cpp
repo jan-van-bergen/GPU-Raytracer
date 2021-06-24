@@ -390,6 +390,7 @@ int main(int argument_count, char ** arguments) {
 				Material & material = pathtracer.scene.materials[pathtracer.pixel_query.material_id];
 
 				ImGui::Separator();
+				ImGui::Text("Name: %s", material.name);
 
 				bool material_changed = ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
 
@@ -400,20 +401,8 @@ int main(int argument_count, char ** arguments) {
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
-						material_changed |= ImGui::SliderFloat("IOR", &material.index_of_refraction, 1.0f, 5.0f);
-
-						// Absorption is stored as transmittance - 1 for efficiency, but should be displayed in a more user-friendly way
-						float transmittance[3] = {
-							material.absorption.x + 1.0f,
-							material.absorption.y + 1.0f,
-							material.absorption.z + 1.0f
-						};
-						if (ImGui::SliderFloat3("Transmittance", transmittance, 0.0f, 1.0f)) {
-							material.absorption.x = transmittance[0] - 1.0f;
-							material.absorption.y = transmittance[1] - 1.0f;
-							material.absorption.z = transmittance[2] - 1.0f;
-							material_changed = true;
-						}
+						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
 						break;
 					}
 					case Material::Type::GLOSSY: {
