@@ -82,6 +82,16 @@ namespace CUDAMemory {
 		CUDACALL(cuMemcpyDtoH(data, ptr.ptr, count * sizeof(T)));
 	}
 	
+	template<typename T>
+	inline void memset_async(Ptr<T> ptr, int value, int count, CUstream stream) {
+		int size_in_bytes = count * sizeof(T);
+		if ((size_in_bytes & 3) == 0) {
+			CUDACALL(cuMemsetD32Async(ptr.ptr, value, size_in_bytes >> 2, stream));
+		} else {
+			CUDACALL(cuMemsetD8Async(ptr.ptr, value, size_in_bytes, stream));
+		}
+	}
+
 	CUarray          create_array       (int width, int height, int channels, CUarray_format format);
 	CUmipmappedArray create_array_mipmap(int width, int height, int channels, CUarray_format format, int level_count);
 

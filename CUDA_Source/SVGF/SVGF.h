@@ -590,11 +590,6 @@ extern "C" __global__ void kernel_svgf_finalize(
 	history_moment          [pixel_index] = moment;
 	history_normal_and_depth[pixel_index] = normal_and_depth;
 
-	// Clear frame buffers for next frame
-	frame_buffer_albedo  [pixel_index] = make_float4(0.0f);
-	frame_buffer_direct  [pixel_index] = make_float4(0.0f);
-	frame_buffer_indirect[pixel_index] = make_float4(0.0f);
-
 	gbuffer_normal_and_depth       .set(x, y, make_float4(0.0f));
 	gbuffer_mesh_id_and_triangle_id.set(x, y, make_int2(0));
 	if (!settings.enable_taa) {

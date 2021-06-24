@@ -223,6 +223,8 @@ private:
 	
 	CUDAModule cuda_module;
 
+	CUstream stream_memset;
+
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace;
 	CUDAKernel kernel_sort;

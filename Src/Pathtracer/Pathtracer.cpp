@@ -21,6 +21,8 @@ void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky
 	scene.init(mesh_count, mesh_names, sky_name);
 
 	cuda_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+	CUDACALL(cuStreamCreate(&stream_memset, CU_STREAM_NON_BLOCKING));
 }
 
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
@@ -120,7 +122,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 				int level_width_in_bytes = texture.get_width_in_bytes(level);
 				int level_height         = texture.height >> level;
-
+				
 				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data + texture.mip_offsets[level]);
 			}
 
@@ -554,6 +556,8 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 }
 
 void Pathtracer::resize_free() {
+	CUDACALL(cuStreamSynchronize(stream_memset));
+
 	CUDAMemory::free_array(array_gbuffer_normal_and_depth);
 	CUDAMemory::free_array(array_gbuffer_mesh_id_and_triangle_id);
 	CUDAMemory::free_array(array_gbuffer_screen_position_prev);
@@ -945,6 +949,8 @@ void Pathtracer::update(float delta) {
 void Pathtracer::render() {
 	CUDAEvent::reset_pool();
 
+	CUDACALL(cuStreamSynchronize(stream_memset));
+
 	int pixels_left = pixel_count;
 
 	// Render in batches of BATCH_SIZE pixels at a time
@@ -1053,6 +1059,10 @@ void Pathtracer::render() {
 	// Reset buffer sizes to default for next frame
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
+	
+	if (settings.modulate_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, stream_memset);
+	CUDAMemory::memset_async(ptr_direct,   0, screen_pitch * screen_height, stream_memset);
+	CUDAMemory::memset_async(ptr_indirect, 0, screen_pitch * screen_height, stream_memset);
 
 	// If a pixel query was previously pending, it has just been resolved in the current frame
 	if (pixel_query_status == PixelQueryStatus::PENDING) {

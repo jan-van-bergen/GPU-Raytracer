@@ -896,11 +896,4 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 	}
 
 	accumulator.set(x, y, colour);
-
-	// Clear frame buffers for next frame
-	if (settings.modulate_albedo) {
-		frame_buffer_albedo[pixel_index] = make_float4(0.0f);
-	}
-	frame_buffer_direct  [pixel_index] = make_float4(0.0f);
-	frame_buffer_indirect[pixel_index] = make_float4(0.0f);
 }
