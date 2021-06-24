@@ -273,29 +273,36 @@ int main(int argument_count, char ** arguments) {
 		}
 		ImGui::End();
 
-		if (ImGui::Begin("Scene")) {
-			for (int i = 0; i < pathtracer.scene.mesh_count; i++) {
-				ImGui::PushID(i);
+		if (ImGui::Begin("Selected")) {
+			if (Input::is_mouse_released(Input::MouseButton::RIGHT)) {
+				// Deselect current object
+				pathtracer.pixel_query.pixel_index = INVALID;
+				pathtracer.pixel_query.mesh_id     = INVALID;
+				pathtracer.pixel_query.triangle_id = INVALID;
+				pathtracer.pixel_query.material_id = INVALID;
+			}
 
-				Mesh & mesh = pathtracer.scene.meshes[i];
+			if (pathtracer.pixel_query.mesh_id != INVALID) {
+				Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
+				
 				ImGui::TextUnformatted(mesh.name);
 
 				bool mesh_changed = false;
 				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
 
-				static int dragging = INVALID;
+				static bool dragging = false;
 				
 				if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
 					mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
 					mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
 					mesh.euler_angles.z = Math::wrap(mesh.euler_angles.z, 0.0f, 360.0f);
 
-					if (dragging == INVALID) {
+					if (!dragging) {
 						mesh.euler_angles = Quaternion::to_euler(mesh.rotation);
 						mesh.euler_angles.x = Math::rad_to_deg(mesh.euler_angles.x);
 						mesh.euler_angles.y = Math::rad_to_deg(mesh.euler_angles.y);
 						mesh.euler_angles.z = Math::rad_to_deg(mesh.euler_angles.z);
-						dragging = i;
+						dragging = true;
 					}
 
 					mesh.rotation = Quaternion::from_euler(Math::deg_to_rad(mesh.euler_angles.x), Math::deg_to_rad(mesh.euler_angles.y), Math::deg_to_rad(mesh.euler_angles.z));
@@ -305,26 +312,6 @@ int main(int argument_count, char ** arguments) {
 				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
 
 				if (mesh_changed) pathtracer.scene_invalidated = true;
-
-				ImGui::PopID();
-				ImGui::Separator();
-			}
-
-			if (Input::is_mouse_released(Input::MouseButton::RIGHT)) {
-				// Deselect current object
-				pathtracer.pixel_query.pixel_index = INVALID;
-				pathtracer.pixel_query.mesh_id     = INVALID;
-				pathtracer.pixel_query.triangle_id = INVALID;
-				pathtracer.pixel_query.material_id = INVALID;
-			}
-
-			//ImGui::TextUnformatted("Selected:");
-			//ImGui::Text("Mesh:     %i", pathtracer.pixel_query.mesh_id);
-			//ImGui::Text("Triangle: %i", pathtracer.pixel_query.triangle_id);
-			//ImGui::Text("Material: %i", pathtracer.pixel_query.material_id);
-
-			if (pathtracer.pixel_query.mesh_id != INVALID) {
-				const Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
 
 				ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
 
@@ -401,6 +388,8 @@ int main(int argument_count, char ** arguments) {
 
 			if (pathtracer.pixel_query.material_id != INVALID) {
 				Material & material = pathtracer.scene.materials[pathtracer.pixel_query.material_id];
+
+				ImGui::Separator();
 
 				bool material_changed = ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
 
