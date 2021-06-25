@@ -10,7 +10,7 @@ __device__ __constant__ int screen_pitch;
 __device__ __constant__ int screen_height;
 
 #include "Util.h"
-#include "Shading.h"
+#include "Material.h"
 #include "Sky.h"
 #include "Random.h"
 #include "RayCone.h"
@@ -148,7 +148,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	// Get the Material of the Triangle we hit
 	int material_id = triangle_get_material_id(hit.triangle_id);
-	Material::Type material_type = material_get_type(material_id);
+	MaterialType material_type = material_get_type(material_id);
 
 	if (bounce == 0 && pixel_query.pixel_index == ray_pixel_index) {
 		pixel_query.mesh_id     = hit.mesh_id;
@@ -156,7 +156,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		pixel_query.material_id = material_id;
 	}
 
-	if (material_type == Material::Type::LIGHT) {	
+	if (material_type == MaterialType::LIGHT) {	
 		// Obtain the Light's position and normal
 		TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
 		
@@ -246,7 +246,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	}
 
 	switch (material_type) {
-		case Material::Type::DIFFUSE: {
+		case MaterialType::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[bounce]);
 
 			ray_buffer_shade_diffuse.direction.set(index_out, ray_direction);
@@ -262,7 +262,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			break;
 		}
 
-		case Material::Type::DIELECTRIC: {
+		case MaterialType::DIELECTRIC: {
 			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[bounce]);
 
 			ray_buffer_shade_dielectric_and_glossy.direction.set(index_out, ray_direction);
@@ -278,7 +278,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			break;
 		}
 
-		case Material::Type::GLOSSY: {
+		case MaterialType::GLOSSY: {
 			// Glossy Material buffer is shared with Dielectric Material buffer but grows in the opposite direction
 			int index_out = (BATCH_SIZE - 1) - atomic_agg_inc(&buffer_sizes.glossy[bounce]);
 

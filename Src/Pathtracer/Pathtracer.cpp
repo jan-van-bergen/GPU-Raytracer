@@ -89,8 +89,10 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	resize_init(frame_buffer_handle, screen_width, screen_height);
 	
 	// Set global Material table
-	ptr_materials = CUDAMemory::malloc<CUDAMaterial>(scene.materials.size());
-	cuda_module.get_global("materials").set_value(ptr_materials);
+	ptr_material_types = CUDAMemory::malloc<Material::Type>(scene.materials.size());
+	ptr_materials      = CUDAMemory::malloc<CUDAMaterial>  (scene.materials.size());
+	cuda_module.get_global("material_types").set_value(ptr_material_types);
+	cuda_module.get_global("materials")     .set_value(ptr_materials);
 	
 	scene.wait_until_textures_loaded();
 
@@ -799,12 +801,14 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (materials_invalidated) {
-		CUDAMaterial * cuda_materials = reinterpret_cast<CUDAMaterial *>(new unsigned char[scene.materials.size() * sizeof(CUDAMaterial)]);
+		Material::Type * cuda_material_types = reinterpret_cast<Material::Type *>(new unsigned char[scene.materials.size() * sizeof(Material::Type)]);
+		CUDAMaterial   * cuda_materials      = reinterpret_cast<CUDAMaterial   *>(new unsigned char[scene.materials.size() * sizeof(CUDAMaterial)]);
 		
 		for (int i = 0; i < scene.materials.size(); i++) {
 			const Material & material = scene.materials[i];
 
-			cuda_materials[i].type = material.type;
+			cuda_material_types[i] = material.type;
+
 			switch (material.type) {
 				case Material::Type::LIGHT: {
 					cuda_materials[i].light.emission = material.emission;
@@ -835,8 +839,10 @@ void Pathtracer::update(float delta) {
 			}
 		}
 
-		CUDAMemory::memcpy(ptr_materials, cuda_materials, scene.materials.size());
+		CUDAMemory::memcpy(ptr_material_types, cuda_material_types, scene.materials.size());
+		CUDAMemory::memcpy(ptr_materials,      cuda_materials,      scene.materials.size());
 
+		delete [] cuda_material_types;
 		delete [] cuda_materials;
 
 		bool had_diffuse    = scene.has_diffuse;

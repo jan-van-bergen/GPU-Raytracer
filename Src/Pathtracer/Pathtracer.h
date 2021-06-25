@@ -301,8 +301,6 @@ private:
 	float     * pinned_light_mesh_area_scaled;
 
 	struct CUDAMaterial {
-		Material::Type type;
-
 		union {
 			struct {
 				Vector3 emission;
@@ -323,6 +321,9 @@ private:
 			} glossy;
 		};
 	};
+	
+	CUDAMemory::Ptr<Material::Type> ptr_material_types;
+	CUDAMemory::Ptr<CUDAMaterial>   ptr_materials;
 
 	struct CUDATexture {
 		CUtexObject texture;
@@ -332,7 +333,6 @@ private:
 	CUDATexture      * textures;
 	CUmipmappedArray * texture_arrays;
 
-	CUDAMemory::Ptr<CUDAMaterial> ptr_materials;
 	CUDAMemory::Ptr<CUDATexture>  ptr_textures;
 	
 	struct CUDATriangle {

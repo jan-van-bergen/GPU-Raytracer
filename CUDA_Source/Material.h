@@ -13,16 +13,14 @@ __device__ inline float2 texture_get_size(int texture_id) {
 	}
 }
 
+enum struct MaterialType : char {
+	LIGHT      = 0,
+	DIFFUSE    = 1,
+	DIELECTRIC = 2,
+	GLOSSY     = 3
+};
+
 struct Material {
-	enum struct Type : char {
-		LIGHT      = 0,
-		DIFFUSE    = 1,
-		DIELECTRIC = 2,
-		GLOSSY     = 3
-	};
-
-	Type type;
-
 	union {
 		struct {
 			float4 emission;
@@ -40,10 +38,11 @@ struct Material {
 	};
 };
 
-__device__ __constant__ const Material * materials;
+__device__ __constant__ const MaterialType * material_types;
+__device__ __constant__ const Material     * materials;
 
-__device__ inline Material::Type material_get_type(int material_id) {
-	return materials[material_id].type;
+__device__ inline MaterialType material_get_type(int material_id) {
+	return material_types[material_id];
 }
 
 struct MaterialLight {
