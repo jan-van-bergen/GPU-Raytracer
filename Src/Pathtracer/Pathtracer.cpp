@@ -85,6 +85,12 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_trace_shadow.set_shared_memory(block_size_to_shared_memory(block));
 
 	printf("\nConfiguration picked for Tracing kernels:\n    Block Size: %i x %i\n    Grid Size:  %i\n\n", block_x, block_y, grid);
+	
+	pinned_buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
+	pinned_buffer_sizes->reset(batch_size);
+	
+	global_buffer_sizes = cuda_module.get_global("buffer_sizes");
+	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
 	resize_init(frame_buffer_handle, screen_width, screen_height);
 	
@@ -326,12 +332,6 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_ray_buffer_shade_dielectric_and_glossy = cuda_module.get_global("ray_buffer_shade_dielectric_and_glossy");
 	global_ray_buffer_shadow                      = cuda_module.get_global("ray_buffer_shadow");
 
-	pinned_buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
-	pinned_buffer_sizes->reset(batch_size);
-	
-	global_buffer_sizes = cuda_module.get_global("buffer_sizes");
-	global_buffer_sizes.set_value(*pinned_buffer_sizes);
-
 	global_camera      = cuda_module.get_global("camera");
 	global_settings    = cuda_module.get_global("settings");
 	global_svgf_data   = cuda_module.get_global("svgf_data");
@@ -553,13 +553,17 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	
 	scene.camera.resize(width, height);
 	camera_invalidated = true;
-
+	
+	// Reset buffer sizes to default for next frame
+	pinned_buffer_sizes->reset(batch_size);
+	global_buffer_sizes.set_value(*pinned_buffer_sizes);
+	
 	frames_accumulated = 0;
 }
 
 void Pathtracer::resize_free() {
 	CUDACALL(cuStreamSynchronize(stream_memset));
-
+	
 	CUDAMemory::free_array(array_gbuffer_normal_and_depth);
 	CUDAMemory::free_array(array_gbuffer_mesh_id_and_triangle_id);
 	CUDAMemory::free_array(array_gbuffer_screen_position_prev);
