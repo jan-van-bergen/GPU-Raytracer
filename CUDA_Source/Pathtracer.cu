@@ -182,8 +182,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 		MaterialLight material_light = material_as_light(material_id);
 		
-		bool no_mis = settings.enable_next_event_estimation ? !mis_eligable : true;
-		if (no_mis) {
+		bool should_count_light_contribution = settings.enable_next_event_estimation ? !mis_eligable : true;
+		if (should_count_light_contribution) {
 			float3 illumination = ray_throughput * material_light.emission;
 
 			if (bounce == 0) {

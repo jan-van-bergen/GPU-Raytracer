@@ -244,31 +244,39 @@ int main(int argument_count, char ** arguments) {
 			}
 
 			if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-				bool settings_changed = false;
+				bool invalidated_settings = false;
 			
-				settings_changed |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
+				invalidated_settings |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
 
-				settings_changed |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
-				settings_changed |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
+				invalidated_settings |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
+				invalidated_settings |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
 
-				settings_changed |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
-				settings_changed |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
+				invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
+				invalidated_settings |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
 			
-				settings_changed |= ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update);
+				invalidated_settings |= ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update);
 
-				settings_changed |= ImGui::Checkbox("SVGF",              &pathtracer.settings.enable_svgf);
-				settings_changed |= ImGui::Checkbox("Spatial Variance",  &pathtracer.settings.enable_spatial_variance);
-				settings_changed |= ImGui::Checkbox("TAA",               &pathtracer.settings.enable_taa);
-				settings_changed |= ImGui::Checkbox("Modulate Albedo",   &pathtracer.settings.modulate_albedo);
+				if (ImGui::Checkbox("SVGF", &pathtracer.settings.enable_svgf)) {
+					if (pathtracer.settings.enable_svgf) {
+						pathtracer.svgf_init();
+					} else {
+						pathtracer.svgf_free();
+					}
+					invalidated_settings = true;
+				}
 
-				settings_changed |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
+				invalidated_settings |= ImGui::Checkbox("Spatial Variance",  &pathtracer.settings.enable_spatial_variance);
+				invalidated_settings |= ImGui::Checkbox("TAA",               &pathtracer.settings.enable_taa);
+				invalidated_settings |= ImGui::Checkbox("Modulate Albedo",   &pathtracer.settings.modulate_albedo);
 
-				settings_changed |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+				invalidated_settings |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
 
-				settings_changed |= ImGui::SliderFloat("Alpha colour", &pathtracer.settings.alpha_colour, 0.0f, 1.0f);
-				settings_changed |= ImGui::SliderFloat("Alpha moment", &pathtracer.settings.alpha_moment, 0.0f, 1.0f);
+				invalidated_settings |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 
-				pathtracer.settings_changed = settings_changed;
+				invalidated_settings |= ImGui::SliderFloat("Alpha colour", &pathtracer.settings.alpha_colour, 0.0f, 1.0f);
+				invalidated_settings |= ImGui::SliderFloat("Alpha moment", &pathtracer.settings.alpha_moment, 0.0f, 1.0f);
+
+				pathtracer.invalidated_settings = invalidated_settings;
 			}
 		}
 		ImGui::End();
@@ -311,7 +319,7 @@ int main(int argument_count, char ** arguments) {
 
 				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
 
-				if (mesh_changed) pathtracer.scene_invalidated = true;
+				if (mesh_changed) pathtracer.invalidated_scene = true;
 
 				ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
 
@@ -420,7 +428,7 @@ int main(int argument_count, char ** arguments) {
 					default: abort();
 				}
 
-				if (material_changed) pathtracer.materials_invalidated = true;
+				if (material_changed) pathtracer.invalidated_materials = true;
 			}
 		}
 		ImGui::End();

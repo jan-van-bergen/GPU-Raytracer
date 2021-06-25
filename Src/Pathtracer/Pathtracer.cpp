@@ -391,8 +391,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	scene.has_glossy     = false;
 	scene.has_lights     = false;
 
-	scene_invalidated     = true;
-	materials_invalidated = true;
+	invalidated_scene     = true;
+	invalidated_materials = true;
+	invalidated_settings  = true;
 
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
@@ -484,58 +485,20 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	cuda_module.get_global("screen_pitch") .set_value(screen_pitch);
 	cuda_module.get_global("screen_height").set_value(screen_height);
 
-	// Allocate GBuffers
-	array_gbuffer_normal_and_depth        = CUDAMemory::create_array(screen_pitch, height, 4, CU_AD_FORMAT_FLOAT);
-	array_gbuffer_mesh_id_and_triangle_id = CUDAMemory::create_array(screen_pitch, height, 2, CU_AD_FORMAT_SIGNED_INT32);
-	array_gbuffer_screen_position_prev    = CUDAMemory::create_array(screen_pitch, height, 2, CU_AD_FORMAT_FLOAT);
-
-	surf_gbuffer_normal_and_depth        = CUDAMemory::create_surface(array_gbuffer_normal_and_depth);
-	surf_gbuffer_mesh_id_and_triangle_id = CUDAMemory::create_surface(array_gbuffer_mesh_id_and_triangle_id);
-	surf_gbuffer_screen_position_prev    = CUDAMemory::create_surface(array_gbuffer_screen_position_prev);
-
-	cuda_module.get_global("gbuffer_normal_and_depth")       .set_value(surf_gbuffer_normal_and_depth);
-	cuda_module.get_global("gbuffer_mesh_id_and_triangle_id").set_value(surf_gbuffer_mesh_id_and_triangle_id);
-	cuda_module.get_global("gbuffer_screen_position_prev")   .set_value(surf_gbuffer_screen_position_prev);
-	
 	// Create Frame Buffers
 	ptr_frame_buffer_albedo = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_frame_buffer_moment = CUDAMemory::malloc<float4>(screen_pitch * height);
-
-	ptr_direct       = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_indirect     = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_direct_alt   = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_indirect_alt = CUDAMemory::malloc<float4>(screen_pitch * height);
-	
 	cuda_module.get_global("frame_buffer_albedo")  .set_value(ptr_frame_buffer_albedo);
-	cuda_module.get_global("frame_buffer_moment")  .set_value(ptr_frame_buffer_moment);
-	cuda_module.get_global("frame_buffer_direct")  .set_value(ptr_direct);
-	cuda_module.get_global("frame_buffer_indirect").set_value(ptr_indirect);
+
+	ptr_frame_buffer_direct   = CUDAMemory::malloc<float4>(screen_pitch * height);
+	ptr_frame_buffer_indirect = CUDAMemory::malloc<float4>(screen_pitch * height);
+	cuda_module.get_global("frame_buffer_direct")  .set_value(ptr_frame_buffer_direct);
+	cuda_module.get_global("frame_buffer_indirect").set_value(ptr_frame_buffer_indirect);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
 	surf_accumulator     = CUDAMemory::create_surface(CUDAMemory::resource_get_array(resource_accumulator));
 	cuda_module.get_global("accumulator").set_value(surf_accumulator);
-
-	// Create History Buffers for SVGF
-	ptr_history_length           = CUDAMemory::malloc<int>   (screen_pitch * height);
-	ptr_history_direct           = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_history_indirect         = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_history_moment           = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_history_normal_and_depth = CUDAMemory::malloc<float4>(screen_pitch * height);
-
-	cuda_module.get_global("history_length")          .set_value(ptr_history_length);
-	cuda_module.get_global("history_direct")          .set_value(ptr_history_direct);
-	cuda_module.get_global("history_indirect")        .set_value(ptr_history_indirect);
-	cuda_module.get_global("history_moment")          .set_value(ptr_history_moment);
-	cuda_module.get_global("history_normal_and_depth").set_value(ptr_history_normal_and_depth);
 	
-	// Create Frame Buffers for Temporal Anti-Aliasing
-	ptr_taa_frame_prev = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_taa_frame_curr = CUDAMemory::malloc<float4>(screen_pitch * height);
-
-	cuda_module.get_global("taa_frame_prev").set_value(ptr_taa_frame_prev);
-	cuda_module.get_global("taa_frame_curr").set_value(ptr_taa_frame_curr);
-
 	// Set Grid dimensions for screen size dependent Kernels
 	kernel_svgf_reproject.set_grid_dim(screen_pitch / kernel_svgf_reproject.block_dim_x, Math::divide_round_up(height, kernel_svgf_reproject.block_dim_y), 1);
 	kernel_svgf_variance .set_grid_dim(screen_pitch / kernel_svgf_variance .block_dim_x, Math::divide_round_up(height, kernel_svgf_variance .block_dim_y), 1);
@@ -552,18 +515,74 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_shade_glossy    .set_grid_dim(Math::divide_round_up(batch_size, kernel_shade_glossy    .block_dim_x), 1, 1);
 	
 	scene.camera.resize(width, height);
-	camera_invalidated = true;
-	
+	invalidated_camera = true;
+
 	// Reset buffer sizes to default for next frame
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 	
 	frames_accumulated = 0;
+
+	if (settings.enable_svgf) svgf_init();
 }
 
 void Pathtracer::resize_free() {
 	CUDACALL(cuStreamSynchronize(stream_memset));
+
+	CUDAMemory::free(ptr_frame_buffer_albedo);
+
+	CUDAMemory::resource_unregister(resource_accumulator);
+	CUDAMemory::free_surface(surf_accumulator);
+
+	CUDAMemory::free(ptr_frame_buffer_direct);
+	CUDAMemory::free(ptr_frame_buffer_indirect);
+
+	if (settings.enable_svgf) svgf_free();
+}
+
+void Pathtracer::svgf_init() {
+	// GBuffers
+	array_gbuffer_normal_and_depth        = CUDAMemory::create_array(screen_pitch, screen_height, 4, CU_AD_FORMAT_FLOAT);
+	array_gbuffer_mesh_id_and_triangle_id = CUDAMemory::create_array(screen_pitch, screen_height, 2, CU_AD_FORMAT_SIGNED_INT32);
+	array_gbuffer_screen_position_prev    = CUDAMemory::create_array(screen_pitch, screen_height, 2, CU_AD_FORMAT_FLOAT);
+
+	surf_gbuffer_normal_and_depth        = CUDAMemory::create_surface(array_gbuffer_normal_and_depth);
+	surf_gbuffer_mesh_id_and_triangle_id = CUDAMemory::create_surface(array_gbuffer_mesh_id_and_triangle_id);
+	surf_gbuffer_screen_position_prev    = CUDAMemory::create_surface(array_gbuffer_screen_position_prev);
+
+	cuda_module.get_global("gbuffer_normal_and_depth")       .set_value(surf_gbuffer_normal_and_depth);
+	cuda_module.get_global("gbuffer_mesh_id_and_triangle_id").set_value(surf_gbuffer_mesh_id_and_triangle_id);
+	cuda_module.get_global("gbuffer_screen_position_prev")   .set_value(surf_gbuffer_screen_position_prev);
 	
+	// Frame Buffers
+	ptr_frame_buffer_moment = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+	cuda_module.get_global("frame_buffer_moment").set_value(ptr_frame_buffer_moment);
+	
+	ptr_frame_buffer_direct_alt   = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+	ptr_frame_buffer_indirect_alt = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+
+	// History Buffers
+	ptr_history_length           = CUDAMemory::malloc<int>   (screen_pitch * screen_height);
+	ptr_history_direct           = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+	ptr_history_indirect         = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+	ptr_history_moment           = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+	ptr_history_normal_and_depth = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+
+	cuda_module.get_global("history_length")          .set_value(ptr_history_length);
+	cuda_module.get_global("history_direct")          .set_value(ptr_history_direct);
+	cuda_module.get_global("history_indirect")        .set_value(ptr_history_indirect);
+	cuda_module.get_global("history_moment")          .set_value(ptr_history_moment);
+	cuda_module.get_global("history_normal_and_depth").set_value(ptr_history_normal_and_depth);
+	
+	// Frame Buffers for Temporal Anti-Aliasing
+	ptr_taa_frame_prev = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+	ptr_taa_frame_curr = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+
+	cuda_module.get_global("taa_frame_prev").set_value(ptr_taa_frame_prev);
+	cuda_module.get_global("taa_frame_curr").set_value(ptr_taa_frame_curr);
+}
+
+void Pathtracer::svgf_free() {
 	CUDAMemory::free_array(array_gbuffer_normal_and_depth);
 	CUDAMemory::free_array(array_gbuffer_mesh_id_and_triangle_id);
 	CUDAMemory::free_array(array_gbuffer_screen_position_prev);
@@ -571,18 +590,12 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free_surface(surf_gbuffer_normal_and_depth);
 	CUDAMemory::free_surface(surf_gbuffer_mesh_id_and_triangle_id);
 	CUDAMemory::free_surface(surf_gbuffer_screen_position_prev);
-
-	CUDAMemory::free(ptr_frame_buffer_albedo);
+	
 	CUDAMemory::free(ptr_frame_buffer_moment);
-
-	CUDAMemory::resource_unregister(resource_accumulator);
-	CUDAMemory::free_surface(surf_accumulator);
-
-	CUDAMemory::free(ptr_direct);
-	CUDAMemory::free(ptr_indirect);
-	CUDAMemory::free(ptr_direct_alt);
-	CUDAMemory::free(ptr_indirect_alt);
-
+	
+	CUDAMemory::free(ptr_frame_buffer_direct_alt);
+	CUDAMemory::free(ptr_frame_buffer_indirect_alt);
+	
 	CUDAMemory::free(ptr_history_length);
 	CUDAMemory::free(ptr_history_direct);
 	CUDAMemory::free(ptr_history_indirect);
@@ -730,7 +743,7 @@ void Pathtracer::calc_light_power() {
 	// therefore the scene_invalidated flag is required to be set.
 	ptr_light_mesh_power_scaled      = CUDAMemory::malloc<float>(light_mesh_count);
 	ptr_light_mesh_transform_indices = CUDAMemory::malloc<int>  (light_mesh_count);
-	scene_invalidated = true;
+	invalidated_scene = true;
 
 	cuda_module.get_global("light_mesh_power_scaled")     .set_value(ptr_light_mesh_power_scaled);
 	cuda_module.get_global("light_mesh_transform_indices").set_value(ptr_light_mesh_transform_indices);
@@ -799,12 +812,12 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
-	if (settings_changed && settings.enable_svgf && settings.camera_aperture > 0.0f) {
+	if (invalidated_settings && settings.enable_svgf && settings.camera_aperture > 0.0f) {
 		puts("WARNING: SVGF and DoF cannot simultaneously be enabled!");
 		settings.camera_aperture = 0.0f;
 	}
 
-	if (materials_invalidated) {
+	if (invalidated_materials) {
 		Material::Type * cuda_material_types = reinterpret_cast<Material::Type *>(new unsigned char[scene.materials.size() * sizeof(Material::Type)]);
 		CUDAMaterial   * cuda_materials      = reinterpret_cast<CUDAMaterial   *>(new unsigned char[scene.materials.size() * sizeof(CUDAMaterial)]);
 		
@@ -885,7 +898,7 @@ void Pathtracer::update(float delta) {
 			if (scene.has_lights) {
 				ray_buffer_shadow.init(batch_size);
 
-				scene_invalidated = true;
+				invalidated_scene = true;
 			} else {
 				ray_buffer_shadow.free();
 
@@ -909,18 +922,18 @@ void Pathtracer::update(float delta) {
 		if (scene.has_lights) calc_light_power();
 
 		frames_accumulated = 0;
-		materials_invalidated = false;
+		invalidated_materials = false;
 	}
 
 	if (settings.enable_scene_update) {
 		scene.update(delta);
-		scene_invalidated = true;
-	} else if (settings.enable_svgf || scene_invalidated) {
+		invalidated_scene = true;
+	} else if (settings.enable_svgf || invalidated_scene) {
 		scene.camera.update(0.0f, settings);
 		scene.update(0.0f);
 	} 
 
-	if (scene_invalidated) {
+	if (invalidated_scene) {
 		build_tlas();
 
 		// If SVGF is enabled we can handle Scene updates using reprojection,
@@ -929,12 +942,12 @@ void Pathtracer::update(float delta) {
 			frames_accumulated = 0;
 		}
 
-		scene_invalidated = false;
+		invalidated_scene = false;
 	}
 	
 	scene.camera.update(delta, settings);
 	
-	if (scene.camera.moved || camera_invalidated) {
+	if (scene.camera.moved || invalidated_camera) {
 		// Upload Camera
 		struct CUDACamera {
 			Vector3 position;
@@ -952,7 +965,7 @@ void Pathtracer::update(float delta) {
 
 		global_camera.set_value(cuda_camera);
 
-		camera_invalidated = false;
+		invalidated_camera = false;
 	}
 
 	if (pixel_query_status == PixelQueryStatus::OUTPUT_READY) {
@@ -981,7 +994,7 @@ void Pathtracer::update(float delta) {
 		global_svgf_data.set_value(svgf_data);
 	}
 
-	if (settings_changed) {
+	if (invalidated_settings) {
 		frames_accumulated = 0;
 
 		global_settings.set_value(settings);
@@ -1062,10 +1075,10 @@ void Pathtracer::render() {
 		CUDAEvent::record(event_info_svgf_reproject);
 		kernel_svgf_reproject.execute(frames_accumulated);
 
-		CUdeviceptr direct_in    = ptr_direct    .ptr;
-		CUdeviceptr direct_out   = ptr_direct_alt.ptr;
-		CUdeviceptr indirect_in  = ptr_indirect    .ptr;
-		CUdeviceptr indirect_out = ptr_indirect_alt.ptr;
+		CUdeviceptr direct_in    = ptr_frame_buffer_direct    .ptr;
+		CUdeviceptr direct_out   = ptr_frame_buffer_direct_alt.ptr;
+		CUdeviceptr indirect_in  = ptr_frame_buffer_indirect    .ptr;
+		CUdeviceptr indirect_out = ptr_frame_buffer_indirect_alt.ptr;
 
 		if (settings.enable_spatial_variance) {
 			// Estimate Variance spatially
@@ -1109,8 +1122,8 @@ void Pathtracer::render() {
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 	
 	if (settings.modulate_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, stream_memset);
-	CUDAMemory::memset_async(ptr_direct,   0, screen_pitch * screen_height, stream_memset);
-	CUDAMemory::memset_async(ptr_indirect, 0, screen_pitch * screen_height, stream_memset);
+	CUDAMemory::memset_async(ptr_frame_buffer_direct,   0, screen_pitch * screen_height, stream_memset);
+	CUDAMemory::memset_async(ptr_frame_buffer_indirect, 0, screen_pitch * screen_height, stream_memset);
 
 	// If a pixel query was previously pending, it has just been resolved in the current frame
 	if (pixel_query_status == PixelQueryStatus::PENDING) {

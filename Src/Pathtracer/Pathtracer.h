@@ -168,10 +168,11 @@ struct BufferSizes {
 struct Pathtracer {
 	Scene scene;
 
-	bool scene_invalidated     = true;
-	bool materials_invalidated = true;
-	bool camera_invalidated    = true;
-	
+	bool invalidated_scene     = true;
+	bool invalidated_materials = true;
+	bool invalidated_camera    = true;
+	bool invalidated_settings  = true;
+
 	enum struct PixelQueryStatus {
 		INACTIVE,
 		PENDING,
@@ -181,8 +182,7 @@ struct Pathtracer {
 	int frames_accumulated = -1;
 
 	Settings settings;
-	bool     settings_changed = true;
-
+	
 	PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
 	int * reverse_indices;
@@ -197,6 +197,9 @@ struct Pathtracer {
 
 	void resize_init(unsigned frame_buffer_handle, int width, int height); // Part of resize that initializes new size
 	void resize_free();                                                    // Part of resize that cleans up old size
+
+	void svgf_init();
+	void svgf_free();
 
 	void update(float delta);
 	void render();
@@ -275,10 +278,10 @@ private:
 	CUDAMemory::Ptr<float4> ptr_frame_buffer_albedo;
 	CUDAMemory::Ptr<float4> ptr_frame_buffer_moment;
 
-	CUDAMemory::Ptr<float4> ptr_direct;
-	CUDAMemory::Ptr<float4> ptr_indirect;
-	CUDAMemory::Ptr<float4> ptr_direct_alt;
-	CUDAMemory::Ptr<float4> ptr_indirect_alt;
+	CUDAMemory::Ptr<float4> ptr_frame_buffer_direct;
+	CUDAMemory::Ptr<float4> ptr_frame_buffer_indirect;
+	CUDAMemory::Ptr<float4> ptr_frame_buffer_direct_alt;
+	CUDAMemory::Ptr<float4> ptr_frame_buffer_indirect_alt;
 
 	CUDAMemory::Ptr<int>    ptr_history_length;
 	CUDAMemory::Ptr<float4> ptr_history_direct;

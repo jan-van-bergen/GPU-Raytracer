@@ -27,7 +27,7 @@ void PerfTest::frame_begin() {
 	if (index_buffer == 0) {
 		pathtracer->scene.camera.position = pov.position;
 		pathtracer->scene.camera.rotation = pov.rotation;
-		pathtracer->camera_invalidated = true;
+		pathtracer->invalidated_camera = true;
 		pathtracer->frames_accumulated = 0;
 		
 		printf("POV %i\n", index_pov);

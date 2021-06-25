@@ -193,6 +193,8 @@ int MeshData::load(const char * filename, struct Scene & scene) {
 	} else {
 		OBJLoader::load_obj(filename, mesh_data, scene);
 		
+		printf("Constructing BVH...\r");
+
 #if BVH_TYPE == BVH_SBVH // All other BVH types use standard BVH as a starting point
 		{
 			ScopeTimer timer("SBVH Construction");
