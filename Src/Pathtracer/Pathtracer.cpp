@@ -53,11 +53,11 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_taa_finalize  .occupancy_max_block_size_2d();
 	kernel_accumulate    .occupancy_max_block_size_2d();
 
-	kernel_generate        .set_block_dim(WARP_SIZE * 2, 1, 1);
-	kernel_sort            .set_block_dim(WARP_SIZE * 2, 1, 1);
-	kernel_shade_diffuse   .set_block_dim(WARP_SIZE * 2, 1, 1);
-	kernel_shade_dielectric.set_block_dim(WARP_SIZE * 2, 1, 1);
-	kernel_shade_glossy    .set_block_dim(WARP_SIZE * 2, 1, 1);
+	kernel_generate        .set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_sort            .set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_shade_diffuse   .set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_shade_dielectric.set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_shade_glossy    .set_block_dim(WARP_SIZE * 8, 1, 1);
 	
 #if BVH_TYPE == BVH_CWBVH
 	static constexpr int BVH_STACK_ELEMENT_SIZE = 8; // CWBVH uses a stack of int2's (8 bytes)
