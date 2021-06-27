@@ -849,7 +849,7 @@ void Pathtracer::update(float delta) {
 					cuda_materials[i].glossy.diffuse             = material.diffuse;
 					cuda_materials[i].glossy.texture_id          = material.texture_id;
 					cuda_materials[i].glossy.index_of_refraction = material.index_of_refraction;
-					cuda_materials[i].glossy.roughness           = material.roughness;
+					cuda_materials[i].glossy.roughness           = material.linear_roughness * material.linear_roughness;
 					break;
 				}
 				default: abort();

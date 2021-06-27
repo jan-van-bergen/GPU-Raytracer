@@ -22,5 +22,5 @@ struct Material {
 	Vector3 transmittance = Vector3(0.0f);
 	float index_of_refraction = 1.0f;
 
-	float roughness = 0.5f;
+	float linear_roughness = 0.5f;
 };

@@ -97,7 +97,7 @@ int main(int argument_count, char ** arguments) {
 	}
 
 	window.resize_handler = &window_resize;
-
+	
 	last = SDL_GetPerformanceCounter();
 
 	// Game loop
@@ -421,7 +421,7 @@ int main(int argument_count, char ** arguments) {
 						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
 						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
 						material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
-						material_changed |= ImGui::SliderFloat ("Roughness", &material.roughness, 0.0f, 1.0f);
+						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
 					}
 

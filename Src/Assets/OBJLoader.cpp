@@ -59,7 +59,7 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 		new_material.index_of_refraction = material.ior;
 		new_material.transmittance = Vector3(material.transmittance);
 
-		new_material.roughness = material.roughness * material.roughness;
+		new_material.linear_roughness = material.linear_roughness;
 	}
 }
 
