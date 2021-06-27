@@ -102,7 +102,6 @@ extern "C" __global__ void kernel_generate(
 	ray_buffer_trace.direction.set(index, direction);
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index] = pixel_index | (false << 31);
-	ray_buffer_trace.throughput.set(index, make_float3(1.0f));
 }
 
 extern "C" __global__ void kernel_trace(int bounce) {
@@ -126,7 +125,12 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 
 	bool mis_eligable = ray_pixel_index_and_mis_eligable >> 31;
 
-	float3 ray_throughput = ray_buffer_trace.throughput.get(index);
+	float3 ray_throughput;
+	if (bounce <= 1) {
+		ray_throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
+	} else {
+		ray_throughput = ray_buffer_trace.throughput.get(index);
+	}
 
 	// If we didn't hit anything, sample the Sky
 	if (hit.triangle_id == INVALID) {
@@ -257,7 +261,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_diffuse.hits.set(index_out, hit);
 			
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_pixel_index;
-			ray_buffer_shade_diffuse.throughput.set(index_out, ray_throughput);
+			if (bounce > 0) ray_buffer_shade_diffuse.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -273,7 +277,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_dielectric_and_glossy.hits.set(index_out, hit);
 
 			ray_buffer_shade_dielectric_and_glossy.pixel_index[index_out] = ray_pixel_index;
-			ray_buffer_shade_dielectric_and_glossy.throughput.set(index_out, ray_throughput);
+			if (bounce > 0) ray_buffer_shade_dielectric_and_glossy.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -290,7 +294,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			ray_buffer_shade_dielectric_and_glossy.hits.set(index_out, hit);
 
 			ray_buffer_shade_dielectric_and_glossy.pixel_index[index_out] = ray_pixel_index;
-			ray_buffer_shade_dielectric_and_glossy.throughput.set(index_out, ray_throughput);
+			if (bounce > 0) ray_buffer_shade_dielectric_and_glossy.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -308,7 +312,12 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	int x = ray_pixel_index % screen_pitch;
 	int y = ray_pixel_index / screen_pitch;
 
-	float3 ray_throughput = ray_buffer_shade_diffuse.throughput.get(index);
+	float3 ray_throughput;
+	if (bounce == 0) {
+		ray_throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
+	} else {
+		ray_throughput = ray_buffer_shade_diffuse.throughput.get(index);
+	}
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
@@ -497,7 +506,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #endif
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (true << 31);
-	ray_buffer_trace.throughput.set(index_out, throughput);
+	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction_world, hit_normal)) * ONE_OVER_PI;
 }
@@ -509,8 +518,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float3 ray_direction = ray_buffer_shade_dielectric_and_glossy.direction.get(index);
 	RayHit hit           = ray_buffer_shade_dielectric_and_glossy.hits     .get(index);
 
-	int    ray_pixel_index = ray_buffer_shade_dielectric_and_glossy.pixel_index[index];
-	float3 ray_throughput  = ray_buffer_shade_dielectric_and_glossy.throughput.get(index);
+	int ray_pixel_index = ray_buffer_shade_dielectric_and_glossy.pixel_index[index];
+
+	float3 ray_throughput;
+	if (bounce == 0) {
+		ray_throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
+	} else {
+		ray_throughput = ray_buffer_shade_dielectric_and_glossy.throughput.get(index);
+	}
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -611,7 +626,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
 #endif
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (false << 31);
-	ray_buffer_trace.throughput.set(index_out, ray_throughput);
+	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, ray_throughput);
 }
 
 extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sample_index) {
@@ -628,7 +643,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	int x = ray_pixel_index % screen_pitch;
 	int y = ray_pixel_index / screen_pitch; 
 
-	float3 ray_throughput = ray_buffer_shade_dielectric_and_glossy.throughput.get(index);
+	float3 ray_throughput;
+	if (bounce == 0) {
+		ray_throughput = make_float3(1.0f);	// Throughput is known to be (1,1,1) still, skip the global memory load
+	} else {
+		ray_throughput = ray_buffer_shade_dielectric_and_glossy.throughput.get(index);
+	}
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
 
@@ -856,7 +876,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness < ROUGHNESS_CUTOFF) << 31);
-	ray_buffer_trace.throughput.set(index_out, throughput);
+	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = weight;
 }
