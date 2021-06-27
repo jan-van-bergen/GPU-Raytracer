@@ -341,43 +341,41 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_lights_total_power.set_value(0.0f);
 
 	// Initialize CUDA Events used for timing
-	CUDAEvent::event_pool_num_used = 0;
-
 	int display_order = 0;
-	event_info_primary = { display_order++, "Primary", "Primary" };
+	event_desc_primary = { display_order++, "Primary", "Primary" };
 
 	for (int i = 0; i < MAX_BOUNCES; i++) {
 		const int len = 16;
 		char    * category = new char[len];
 		sprintf_s(category, len, "Bounce %i", i);
 
-		event_info_trace           [i] = { display_order, category, "Trace" };
-		event_info_sort            [i] = { display_order, category, "Sort" };
-		event_info_shade_diffuse   [i] = { display_order, category, "Diffuse" };
-		event_info_shade_dielectric[i] = { display_order, category, "Dielectric" };
-		event_info_shade_glossy    [i] = { display_order, category, "Glossy" };
-		event_info_shadow_trace    [i] = { display_order, category, "Shadow" };
+		event_desc_trace           [i] = { display_order, category, "Trace" };
+		event_desc_sort            [i] = { display_order, category, "Sort" };
+		event_desc_shade_diffuse   [i] = { display_order, category, "Diffuse" };
+		event_desc_shade_dielectric[i] = { display_order, category, "Dielectric" };
+		event_desc_shade_glossy    [i] = { display_order, category, "Glossy" };
+		event_desc_shadow_trace    [i] = { display_order, category, "Shadow" };
 
 		display_order++;
 	}
 
-	event_info_svgf_reproject = { display_order, "SVGF", "Reproject" };
-	event_info_svgf_variance  = { display_order, "SVGF", "Variance" };
+	event_desc_svgf_reproject = { display_order, "SVGF", "Reproject" };
+	event_desc_svgf_variance  = { display_order, "SVGF", "Variance" };
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
 		const int len = 16;
 		char    * name = new char[len];
 		sprintf_s(name, len, "A Trous %i", i);
 
-		event_info_svgf_atrous[i] = { display_order, "SVGF", name };
+		event_desc_svgf_atrous[i] = { display_order, "SVGF", name };
 	}
-	event_info_svgf_finalize = { display_order++, "SVGF", "Finalize" };
+	event_desc_svgf_finalize = { display_order++, "SVGF", "Finalize" };
 
-	event_info_taa         = { display_order, "Post", "TAA" };
-	event_info_reconstruct = { display_order, "Post", "Reconstruct" };
-	event_info_accumulate  = { display_order, "Post", "Accumulate" };
+	event_desc_taa         = { display_order, "Post", "TAA" };
+	event_desc_reconstruct = { display_order, "Post", "Reconstruct" };
+	event_desc_accumulate  = { display_order, "Post", "Accumulate" };
 
-	event_info_end = { ++display_order, "END", "END" };
+	event_desc_end = { ++display_order, "END", "END" };
 	
 	// Realloc as pinned memory
 	delete [] tlas.nodes;
@@ -1008,7 +1006,7 @@ void Pathtracer::update(float delta) {
 }
 
 void Pathtracer::render() {
-	CUDAEvent::reset_pool();
+	event_pool.reset();
 
 	CUDACALL(cuStreamSynchronize(stream_memset));
 
@@ -1019,7 +1017,7 @@ void Pathtracer::render() {
 		int pixel_offset = pixel_count - pixels_left;
 		int pixel_count  = Math::min(batch_size, pixels_left);
 
-		CUDAEvent::record(event_info_primary);
+		event_pool.record(event_desc_primary);
 
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(
@@ -1031,32 +1029,32 @@ void Pathtracer::render() {
 
 		for (int bounce = 0; bounce < settings.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
-			CUDAEvent::record(event_info_trace[bounce]);
+			event_pool.record(event_desc_trace[bounce]);
 
 			kernel_trace.execute(bounce);
 			
-			CUDAEvent::record(event_info_sort[bounce]);
+			event_pool.record(event_desc_sort[bounce]);
 			kernel_sort.execute(Random::get_value(), bounce);
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
-				CUDAEvent::record(event_info_shade_diffuse[bounce]);
+				event_pool.record(event_desc_shade_diffuse[bounce]);
 				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			if (scene.has_dielectric) {
-				CUDAEvent::record(event_info_shade_dielectric[bounce]);
+				event_pool.record(event_desc_shade_dielectric[bounce]);
 				kernel_shade_dielectric.execute(Random::get_value(), bounce);
 			}
 
 			if (scene.has_glossy) {
-				CUDAEvent::record(event_info_shade_glossy[bounce]);
+				event_pool.record(event_desc_shade_glossy[bounce]);
 				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_accumulated);
 			}
 
 			// Trace shadow Rays
 			if (scene.has_lights && settings.enable_next_event_estimation) {
-				CUDAEvent::record(event_info_shadow_trace[bounce]);
+				event_pool.record(event_desc_shadow_trace[bounce]);
 				kernel_trace_shadow.execute(bounce);
 			}
 		}
@@ -1072,7 +1070,7 @@ void Pathtracer::render() {
 
 	if (settings.enable_svgf) {
 		// Temporal reprojection + integration
-		CUDAEvent::record(event_info_svgf_reproject);
+		event_pool.record(event_desc_svgf_reproject);
 		kernel_svgf_reproject.execute(frames_accumulated);
 
 		CUdeviceptr direct_in    = ptr_frame_buffer_direct    .ptr;
@@ -1082,7 +1080,7 @@ void Pathtracer::render() {
 
 		if (settings.enable_spatial_variance) {
 			// Estimate Variance spatially
-			CUDAEvent::record(event_info_svgf_variance);
+			event_pool.record(event_desc_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
 
 			std::swap(direct_in,   direct_out);
@@ -1093,7 +1091,7 @@ void Pathtracer::render() {
 		for (int i = 0; i < settings.atrous_iterations; i++) {
 			int step_size = 1 << i;
 			
-			CUDAEvent::record(event_info_svgf_atrous[i]);
+			event_pool.record(event_desc_svgf_atrous[i]);
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 
 			// Ping-Pong the Frame Buffers
@@ -1101,21 +1099,21 @@ void Pathtracer::render() {
 			std::swap(indirect_in, indirect_out);
 		}
 
-		CUDAEvent::record(event_info_svgf_finalize);
+		event_pool.record(event_desc_svgf_finalize);
 		kernel_svgf_finalize.execute(direct_in, indirect_in);
 
 		if (settings.enable_taa) {
-			CUDAEvent::record(event_info_taa);
+			event_pool.record(event_desc_taa);
 
 			kernel_taa         .execute(frames_accumulated);
 			kernel_taa_finalize.execute();
 		}
 	} else {
-		CUDAEvent::record(event_info_accumulate);
+		event_pool.record(event_desc_accumulate);
 		kernel_accumulate.execute(float(frames_accumulated));
 	}
 
-	CUDAEvent::record(event_info_end);
+	event_pool.record(event_desc_end);
 	
 	// Reset buffer sizes to default for next frame
 	pinned_buffer_sizes->reset(batch_size);

@@ -4,37 +4,41 @@
 #include "CUDACall.h"
 
 struct CUDAEvent {
-	inline static std::vector<CUDAEvent> event_pool;
-	inline static int                    event_pool_num_used;
-	
 	CUevent event;
 
-	struct Info {
+	struct Desc {
 		int display_order;
 		const char * category;
 		const char * name;
-	} info;
-
-	inline static void record(const Info & info, CUstream stream = nullptr) {
-		if (event_pool_num_used == event_pool.size()) {
-			CUDAEvent event = { };
-			CUDACALL(cuEventCreate(&event.event, CU_EVENT_DEFAULT));
-			event_pool.push_back(event);
-		}
-
-		CUDAEvent & event = event_pool[event_pool_num_used++];
-		event.info = info;
-		cuEventRecord(event.event, stream);
-	}
-
-	inline static void reset_pool() {
-		event_pool_num_used = 0;
-	}
+	} desc;
 
 	inline static float time_elapsed_between(const CUDAEvent & start, const CUDAEvent & end) {
 		float result;
 		CUDACALL(cuEventElapsedTime(&result, start.event, end.event));
 
 		return result;
+	}
+};
+
+struct CUDAEventPool {
+	std::vector<CUDAEvent> pool;
+	int                    num_used;
+
+	inline void record(const CUDAEvent::Desc & event_desc, CUstream stream = nullptr) {
+		// Check if the Pool is already using its maximum capacity
+		if (num_used == pool.size()) {
+			// Create new Event
+			CUDAEvent event = { };
+			CUDACALL(cuEventCreate(&event.event, CU_EVENT_DEFAULT));
+			pool.push_back(event);
+		}
+
+		CUDAEvent & event = pool[num_used++];
+		event.desc = event_desc;
+		CUDACALL(cuEventRecord(event.event, stream));
+	}
+
+	inline void reset() {
+		num_used = 0;
 	}
 };
