@@ -1016,8 +1016,9 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
 					// We didn't hit anything, apply illumination
-					int    pixel_index  = ray_buffer_shadow.pixel_index[ray_index];
-					float3 illumination = ray_buffer_shadow.illumination.get(ray_index);
+					float4 illumination_and_pixel_index = ray_buffer_shadow.illumination_and_pixel_index[ray_index];
+					float3 illumination = make_float3(illumination_and_pixel_index);
+					int    pixel_index  = __float_as_int(illumination_and_pixel_index.w);
 
 					if (bounce == 0) {
 						frame_buffer_direct[pixel_index] += make_float4(illumination);

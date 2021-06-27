@@ -104,8 +104,7 @@ struct ShadowRayBuffer {
 
 	float * max_distance;
 
-	int       * pixel_index;
-	Vector3_SoA illumination;
+	float4 * illumination_and_pixel_index;
 };
 
 __device__ __constant__ TraceBuffer     ray_buffer_trace;

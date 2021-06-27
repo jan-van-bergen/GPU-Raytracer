@@ -123,19 +123,15 @@ struct ShadowRayBuffer {
 	CUDAVector3_SoA ray_origin;
 	CUDAVector3_SoA ray_direction;
 
-	CUDAMemory::Ptr<float> max_distance;
-
-	CUDAMemory::Ptr<int> pixel_index;
-	CUDAVector3_SoA      illumination;
-
+	CUDAMemory::Ptr<float>  max_distance;
+	CUDAMemory::Ptr<float4> illumination_and_pixel_index;
+	
 	inline void init(int buffer_size) {
 		ray_origin   .init(buffer_size);
 		ray_direction.init(buffer_size);
 
-		max_distance = CUDAMemory::malloc<float>(buffer_size);
-
-		pixel_index = CUDAMemory::malloc<int>(buffer_size);
-		illumination.init(buffer_size);
+		max_distance                 = CUDAMemory::malloc<float> (buffer_size);
+		illumination_and_pixel_index = CUDAMemory::malloc<float4>(buffer_size);
 	}
 
 	inline void free() {
@@ -143,9 +139,7 @@ struct ShadowRayBuffer {
 		ray_direction.free();
 
 		CUDAMemory::free(max_distance);
-
-		CUDAMemory::free(pixel_index);
-		illumination.free();
+		CUDAMemory::free(illumination_and_pixel_index);
 	}
 };
 

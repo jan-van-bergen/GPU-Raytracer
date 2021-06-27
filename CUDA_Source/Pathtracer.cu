@@ -483,8 +483,12 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
-				ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-				ray_buffer_shadow.illumination.set(shadow_ray_index, illumination);
+				ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
+					illumination.x,
+					illumination.y,
+					illumination.z,
+					__int_as_float(ray_pixel_index)
+				);
 			}
 		}
 	}
@@ -832,8 +836,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
 
-				ray_buffer_shadow.pixel_index[shadow_ray_index] = ray_pixel_index;
-				ray_buffer_shadow.illumination.set(shadow_ray_index, illumination);
+				ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
+					illumination.x,
+					illumination.y,
+					illumination.z,
+					__int_as_float(ray_pixel_index)
+				);
 			}
 		}
 	}
