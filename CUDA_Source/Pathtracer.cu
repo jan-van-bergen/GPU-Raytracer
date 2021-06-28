@@ -301,6 +301,83 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	}
 }
 
+template<typename BRDFEvaluator>
+__device__ inline void nee_sample(
+	int x, int y,
+	int bounce,
+	int sample_index,
+	unsigned & seed,
+	const float3 & hit_point,
+	const float3 & hit_normal,
+	const float3 & throughput,
+	BRDFEvaluator brdf_evaluator
+) {
+	// Pick random point on random Light
+	float light_u, light_v;
+	int   light_transform_id;
+	int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
+
+	// Obtain the Light's position and normal
+	TrianglePosNor light = triangle_get_positions_and_normals(light_id);
+
+	float3 light_point;
+	float3 light_normal;
+	triangle_barycentric(light, light_u, light_v, light_point, light_normal);
+
+	// Transform into world space
+	Matrix3x4 light_world = mesh_get_transform(light_transform_id);
+	matrix3x4_transform_position (light_world, light_point);
+	matrix3x4_transform_direction(light_world, light_normal);
+
+	light_normal = normalize(light_normal);
+
+	float3 to_light = light_point - hit_point;
+	float distance_to_light_squared = dot(to_light, to_light);
+	float distance_to_light         = sqrtf(distance_to_light_squared);
+
+	// Normalize the vector to the light
+	to_light /= distance_to_light;
+
+	float cos_o = -dot(to_light, light_normal);
+	float cos_i =  dot(to_light,   hit_normal);
+
+	// Only trace Shadow Ray if light transport is possible given the normals
+	if (cos_o > 0.0f && cos_i > 0.0f) {
+		int light_material_id = triangle_get_material_id(light_id);
+		MaterialLight material_light = material_as_light(light_material_id);
+
+		float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
+
+		float brdf_pdf;
+		float brdf = brdf_evaluator(to_light, cos_i, brdf_pdf);
+
+		float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
+		
+		float pdf;
+		if (settings.enable_multiple_importance_sampling) {
+			pdf = brdf_pdf + light_pdf;
+		} else {
+			pdf = light_pdf;
+		}
+
+		float3 illumination = throughput * brdf * material_light.emission / pdf;
+
+		int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
+
+		ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
+		ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
+
+		ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+
+		ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
+			illumination.x,
+			illumination.y,
+			illumination.z,
+			__int_as_float(x + y * screen_pitch)
+		);
+	}
+}
+
 extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.diffuse[bounce]) return;
@@ -422,75 +499,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
-	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = lights_total_power > 0.0f;
-		if (scene_has_lights) {
-			// Trace Shadow Ray
-			float light_u, light_v;
-			int   light_transform_id;
-			int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
-
-			// Obtain the Light's position and normal
-			TrianglePosNor light = triangle_get_positions_and_normals(light_id);
-
-			float3 light_point;
-			float3 light_normal;
-			triangle_barycentric(light, light_u, light_v, light_point, light_normal);
-
-			// Transform into world space
-			Matrix3x4 light_world = mesh_get_transform(light_transform_id);
-			matrix3x4_transform_position (light_world, light_point);
-			matrix3x4_transform_direction(light_world, light_normal);
-
-			light_normal = normalize(light_normal);
-
-			float3 to_light = light_point - hit_point;
-			float distance_to_light_squared = dot(to_light, to_light);
-			float distance_to_light         = sqrtf(distance_to_light_squared);
-
-			// Normalize the vector to the light
-			to_light /= distance_to_light;
-
-			float cos_o = -dot(to_light, light_normal);
-			float cos_i =  dot(to_light,   hit_normal);
-
-			// Only trace Shadow Ray if light transport is possible given the normals
-			if (cos_o > 0.0f && cos_i > 0.0f) {
-				int light_material_id = triangle_get_material_id(light_id);
-				MaterialLight material_light = material_as_light(light_material_id);
-
-				float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
-
-				// NOTE: N dot L is included here
-				float brdf     = cos_i * ONE_OVER_PI;
-				float brdf_pdf = cos_i * ONE_OVER_PI;
-
-				float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
-				
-				float pdf;
-				if (settings.enable_multiple_importance_sampling) {
-					pdf = brdf_pdf + light_pdf;
-				} else {
-					pdf = light_pdf;
-				}
-
-				float3 illumination = throughput * brdf * material_light.emission / pdf;
-
-				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
-
-				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
-				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
-
-				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
-
-				ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
-					illumination.x,
-					illumination.y,
-					illumination.z,
-					__int_as_float(ray_pixel_index)
-				);
-			}
-		}
+	if (settings.enable_next_event_estimation && lights_total_power > 0.0f) {
+		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [](float3 to_light, float cos_i, float & pdf) {
+			pdf = cos_i * ONE_OVER_PI;
+			return cos_i * ONE_OVER_PI; // NOTE: N dot L is included here
+		});
 	}
 
 	if (bounce == settings.num_bounces - 1) return;
@@ -765,85 +778,21 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
 	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
 	
-	if (settings.enable_next_event_estimation) {
-		bool scene_has_lights = lights_total_power > 0.0f;
-		if (scene_has_lights && material.roughness >= ROUGHNESS_CUTOFF) {
-			// Trace Shadow Ray
-			float light_u;
-			float light_v;
-			int   light_transform_id;
-			int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
+	if (settings.enable_next_event_estimation && lights_total_power > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
+		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](float3 to_light, float cos_i, float & pdf) {
+			float3 half_vector = normalize(to_light - ray_direction);
 
-			// Obtain the Light's position and normal
-			TrianglePosNor light = triangle_get_positions_and_normals(light_id);
+			float i_dot_n = -dot(ray_direction, hit_normal);
+			float m_dot_n =  dot(half_vector,   hit_normal);
 
-			float3 light_point;
-			float3 light_normal;
-			triangle_barycentric(light, light_u, light_v, light_point, light_normal);
+			float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n);
+			float D = microfacet_D(m_dot_n, alpha);
+			float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
 
-			// Transform into world space
-			Matrix3x4 light_world = mesh_get_transform(light_transform_id);
-			matrix3x4_transform_position (light_world, light_point);
-			matrix3x4_transform_direction(light_world, light_normal);
+			pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
 
-			light_normal = normalize(light_normal);
-
-			float3 to_light = light_point - hit_point;
-			float distance_to_light_squared = dot(to_light, to_light);
-			float distance_to_light         = sqrtf(distance_to_light_squared);
-
-			// Normalize the vector to the light
-			to_light /= distance_to_light;
-
-			float cos_o = -dot(to_light, light_normal);
-			float cos_i =  dot(to_light,   hit_normal);
-
-			// Only trace Shadow Ray if light transport is possible given the normals
-			if (cos_o > 0.0f && cos_i > 0.0f) {
-				float3 half_vector = normalize(to_light - ray_direction);
-
-				float i_dot_n = -dot(ray_direction, hit_normal);
-				float m_dot_n =  dot(half_vector,   hit_normal);
-
-				float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n);
-				float D = microfacet_D(m_dot_n, alpha);
-				float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
-
-				// NOTE: N dot L is omitted from the denominator here
-				float brdf     = (F * G * D) / (4.0f * i_dot_n);
-				float brdf_pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
-				
-				int light_material_id = triangle_get_material_id(light_id);
-				MaterialLight material_light = material_as_light(light_material_id);
-
-				float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
-
-				float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
-
-				float pdf;
-				if (settings.enable_multiple_importance_sampling) {
-					pdf = brdf_pdf + light_pdf;
-				} else {
-					pdf = light_pdf;
-				}
-
-				float3 illumination = throughput * brdf * material_light.emission / pdf;
-
-				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
-
-				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
-				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
-
-				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
-
-				ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
-					illumination.x,
-					illumination.y,
-					illumination.z,
-					__int_as_float(ray_pixel_index)
-				);
-			}
-		}
+			return (F * G * D) / (4.0f * i_dot_n); // NOTE: N dot L is omitted from the denominator here
+		});
 	}
 
 	if (bounce == settings.num_bounces - 1) return;
