@@ -21,6 +21,7 @@ static void load_materials(const std::vector<tinyobj::material_t> & materials, M
 	if (materials.size() == 0) {
 		// Add default Material
 		Material & default_material = scene.materials.emplace_back();
+		default_material.name = "Default";
 		default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
 
 		return;
