@@ -805,6 +805,9 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 					if (triangle_group.y != 0) {
 						stack_push(shared_stack, stack, stack_size, triangle_group);
 					}
+					if (current_group.y & 0xff000000) {
+						stack_push(shared_stack, stack, stack_size, current_group);
+					}
 
 					tlas_stack_size = stack_size;
 
@@ -980,6 +983,9 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 					if (triangle_group.y != 0) {
 						stack_push(shared_stack, stack, stack_size, triangle_group);
+					}
+					if (current_group.y & 0xff000000) {
+						stack_push(shared_stack, stack, stack_size, current_group);
 					}
 
 					tlas_stack_size = stack_size;
