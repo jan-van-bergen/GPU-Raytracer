@@ -457,7 +457,7 @@ void Pathtracer::cuda_free() {
 	if (scene.has_lights)                         ray_buffer_shadow                     .free();
 	
 	tlas_bvh_builder.free();
-#if BVH_TYPE == BVH_QBVH || BVH_TYPE == BVH_CWBVH
+#if BVH_TYPE == BVH_CWBVH
 	tlas_converter.free();
 #endif
 
