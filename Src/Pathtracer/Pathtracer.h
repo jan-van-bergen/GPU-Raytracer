@@ -293,6 +293,7 @@ private:
 	};
 
 	int       * pinned_mesh_bvh_root_indices;
+	int       * pinned_mesh_material_ids;
 	Matrix3x4 * pinned_mesh_transforms;
 	Matrix3x4 * pinned_mesh_transforms_inv;
 	Matrix3x4 * pinned_mesh_transforms_prev;
@@ -349,10 +350,10 @@ private:
 	};
 	
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
-	CUDAMemory::Ptr<int>          ptr_triangle_material_ids;
 	
 	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
+	CUDAMemory::Ptr<int>         ptr_mesh_material_ids;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_prev;

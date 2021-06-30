@@ -10,7 +10,12 @@
 
 void Scene::init(const char * scene_name, const char * sky_name) {
 	camera.init(DEG_TO_RAD(110.0f));
-	
+
+	// Default Material
+	Material & default_material = materials.emplace_back();
+	default_material.name    = "Default";
+	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
+
 	const char * file_extension = Util::file_get_extension(scene_name);
 
 	if (strcmp(file_extension, "obj") == 0) {

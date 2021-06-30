@@ -13,8 +13,8 @@ struct Camera {
 	float fov; // Field of View in radians
 	float pixel_spread_angle;
 	
-	float aperture       = 0.1f;
-	float focal_distance = 10.0f;
+	float aperture_radius =  0.1f;
+	float focal_distance  = 10.0f;
 
 	float near;
 	float far;

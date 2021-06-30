@@ -21,7 +21,7 @@ static constexpr int UNDERLYING_BVH_TYPE    = BVH_TYPE == BVH_SBVH ? BVH_SBVH : 
 static constexpr int MAX_PRIMITIVES_IN_LEAF = BVH_TYPE == BVH_CWBVH || BVH_ENABLE_OPTIMIZATION ? 1 : INT_MAX; // CWBVH and BVH optimization require 1 primitive per leaf Node, the others have no upper limits
 
 static constexpr const char * BVH_FILE_EXTENSION = ".bvh";
-static constexpr int          BVH_FILETYPE_VERSION = 2;
+static constexpr int          BVH_FILETYPE_VERSION = 3;
 
 struct BVHFileHeader {
 	char filetype_identifier[4];
@@ -186,16 +186,14 @@ void MeshData::init_bvh(const BVH & bvh) {
 }
 
 int MeshData::load(const char * filename, struct Scene & scene) {
-	int & mesh_data_index = cache[filename];
+	int & mesh_data_id = cache[filename];
 
 	// If the cache already contains this Model Data simply return it
-	if (mesh_data_index != 0) return mesh_data_index - 1;
+	if (mesh_data_id != 0) return mesh_data_id - 1;
 
-	mesh_data_index = scene.mesh_datas.size() + 1;
+	mesh_data_id = scene.mesh_datas.size() + 1;
 
 	MeshData * mesh_data = new MeshData();
-	mesh_data->material_offset = 0;
-
 	scene.mesh_datas.push_back(mesh_data);
 	
 	BVH bvh;
@@ -248,5 +246,5 @@ int MeshData::load(const char * filename, struct Scene & scene) {
 	
 	mesh_data->init_bvh(bvh);
 
-	return mesh_data_index - 1;
+	return mesh_data_id - 1;
 }

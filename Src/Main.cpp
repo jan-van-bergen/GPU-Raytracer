@@ -79,7 +79,7 @@ int main(int argument_count, char ** arguments) {
 	int frames_this_second = 0;
 	int fps = 0;
 
-	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/bathroom2/scene.xml";
+	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/staircase/scene.xml";
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 	
 	{
@@ -253,7 +253,7 @@ int main(int argument_count, char ** arguments) {
 					pathtracer.invalidated_camera = true;
 				}
 
-				pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture,       0.0f,    1.0f);
+				pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius,       0.0f,    1.0f);
 				pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
 				invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
@@ -374,9 +374,9 @@ int main(int argument_count, char ** arguments) {
 				draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
 
 				if (pathtracer.pixel_query.triangle_id != INVALID) {
-					const MeshData * mesh_data = pathtracer.scene.mesh_datas[mesh.mesh_data_index];
+					const MeshData * mesh_data = pathtracer.scene.mesh_datas[mesh.mesh_data_id];
 
-					int              index    = mesh_data->bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_index]];
+					int              index    = mesh_data->bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id]];
 					const Triangle & triangle = mesh_data->triangles[index];
 
 					ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));

@@ -225,8 +225,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		}
 
 		for (int t = 0; t < mesh_data->triangle_count; t++) {
-			aggregated_triangles[mesh_data_triangle_offsets[m] + t]              = mesh_data->triangles[t];
-			aggregated_triangles[mesh_data_triangle_offsets[m] + t].material_id += mesh_data->material_offset;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + t] = mesh_data->triangles[t];
 		}
 
 		for (int i = 0; i < mesh_data->bvh.index_count; i++) {
@@ -237,6 +236,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	FREEA(mesh_data_index_offsets);
 
 	pinned_mesh_bvh_root_indices        = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_material_ids            = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
 	pinned_mesh_transforms_inv          = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
 	pinned_mesh_transforms_prev         = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
@@ -244,11 +244,13 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	pinned_light_mesh_area_scaled       = CUDAMemory::malloc_pinned<float>    (scene.meshes.size());
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.meshes.size());
+	ptr_mesh_material_ids     = CUDAMemory::malloc<int>      (scene.meshes.size());
 	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.meshes.size());
 	ptr_mesh_transforms_inv   = CUDAMemory::malloc<Matrix3x4>(scene.meshes.size());
 	ptr_mesh_transforms_prev  = CUDAMemory::malloc<Matrix3x4>(scene.meshes.size());
 
 	cuda_module.get_global("mesh_bvh_root_indices").set_value(ptr_mesh_bvh_root_indices);
+	cuda_module.get_global("mesh_material_ids")    .set_value(ptr_mesh_material_ids);
 	cuda_module.get_global("mesh_transforms")      .set_value(ptr_mesh_transforms);
 	cuda_module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
 	cuda_module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
@@ -270,8 +272,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	tlas_converter.init(&tlas, tlas_raw);
 #endif
 
-	CUDATriangle * triangles             = new CUDATriangle[aggregated_index_count];
-	int          * triangle_material_ids = new int         [aggregated_index_count];
+	CUDATriangle * triangles = new CUDATriangle[aggregated_index_count];
 	
 	reverse_indices = new int[aggregated_index_count];
 
@@ -292,25 +293,19 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		triangles[i].tex_coord_edge_1 = aggregated_triangles[index].tex_coord_1 - aggregated_triangles[index].tex_coord_0;
 		triangles[i].tex_coord_edge_2 = aggregated_triangles[index].tex_coord_2 - aggregated_triangles[index].tex_coord_0;
 
-		int material_id = aggregated_triangles[index].material_id;
-		triangle_material_ids[i] = material_id;
-
 		reverse_indices[index] = i;
 	}
 
-	ptr_triangles             = CUDAMemory::malloc(triangles,             aggregated_index_count);
-	ptr_triangle_material_ids = CUDAMemory::malloc(triangle_material_ids, aggregated_index_count);
+	ptr_triangles = CUDAMemory::malloc(triangles, aggregated_index_count);
 	
-	cuda_module.get_global("triangles")            .set_value(ptr_triangles);
-	cuda_module.get_global("triangle_material_ids").set_value(ptr_triangle_material_ids);
+	cuda_module.get_global("triangles").set_value(ptr_triangles);
 	
 	delete [] aggregated_bvh_nodes;
 	delete [] aggregated_indices;
 	delete [] aggregated_triangles;
 
 	delete [] triangles;
-	delete [] triangle_material_ids;
-
+	
 	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
 
 	cuda_module.get_global("sky_width") .set_value(scene.sky.width);
@@ -418,6 +413,7 @@ void Pathtracer::cuda_free() {
 
 	CUDAMemory::free_pinned(pinned_buffer_sizes);
 	CUDAMemory::free_pinned(pinned_mesh_bvh_root_indices);
+	CUDAMemory::free_pinned(pinned_mesh_material_ids);
 	CUDAMemory::free_pinned(pinned_mesh_transforms);
 	CUDAMemory::free_pinned(pinned_mesh_transforms_inv);
 	CUDAMemory::free_pinned(pinned_mesh_transforms_prev);
@@ -425,6 +421,7 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free_pinned(pinned_light_mesh_area_scaled);
 
 	CUDAMemory::free(ptr_mesh_bvh_root_indices);
+	CUDAMemory::free(ptr_mesh_material_ids);
 	CUDAMemory::free(ptr_mesh_transforms);
 	CUDAMemory::free(ptr_mesh_transforms_inv);
 	CUDAMemory::free(ptr_mesh_transforms_prev);
@@ -432,7 +429,6 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_bvh_nodes);
 
 	CUDAMemory::free(ptr_triangles);
-	CUDAMemory::free(ptr_triangle_material_ids);
 	
 	CUDAMemory::free(ptr_sky_data);
 
@@ -625,46 +621,36 @@ void Pathtracer::calc_light_power() {
 	int * light_mesh_data_indices = MALLOCA(int, mesh_data_count);
 	memset(light_mesh_data_indices, -1, mesh_data_count * sizeof(int));
 
-	// Loop over every MeshData and check whether it has at least 1 Triangle that is a Light
-	for (int m = 0; m < mesh_data_count; m++) {
-		const MeshData * mesh_data = scene.mesh_datas[m];
+	// For every Mesh, check whether it is a Light based on its Material
+	for (int m = 0; m < scene.meshes.size(); m++) {
+		const Mesh     & mesh      = scene.meshes[m];
+		const Material & material  = scene.materials [mesh.material_id];
+		const MeshData * mesh_data = scene.mesh_datas[mesh.mesh_data_id];
 
-		LightMesh * light_mesh = nullptr;
+		if (material.type == Material::Type::LIGHT) {
+			light_mesh_data_indices[m] = light_meshes.size();
 
-		// For every Triangle, check whether it is a Light based on its Material
-		for (int t = 0; t < mesh_data->triangle_count; t++) {
-			const Triangle & triangle = mesh_data->triangles[t];
-			const Material & material = scene.materials[mesh_data->material_offset + triangle.material_id];
+			LightMesh & light_mesh = light_meshes.emplace_back();
+			light_mesh.triangle_first_index = light_triangles.size();
+			light_mesh.triangle_count = mesh_data->triangle_count;
 
-			if (material.type == Material::Type::LIGHT) {
+			for (int t = 0; t < mesh_data->triangle_count; t++) {
+				const Triangle & triangle = mesh_data->triangles[t];
+			
 				float area = 0.5f * Vector3::length(Vector3::cross(
 					triangle.position_1 - triangle.position_0,
 					triangle.position_2 - triangle.position_0
 				));
-
 				float power = material.emission.x + material.emission.y + material.emission.z;
 
-				if (light_mesh == nullptr) {
-					light_mesh_data_indices[m] = light_meshes.size();
-
-					light_mesh = &light_meshes.emplace_back();
-					light_mesh->triangle_first_index = light_triangles.size();
-					light_mesh->triangle_count = 0;
-				}
-
 				light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], power * area });
-
-				light_mesh->triangle_count++;
 			}
-		}
-
-		if (light_mesh) {		
+				
 			// Sort Lights by power within each Mesh
-			LightTriangle * triangles_begin = light_triangles.data() + light_mesh->triangle_first_index;
-			LightTriangle * triangles_end   = triangles_begin        + light_mesh->triangle_count;
+			LightTriangle * triangles_begin = light_triangles.data() + light_mesh.triangle_first_index;
+			LightTriangle * triangles_end   = triangles_begin        + light_mesh.triangle_count;
 
 			assert(triangles_end > triangles_begin);
-
 			std::sort(triangles_begin, triangles_end, [](const LightTriangle & a, const LightTriangle & b) { return a.power < b.power; });
 		}
 	}
@@ -705,7 +691,7 @@ void Pathtracer::calc_light_power() {
 	int light_mesh_count  = 0;
 		
 	for (int m = 0; m < scene.meshes.size(); m++) {
-		int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_index];
+		int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_id];
 
 		if (light_mesh_data_index != INVALID) {
 			const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
@@ -777,7 +763,9 @@ void Pathtracer::build_tlas() {
 	for (int i = 0; i < scene.meshes.size(); i++) {
 		const Mesh & mesh = scene.meshes[tlas.indices[i]];
 
-		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_index];
+		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_id];
+
+		pinned_mesh_material_ids[i] = mesh.material_id;
 
 		memcpy(pinned_mesh_transforms     [i].cells, mesh.transform     .cells, sizeof(Matrix3x4));
 		memcpy(pinned_mesh_transforms_inv [i].cells, mesh.transform_inv .cells, sizeof(Matrix3x4));
@@ -798,6 +786,7 @@ void Pathtracer::build_tlas() {
 	}
 
 	CUDAMemory::memcpy(ptr_mesh_bvh_root_indices,  pinned_mesh_bvh_root_indices, scene.meshes.size());
+	CUDAMemory::memcpy(ptr_mesh_material_ids,      pinned_mesh_material_ids,     scene.meshes.size());
 	CUDAMemory::memcpy(ptr_mesh_transforms,        pinned_mesh_transforms,       scene.meshes.size());
 	CUDAMemory::memcpy(ptr_mesh_transforms_inv,    pinned_mesh_transforms_inv,   scene.meshes.size());
 	CUDAMemory::memcpy(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.meshes.size());
@@ -811,9 +800,9 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
-	if (invalidated_settings && settings.enable_svgf && scene.camera.aperture > 0.0f) {
+	if (invalidated_settings && settings.enable_svgf && scene.camera.aperture_radius > 0.0f) {
 		puts("WARNING: SVGF and DoF cannot simultaneously be enabled!");
-		scene.camera.aperture = 0.0f;
+		scene.camera.aperture_radius = 0.0f;
 	}
 
 	if (invalidated_materials) {
@@ -954,7 +943,7 @@ void Pathtracer::update(float delta) {
 			Vector3 x_axis;
 			Vector3 y_axis;
 			float pixel_spread_angle;
-			float aperture;
+			float aperture_radius;
 			float focal_distance;
 		} cuda_camera;
 
@@ -963,7 +952,7 @@ void Pathtracer::update(float delta) {
 		cuda_camera.x_axis             = scene.camera.x_axis_rotated;
 		cuda_camera.y_axis             = scene.camera.y_axis_rotated;
 		cuda_camera.pixel_spread_angle = scene.camera.pixel_spread_angle;
-		cuda_camera.aperture           = scene.camera.aperture;
+		cuda_camera.aperture_radius    = scene.camera.aperture_radius;
 		cuda_camera.focal_distance     = scene.camera.focal_distance;
 
 		global_camera.set_value(cuda_camera);

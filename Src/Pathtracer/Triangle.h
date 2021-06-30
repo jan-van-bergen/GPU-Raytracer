@@ -18,8 +18,6 @@ struct Triangle {
 	Vector2 tex_coord_1;
 	Vector2 tex_coord_2;
 
-	int material_id = -1;
-
 	inline Vector3 get_center() const {
 		return (position_0 + position_1 + position_2) / 3.0f;
 	}

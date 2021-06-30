@@ -16,17 +16,6 @@
 // Converts 'tinyobj::material_t' to 'Material'
 // Returns offset into Material table to convert relative Material indices to global ones
 static void load_materials(const std::vector<tinyobj::material_t> & materials, MeshData * mesh_data, const char * path, Scene & scene) {
-	mesh_data->material_offset = scene.materials.size();
-
-	if (materials.size() == 0) {
-		// Add default Material
-		Material & default_material = scene.materials.emplace_back();
-		default_material.name = "Default";
-		default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
-
-		return;
-	}
-
 	for (int i = 0; i < materials.size(); i++) {
 		const tinyobj::material_t & material = materials[i];
 
@@ -200,11 +189,6 @@ void OBJLoader::load_obj(const char * filename, MeshData * mesh_data, Scene & sc
 			mesh_data->triangles[triangle_offset + v].tex_coord_0 = tex_coords[3*v    ];
 			mesh_data->triangles[triangle_offset + v].tex_coord_1 = tex_coords[3*v + 1];
 			mesh_data->triangles[triangle_offset + v].tex_coord_2 = tex_coords[3*v + 2];
-
-			int material_id = shapes[s].mesh.material_ids[v];
-			if (material_id == INVALID || material_id >= materials.size()) material_id = 0;
-
-			mesh_data->triangles[triangle_offset + v].material_id = material_id;
 		}
 		
 		triangle_offset += vertex_count / 3;

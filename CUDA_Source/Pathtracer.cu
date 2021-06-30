@@ -36,7 +36,7 @@ struct Camera {
 	float3 x_axis;
 	float3 y_axis;
 	float  pixel_spread_angle;
-	float  aperture;
+	float  aperture_radius;
 	float  focal_distance;
 } __device__ __constant__ camera;
 
@@ -94,7 +94,7 @@ extern "C" __global__ void kernel_generate(
 	float y_jittered = float(y) + jitter.y;
 
 	float3 focal_point = camera.focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
-	float2 lens_point = 0.5f * camera.aperture * random_point_in_regular_n_gon<5>(u2, u3);
+	float2 lens_point  = camera.aperture_radius * random_point_in_regular_n_gon<5>(u2, u3);
 
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);
@@ -152,8 +152,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		return;
 	}
 
-	// Get the Material of the Triangle we hit
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	// Get the Material of the Mesh we hit
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialType material_type = material_get_type(material_id);
 
 	if (bounce == 0 && pixel_query.pixel_index == ray_pixel_index) {
@@ -316,8 +316,8 @@ __device__ inline void nee_sample(
 ) {
 	// Pick random point on random Light
 	float light_u, light_v;
-	int   light_transform_id;
-	int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
+	int   light_mesh_id;
+	int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_mesh_id);
 
 	// Obtain the Light's position and normal
 	TrianglePosNor light = triangle_get_positions_and_normals(light_id);
@@ -327,7 +327,7 @@ __device__ inline void nee_sample(
 	triangle_barycentric(light, light_u, light_v, light_point, light_normal);
 
 	// Transform into world space
-	Matrix3x4 light_world = mesh_get_transform(light_transform_id);
+	Matrix3x4 light_world = mesh_get_transform(light_mesh_id);
 	matrix3x4_transform_position (light_world, light_point);
 	matrix3x4_transform_direction(light_world, light_normal);
 
@@ -345,7 +345,7 @@ __device__ inline void nee_sample(
 
 	// Only trace Shadow Ray if light transport is possible given the normals
 	if (cos_o > 0.0f && cos_i > 0.0f) {
-		int light_material_id = triangle_get_material_id(light_id);
+		int light_material_id = mesh_get_material_id(light_mesh_id);
 		MaterialLight material_light = material_as_light(light_material_id);
 
 		float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
@@ -400,7 +400,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialDiffuse material = material_as_diffuse(material_id);
 
 	// Obtain hit Triangle position, normal, and texture coordinates
@@ -550,7 +550,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialDielectric material = material_as_dielectric(material_id);
 
 	// Obtain hit Triangle position, normal, and texture coordinates
@@ -673,7 +673,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialGlossy material = material_as_glossy(material_id);
 
 	// Obtain hit Triangle position, normal, and texture coordinates

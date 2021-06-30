@@ -296,7 +296,7 @@ static XMLNode parse_xml(const char *& cur, const char * end) {
 	return node;
 }
 
-using MaterialMap = std::unordered_map<StringView, int, StringView::Hash>;
+using MaterialMap = std::unordered_map<std::string, int>;
 
 static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
 	char * filename_abs = new char[len_path + len_filename + 1];
@@ -369,67 +369,124 @@ static float find_optional_float(const XMLNode * node, const char * name, float 
 	return default_value;
 }
 
-static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & materials, const char * path) {
-	if (node.type == "bsdf") {
-		const XMLAttribute * type = node.find_attribute("type");
-		const XMLAttribute * name = node.find_attribute("id");
-		
-		if (name == nullptr) return;
+static int find_material(const XMLNode * node, Scene & scene, MaterialMap & materials, const char * path) {
+	// Check if an existing Material is referenced
+	const XMLNode * ref = node->find_child("ref");
+	if (ref) {
+		const StringView & material_name = ref->find_attribute("id")->value;
 
-		Material material = { };
-		material.name = name->value.c_str();
+		auto material_id = materials.find(std::string(material_name.start, material_name.end));
+		if (material_id == materials.end()) {
+			const char * str = material_name.c_str();
+			printf("Invalid material Ref '%s'!\n", str);
+			delete [] str;
+
+			return 0; // Default Material
+		}
+
+		return material_id->second;
+	}
+	
+	Material material = { };
+
+	// Check if there is an emitter defined
+	const XMLNode * emitter = node->find_child("emitter");
+	if (emitter) {
+		material.type = Material::Type::LIGHT;
+		material.name = "emitter";
+		material.emission = emitter->find_child_by_name("radiance")->find_attribute("value")->value_as_vector3();
+	} else {
+		// Otherwise, parse BSDF
+		const XMLNode * bsdf;
+		if (node->type == "bsdf") {
+			bsdf = node;
+		} else {
+			bsdf = node->find_child("bsdf");
+			if (bsdf == nullptr) {
+				printf("Unable to parse BSDF!\n");
+				return 0; // Default Material
+			}
+		}
+
+		const XMLAttribute * type = bsdf->find_attribute("type");
+		
+		if (type->value == "bumpmap") {
+			bsdf = bsdf->find_child("bsdf");
+			type = bsdf->find_attribute("type");
+		}
+
+		const XMLAttribute * name = bsdf->find_attribute("id");
+
+		const char * name_str = nullptr;
+		if (name == nullptr) {
+			name_str = "NO_NAME";
+		} else {
+			name_str = name->value.c_str();
+		}
+		material.name = name_str;
 
 		if (type->value == "twosided") {
-			const XMLNode      * bsdf = node.find_child("bsdf");
-			const XMLAttribute * bsdf_type = bsdf->find_attribute("type");
+			const XMLNode      * inner_bsdf = bsdf->find_child("bsdf");
+			const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
 
-			if (bsdf_type->value == "diffuse") {
+			if (inner_bsdf_type->value == "diffuse") {
 				material.type = Material::Type::DIFFUSE;
 				
-				find_rgb_or_texture(bsdf, "reflectance", path, scene, material.diffuse, material.texture_id);
-			} else if (bsdf_type->value == "conductor") {
+				find_rgb_or_texture(inner_bsdf, "reflectance", path, scene, material.diffuse, material.texture_id);
+			} else if (inner_bsdf_type->value == "conductor") {
 				material.type = Material::Type::GLOSSY;
 
-				find_rgb_or_texture(bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
+				find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
 				material.linear_roughness    = 0.0f;
-				material.index_of_refraction = find_optional_float(&node, "eta", 1.0f);
-			} else if (bsdf_type->value == "roughconductor") {
+				material.index_of_refraction = find_optional_float(bsdf, "eta", 1.0f);
+			} else if (inner_bsdf_type->value == "roughconductor") {
 				material.type = Material::Type::GLOSSY;
 
-				find_rgb_or_texture(bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
+				find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
-				material.linear_roughness    = find_optional_float(&node, "alpha", 0.5f);
-				material.index_of_refraction = find_optional_float(&node, "eta",   1.0f);
-			} else if (bsdf_type->value == "roughplastic") {
+				material.linear_roughness    = find_optional_float(bsdf, "alpha", 0.5f);
+				material.index_of_refraction = find_optional_float(bsdf, "eta",   1.0f);
+			} else if (inner_bsdf_type->value == "roughplastic") {
 				material.type = Material::Type::GLOSSY;
 				
-				find_rgb_or_texture(bsdf, "diffuseReflectance", path, scene, material.diffuse, material.texture_id);
+				find_rgb_or_texture(inner_bsdf, "diffuseReflectance", path, scene, material.diffuse, material.texture_id);
 
-				material.linear_roughness    = find_optional_float(&node, "alpha" , 0.5f);
-				material.index_of_refraction = find_optional_float(&node, "intIOR", 1.0f);
+				material.linear_roughness    = find_optional_float(bsdf, "alpha" , 0.5f);
+				material.index_of_refraction = find_optional_float(bsdf, "intIOR", 1.0f);
 				
-				const XMLNode * nonlinear = bsdf->find_child_by_name("nonlinear");
+				const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
 				if (nonlinear && nonlinear->find_attribute("value")->value_as_bool()) {
 					material.linear_roughness = sqrtf(material.linear_roughness);
 				}
 			} else {
-				const char * str = bsdf_type->value.c_str();
+				const char * str = inner_bsdf_type->value.c_str();
 				printf("BSDF type '%s' not supported!\n", str);
 				delete [] str;
 			}
 		} else if (type->value == "thindielectric" || type->value == "dielectric") {
 			material.type = Material::Type::DIELECTRIC;
 			material.transmittance = Vector3(1.0f);
-			material.index_of_refraction = find_optional_float(&node, "intIOR", 1.0f);
+			material.index_of_refraction = find_optional_float(bsdf, "intIOR", 1.0f);
 		} else {
 			const char * str = type->value.c_str();
 			printf("Material type '%s' not supported!\n", str);
 			delete [] str;
 		}
+	}
 
-		materials[name->value] = scene.materials.size();
-		scene.materials.push_back(material);
+	int material_id = scene.materials.size();
+	scene.materials.push_back(material);
+
+	return material_id;
+}
+
+static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & materials, const char * path) {
+	if (node.type == "bsdf") {
+		int              material_id = find_material(&node, scene, materials, path);
+		const Material & material = scene.materials[material_id];
+
+		materials[material.name] = material_id; 
 	} else if (node.type == "shape") {
 		const XMLAttribute * type = node.find_attribute("type");
 		if (type->value == "obj") {
@@ -440,27 +497,13 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init(filename_abs, mesh_data_id, scene);
+			mesh.material_id = find_material(&node, scene, materials, path);
 
 			Matrix4 world = find_transform(&node);			
 			decompose_matrix(world, &mesh.position, &mesh.rotation, &mesh.scale);
-
-			// Look for material
-			const XMLNode * ref = node.find_child("ref");
-			if (ref) {
-				const StringView & material_name = ref->find_attribute("id")->value;
-				auto material_id = materials.find(material_name);
-				if (material_id != materials.end()) {
-					const MeshData * mesh_data = scene.mesh_datas[mesh_data_id];
-					//mesh_data->material_offset = 0;
-					for (int i = 0; i < mesh_data->triangle_count; i++) {
-						mesh_data->triangles[i].material_id = material_id->second;
-					}
-				}
-			}
 		} else if (type->value == "rectangle") {
 			MeshData * mesh_data = new MeshData();
-			mesh_data->material_offset = 0;
-
+			
 			Matrix4 world = find_transform(&node);
 
 			Vector3 vertex_0 = Matrix4::transform_position(world, Vector3(-1.0f, -1.0f, 0.0f));
@@ -476,7 +519,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			Vector2 tex_coord_3 = Vector2(0.0f, 1.0f);
 
 			mesh_data->triangle_count = 2;
-			mesh_data->triangles      = new Triangle[2];
+			mesh_data->triangles = new Triangle[2];
 			
 			mesh_data->triangles[0].position_0 = vertex_0;
 			mesh_data->triangles[0].position_1 = vertex_1;
@@ -504,20 +547,6 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			mesh_data->triangles[0].aabb = AABB::from_points(vertices_0, 3);
 			mesh_data->triangles[1].aabb = AABB::from_points(vertices_1, 3);
 
-			int        material_id = scene.materials.size();
-			Material & material    = scene.materials.emplace_back();
-			material.name = "rectangle";
-			material.type = Material::Type::DIFFUSE;
-
-			const XMLNode * emitter = node.find_child("emitter");
-			if (emitter) {
-				material.type = Material::Type::LIGHT;
-				material.emission = emitter->find_child_by_name("radiance")->find_attribute("value")->value_as_vector3();
-			}
-
-			mesh_data->triangles[0].material_id = material_id;
-			mesh_data->triangles[1].material_id = material_id;
-			
 			BVH bvh;
 			BVHBuilder bvh_builder;
 			bvh_builder.init(&bvh, mesh_data->triangle_count, 2);
@@ -531,6 +560,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init("rectangle", mesh_data_id, scene);
+			mesh.material_id = find_material(&node, scene, materials, path);
 		} else {
 			const char * str = type->value.c_str();
 			printf("Shape type '%s' not supported!\n", str);
@@ -546,11 +576,8 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			Matrix4 world = find_transform(&node);
 			decompose_matrix(world, &scene.camera.position, &scene.camera.rotation, nullptr);
 		} else if (camera_type == "thinlens") {
-			float aperture = node.find_child_by_name("aperatureRadius")->find_attribute("value")->value_as_float();
-			float focus    = node.find_child_by_name("focusDistance")  ->find_attribute("value")->value_as_float();
-
-			scene.camera.aperture       = aperture;
-			scene.camera.focal_distance = focus;
+			scene.camera.aperture_radius = node.find_child_by_name("aperatureRadius")->find_attribute("value")->value_as_float();
+			scene.camera.focal_distance  = node.find_child_by_name("focusDistance")  ->find_attribute("value")->value_as_float();
 
 			Matrix4 world = find_transform(&node);
 			decompose_matrix(world, &scene.camera.position, &scene.camera.rotation, nullptr);
