@@ -832,7 +832,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
-	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness < ROUGHNESS_CUTOFF) << 31);
+	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness >= ROUGHNESS_CUTOFF) << 31);
 	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = weight;
