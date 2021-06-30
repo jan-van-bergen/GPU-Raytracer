@@ -199,6 +199,7 @@
     <ClCompile Include="Imgui\imgui_impl_sdl.cpp" />
     <ClCompile Include="Imgui\imgui_widgets.cpp" />
     <ClCompile Include="Src\Assets\MeshData.cpp" />
+    <ClCompile Include="Src\Assets\MitsubaLoader.cpp" />
     <ClCompile Include="Src\Assets\OBJLoader.cpp" />
     <ClCompile Include="Src\Assets\Texture.cpp" />
     <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp" />
@@ -235,6 +236,7 @@
     <ClInclude Include="Imgui\imstb_truetype.h" />
     <ClInclude Include="Src\Assets\Material.h" />
     <ClInclude Include="Src\Assets\MeshData.h" />
+    <ClInclude Include="Src\Assets\MitsubaLoader.h" />
     <ClInclude Include="Src\Assets\OBJLoader.h" />
     <ClInclude Include="Src\Assets\Texture.h" />
     <ClInclude Include="Src\BVH\Builders\BVHBuilder.h" />

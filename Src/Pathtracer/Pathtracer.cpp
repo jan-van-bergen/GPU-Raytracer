@@ -8,6 +8,7 @@
 
 #include "Assets/MeshData.h"
 #include "Assets/Material.h"
+#include "Assets/MitsubaLoader.h"
 
 #include "Math/Vector4.h"
 
@@ -17,8 +18,8 @@
 #include "Util/Util.h"
 #include "Util/ScopeTimer.h"
 
-void Pathtracer::init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle) {
-	scene.init(mesh_count, mesh_names, sky_name);
+void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
+	scene.init(scene_name, sky_name);
 
 	cuda_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -176,7 +177,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	mesh_data_triangle_offsets = new int[mesh_data_count];
 	int * mesh_data_index_offsets = MALLOCA(int, mesh_data_count);
 
-	int aggregated_bvh_node_count = 2 * scene.mesh_count; // Reserve 2 times Mesh count for TLAS
+	int aggregated_bvh_node_count = 2 * scene.meshes.size(); // Reserve 2 times Mesh count for TLAS
 	int aggregated_triangle_count = 0;
 	int aggregated_index_count    = 0;
 
@@ -235,17 +236,17 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	FREEA(mesh_data_index_offsets);
 
-	pinned_mesh_bvh_root_indices        = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
-	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
-	pinned_mesh_transforms_inv          = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
-	pinned_mesh_transforms_prev         = CUDAMemory::malloc_pinned<Matrix3x4>(scene.mesh_count);
-	pinned_light_mesh_transform_indices = CUDAMemory::malloc_pinned<int>      (scene.mesh_count);
-	pinned_light_mesh_area_scaled       = CUDAMemory::malloc_pinned<float>    (scene.mesh_count);
+	pinned_mesh_bvh_root_indices        = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_inv          = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_prev         = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_light_mesh_transform_indices = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_light_mesh_area_scaled       = CUDAMemory::malloc_pinned<float>    (scene.meshes.size());
 
-	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.mesh_count);
-	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
-	ptr_mesh_transforms_inv   = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
-	ptr_mesh_transforms_prev  = CUDAMemory::malloc<Matrix3x4>(scene.mesh_count);
+	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.meshes.size());
+	ptr_mesh_transforms       = CUDAMemory::malloc<Matrix3x4>(scene.meshes.size());
+	ptr_mesh_transforms_inv   = CUDAMemory::malloc<Matrix3x4>(scene.meshes.size());
+	ptr_mesh_transforms_prev  = CUDAMemory::malloc<Matrix3x4>(scene.meshes.size());
 
 	cuda_module.get_global("mesh_bvh_root_indices").set_value(ptr_mesh_bvh_root_indices);
 	cuda_module.get_global("mesh_transforms")      .set_value(ptr_mesh_transforms);
@@ -255,16 +256,16 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	ptr_bvh_nodes = CUDAMemory::malloc<BVHNodeType>(aggregated_bvh_nodes, aggregated_bvh_node_count);
 
 #if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
-	module.get_global("bvh_nodes").set_value(ptr_bvh_nodes);
+	cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes);
 #elif BVH_TYPE == BVH_QBVH
-	module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes);
+	cuda_module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes);
 #elif BVH_TYPE == BVH_CWBVH
 	cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes);
 #endif
 
-	tlas_bvh_builder.init(&tlas_raw, scene.mesh_count, 1);
+	tlas_bvh_builder.init(&tlas_raw, scene.meshes.size(), 1);
 
-	tlas_raw.node_count = scene.mesh_count * 2;
+	tlas_raw.node_count = scene.meshes.size() * 2;
 #if BVH_TYPE == BVH_QBVH || BVH_TYPE == BVH_CWBVH
 	tlas_converter.init(&tlas, tlas_raw);
 #endif
@@ -379,7 +380,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	
 	// Realloc as pinned memory
 	delete [] tlas.nodes;
-	tlas.nodes = CUDAMemory::malloc_pinned<BVHNodeType>(2 * scene.mesh_count);
+	tlas.nodes = CUDAMemory::malloc_pinned<BVHNodeType>(2 * scene.meshes.size());
 	
 	scene.camera.update(0.0f, settings);
 	scene.update(0.0f);
@@ -433,16 +434,16 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_triangles);
 	CUDAMemory::free(ptr_triangle_material_ids);
 	
-	CUDAMemory::free(ptr_light_indices);
-	CUDAMemory::free(ptr_light_areas_cumulative);
-	
 	CUDAMemory::free(ptr_sky_data);
 
 	CUDAMemory::free(ptr_sobol_256spp_256d);
 	CUDAMemory::free(ptr_scrambling_tile);
 	CUDAMemory::free(ptr_ranking_tile);
 
-	if (scene.has_lights) {	
+	if (scene.has_lights) {
+		CUDAMemory::free(ptr_light_indices);
+		CUDAMemory::free(ptr_light_areas_cumulative);
+	
 		CUDAMemory::free(ptr_light_mesh_power_unscaled);
 		CUDAMemory::free(ptr_light_mesh_triangle_count);
 		CUDAMemory::free(ptr_light_mesh_triangle_first_index);
@@ -697,20 +698,20 @@ void Pathtracer::calc_light_power() {
 	delete [] light_indices;
 	delete [] light_power_cumulative;
 
-	float * light_mesh_power_unscaled       = MALLOCA(float, scene.mesh_count);
-	int   * light_mesh_triangle_count       = MALLOCA(int,   scene.mesh_count);
-	int   * light_mesh_triangle_first_index = MALLOCA(int,   scene.mesh_count);
+	float * light_mesh_power_unscaled       = MALLOCA(float, scene.meshes.size());
+	int   * light_mesh_triangle_count       = MALLOCA(int,   scene.meshes.size());
+	int   * light_mesh_triangle_first_index = MALLOCA(int,   scene.meshes.size());
 	
 	int light_mesh_count  = 0;
 		
-	for (int m = 0; m < scene.mesh_count; m++) {
+	for (int m = 0; m < scene.meshes.size(); m++) {
 		int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_index];
 
 		if (light_mesh_data_index != INVALID) {
 			const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
 			
 			int mesh_index = light_mesh_count++;
-			assert(mesh_index < scene.mesh_count);
+			assert(mesh_index < scene.meshes.size());
 
 			scene.meshes[m].light_index = mesh_index;
 			scene.meshes[m].light_power = light_mesh.power;
@@ -755,7 +756,7 @@ void Pathtracer::calc_light_power() {
 
 // Construct Top Level Acceleration Structure (TLAS) over the Meshes in the Scene
 void Pathtracer::build_tlas() {
-	tlas_bvh_builder.build(scene.meshes, scene.mesh_count);
+	tlas_bvh_builder.build(scene.meshes.data(), scene.meshes.size());
 
 	tlas.index_count = tlas_raw.index_count;
 	tlas.indices     = tlas_raw.indices;
@@ -767,13 +768,13 @@ void Pathtracer::build_tlas() {
 	tlas_converter.build(tlas_raw);
 #endif
 
-	assert(tlas.index_count == scene.mesh_count);
+	assert(tlas.index_count == scene.meshes.size());
 	CUDAMemory::memcpy(ptr_bvh_nodes, tlas.nodes, tlas.node_count);
 
 	int   light_mesh_count   = 0;
 	float lights_total_power = 0.0f;
 
-	for (int i = 0; i < scene.mesh_count; i++) {
+	for (int i = 0; i < scene.meshes.size(); i++) {
 		const Mesh & mesh = scene.meshes[tlas.indices[i]];
 
 		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_index];
@@ -786,7 +787,7 @@ void Pathtracer::build_tlas() {
 		if (mesh_is_light) {
 			float light_power_scaled = mesh.light_power * mesh.scale * mesh.scale;
 
-			assert(mesh.light_index < scene.mesh_count);
+			assert(mesh.light_index < scene.meshes.size());
 
 			pinned_light_mesh_transform_indices[mesh.light_index] = i;
 			pinned_light_mesh_area_scaled      [mesh.light_index] = light_power_scaled;
@@ -796,10 +797,10 @@ void Pathtracer::build_tlas() {
 		}
 	}
 
-	CUDAMemory::memcpy(ptr_mesh_bvh_root_indices,  pinned_mesh_bvh_root_indices, scene.mesh_count);
-	CUDAMemory::memcpy(ptr_mesh_transforms,        pinned_mesh_transforms,       scene.mesh_count);
-	CUDAMemory::memcpy(ptr_mesh_transforms_inv,    pinned_mesh_transforms_inv,   scene.mesh_count);
-	CUDAMemory::memcpy(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.mesh_count);
+	CUDAMemory::memcpy(ptr_mesh_bvh_root_indices,  pinned_mesh_bvh_root_indices, scene.meshes.size());
+	CUDAMemory::memcpy(ptr_mesh_transforms,        pinned_mesh_transforms,       scene.meshes.size());
+	CUDAMemory::memcpy(ptr_mesh_transforms_inv,    pinned_mesh_transforms_inv,   scene.meshes.size());
+	CUDAMemory::memcpy(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.meshes.size());
 	
 	if (scene.has_lights) {
 		CUDAMemory::memcpy(ptr_light_mesh_transform_indices, pinned_light_mesh_transform_indices, light_mesh_count);
@@ -810,9 +811,9 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
-	if (invalidated_settings && settings.enable_svgf && settings.camera_aperture > 0.0f) {
+	if (invalidated_settings && settings.enable_svgf && scene.camera.aperture > 0.0f) {
 		puts("WARNING: SVGF and DoF cannot simultaneously be enabled!");
-		settings.camera_aperture = 0.0f;
+		scene.camera.aperture = 0.0f;
 	}
 
 	if (invalidated_materials) {
@@ -909,7 +910,7 @@ void Pathtracer::update(float delta) {
 				
 				global_lights_total_power.set_value(0.0f);
 				
-				for (int i = 0; i < scene.mesh_count; i++) {
+				for (int i = 0; i < scene.meshes.size(); i++) {
 					scene.meshes[i].light_index = INVALID;
 				}
 			}
@@ -953,6 +954,8 @@ void Pathtracer::update(float delta) {
 			Vector3 x_axis;
 			Vector3 y_axis;
 			float pixel_spread_angle;
+			float aperture;
+			float focal_distance;
 		} cuda_camera;
 
 		cuda_camera.position           = scene.camera.position;
@@ -960,8 +963,14 @@ void Pathtracer::update(float delta) {
 		cuda_camera.x_axis             = scene.camera.x_axis_rotated;
 		cuda_camera.y_axis             = scene.camera.y_axis_rotated;
 		cuda_camera.pixel_spread_angle = scene.camera.pixel_spread_angle;
+		cuda_camera.aperture           = scene.camera.aperture;
+		cuda_camera.focal_distance     = scene.camera.focal_distance;
 
 		global_camera.set_value(cuda_camera);
+		
+		if (!settings.enable_svgf) {
+			frames_accumulated = 0;
+		}
 
 		invalidated_camera = false;
 	}

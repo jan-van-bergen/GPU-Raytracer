@@ -8,14 +8,22 @@
 #include "Util/Random.h"
 
 void Camera::resize(int width, int height) {
-	float widthf  = float(width);
-	float heightf = float(height);
+	screen_width  = float(width);
+	screen_height = float(height);
+	recalibrate();
+}
 
-	inv_width  = 1.0f / widthf;
-	inv_height = 1.0f / heightf;
+void Camera::set_fov(float fov) {
+	this->fov = fov;
+	recalibrate();
+}
 
-	float half_width  = 0.5f * widthf;
-	float half_height = 0.5f * heightf;
+void Camera::recalibrate() {
+	float inv_width  = 1.0f / screen_width;
+	float inv_height = 1.0f / screen_height;
+
+	float half_width  = 0.5f * screen_width;
+	float half_height = 0.5f * screen_height;
 
 	float tan_half_fov = tanf(0.5f * fov);
 

@@ -163,6 +163,28 @@ exit:
 	return success;
 }
 
+void MeshData::init_bvh(const BVH & bvh) {
+#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
+	this->bvh = bvh;
+#elif BVH_TYPE == BVH_QBVH
+	// Collapse binary BVH into quaternary BVH
+	QBVHBuilder qbvh_builder;
+	qbvh_builder.init(&this->bvh, bvh);
+	qbvh_builder.build(bvh);
+	
+	delete [] bvh.nodes;
+#elif BVH_TYPE == BVH_CWBVH
+	// Collapse binary BVH into 8-way Compressed Wide BVH
+	CWBVHBuilder cwbvh_builder;
+	cwbvh_builder.init(&this->bvh, bvh);
+	cwbvh_builder.build(bvh);
+	cwbvh_builder.free();
+
+	delete [] bvh.indices;
+	delete [] bvh.nodes;
+#endif
+}
+
 int MeshData::load(const char * filename, struct Scene & scene) {
 	int & mesh_data_index = cache[filename];
 
@@ -172,6 +194,8 @@ int MeshData::load(const char * filename, struct Scene & scene) {
 	mesh_data_index = scene.mesh_datas.size() + 1;
 
 	MeshData * mesh_data = new MeshData();
+	mesh_data->material_offset = 0;
+
 	scene.mesh_datas.push_back(mesh_data);
 	
 	BVH bvh;
@@ -187,7 +211,7 @@ int MeshData::load(const char * filename, struct Scene & scene) {
 		strcpy_s(mtl_filename, filename_length + 1, filename);
 		memcpy(mtl_filename + filename_length - 4, ".mtl", 4);
 
-		OBJLoader::load_mtl(mtl_filename, mesh_data, scene);
+//		OBJLoader::load_mtl(mtl_filename, mesh_data, scene);
 
 		FREEA(mtl_filename);
 	} else {
@@ -214,7 +238,7 @@ int MeshData::load(const char * filename, struct Scene & scene) {
 			bvh_builder.free();
 		}
 #endif
-		
+
 #if BVH_ENABLE_OPTIMIZATION
 		BVHOptimizer::optimize(bvh);
 #endif
@@ -222,25 +246,7 @@ int MeshData::load(const char * filename, struct Scene & scene) {
 		save_to_disk(bvh, mesh_data, filename);
 	}
 	
-#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
-	mesh_data->bvh = bvh;
-#elif BVH_TYPE == BVH_QBVH
-	// Collapse binary BVH into quaternary BVH
-	QBVHBuilder qbvh_builder;
-	qbvh_builder.init(&mesh_data->bvh, bvh);
-	qbvh_builder.build(bvh);
-	
-	delete [] bvh.nodes;
-#elif BVH_TYPE == BVH_CWBVH
-	// Collapse binary BVH into 8-way Compressed Wide BVH
-	CWBVHBuilder cwbvh_builder;
-	cwbvh_builder.init(&mesh_data->bvh, bvh);
-	cwbvh_builder.build(bvh);
-	cwbvh_builder.free();
+	mesh_data->init_bvh(bvh);
 
-	delete [] bvh.indices;
-	delete [] bvh.nodes;
-#endif
-	
 	return mesh_data_index - 1;
 }

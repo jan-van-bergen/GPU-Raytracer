@@ -16,7 +16,6 @@ public:
 
 		qbvh->node_count = bvh.node_count;
 		qbvh->nodes      = new QBVHNode[bvh.node_count];
-
 	}
 
 	void build(const BVH & bvh);

@@ -108,7 +108,7 @@ void OBJLoader::load_obj(const char * filename, MeshData * mesh_data, Scene & sc
 		abort();
 	}
 
-	load_materials(materials, mesh_data, path, scene);
+//	load_materials(materials, mesh_data, path, scene);
 
 	FREEA(path);
 	

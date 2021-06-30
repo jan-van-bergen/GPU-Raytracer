@@ -186,7 +186,7 @@ struct Pathtracer {
 	
 	CUDAEventPool event_pool;
 
-	void init(int mesh_count, char const ** mesh_names, char const * sky_name, unsigned frame_buffer_handle);
+	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
 
 	void cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height);
 	void cuda_free();

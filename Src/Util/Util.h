@@ -27,6 +27,8 @@ namespace Util {
 
 	char * file_read(const char * filename);
 
+	const char * file_get_extension(const char * filename);
+
 	template<typename T>
 	void swap(T & a, T & b) {
 		T temp = a;

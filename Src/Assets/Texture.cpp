@@ -353,26 +353,10 @@ static bool load_stbi(Texture & texture, const char * file_path) {
 static std::unordered_map<std::string, int> cache;
 
 static void load_texture(char * filename, int texture_id, Scene & scene) {
-	int    file_path_length = strlen(filename);
-	char * file_extension   = nullptr;
-
-	// Extract file extension from path
-	for (int i = file_path_length - 1; i >= 0; i--) {
-		if (filename[i] == '.') {
-			int file_extension_length = file_path_length - i;
-			file_extension = new char[file_extension_length];
-
-			for (int j = 0; j < file_extension_length; j++) {
-				file_extension[j] = tolower(filename[i + 1 + j]);
-			}
-
-			break;
-		}
-	}
-
 	Texture texture;
 	bool success = false;
-
+	
+	const char * file_extension = Util::file_get_extension(filename);
 	if (file_extension) {
 		if (strcmp(file_extension, "dds") == 0) {
 			success = load_dds(texture, filename); // DDS is loaded using custom code
@@ -404,7 +388,6 @@ static void load_texture(char * filename, int texture_id, Scene & scene) {
 
 	scene.num_textures_finished++;
 
-	delete [] file_extension;
 	free(filename); // Allocated by strdup
 }
 

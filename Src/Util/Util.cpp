@@ -62,6 +62,19 @@ char * Util::file_read(const char * filename) {
 	return data;
 }
 
+const char * Util::file_get_extension(const char * filename) {
+	const char * ptr_prev = nullptr;
+	const char * ptr_curr = filename;
+
+	while (true) {
+		ptr_curr = strchr(ptr_curr, '.');
+
+		if (ptr_curr == nullptr) return ptr_prev;
+
+		ptr_prev = ++ptr_curr;
+	}
+}
+
 // Based on: https://rosettacode.org/wiki/Bitmap/Write_a_PPM_file
 void Util::export_ppm(const char * file_path, int width, int height, const unsigned char * data) {
 	FILE * file;

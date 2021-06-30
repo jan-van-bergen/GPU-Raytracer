@@ -79,20 +79,16 @@ int main(int argument_count, char ** arguments) {
 	int frames_this_second = 0;
 	int fps = 0;
 
-	const char * mesh_names[] = {
-		DATA_PATH("sponza/sponza_lit.obj"),
-		DATA_PATH("Diamond.obj"),
-		DATA_PATH("Lantern.obj")
-	};
+	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/bathroom2/scene.xml";
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 	
 	{
 		ScopeTimer timer("Initialization");
 	
 		CUDAContext::init();
-		pathtracer.init(Util::array_element_count(mesh_names), mesh_names, sky_filename, window.frame_buffer_handle);
+		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
 	
-		perf_test.init(&pathtracer, false, mesh_names[0]);	
+		perf_test.init(&pathtracer, false, scene_filename);	
 		Random::init(1337);
 	}
 
@@ -251,8 +247,14 @@ int main(int argument_count, char ** arguments) {
 			
 				invalidated_settings |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
 
-				invalidated_settings |= ImGui::SliderFloat("Aperture", &pathtracer.settings.camera_aperture,       0.0f,    1.0f);
-				invalidated_settings |= ImGui::SliderFloat("Focus",    &pathtracer.settings.camera_focal_distance, 0.001f, 50.0f);
+				float fov = Math::rad_to_deg(pathtracer.scene.camera.fov);
+				if (ImGui::SliderFloat("FOV", &fov, 0.0f, 179.0f)) {
+					pathtracer.scene.camera.set_fov(Math::deg_to_rad(fov));
+					pathtracer.invalidated_camera = true;
+				}
+
+				pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture,       0.0f,    1.0f);
+				pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
 				invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
 				invalidated_settings |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
@@ -403,7 +405,13 @@ int main(int argument_count, char ** arguments) {
 				ImGui::Separator();
 				ImGui::Text("Name: %s", material.name);
 
-				bool material_changed = ImGui::Combo("Type", reinterpret_cast<int *>(&material.type), "Light\0Diffuse\0Dielectric\0Glossy\0");
+				bool material_changed = false;
+
+				int material_type = int(material.type);
+				if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Dielectric\0Glossy\0")) {
+					material.type = Material::Type(material_type);
+					material_changed = true;
+				}
 
 				switch (material.type) {
 					case Material::Type::LIGHT: {

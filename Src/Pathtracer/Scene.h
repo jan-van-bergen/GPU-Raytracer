@@ -13,9 +13,7 @@
 struct Scene {
 	Camera camera;
 
-	int    mesh_count;
-	Mesh * meshes;
-
+	std::vector<Mesh>             meshes;
 	std::vector<const MeshData *> mesh_datas;
 
 	std::vector<Material> materials;
@@ -31,7 +29,7 @@ struct Scene {
 	bool has_glossy     = false;
 	bool has_lights     = false;
 
-	void init(int mesh_count, const char * mesh_names[], const char * sky_name);
+	void init(const char * scene_name, const char * sky_name);
 
 	void wait_until_textures_loaded();
 

@@ -11,5 +11,7 @@ struct MeshData {
 
 	int material_offset;
 	
+	void init_bvh(const BVH & bvh);
+
 	static int load(const char * filename, struct Scene & scene);
 };
