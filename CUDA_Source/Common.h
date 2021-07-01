@@ -19,7 +19,7 @@
 
 
 // Settings
-enum class ReconstructionFilter {
+enum struct ReconstructionFilter {
 	BOX,
 	GAUSSIAN
 };

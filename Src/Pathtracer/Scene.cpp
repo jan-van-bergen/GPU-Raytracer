@@ -12,30 +12,25 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 	camera.init(DEG_TO_RAD(110.0f));
 
 	// Default Material
-	Material & default_material = materials.emplace_back();
+	Material default_material = { };
 	default_material.name    = "Default";
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
+	asset_manager.add_material(default_material);
 
 	const char * file_extension = Util::file_get_extension(scene_name);
 
 	if (strcmp(file_extension, "obj") == 0) {
+		MeshDataHandle mesh_data_id = asset_manager.add_mesh_data(scene_name);
+
 		Mesh & mesh = meshes.emplace_back();
-		mesh.init(scene_name, MeshData::load(scene_name, *this), *this);
-		materials.emplace_back();
+		mesh.init(scene_name, mesh_data_id, *this);
+		mesh.material_id = MaterialHandle::get_default();
 	} else if (strcmp(file_extension, "xml") == 0) {
 		MitsubaLoader::load(scene_name, *this);		
 	} else abort();
 
 	// Initialize Sky
 	sky.init(sky_name);
-}
-
-void Scene::wait_until_textures_loaded() {
-	using namespace std::chrono_literals;
-
-	while (num_textures_finished < textures.size()) {
-		std::this_thread::sleep_for(100ms);
-	}
 }
 
 void Scene::check_materials() {
@@ -45,8 +40,8 @@ void Scene::check_materials() {
 	has_lights     = false;
 
 	// Check properties of the Scene, so we know which kernels are required
-	for (int i = 0; i < materials.size(); i++) {
-		switch (materials[i].type) {
+	for (int i = 0; i < asset_manager.materials.size(); i++) {
+		switch (asset_manager.materials[i].type) {
 			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
 			case Material::Type::DIELECTRIC: has_dielectric = true; break;
 			case Material::Type::GLOSSY:     has_glossy     = true; break;

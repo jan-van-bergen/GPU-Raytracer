@@ -1,4 +1,5 @@
 #pragma once
+#include <malloc.h>
 
 #define DATA_PATH(file_name) "./Data/" file_name
 

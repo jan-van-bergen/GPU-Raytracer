@@ -88,6 +88,15 @@
     <ClCompile Include="Src\Assets\MitsubaLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Assets\AssetManager.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\BVHLoader.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\TextureLoader.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -257,6 +266,15 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Assets\MitsubaLoader.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\AssetManager.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\BVHLoader.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\TextureLoader.h">
       <Filter>Assets</Filter>
     </ClInclude>
   </ItemGroup>

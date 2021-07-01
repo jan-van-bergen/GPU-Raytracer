@@ -8,20 +8,13 @@
 #include "Mesh.h"
 #include "Sky.h"
 
-#include "Assets/Material.h"
+#include "Assets/AssetManager.h"
 
 struct Scene {
+	AssetManager asset_manager;
+
 	Camera camera;
-
-	std::vector<Mesh>             meshes;
-	std::vector<const MeshData *> mesh_datas;
-
-	std::vector<Material> materials;
-	std::vector<Texture>  textures;
-
-	std::mutex       textures_mutex;
-	std::atomic<int> num_textures_finished;
-
+	std::vector<Mesh> meshes;
 	Sky sky;
 	
 	bool has_diffuse    = false;
@@ -30,8 +23,6 @@ struct Scene {
 	bool has_lights     = false;
 
 	void init(const char * scene_name, const char * sky_name);
-
-	void wait_until_textures_loaded();
 
 	void check_materials();
 

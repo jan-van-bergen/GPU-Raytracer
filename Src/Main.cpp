@@ -374,10 +374,10 @@ int main(int argument_count, char ** arguments) {
 				draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
 
 				if (pathtracer.pixel_query.triangle_id != INVALID) {
-					const MeshData * mesh_data = pathtracer.scene.mesh_datas[mesh.mesh_data_id];
+					const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_id);
 
-					int              index    = mesh_data->bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id]];
-					const Triangle & triangle = mesh_data->triangles[index];
+					int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id.handle]];
+					const Triangle & triangle = mesh_data.triangles[index];
 
 					ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
 
@@ -400,7 +400,7 @@ int main(int argument_count, char ** arguments) {
 			}
 
 			if (pathtracer.pixel_query.material_id != INVALID) {
-				Material & material = pathtracer.scene.materials[pathtracer.pixel_query.material_id];
+				Material & material = pathtracer.scene.asset_manager.get_material(MaterialHandle { pathtracer.pixel_query.material_id });
 
 				ImGui::Separator();
 				ImGui::Text("Name: %s", material.name);
@@ -420,7 +420,7 @@ int main(int argument_count, char ** arguments) {
 					}
 					case Material::Type::DIFFUSE: {
 						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
+						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
@@ -430,7 +430,7 @@ int main(int argument_count, char ** arguments) {
 					}
 					case Material::Type::GLOSSY: {
 						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id, -1, pathtracer.scene.textures.size() - 1);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
 						material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;

@@ -36,7 +36,7 @@ static bool match(const char *& cur, const char * end, char target) {
 
 static void expect(const char *& cur, const char * end, char expected) {
 	if (cur >= end || *cur != expected) {
-		puts("ERROR!");
+		if (cur < end) printf("Unexpected char '%c', expected '%c'!\n", *cur, expected);
 		abort();
 	}
 	cur++;
@@ -296,7 +296,7 @@ static XMLNode parse_xml(const char *& cur, const char * end) {
 	return node;
 }
 
-using MaterialMap = std::unordered_map<std::string, int>;
+using MaterialMap = std::unordered_map<std::string, MaterialHandle>;
 
 static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
 	char * filename_abs = new char[len_path + len_filename + 1];
@@ -308,7 +308,7 @@ static const char * get_absolute_filename(const char * path, int len_path, const
 	return filename_abs;
 }
 
-static void find_rgb_or_texture(const XMLNode * node, const char * name, const char * path, Scene & scene, Vector3 & rgb, int & texture) {
+static void find_rgb_or_texture(const XMLNode * node, const char * name, const char * path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
 	const XMLNode * reflectance = node->find_child_by_name(name);
 	if (reflectance == nullptr) {
 		rgb = Vector3(1.0f);
@@ -318,7 +318,7 @@ static void find_rgb_or_texture(const XMLNode * node, const char * name, const c
 		const StringView & filename_rel = reflectance->find_child_by_name("filename")->find_attribute("value")->value;
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-		texture = Texture::load(filename_abs, scene);
+		texture = scene.asset_manager.add_texture(filename_abs);
 
 		delete [] filename_abs;	
 	} else {
@@ -369,7 +369,7 @@ static float find_optional_float(const XMLNode * node, const char * name, float 
 	return default_value;
 }
 
-static int find_material(const XMLNode * node, Scene & scene, MaterialMap & materials, const char * path) {
+static MaterialHandle find_material(const XMLNode * node, Scene & scene, MaterialMap & materials, const char * path) {
 	// Check if an existing Material is referenced
 	const XMLNode * ref = node->find_child("ref");
 	if (ref) {
@@ -381,7 +381,7 @@ static int find_material(const XMLNode * node, Scene & scene, MaterialMap & mate
 			printf("Invalid material Ref '%s'!\n", str);
 			delete [] str;
 
-			return 0; // Default Material
+			return MaterialHandle::get_default();
 		}
 
 		return material_id->second;
@@ -404,7 +404,7 @@ static int find_material(const XMLNode * node, Scene & scene, MaterialMap & mate
 			bsdf = node->find_child("bsdf");
 			if (bsdf == nullptr) {
 				printf("Unable to parse BSDF!\n");
-				return 0; // Default Material
+				return MaterialHandle::get_default();
 			}
 		}
 
@@ -475,16 +475,13 @@ static int find_material(const XMLNode * node, Scene & scene, MaterialMap & mate
 		}
 	}
 
-	int material_id = scene.materials.size();
-	scene.materials.push_back(material);
-
-	return material_id;
+	return scene.asset_manager.add_material(material);
 }
 
 static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & materials, const char * path) {
 	if (node.type == "bsdf") {
-		int              material_id = find_material(&node, scene, materials, path);
-		const Material & material = scene.materials[material_id];
+		MaterialHandle   material_id = find_material(&node, scene, materials, path);
+		const Material & material = scene.asset_manager.get_material(material_id);
 
 		materials[material.name] = material_id; 
 	} else if (node.type == "shape") {
@@ -493,7 +490,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			const StringView & filename_rel = node.find_child_by_name("filename")->find_attribute("value")->value;
 			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-			int mesh_data_id = MeshData::load(filename_abs, scene);
+			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(filename_abs);
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init(filename_abs, mesh_data_id, scene);
@@ -502,8 +499,6 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			Matrix4 world = find_transform(&node);			
 			decompose_matrix(world, &mesh.position, &mesh.rotation, &mesh.scale);
 		} else if (type->value == "rectangle") {
-			MeshData * mesh_data = new MeshData();
-			
 			Matrix4 world = find_transform(&node);
 
 			Vector3 vertex_0 = Matrix4::transform_position(world, Vector3(-1.0f, -1.0f, 0.0f));
@@ -518,45 +513,36 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			Vector2 tex_coord_2 = Vector2(1.0f, 1.0f);
 			Vector2 tex_coord_3 = Vector2(0.0f, 1.0f);
 
-			mesh_data->triangle_count = 2;
-			mesh_data->triangles = new Triangle[2];
+			int        triangle_count = 2;
+			Triangle * triangles = new Triangle[triangle_count];
 			
-			mesh_data->triangles[0].position_0 = vertex_0;
-			mesh_data->triangles[0].position_1 = vertex_1;
-			mesh_data->triangles[0].position_2 = vertex_2;
-			mesh_data->triangles[0].normal_0 = normal;
-			mesh_data->triangles[0].normal_1 = normal;
-			mesh_data->triangles[0].normal_2 = normal;
-			mesh_data->triangles[0].tex_coord_0 = tex_coord_0;
-			mesh_data->triangles[0].tex_coord_1 = tex_coord_1;
-			mesh_data->triangles[0].tex_coord_2 = tex_coord_2;
+			triangles[0].position_0 = vertex_0;
+			triangles[0].position_1 = vertex_1;
+			triangles[0].position_2 = vertex_2;
+			triangles[0].normal_0 = normal;
+			triangles[0].normal_1 = normal;
+			triangles[0].normal_2 = normal;
+			triangles[0].tex_coord_0 = tex_coord_0;
+			triangles[0].tex_coord_1 = tex_coord_1;
+			triangles[0].tex_coord_2 = tex_coord_2;
 			
-			mesh_data->triangles[1].position_0 = vertex_0;
-			mesh_data->triangles[1].position_1 = vertex_2;
-			mesh_data->triangles[1].position_2 = vertex_3;
-			mesh_data->triangles[1].normal_0 = normal;
-			mesh_data->triangles[1].normal_1 = normal;
-			mesh_data->triangles[1].normal_2 = normal;
-			mesh_data->triangles[1].tex_coord_0 = tex_coord_0;
-			mesh_data->triangles[1].tex_coord_1 = tex_coord_2;
-			mesh_data->triangles[1].tex_coord_2 = tex_coord_3;
+			triangles[1].position_0 = vertex_0;
+			triangles[1].position_1 = vertex_2;
+			triangles[1].position_2 = vertex_3;
+			triangles[1].normal_0 = normal;
+			triangles[1].normal_1 = normal;
+			triangles[1].normal_2 = normal;
+			triangles[1].tex_coord_0 = tex_coord_0;
+			triangles[1].tex_coord_1 = tex_coord_2;
+			triangles[1].tex_coord_2 = tex_coord_3;
 
 			Vector3 vertices_0[3] = { vertex_0, vertex_1, vertex_2 };
 			Vector3 vertices_1[3] = { vertex_0, vertex_2, vertex_3 };
 
-			mesh_data->triangles[0].aabb = AABB::from_points(vertices_0, 3);
-			mesh_data->triangles[1].aabb = AABB::from_points(vertices_1, 3);
+			triangles[0].aabb = AABB::from_points(vertices_0, 3);
+			triangles[1].aabb = AABB::from_points(vertices_1, 3);
 
-			BVH bvh;
-			BVHBuilder bvh_builder;
-			bvh_builder.init(&bvh, mesh_data->triangle_count, 2);
-			bvh_builder.build(mesh_data->triangles, mesh_data->triangle_count);
-			bvh_builder.free();
-
-			mesh_data->init_bvh(bvh);
-
-			int mesh_data_id = scene.mesh_datas.size();
-			scene.mesh_datas.push_back(mesh_data);
+			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init("rectangle", mesh_data_id, scene);
@@ -586,7 +572,6 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			printf("Camera type '%s' not supported!\n", str);
 			delete [] str;
 		}
-
 	} else for (int i = 0; i < node.children.size(); i++) {
 		walk_xml_tree(node.children[i], scene, materials, path);
 	}

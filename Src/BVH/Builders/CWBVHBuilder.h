@@ -6,7 +6,7 @@ private:
 	CWBVH * cwbvh;
 	
 	struct Decision {
-		enum class Type : char {
+		enum struct Type : char {
 			LEAF,
 			INTERNAL,
 			DISTRIBUTE

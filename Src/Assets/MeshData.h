@@ -3,6 +3,8 @@
 
 #include "BVH/BVH.h"
 
+#include "../CUDA_Source/Common.h"
+
 struct MeshData {
 	int        triangle_count;
 	Triangle * triangles;
@@ -10,6 +12,6 @@ struct MeshData {
 	BVHType bvh;
 
 	void init_bvh(const BVH & bvh);
-
-	static int load(const char * filename, struct Scene & scene);
 };
+
+struct MeshDataHandle { int handle = INVALID; };
