@@ -43,6 +43,73 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	triangles[1].aabb = AABB::from_points(vertices_1, 3);
 }
 
+void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 & transform) {
+	triangle_count = 12;
+	triangles = new Triangle[triangle_count];
+
+	Vector3 cube_vertices[8] = {
+		Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, -1.0f)),
+		Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, -1.0f)),
+		Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, +1.0f)),
+		Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, +1.0f)),
+		Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, -1.0f)),
+		Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, -1.0f)),
+		Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, +1.0f)),
+		Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, +1.0f))
+	};
+	Vector3 cube_normals[6] = {
+		Matrix4::transform_direction(transform, Vector3( 0.0f, -1.0f,  0.0f)),
+		Matrix4::transform_direction(transform, Vector3( 0.0f,  0.0f, +1.0f)),
+		Matrix4::transform_direction(transform, Vector3(+1.0f,  0.0f,  0.0f)),
+		Matrix4::transform_direction(transform, Vector3( 0.0f,  0.0f, -1.0f)),
+		Matrix4::transform_direction(transform, Vector3(-1.0f,  0.0f,  0.0f)),
+		Matrix4::transform_direction(transform, Vector3( 0.0f, +1.0f,  0.0f))
+	};
+	Vector2 cube_tex_coords[4] = {
+		Vector2(0.0f, 0.0f),
+		Vector2(1.0f, 0.0f),
+		Vector2(1.0f, 1.0f),
+		Vector2(0.0f, 1.0f)
+	};
+
+	static int indices[6][4] = { // Indices per face
+		{ 0, 1, 2, 3 },
+		{ 0, 1, 5, 4 },
+		{ 1, 2, 6, 5 },
+		{ 2, 3, 7, 6 },
+		{ 3, 0, 4, 7 },
+		{ 4, 5, 6, 7 }
+	};
+
+	for (int face = 0; face < 6; face++) {
+		Vector3 vertices_0[3] = { cube_vertices[indices[face][0]], cube_vertices[indices[face][1]], cube_vertices[indices[face][2]] };
+		Vector3 vertices_1[3] = { cube_vertices[indices[face][0]], cube_vertices[indices[face][2]], cube_vertices[indices[face][3]] };
+
+		triangles[2*face].position_0 = vertices_0[0];
+		triangles[2*face].position_1 = vertices_0[1];
+		triangles[2*face].position_2 = vertices_0[2];
+		triangles[2*face].normal_0 = cube_normals[face];
+		triangles[2*face].normal_1 = cube_normals[face];
+		triangles[2*face].normal_2 = cube_normals[face];
+		triangles[2*face].tex_coord_0 = cube_tex_coords[0];
+		triangles[2*face].tex_coord_1 = cube_tex_coords[1];
+		triangles[2*face].tex_coord_2 = cube_tex_coords[2];
+
+		triangles[2*face + 1].position_0 = vertices_1[0];
+		triangles[2*face + 1].position_1 = vertices_1[1];
+		triangles[2*face + 1].position_2 = vertices_1[2];
+		triangles[2*face + 1].normal_0 = cube_normals[face];
+		triangles[2*face + 1].normal_1 = cube_normals[face];
+		triangles[2*face + 1].normal_2 = cube_normals[face];
+		triangles[2*face + 1].tex_coord_0 = cube_tex_coords[0];
+		triangles[2*face + 1].tex_coord_1 = cube_tex_coords[2];
+		triangles[2*face + 1].tex_coord_2 = cube_tex_coords[3];
+
+		triangles[2*face    ].aabb = AABB::from_points(vertices_0, 3);
+		triangles[2*face + 1].aabb = AABB::from_points(vertices_1, 3);
+	}
+}
+
 void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 & transform, int num_segments) {
 	triangle_count = num_segments;
 	triangles = new Triangle[triangle_count];
@@ -149,6 +216,8 @@ void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4
 
 		current_triangle_count *= 4;
 	}
+
+	assert(current_triangle_count == triangle_count);
 
 	// Bring into world space and calculate AABBs
 	for (int i = 0; i < triangle_count; i++) {

@@ -386,9 +386,16 @@ int main(int argument_count, char ** arguments) {
 						Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
 						Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
 					};
+					
+					Vector4 triangle_normals[3] = {
+						Vector4(triangle.normal_0.x, triangle.normal_0.y, triangle.normal_0.z, 0.0f),
+						Vector4(triangle.normal_1.x, triangle.normal_1.y, triangle.normal_1.z, 0.0f),
+						Vector4(triangle.normal_2.x, triangle.normal_2.y, triangle.normal_2.z, 0.0f)
+					};
 
 					for (int i = 0; i < 3; i++) {
 						triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
+						triangle_normals  [i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
 					}
 
 					ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);
@@ -396,6 +403,12 @@ int main(int argument_count, char ** arguments) {
 					draw_line_clipped(triangle_positions[0], triangle_positions[1], triangle_colour);
 					draw_line_clipped(triangle_positions[1], triangle_positions[2], triangle_colour);
 					draw_line_clipped(triangle_positions[2], triangle_positions[0], triangle_colour);
+
+					ImColor normal_colour = ImColor(0.2f, 0.5f, 0.8f);
+
+					draw_line_clipped(triangle_positions[0], triangle_positions[0] + 0.1f * triangle_normals[0], normal_colour);
+					draw_line_clipped(triangle_positions[1], triangle_positions[1] + 0.1f * triangle_normals[1], normal_colour);
+					draw_line_clipped(triangle_positions[2], triangle_positions[2] + 0.1f * triangle_normals[2], normal_colour);
 				}
 			}
 

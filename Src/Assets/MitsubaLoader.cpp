@@ -499,7 +499,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 
 			Matrix4 world = find_transform(&node);			
 			decompose_matrix(world, &mesh.position, &mesh.rotation, &mesh.scale);
-		} else if (type->value == "rectangle" || type->value == "disk" || type->value == "sphere") {
+		} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere") {
 			Matrix4 world = find_transform(&node);
 
 			Triangle * triangles = nullptr;
@@ -507,6 +507,8 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 
 			if (type->value == "rectangle") {
 				Geometry::rectangle(triangles, triangle_count, world);
+			} else if (type->value == "cube") {
+				Geometry::cube(triangles, triangle_count, world);
 			} else if (type->value == "disk") {
 				Geometry::disk(triangles, triangle_count, world);
 			} else if (type->value == "sphere") {
