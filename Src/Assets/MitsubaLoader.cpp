@@ -499,29 +499,33 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 
 			Matrix4 world = find_transform(&node);			
 			decompose_matrix(world, &mesh.position, &mesh.rotation, &mesh.scale);
-		} else if (type->value == "rectangle") {
+		} else if (type->value == "rectangle" || type->value == "disk" || type->value == "sphere") {
 			Matrix4 world = find_transform(&node);
 
-			Triangle * triangles      = nullptr;
+			Triangle * triangles = nullptr;
 			int        triangle_count = 0;
-			Geometry::rectangle(triangles, triangle_count, world);
+
+			if (type->value == "rectangle") {
+				Geometry::rectangle(triangles, triangle_count, world);
+			} else if (type->value == "disk") {
+				Geometry::disk(triangles, triangle_count, world);
+			} else if (type->value == "sphere") {
+				float   radius = node.find_child_by_name("radius")->find_attribute("value")->value_as_float();
+				Vector3 center = Vector3(
+					node.find_child_by_name("center")->find_attribute("x")->value_as_float(),
+					node.find_child_by_name("center")->find_attribute("y")->value_as_float(),
+					node.find_child_by_name("center")->find_attribute("z")->value_as_float()
+				);
+
+				world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
+
+				Geometry::sphere(triangles, triangle_count, world);
+			} else abort();
 
 			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init("rectangle", mesh_data_id, scene);
-			mesh.material_id = find_material(&node, scene, materials, path);
-		} else if (type->value == "disk") {
-			Matrix4 world = find_transform(&node);
-
-			Triangle * triangles      = nullptr;
-			int        triangle_count = 0;
-			Geometry::disk(triangles, triangle_count, world);
-
-			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
-
-			Mesh & mesh = scene.meshes.emplace_back();
-			mesh.init("disk", mesh_data_id, scene);
 			mesh.material_id = find_material(&node, scene, materials, path);
 		} else {
 			const char * str = type->value.c_str();

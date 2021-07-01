@@ -332,7 +332,7 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 	delete [] temp;
 
-	assert(level == mip_levels);
+	assert(level == texture.mip_levels);
 
 	texture.mip_offsets = mip_offsets;
 #else
