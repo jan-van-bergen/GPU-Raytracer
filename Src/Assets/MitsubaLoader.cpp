@@ -16,6 +16,7 @@
 #include "Pathtracer/Scene.h"
 
 #include "Util/Util.h"
+#include "Util/Geometry.h"
 
 static bool is_whitespace(char c) {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
@@ -501,51 +502,26 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 		} else if (type->value == "rectangle") {
 			Matrix4 world = find_transform(&node);
 
-			Vector3 vertex_0 = Matrix4::transform_position(world, Vector3(-1.0f, -1.0f, 0.0f));
-			Vector3 vertex_1 = Matrix4::transform_position(world, Vector3(+1.0f, -1.0f, 0.0f));
-			Vector3 vertex_2 = Matrix4::transform_position(world, Vector3(+1.0f, +1.0f, 0.0f));
-			Vector3 vertex_3 = Matrix4::transform_position(world, Vector3(-1.0f, +1.0f, 0.0f));
-
-			Vector3 normal = Matrix4::transform_direction(world, Vector3(0.0f, 0.0f, 1.0f));
-
-			Vector2 tex_coord_0 = Vector2(0.0f, 0.0f);
-			Vector2 tex_coord_1 = Vector2(1.0f, 0.0f);
-			Vector2 tex_coord_2 = Vector2(1.0f, 1.0f);
-			Vector2 tex_coord_3 = Vector2(0.0f, 1.0f);
-
-			int        triangle_count = 2;
-			Triangle * triangles = new Triangle[triangle_count];
-			
-			triangles[0].position_0 = vertex_0;
-			triangles[0].position_1 = vertex_1;
-			triangles[0].position_2 = vertex_2;
-			triangles[0].normal_0 = normal;
-			triangles[0].normal_1 = normal;
-			triangles[0].normal_2 = normal;
-			triangles[0].tex_coord_0 = tex_coord_0;
-			triangles[0].tex_coord_1 = tex_coord_1;
-			triangles[0].tex_coord_2 = tex_coord_2;
-			
-			triangles[1].position_0 = vertex_0;
-			triangles[1].position_1 = vertex_2;
-			triangles[1].position_2 = vertex_3;
-			triangles[1].normal_0 = normal;
-			triangles[1].normal_1 = normal;
-			triangles[1].normal_2 = normal;
-			triangles[1].tex_coord_0 = tex_coord_0;
-			triangles[1].tex_coord_1 = tex_coord_2;
-			triangles[1].tex_coord_2 = tex_coord_3;
-
-			Vector3 vertices_0[3] = { vertex_0, vertex_1, vertex_2 };
-			Vector3 vertices_1[3] = { vertex_0, vertex_2, vertex_3 };
-
-			triangles[0].aabb = AABB::from_points(vertices_0, 3);
-			triangles[1].aabb = AABB::from_points(vertices_1, 3);
+			Triangle * triangles      = nullptr;
+			int        triangle_count = 0;
+			Geometry::rectangle(triangles, triangle_count, world);
 
 			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init("rectangle", mesh_data_id, scene);
+			mesh.material_id = find_material(&node, scene, materials, path);
+		} else if (type->value == "disk") {
+			Matrix4 world = find_transform(&node);
+
+			Triangle * triangles      = nullptr;
+			int        triangle_count = 0;
+			Geometry::disk(triangles, triangle_count, world);
+
+			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
+
+			Mesh & mesh = scene.meshes.emplace_back();
+			mesh.init("disk", mesh_data_id, scene);
 			mesh.material_id = find_material(&node, scene, materials, path);
 		} else {
 			const char * str = type->value.c_str();

@@ -221,6 +221,7 @@
     <ClCompile Include="Src\Pathtracer\Scene.cpp" />
     <ClCompile Include="Src\Pathtracer\Sky.cpp" />
     <ClCompile Include="Src\Util\BitArray.cpp" />
+    <ClCompile Include="Src\Util\Geometry.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />
     <ClCompile Include="Src\Util\Random.cpp" />
     <ClCompile Include="Src\Util\Shader.cpp" />
@@ -274,6 +275,7 @@
     <ClInclude Include="Src\Pathtracer\Triangle.h" />
     <ClInclude Include="Src\Util\BitArray.h" />
     <ClInclude Include="Src\Util\BlueNoise.h" />
+    <ClInclude Include="Src\Util\Geometry.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\Random.h" />
     <ClInclude Include="Src\Util\ScopeTimer.h" />

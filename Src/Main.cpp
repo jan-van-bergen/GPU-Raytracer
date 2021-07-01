@@ -79,7 +79,7 @@ int main(int argument_count, char ** arguments) {
 	int frames_this_second = 0;
 	int fps = 0;
 
-	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/staircase/scene.xml";
+	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/staircase2/scene.xml";
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 	
 	{

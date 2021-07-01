@@ -97,6 +97,9 @@
     <ClCompile Include="Src\Assets\TextureLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Util\Geometry.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -276,6 +279,9 @@
     </ClInclude>
     <ClInclude Include="Src\Assets\TextureLoader.h">
       <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Geometry.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
