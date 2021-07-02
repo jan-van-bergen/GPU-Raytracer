@@ -150,7 +150,7 @@ struct XMLAttribute {
 			if (i++ == 2) break;
 			
 			expect(cur, value.end, ',');
-			expect(cur, value.end, ' ');
+			match(cur, value.end, ' '); // optional
 		}
 
 		return v;
@@ -277,7 +277,9 @@ static XMLNode parse_tag(const char *& cur, const char * end) {
 	int i = 0;
 	while (cur < end && !match(cur, end, '>')) {
 		if (*cur != node.type.start[i++]) {
-			puts("ERROR: Non matching closing tag!");
+			const char * str = node.type.c_str();
+			printf("ERROR: Non matching closing tag for '%s'!\n", str);
+			delete [] str;
 			abort();
 		}
 		cur++;
@@ -512,11 +514,13 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			} else if (type->value == "disk") {
 				Geometry::disk(triangles, triangle_count, world);
 			} else if (type->value == "sphere") {
-				float   radius = node.find_child_by_name("radius")->find_attribute("value")->value_as_float();
+				float radius = find_optional_float(&node, "radius", 1.0f);
+
+				const XMLNode * xml_center = node.find_child_by_name("center");
 				Vector3 center = Vector3(
-					node.find_child_by_name("center")->find_attribute("x")->value_as_float(),
-					node.find_child_by_name("center")->find_attribute("y")->value_as_float(),
-					node.find_child_by_name("center")->find_attribute("z")->value_as_float()
+					xml_center ? xml_center->find_attribute("x")->value_as_float() : 0.0f,
+					xml_center ? xml_center->find_attribute("y")->value_as_float() : 0.0f,
+					xml_center ? xml_center->find_attribute("z")->value_as_float() : 0.0f
 				);
 
 				world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
