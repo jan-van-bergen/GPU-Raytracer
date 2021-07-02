@@ -99,9 +99,9 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
-			ray_hit.triangle_id = -1;
+			ray_hit.triangle_id = INVALID;
 
-			tlas_stack_size = -1;
+			tlas_stack_size = INVALID;
 
 			// Push root on stack
 			stack_size                          = 1;
@@ -110,7 +110,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 
 		while (true) {
 			if (stack_size == tlas_stack_size) {
-				tlas_stack_size = -1;
+				tlas_stack_size = INVALID;
 
 				// Reset Ray to untransformed version
 				ray.origin    = ray_buffer_trace.origin   .get(ray_index);
@@ -125,7 +125,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 
 			if (node.aabb.intersects(ray, ray_hit.t)) {
 				if (node.is_leaf()) {
-					if (tlas_stack_size == -1) {
+					if (tlas_stack_size == INVALID) {
 						tlas_stack_size = stack_size;
 
 						mesh_id = node.first;
@@ -195,7 +195,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
-			tlas_stack_size = -1;
+			tlas_stack_size = INVALID;
 
 			// Push root on stack
 			stack_size                          = 1;
@@ -204,7 +204,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 
 		while (true) {
 			if (stack_size == tlas_stack_size) {
-				tlas_stack_size = -1;
+				tlas_stack_size = INVALID;
 
 				// Reset Ray to untransformed version
 				ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
@@ -219,7 +219,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 
 			if (node.aabb.intersects(ray, max_distance)) {
 				if (node.is_leaf()) {
-					if (tlas_stack_size == -1) {
+					if (tlas_stack_size == INVALID) {
 						tlas_stack_size = stack_size;
 
 						mesh_id = node.first;
@@ -396,9 +396,9 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
-			ray_hit.triangle_id = -1;
+			ray_hit.triangle_id = INVALID;
 
-			tlas_stack_size = -1;
+			tlas_stack_size = INVALID;
 
 			// Push root on stack
 			stack_size                          = 1;
@@ -407,7 +407,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 		while (true) {
 			if (stack_size == tlas_stack_size) {
-				tlas_stack_size = -1;
+				tlas_stack_size = INVALID;
 
 				// Reset Ray to untransformed version
 				ray.origin    = ray_buffer_trace.origin   .get(ray_index);
@@ -427,11 +427,11 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			int index = index_and_count.x;
 			int count = index_and_count.y;
 
-			ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
+			ASSERT(index != INVALID && count != INVALID, "Unpacked invalid Node!");
 
 			// Check if the Node is a leaf
 			if (count > 0) {
-				if (tlas_stack_size == -1) {
+				if (tlas_stack_size == INVALID) {
 					tlas_stack_size = stack_size;
 
 					mesh_id = index;
@@ -500,7 +500,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
-			tlas_stack_size = -1;
+			tlas_stack_size = INVALID;
 
 			// Push root on stack
 			stack_size                          = 1;
@@ -509,7 +509,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 		while (true) {
 			if (stack_size == tlas_stack_size) {
-				tlas_stack_size = -1;
+				tlas_stack_size = INVALID;
 
 				// Reset Ray to untransformed version
 				ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
@@ -528,11 +528,11 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			int index = index_and_count.x;
 			int count = index_and_count.y;
 
-			ASSERT(index != -1 && count != -1, "Unpacked invalid Node!");
+			ASSERT(index != INVALID && count != INVALID, "Unpacked invalid Node!");
 
 			// Check if the Node is a leaf
 			if (count > 0) {
-				if (tlas_stack_size == -1) {
+				if (tlas_stack_size == INVALID) {
 					tlas_stack_size = stack_size;
 
 					mesh_id = index;
@@ -727,9 +727,9 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			current_group = make_uint2(0, 0x80000000);
 
 			ray_hit.t           = INFINITY;
-			ray_hit.triangle_id = -1;
+			ray_hit.triangle_id = INVALID;
 
-			tlas_stack_size = -1;
+			tlas_stack_size = INVALID;
 		}
 
 		int iterations_lost = 0;
@@ -782,7 +782,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
-				if (tlas_stack_size == -1) {
+				if (tlas_stack_size == INVALID) {
 					int mesh_offset = msb(triangle_group.y);
 					triangle_group.y &= ~(1 << mesh_offset);
 
@@ -841,7 +841,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				}
 
 				if (stack_size == tlas_stack_size) {
-					tlas_stack_size = -1;
+					tlas_stack_size = INVALID;
 
 					// Reset Ray to untransformed version
 					ray.origin    = ray_buffer_trace.origin   .get(ray_index);
@@ -906,7 +906,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
-			tlas_stack_size = -1;
+			tlas_stack_size = INVALID;
 		}
 
 		int iterations_lost = 0;
@@ -961,7 +961,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
-				if (tlas_stack_size == -1) {
+				if (tlas_stack_size == INVALID) {
 					int mesh_offset = msb(triangle_group.y);
 					triangle_group.y &= ~(1 << mesh_offset);
 
@@ -1040,7 +1040,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				}
 
 				if (stack_size == tlas_stack_size) {
-					tlas_stack_size = -1;
+					tlas_stack_size = INVALID;
 
 					// Reset Ray to untransformed version
 					ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
