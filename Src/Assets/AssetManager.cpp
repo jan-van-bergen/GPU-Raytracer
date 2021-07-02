@@ -19,7 +19,7 @@ static BVH build_bvh(const Triangle * triangles, int triangle_count) {
 		ScopeTimer timer("SBVH Construction");
 
 		SBVHBuilder sbvh_builder;
-		sbvh_builder.init(&bvh, triangle_count, MAX_PRIMITIVES_IN_LEAF);
+		sbvh_builder.init(&bvh, triangle_count, BVHLoader::MAX_PRIMITIVES_IN_LEAF);
 		sbvh_builder.build(triangles, triangle_count);
 		sbvh_builder.free();
 	}
@@ -150,4 +150,7 @@ void AssetManager::wait_until_textures_loaded() {
 	while (num_textures_finished < textures.size()) {
 		std::this_thread::sleep_for(100ms);
 	}
+
+	mesh_data_cache.clear();
+	texture_cache.clear();
 }

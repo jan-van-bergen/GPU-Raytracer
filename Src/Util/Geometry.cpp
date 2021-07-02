@@ -25,6 +25,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	triangles[0].tex_coord_0 = tex_coord_0;
 	triangles[0].tex_coord_1 = tex_coord_1;
 	triangles[0].tex_coord_2 = tex_coord_2;
+	triangles[0].calc_aabb();
 			
 	triangles[1].position_0 = vertex_0;
 	triangles[1].position_1 = vertex_2;
@@ -35,12 +36,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	triangles[1].tex_coord_0 = tex_coord_0;
 	triangles[1].tex_coord_1 = tex_coord_2;
 	triangles[1].tex_coord_2 = tex_coord_3;
-
-	Vector3 vertices_0[3] = { vertex_0, vertex_1, vertex_2 };
-	Vector3 vertices_1[3] = { vertex_0, vertex_2, vertex_3 };
-
-	triangles[0].aabb = AABB::from_points(vertices_0, 3);
-	triangles[1].aabb = AABB::from_points(vertices_1, 3);
+	triangles[1].calc_aabb();
 }
 
 void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 & transform) {
@@ -82,31 +78,34 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 	};
 
 	for (int face = 0; face < 6; face++) {
-		Vector3 vertices_0[3] = { cube_vertices[indices[face][0]], cube_vertices[indices[face][1]], cube_vertices[indices[face][2]] };
-		Vector3 vertices_1[3] = { cube_vertices[indices[face][0]], cube_vertices[indices[face][2]], cube_vertices[indices[face][3]] };
-
-		triangles[2*face].position_0 = vertices_0[0];
-		triangles[2*face].position_1 = vertices_0[1];
-		triangles[2*face].position_2 = vertices_0[2];
+		Vector3 vertices[4] = {
+			cube_vertices[indices[face][0]],
+			cube_vertices[indices[face][1]],
+			cube_vertices[indices[face][2]],
+			cube_vertices[indices[face][3]]
+		};
+		
+		triangles[2*face].position_0 = vertices[0];
+		triangles[2*face].position_1 = vertices[1];
+		triangles[2*face].position_2 = vertices[2];
 		triangles[2*face].normal_0 = cube_normals[face];
 		triangles[2*face].normal_1 = cube_normals[face];
 		triangles[2*face].normal_2 = cube_normals[face];
 		triangles[2*face].tex_coord_0 = cube_tex_coords[0];
 		triangles[2*face].tex_coord_1 = cube_tex_coords[1];
 		triangles[2*face].tex_coord_2 = cube_tex_coords[2];
+		triangles[2*face].calc_aabb();
 
-		triangles[2*face + 1].position_0 = vertices_1[0];
-		triangles[2*face + 1].position_1 = vertices_1[1];
-		triangles[2*face + 1].position_2 = vertices_1[2];
+		triangles[2*face + 1].position_0 = vertices[0];
+		triangles[2*face + 1].position_1 = vertices[2];
+		triangles[2*face + 1].position_2 = vertices[3];
 		triangles[2*face + 1].normal_0 = cube_normals[face];
 		triangles[2*face + 1].normal_1 = cube_normals[face];
 		triangles[2*face + 1].normal_2 = cube_normals[face];
 		triangles[2*face + 1].tex_coord_0 = cube_tex_coords[0];
 		triangles[2*face + 1].tex_coord_1 = cube_tex_coords[2];
 		triangles[2*face + 1].tex_coord_2 = cube_tex_coords[3];
-
-		triangles[2*face    ].aabb = AABB::from_points(vertices_0, 3);
-		triangles[2*face + 1].aabb = AABB::from_points(vertices_1, 3);
+		triangles[2*face + 1].calc_aabb();
 	}
 }
 
@@ -137,17 +136,13 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		triangles[i].position_0 = vertex_prev;
 		triangles[i].position_1 = vertex_curr;
 		triangles[i].position_2 = vertex_center;
-
 		triangles[i].normal_0 = normal;
 		triangles[i].normal_1 = normal;
 		triangles[i].normal_2 = normal;
-
 		triangles[i].tex_coord_0 = uv_prev;
 		triangles[i].tex_coord_0 = uv_curr;
 		triangles[i].tex_coord_0 = Vector2(0.5f, 0.5f);
-		
-		Vector3 vertices[3] = { vertex_prev, vertex_curr, vertex_center };
-		triangles[i].aabb = AABB::from_points(vertices, 3);
+		triangles[i].calc_aabb();
 		
 		vertex_prev = vertex_curr;
 		uv_prev = uv_curr;
@@ -243,11 +238,6 @@ void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4
 			0.5f + asinf (-triangles[i].normal_2.y)                           * ONE_OVER_PI
 		);
 
-		Vector3 vertices[3] = {
-			triangles[i].position_0,
-			triangles[i].position_1,
-			triangles[i].position_2
-		};
-		triangles[i].aabb = AABB::from_points(vertices, 3);
+		triangles[i].calc_aabb();
 	}
 }

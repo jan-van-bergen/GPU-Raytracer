@@ -111,22 +111,14 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			triangles[triangle_offset + f].tex_coord_0 = tex_coords[0];
 			triangles[triangle_offset + f].tex_coord_1 = tex_coords[1];
 			triangles[triangle_offset + f].tex_coord_2 = tex_coords[2];
+
+			triangles[triangle_offset + f].calc_aabb();
 		}
 
 		triangle_offset += vertex_count / 3;
 	}
 
 	assert(triangle_offset == triangle_count);
-
-	// Calculate AABB for every Triangle
-	for (int i = 0; i < triangle_count; i++) {
-		Vector3 vertices[3] = { 
-			triangles[i].position_0, 
-			triangles[i].position_1, 
-			triangles[i].position_2
-		};
-		triangles[i].aabb = AABB::from_points(vertices, 3);
-	}
 
 	printf("Loaded OBJ %s from disk (%i triangles)\n", filename, triangle_count);
 
