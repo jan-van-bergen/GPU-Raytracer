@@ -174,7 +174,7 @@ struct XMLAttribute {
 };
 
 struct XMLNode {
-	StringView type;
+	StringView tag;
 
 	bool is_question_mark;
 
@@ -205,8 +205,8 @@ struct XMLNode {
 		return find_attribute([name](const XMLAttribute & attribute) { return attribute.name == name; });
 	}
 	
-	const XMLNode * find_child(const char * type) const {
-		return find_child([type](const XMLNode & node) { return node.type == type; });
+	const XMLNode * find_child(const char * tag) const {
+		return find_child([tag](const XMLNode & node) { return node.tag == tag; });
 	}
 	
 	const XMLNode * find_child_by_name(const char * name) const {
@@ -227,10 +227,10 @@ static XMLNode parse_tag(const char *& cur, const char * end) {
 	XMLNode node = { };
 	node.is_question_mark = match(cur, end, '?');
 
-	// Parse node type
-	node.type.start = cur;
+	// Parse node tag
+	node.tag.start = cur;
 	while (cur < end && !is_whitespace(*cur)) cur++;
-	node.type.end = cur;
+	node.tag.end = cur;
 
 	skip_whitespace(cur, end);
 
@@ -276,8 +276,8 @@ static XMLNode parse_tag(const char *& cur, const char * end) {
 
 	int i = 0;
 	while (cur < end && !match(cur, end, '>')) {
-		if (*cur != node.type.start[i++]) {
-			const char * str = node.type.c_str();
+		if (*cur != node.tag.start[i++]) {
+			const char * str = node.tag.c_str();
 			printf("ERROR: Non matching closing tag for '%s'!\n", str);
 			delete [] str;
 			abort();
@@ -315,13 +315,18 @@ static void find_rgb_or_texture(const XMLNode * node, const char * name, const c
 	const XMLNode * reflectance = node->find_child_by_name(name);
 	if (reflectance == nullptr) {
 		rgb = Vector3(1.0f);
-	} else if (reflectance->type == "rgb") {
+	} else if (reflectance->tag == "rgb") {
 		rgb = reflectance->find_attribute("value")->value_as_vector3();
-	} else if (reflectance->type == "texture") {
+	} else if (reflectance->tag == "texture") {
 		const StringView & filename_rel = reflectance->find_child_by_name("filename")->find_attribute("value")->value;
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 		texture = scene.asset_manager.add_texture(filename_abs);
+
+		const XMLNode * scale = reflectance->find_child_by_name("scale");
+		if (scale) {
+			rgb = scale->find_attribute("value")->value_as_vector3();
+		}
 
 		delete [] filename_abs;	
 	} else {
@@ -329,8 +334,8 @@ static void find_rgb_or_texture(const XMLNode * node, const char * name, const c
 	}
 }
 
-static Matrix4 find_transform(const XMLNode * node, const char * name = "toWorld") {
-	const XMLNode * transform = node->find_child_by_name("toWorld");
+static Matrix4 find_transform(const XMLNode * node) {
+	const XMLNode * transform = node->find_child("transform");
 	if (transform) {
 		return transform->find_child("matrix")->find_attribute("value")->value_as_matrix4();
 	} else {
@@ -401,7 +406,7 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 	} else {
 		// Otherwise, parse BSDF
 		const XMLNode * bsdf;
-		if (node->type == "bsdf") {
+		if (node->tag == "bsdf") {
 			bsdf = node;
 		} else {
 			bsdf = node->find_child("bsdf");
@@ -482,12 +487,12 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 }
 
 static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & materials, const char * path) {
-	if (node.type == "bsdf") {
+	if (node.tag == "bsdf") {
 		MaterialHandle   material_id = find_material(&node, scene, materials, path);
 		const Material & material = scene.asset_manager.get_material(material_id);
 
 		materials[material.name] = material_id; 
-	} else if (node.type == "shape") {
+	} else if (node.tag == "shape") {
 		const XMLAttribute * type = node.find_attribute("type");
 		if (type->value == "obj") {
 			const StringView & filename_rel = node.find_child_by_name("filename")->find_attribute("value")->value;
@@ -538,7 +543,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			printf("Shape type '%s' not supported!\n", str);
 			delete [] str;
 		}
-	} else if (node.type == "sensor") {
+	} else if (node.tag == "sensor") {
 		const StringView & camera_type = node.find_attribute("type")->value;
 
 		if (camera_type == "perspective") {
