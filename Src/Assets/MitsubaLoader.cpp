@@ -123,23 +123,31 @@ struct XMLAttribute {
 	StringView name;
 	StringView value;
 
-	int value_as_int() const {
+	int value_as_int(int default_value = 0) const {
+		if (this == nullptr) return default_value;
+
 		const char * cur = value.start;
 		return parse_number<int>(cur, value.end);
 	}
 	
-	float value_as_float() const {
+	float value_as_float(float default_value = 0.0f) const {
+		if (this == nullptr) return default_value;
+
 		const char * cur = value.start;
 		return parse_number<float>(cur, value.end);
 	}
 
-	bool value_as_bool() const {
+	bool value_as_bool(bool default_value = false) const {
+		if (this == nullptr) return default_value;
+
 		if (value == "true")  return true;
 		if (value == "false") return false;
 		abort();
 	}
 
-	Vector3 value_as_vector3() const {
+	Vector3 value_as_vector3(Vector3 default_value = Vector3(0.0f)) const {
+		if (this == nullptr) return default_value;
+
 		const char * cur = value.start;
 
 		int i = 0;
@@ -156,7 +164,9 @@ struct XMLAttribute {
 		return v;
 	}
 
-	Matrix4 value_as_matrix4() const {
+	Matrix4 value_as_matrix4(Matrix4 default_value = Matrix4()) const {
+		if (this == nullptr) return default_value;
+
 		const char * cur = value.start;
 
 		int i = 0;
@@ -217,6 +227,7 @@ struct XMLNode {
 			return attr->value == name;
 		});
 	}
+
 };
 
 static XMLNode parse_tag(const char *& cur, const char * end) {
@@ -323,10 +334,7 @@ static void find_rgb_or_texture(const XMLNode * node, const char * name, const c
 
 		texture = scene.asset_manager.add_texture(filename_abs);
 
-		const XMLNode * scale = reflectance->find_child_by_name("scale");
-		if (scale) {
-			rgb = scale->find_attribute("value")->value_as_vector3();
-		}
+		rgb = reflectance->find_child_by_name("scale")->find_attribute("value")->value_as_vector3(Vector3(1.0f));
 
 		delete [] filename_abs;	
 	} else {
@@ -337,7 +345,42 @@ static void find_rgb_or_texture(const XMLNode * node, const char * name, const c
 static Matrix4 find_transform(const XMLNode * node) {
 	const XMLNode * transform = node->find_child("transform");
 	if (transform) {
-		return transform->find_child("matrix")->find_attribute("value")->value_as_matrix4();
+		const XMLNode * matrix = transform->find_child("matrix");
+		if (matrix) {
+			return matrix->find_attribute("value")->value_as_matrix4();
+		}
+
+		Matrix4 world;
+		
+		const XMLNode * scale = transform->find_child("scale");
+		if (scale) {
+			world = world * Matrix4::create_scale(scale->find_attribute("value")->value_as_float(1.0f));
+		}
+		
+		const XMLNode * rotate = transform->find_child("rotate");
+		if (rotate) {
+			const XMLAttribute * x = rotate->find_attribute("x");
+			const XMLAttribute * y = rotate->find_attribute("y");
+			const XMLAttribute * z = rotate->find_attribute("z");
+
+			if (x == nullptr && y == nullptr && z == nullptr) abort();
+
+			world = world * Matrix4::create_rotation(Quaternion::axis_angle(
+				Vector3(x->value_as_float(), y->value_as_float(), z->value_as_float()),
+				Math::deg_to_rad(rotate->find_attribute("angle")->value_as_float())
+			));
+		}
+
+		const XMLNode * translate = transform->find_child("translate");
+		if (translate) {
+			world = world * Matrix4::create_translation(Vector3(
+				translate->find_attribute("x")->value_as_float(),
+				translate->find_attribute("y")->value_as_float(),
+				translate->find_attribute("z")->value_as_float()
+			));
+		}
+
+		return world;
 	} else {
 		return Matrix4();
 	}
@@ -363,18 +406,6 @@ static void decompose_matrix(const Matrix4 & matrix, Vector3 * position, Quatern
 			*scale = cbrt(scale_x * scale_y * scale_y);
 		}
 	}
-}
-
-static float find_optional_float(const XMLNode * node, const char * name, float default_value) {
-	const XMLNode * child = node->find_child_by_name(name);
-	if (child) {
-		const XMLAttribute * attribute = child->find_attribute("value");
-		if (attribute) {
-			return attribute->value_as_float();
-		}
-	}
-
-	return default_value;
 }
 
 static MaterialHandle find_material(const XMLNode * node, Scene & scene, MaterialMap & materials, const char * path) {
@@ -447,21 +478,21 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 				find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
 				material.linear_roughness    = 0.0f;
-				material.index_of_refraction = find_optional_float(bsdf, "eta", 1.0f);
+				material.index_of_refraction = bsdf->find_attribute("eta")->value_as_float(1.0f);
 			} else if (inner_bsdf_type->value == "roughconductor") {
 				material.type = Material::Type::GLOSSY;
 
 				find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
-				material.linear_roughness    = find_optional_float(bsdf, "alpha", 0.5f);
-				material.index_of_refraction = find_optional_float(bsdf, "eta",   1.0f);
+				material.linear_roughness    = bsdf->find_attribute("alpha")->value_as_float(0.5f);
+				material.index_of_refraction = bsdf->find_attribute("eta")  ->value_as_float(1.0f);
 			} else if (inner_bsdf_type->value == "roughplastic") {
 				material.type = Material::Type::GLOSSY;
 				
 				find_rgb_or_texture(inner_bsdf, "diffuseReflectance", path, scene, material.diffuse, material.texture_id);
 
-				material.linear_roughness    = find_optional_float(bsdf, "alpha" , 0.5f);
-				material.index_of_refraction = find_optional_float(bsdf, "intIOR", 1.0f);
+				material.linear_roughness    = bsdf->find_attribute("alpha") ->value_as_float(0.5f);
+				material.index_of_refraction = bsdf->find_attribute("intIOR")->value_as_float(1.0f);
 				
 				const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
 				if (nonlinear && nonlinear->find_attribute("value")->value_as_bool()) {
@@ -475,7 +506,7 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 		} else if (type->value == "thindielectric" || type->value == "dielectric") {
 			material.type = Material::Type::DIELECTRIC;
 			material.transmittance = Vector3(1.0f);
-			material.index_of_refraction = find_optional_float(bsdf, "intIOR", 1.0f);
+			material.index_of_refraction = bsdf->find_attribute("intIOR")->value_as_float(1.0f);
 		} else {
 			const char * str = type->value.c_str();
 			printf("Material type '%s' not supported!\n", str);
@@ -519,7 +550,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			} else if (type->value == "disk") {
 				Geometry::disk(triangles, triangle_count, world);
 			} else if (type->value == "sphere") {
-				float radius = find_optional_float(&node, "radius", 1.0f);
+				float radius = node.find_attribute("radius")->value_as_float(1.0f);
 
 				const XMLNode * xml_center = node.find_child_by_name("center");
 				Vector3 center = Vector3(
@@ -547,7 +578,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 		const StringView & camera_type = node.find_attribute("type")->value;
 
 		if (camera_type == "perspective") {
-			float fov = node.find_child_by_name("fov")->find_attribute("value")->value_as_float();
+			float fov = node.find_attribute("fov")->value_as_float(110.0f);
 			scene.camera.set_fov(Math::deg_to_rad(fov));
 
 			Matrix4 world = find_transform(&node);
