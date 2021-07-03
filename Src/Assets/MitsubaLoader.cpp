@@ -358,6 +358,17 @@ static Matrix4 find_transform(const XMLNode * node) {
 		if (matrix) {
 			return matrix->find_attribute("value")->get_value<Matrix4>();
 		}
+		
+		const XMLNode * lookat = transform->find_child("lookat");
+		if (lookat) {
+			Vector3 origin = lookat->get_optional_attribute("origin", Vector3(0.0f, 0.0f,  0.0f));
+			Vector3 target = lookat->get_optional_attribute("target", Vector3(0.0f, 0.0f, -1.0f));
+			Vector3 up     = lookat->get_optional_attribute("up",     Vector3(0.0f, 1.0f,  0.0f));
+
+			Vector3 forward = Vector3::normalize(target - origin);
+
+			return Matrix4::create_translation(origin) * Matrix4::create_rotation(Quaternion::look_rotation(forward, up));
+		}
 
 		Matrix4 world;
 		
