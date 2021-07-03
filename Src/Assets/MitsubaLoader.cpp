@@ -374,7 +374,7 @@ static Matrix4 find_transform(const XMLNode * node) {
 		
 		const XMLNode * scale = transform->find_child("scale");
 		if (scale) {
-			world = world * Matrix4::create_scale(scale->get_optional_attribute("value", 1.0f));
+			world = Matrix4::create_scale(scale->get_optional_attribute("value", 1.0f)) * world;
 		}
 		
 		const XMLNode * rotate = transform->find_child("rotate");
@@ -387,17 +387,17 @@ static Matrix4 find_transform(const XMLNode * node) {
 				printf("WARNING: Rotation without axis specified!\n");
 			} else {
 				float angle = rotate->get_optional_attribute("angle", 0.0f);
-				world = world * Matrix4::create_rotation(Quaternion::axis_angle(Vector3(x, y, z), Math::deg_to_rad(angle)));
+				world = Matrix4::create_rotation(Quaternion::axis_angle(Vector3(x, y, z), Math::deg_to_rad(angle))) * world;
 			}
 		}
 
 		const XMLNode * translate = transform->find_child("translate");
 		if (translate) {
-			world = world * Matrix4::create_translation(Vector3(
+			world = Matrix4::create_translation(Vector3(
 				translate->get_optional_attribute("x", 0.0f),
 				translate->get_optional_attribute("y", 0.0f),
 				translate->get_optional_attribute("z", 0.0f)
-			));
+			)) * world;
 		}
 
 		return world;
