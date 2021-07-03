@@ -833,13 +833,13 @@ void Pathtracer::update(float delta) {
 						log2f(material.transmittance.y), 
 						log2f(material.transmittance.z)
 					);
-					cuda_materials[i].dielectric.index_of_refraction = material.index_of_refraction;
+					cuda_materials[i].dielectric.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
 					break;
 				}
 				case Material::Type::GLOSSY: {
 					cuda_materials[i].glossy.diffuse             = material.diffuse;
 					cuda_materials[i].glossy.texture_id          = material.texture_id.handle;
-					cuda_materials[i].glossy.index_of_refraction = material.index_of_refraction;
+					cuda_materials[i].glossy.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
 					cuda_materials[i].glossy.roughness           = material.linear_roughness * material.linear_roughness;
 					break;
 				}
