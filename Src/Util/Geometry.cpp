@@ -6,7 +6,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	Vector3 vertex_2 = Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, 0.0f));
 	Vector3 vertex_3 = Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, 0.0f));
 
-	Vector3 normal = Matrix4::transform_direction(transform, Vector3(0.0f, 0.0f, 1.0f));
+	Vector3 normal = Vector3::normalize(Matrix4::transform_direction(transform, Vector3(0.0f, 0.0f, 1.0f)));
 
 	Vector2 tex_coord_0 = Vector2(0.0f, 0.0f);
 	Vector2 tex_coord_1 = Vector2(1.0f, 0.0f);
@@ -54,12 +54,12 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, +1.0f))
 	};
 	Vector3 cube_normals[6] = {
-		Matrix4::transform_direction(transform, Vector3( 0.0f, -1.0f,  0.0f)),
-		Matrix4::transform_direction(transform, Vector3( 0.0f,  0.0f, +1.0f)),
-		Matrix4::transform_direction(transform, Vector3(+1.0f,  0.0f,  0.0f)),
-		Matrix4::transform_direction(transform, Vector3( 0.0f,  0.0f, -1.0f)),
-		Matrix4::transform_direction(transform, Vector3(-1.0f,  0.0f,  0.0f)),
-		Matrix4::transform_direction(transform, Vector3( 0.0f, +1.0f,  0.0f))
+		Vector3::normalize(Matrix4::transform_direction(transform, Vector3( 0.0f, -1.0f,  0.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform, Vector3( 0.0f,  0.0f, +1.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform, Vector3(+1.0f,  0.0f,  0.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform, Vector3( 0.0f,  0.0f, -1.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform, Vector3(-1.0f,  0.0f,  0.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform, Vector3( 0.0f, +1.0f,  0.0f)))
 	};
 	Vector2 cube_tex_coords[4] = {
 		Vector2(0.0f, 0.0f),
@@ -116,7 +116,7 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 	Vector3 vertex_center = Matrix4::transform_position(transform, Vector3(0.0f, 0.0f, 0.0f));
 	Vector3 vertex_prev   = Matrix4::transform_position(transform, Vector3(1.0f, 0.0f, 0.0f));
 	
-	Vector3 normal = Matrix4::transform_direction(transform, Vector3(0.0f, 0.0f, 1.0f));
+	Vector3 normal = Vector3::normalize(Matrix4::transform_direction(transform, Vector3(0.0f, 0.0f, 1.0f)));
 
 	Vector2 uv_prev = Vector2(1.0f, 0.5f);
 
