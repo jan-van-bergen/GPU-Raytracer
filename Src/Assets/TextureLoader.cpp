@@ -277,7 +277,7 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 		if (h > 1) h /= 2;
 	}
 #else
-	int pixel_count = width * height;
+	int pixel_count = texture.width * texture.height;
 #endif
 
 	Vector4 * data_rgba = new Vector4[pixel_count];
