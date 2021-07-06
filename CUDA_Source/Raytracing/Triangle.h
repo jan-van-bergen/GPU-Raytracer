@@ -113,7 +113,7 @@ __device__ inline float triangle_get_lod(
 		tex_coord_edge_2.x * tex_coord_edge_1.y
 	); 
 
-	return sqrtf(t_a * triangle_area_inv / (mesh_scale * mesh_scale));
+	return t_a * triangle_area_inv / (mesh_scale * mesh_scale);
 }
 
 __device__ inline float triangle_get_curvature(
