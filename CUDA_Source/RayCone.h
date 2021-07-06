@@ -45,5 +45,5 @@ __device__ inline void ray_cone_get_texture_gradients(
 }
 
 __device__ inline float ray_cone_get_lod(const float3 & ray_direction, const float3 & geometric_normal, float cone_width) {
-	return cone_width / fabsf(dot(ray_direction, geometric_normal));
+	return fabsf(cone_width / dot(ray_direction, geometric_normal));
 }

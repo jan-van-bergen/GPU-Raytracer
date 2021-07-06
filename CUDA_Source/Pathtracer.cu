@@ -409,7 +409,15 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	float2 hit_tex_coord;
 	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
-	float3 hit_point_prev = hit_point;
+	float3 hit_point_local = hit_point; // Keep copy of the untransformed hit point in local space
+
+	// Transform into world space
+	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+	matrix3x4_transform_position (world, hit_point);
+	matrix3x4_transform_direction(world, hit_normal);
+
+	hit_normal = normalize(hit_normal);
+	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float3 albedo;
 
@@ -448,21 +456,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 		float2 tex_size = texture_get_size(material.texture_id);
 
-		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
-		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float lod_triangle = sqrtf(tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2));
+		float lod_ray_cone = ray_cone_get_lod(ray_direction, hit_normal, cone_width);
 		float lod = log2f(lod_triangle * lod_ray_cone);
 
 		// Trilinear sampling
 		albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
-
-	// Transform into world space
-	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
-	matrix3x4_transform_position (world, hit_point);
-	matrix3x4_transform_direction(world, hit_normal);
-
-	hit_normal = normalize(hit_normal);
-	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float curvature = triangle_get_curvature(
 		hit_triangle.position_edge_1,
@@ -471,16 +471,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		hit_triangle.normal_edge_2
 	) / mesh_scale;
 
-	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
+	cone_angle += -2.0f * curvature * fabsf(cone_width / dot(hit_normal, ray_direction)); // Eq. 5 (Akenine-Möller 2021)
 #else
-	// Transform into world space
-	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
-	matrix3x4_transform_position (world, hit_point);
-	matrix3x4_transform_direction(world, hit_normal);
-
-	hit_normal = normalize(hit_normal);
-	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
-
 	albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
 #endif
 
@@ -493,6 +485,8 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 	if (bounce == 0 && settings.enable_svgf) {
+		float3 hit_point_prev = hit_point_local;
+
 		Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 		matrix3x4_transform_position(world_prev, hit_point_prev);
 
@@ -682,7 +676,15 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float2 hit_tex_coord;
 	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
 
-	float3 hit_point_prev = hit_point;
+	float3 hit_point_local = hit_point; // Keep copy of the untransformed hit point in local space
+
+	// Transform into world space
+	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+	matrix3x4_transform_position (world, hit_point);
+	matrix3x4_transform_direction(world, hit_normal);
+
+	hit_normal = normalize(hit_normal);
+	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float3 albedo;
 
@@ -707,7 +709,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 			triangle_area_inv,
 			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
 			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
-			hit_point, hit_tex_coord,
+			hit_point_local, hit_tex_coord,
 			ellipse_axis_1, ellipse_axis_2,
 			gradient_1, gradient_2
 		);
@@ -721,20 +723,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 		float2 tex_size = texture_get_size(material.texture_id);
 
-		float lod_triangle = tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
-		float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+		float lod_triangle = sqrtf(tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2));
+		float lod_ray_cone = ray_cone_get_lod(ray_direction, hit_normal, cone_width);
 		float lod = log2f(lod_triangle * lod_ray_cone);
 
 		albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y, lod);
 	}
-
-	// Transform into world space
-	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
-	matrix3x4_transform_position (world, hit_point);
-	matrix3x4_transform_direction(world, hit_normal);
-
-	hit_normal = normalize(hit_normal);
-	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	float curvature = triangle_get_curvature(
 		hit_triangle.position_edge_1,
@@ -743,20 +737,12 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		hit_triangle.normal_edge_2
 	) / mesh_scale;
 
-	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
+	cone_angle += -2.0f * curvature * fabsf(cone_width / dot(hit_normal, ray_direction)); // Eq. 5 (Akenine-Möller 2021)
 
 	// Increase angle to account for roughness
 //	float sigma_squared = 0.5f * (alpha * alpha / (1.0f - alpha * alpha)); // See Appendix A. of Akenine-Möller 2021
 //	cone_angle += bounce == 0 ? 0.25f * sigma_squared : sigma_squared;
 #else
-	// Transform into world space
-	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
-	matrix3x4_transform_position (world, hit_point);
-	matrix3x4_transform_direction(world, hit_normal);
-
-	hit_normal = normalize(hit_normal);
-	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
-
 	albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
 #endif
 
@@ -769,6 +755,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	}
 	
 	if (bounce == 0 && settings.enable_svgf) {
+		float3 hit_point_prev = hit_point_local;
+
 		Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 		matrix3x4_transform_position(world_prev, hit_point_prev);
 
