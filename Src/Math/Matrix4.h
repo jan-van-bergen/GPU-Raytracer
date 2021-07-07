@@ -142,6 +142,36 @@ struct alignas(16) Matrix4 {
 		return result;
 	}
 
+	// Based on: https://github.com/graphitemaster/normals_revisited
+	inline static float minor(const Matrix4 & matrix, int r0, int r1, int r2, int c0, int c1, int c2) {
+	  return 
+			matrix(r0, c0) * (matrix(r1, c1) * matrix(r2, c2) - matrix(r2, c1) * matrix(r1, c2)) -
+			matrix(r0, c1) * (matrix(r1, c0) * matrix(r2, c2) - matrix(r2, c0) * matrix(r1, c2)) +
+			matrix(r0, c2) * (matrix(r1, c0) * matrix(r2, c1) - matrix(r2, c0) * matrix(r1, c1));
+	}
+
+	// Based on: https://github.com/graphitemaster/normals_revisited
+	inline static Matrix4 cofactor(const Matrix4 & matrix) {
+		Matrix4 result;
+		result(0, 0) =  minor(matrix, 1, 2, 3, 1, 2, 3);
+		result(0, 1) = -minor(matrix, 1, 2, 3, 0, 2, 3);
+		result(0, 2) =  minor(matrix, 1, 2, 3, 0, 1, 3);
+		result(0, 3) = -minor(matrix, 1, 2, 3, 0, 1, 2);
+		result(1, 0) = -minor(matrix, 0, 2, 3, 1, 2, 3);
+		result(1, 1) =  minor(matrix, 0, 2, 3, 0, 2, 3);
+		result(1, 2) = -minor(matrix, 0, 2, 3, 0, 1, 3);
+		result(1, 3) =  minor(matrix, 0, 2, 3, 0, 1, 2);
+		result(2, 0) =  minor(matrix, 0, 1, 3, 1, 2, 3);
+		result(2, 1) = -minor(matrix, 0, 1, 3, 0, 2, 3);
+		result(2, 2) =  minor(matrix, 0, 1, 3, 0, 1, 3);
+		result(2, 3) = -minor(matrix, 0, 1, 3, 0, 1, 2);
+		result(3, 0) = -minor(matrix, 0, 1, 2, 1, 2, 3);
+		result(3, 1) =  minor(matrix, 0, 1, 2, 0, 2, 3);
+		result(3, 2) = -minor(matrix, 0, 1, 2, 0, 1, 3);
+		result(3, 3) =  minor(matrix, 0, 1, 2, 0, 1, 2);
+		return result;
+	}
+
 	// Component-wise absolute value
 	inline static Matrix4 abs(const Matrix4 & matrix) {
 		Matrix4 result;
