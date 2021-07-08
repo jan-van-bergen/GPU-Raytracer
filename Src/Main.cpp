@@ -286,7 +286,7 @@ int main(int argument_count, char ** arguments) {
 		}
 		ImGui::End();
 
-		if (ImGui::Begin("Selected")) {
+		if (ImGui::Begin("Scene")) {
 			if (Input::is_mouse_released(Input::MouseButton::RIGHT)) {
 				// Deselect current object
 				pathtracer.pixel_query.pixel_index = INVALID;
@@ -294,6 +294,24 @@ int main(int argument_count, char ** arguments) {
 				pathtracer.pixel_query.triangle_id = INVALID;
 				pathtracer.pixel_query.material_id = INVALID;
 			}
+
+			ImGui::BeginChild("Instances", ImVec2(0, 200), true);
+
+			for (int m = 0; m < pathtracer.scene.meshes.size(); m++) {
+				const Mesh & mesh = pathtracer.scene.meshes[m];
+
+				bool is_selected = pathtracer.pixel_query.mesh_id == m;
+
+				ImGui::PushID(m);
+				if (ImGui::Selectable(mesh.name, &is_selected)) {
+					pathtracer.pixel_query.mesh_id     = m;
+					pathtracer.pixel_query.triangle_id = pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id.handle];
+					pathtracer.pixel_query.material_id = mesh.material_id.handle;
+				}
+				ImGui::PopID();
+			}
+
+			ImGui::EndChild();
 
 			if (pathtracer.pixel_query.mesh_id != INVALID) {
 				Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];

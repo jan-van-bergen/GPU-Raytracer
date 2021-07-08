@@ -553,7 +553,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(filename_abs);
 
 			Mesh & mesh = scene.meshes.emplace_back();
-			mesh.init(filename_abs, mesh_data_id, scene);
+			mesh.init(filename_rel.c_str(), mesh_data_id, scene);
 			mesh.material_id = find_material(&node, scene, materials, path);
 
 			Matrix4 world = find_transform(&node);			
