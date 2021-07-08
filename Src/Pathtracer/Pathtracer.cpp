@@ -794,10 +794,10 @@ void Pathtracer::build_tlas() {
 	
 	if (scene.has_lights) {
 		CUDAMemory::memcpy(ptr_light_mesh_transform_indices, pinned_light_mesh_transform_indices, light_mesh_count);
-		CUDAMemory::memcpy(ptr_light_mesh_power_scaled,       pinned_light_mesh_area_scaled,       light_mesh_count);
+		CUDAMemory::memcpy(ptr_light_mesh_power_scaled,      pinned_light_mesh_area_scaled,       light_mesh_count);
 	}
 
-	global_lights_total_power.set_value(lights_total_power);
+	global_lights_total_power.set_value(0.999f * lights_total_power);
 }
 
 void Pathtracer::update(float delta) {

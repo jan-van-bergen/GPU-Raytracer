@@ -136,26 +136,12 @@ __device__ int random_point_on_random_light(int x, int y, int sample_index, int 
 	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
 	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
 
-	int index_left  = triangle_first_index;
-	int index_right = triangle_first_index + triangle_count - 1;
+	int index_first = triangle_first_index;
+	int index_last  = triangle_first_index + triangle_count - 1;
 
 	random_value = random_float_heitz(x, y, sample_index, bounce, 5, seed) * light_mesh_power_unscaled[light_mesh_id];
 
-	// Binary search
-	int light_triangle_id;
-	while (true) {
-		int index_middle = (index_left + index_right) / 2;
-
-		if (index_middle > triangle_first_index && random_value <= light_power_cumulative[index_middle - 1]) {
-			index_right = index_middle - 1;
-		} else if (random_value > light_power_cumulative[index_middle]) {
-			index_left = index_middle + 1;
-		} else {
-			light_triangle_id = light_indices[index_middle];
-
-			break;
-		}
-	}
+	int light_triangle_id = light_indices[binary_search(light_power_cumulative, index_first, index_last, random_value)];
 
 	// Pick a random point on the triangle using random barycentric coordinates
 	u = random_float_heitz(x, y, sample_index, bounce, 6, seed);
