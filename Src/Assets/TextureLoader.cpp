@@ -242,8 +242,8 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 		level_height /= 2;
 	}
 	
-	data = data;
-	mip_offsets = mip_offsets;
+	texture.data = data;
+	texture.mip_offsets = mip_offsets;
 
 	success = true;
 
