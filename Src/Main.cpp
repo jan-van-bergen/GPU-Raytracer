@@ -79,7 +79,7 @@ int main(int argument_count, char ** arguments) {
 	int frames_this_second = 0;
 	int fps = 0;
 
-	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/Sponza/scene.xml";
+	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/sponza/scene.xml";
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 	
 	{
@@ -252,8 +252,8 @@ int main(int argument_count, char ** arguments) {
 					pathtracer.scene.camera.set_fov(Math::deg_to_rad(fov));
 					pathtracer.invalidated_camera = true;
 				}
-
-				pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius,       0.0f,    1.0f);
+				
+				pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius, 0.0f, 1.0f);
 				pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
 				invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
@@ -287,7 +287,12 @@ int main(int argument_count, char ** arguments) {
 		ImGui::End();
 
 		if (ImGui::Begin("Scene")) {
-			if (Input::is_mouse_released(Input::MouseButton::RIGHT)) {
+			ImGui::Text("Has Diffuse:    %s", pathtracer.scene.has_diffuse    ? "True" : "False");
+			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
+			ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
+			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
+
+			if (ImGui::IsMouseClicked(1)) {
 				// Deselect current object
 				pathtracer.pixel_query.pixel_index = INVALID;
 				pathtracer.pixel_query.mesh_id     = INVALID;
@@ -305,7 +310,7 @@ int main(int argument_count, char ** arguments) {
 				ImGui::PushID(m);
 				if (ImGui::Selectable(mesh.name, &is_selected)) {
 					pathtracer.pixel_query.mesh_id     = m;
-					pathtracer.pixel_query.triangle_id = pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id.handle];
+					pathtracer.pixel_query.triangle_id = INVALID;
 					pathtracer.pixel_query.material_id = mesh.material_id.handle;
 				}
 				ImGui::PopID();
@@ -394,7 +399,7 @@ int main(int argument_count, char ** arguments) {
 				if (pathtracer.pixel_query.triangle_id != INVALID) {
 					const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_id);
 
-					int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id.handle]];
+					int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id.handle]]; 
 					const Triangle & triangle = mesh_data.triangles[index];
 
 					ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
@@ -475,7 +480,7 @@ int main(int argument_count, char ** arguments) {
 		}
 		ImGui::End();
 		
-		if (!ImGui::GetIO().WantCaptureMouse && Input::is_mouse_released()) {
+		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
 			int mouse_x, mouse_y;			
 			Input::mouse_position(&mouse_x, &mouse_y);
 

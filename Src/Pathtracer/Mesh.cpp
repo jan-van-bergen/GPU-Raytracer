@@ -32,3 +32,16 @@ void Mesh::update() {
 	aabb.fix_if_needed();
 	assert(aabb.is_valid());
 }
+
+bool Mesh::has_identity_transform() const {
+	constexpr float epsilon = 1e-6f;
+	return 
+		Math::approx_equal(scale, 1.0f, epsilon) &&
+		Math::approx_equal(position.x, 0.0f, epsilon) &&
+		Math::approx_equal(position.y, 0.0f, epsilon) &&
+		Math::approx_equal(position.z, 0.0f, epsilon) &&
+		Math::approx_equal(rotation.x, 0.0f, epsilon) &&
+		Math::approx_equal(rotation.y, 0.0f, epsilon) &&
+		Math::approx_equal(rotation.z, 0.0f, epsilon) &&
+		(Math::approx_equal(rotation.w, 1.0f, epsilon) || Math::approx_equal(rotation.w, -1.0f, epsilon)); // Due to double cover rotation may be (0,0,0,1) or (0,0,0,-1)
+}

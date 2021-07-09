@@ -28,7 +28,7 @@ __device__ __constant__ int * mesh_bvh_root_indices;
 __device__ __constant__ int * mesh_material_ids;
 
 __device__ inline int mesh_get_material_id(int index) {
-	return mesh_material_ids[index]; //	return __ldg(&mesh_material_ids[index]);
+	return mesh_material_ids[index]; // return __ldg(&mesh_material_ids[index]);
 }
 
 __device__ __constant__ Matrix3x4 * mesh_transforms;

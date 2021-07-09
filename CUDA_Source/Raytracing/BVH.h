@@ -702,8 +702,9 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	
 	RayHit ray_hit;
 
-	int tlas_stack_size;
-	int mesh_id;
+	int  tlas_stack_size;
+	int  mesh_id;
+	bool mesh_has_identity_transform;
 
 	while (true) {
 		bool inactive = stack_size == 0 && current_group.y == 0;
@@ -788,20 +789,6 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 
 					mesh_id = triangle_group.x + mesh_offset;
 
-					Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
-					matrix3x4_transform_position (transform_inv, ray.origin);
-					matrix3x4_transform_direction(transform_inv, ray.direction);
-
-					ray.calc_direction_inv();
-
-					// Ray octant, encoded in 3 bits
-					unsigned oct = 
-						(ray.direction.x < 0.0f ? 0b100 : 0) |
-						(ray.direction.y < 0.0f ? 0b010 : 0) |
-						(ray.direction.z < 0.0f ? 0b001 : 0);
-
-					oct_inv4 = (7 - oct) * 0x01010101;
-
 					if (triangle_group.y != 0) {
 						stack_push(shared_stack, stack, stack_size, triangle_group);
 					}
@@ -812,6 +799,27 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 					tlas_stack_size = stack_size;
 
 					int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
+					
+					mesh_has_identity_transform = root_index >> 31; // MSB stores whether the Mesh has an identity transform
+					root_index &= 0x7fffffff;
+
+					// Optimization: if the Mesh has an identity transform, don't bother loading and transforming
+					if (!mesh_has_identity_transform) {
+						Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+						matrix3x4_transform_position (transform_inv, ray.origin);
+						matrix3x4_transform_direction(transform_inv, ray.direction);
+
+						ray.calc_direction_inv();
+
+						// Ray octant, encoded in 3 bits
+						unsigned oct = 
+							(ray.direction.x < 0.0f ? 0b100 : 0) |
+							(ray.direction.y < 0.0f ? 0b010 : 0) |
+							(ray.direction.z < 0.0f ? 0b001 : 0);
+
+						oct_inv4 = (7 - oct) * 0x01010101;
+					}
+
 					current_group = make_uint2(root_index, 0x80000000);
 
 					break;
@@ -843,18 +851,20 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				if (stack_size == tlas_stack_size) {
 					tlas_stack_size = INVALID;
 
-					// Reset Ray to untransformed version
-					ray.origin    = ray_buffer_trace.origin   .get(ray_index);
-					ray.direction = ray_buffer_trace.direction.get(ray_index);
-					ray.calc_direction_inv();
+					if (!mesh_has_identity_transform) {
+						// Reset Ray to untransformed version
+						ray.origin    = ray_buffer_trace.origin   .get(ray_index);
+						ray.direction = ray_buffer_trace.direction.get(ray_index);
+						ray.calc_direction_inv();
 
-					// Ray octant, encoded in 3 bits
-					unsigned oct = 
-						(ray.direction.x < 0.0f ? 0b100 : 0) |
-						(ray.direction.y < 0.0f ? 0b010 : 0) |
-						(ray.direction.z < 0.0f ? 0b001 : 0);
+						// Ray octant, encoded in 3 bits
+						unsigned oct = 
+							(ray.direction.x < 0.0f ? 0b100 : 0) |
+							(ray.direction.y < 0.0f ? 0b010 : 0) |
+							(ray.direction.z < 0.0f ? 0b001 : 0);
 
-					oct_inv4 = (7 - oct) * 0x01010101;
+						oct_inv4 = (7 - oct) * 0x01010101;
+					}
 				}
 
 				current_group = stack_pop(shared_stack, stack, stack_size);
@@ -880,8 +890,9 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 	float max_distance;
 
-	int tlas_stack_size;
-	int mesh_id;
+	int  tlas_stack_size;
+	int  mesh_id;
+	bool mesh_has_identity_transform;
 
 	while (true) {
 		bool inactive = stack_size == 0 && current_group.y == 0;
@@ -967,20 +978,6 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 					mesh_id = triangle_group.x + mesh_offset;
 
-					Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
-					matrix3x4_transform_position (transform_inv, ray.origin);
-					matrix3x4_transform_direction(transform_inv, ray.direction);
-
-					ray.calc_direction_inv();
-
-					// Ray octant, encoded in 3 bits
-					unsigned oct = 
-						(ray.direction.x < 0.0f ? 0b100 : 0) |
-						(ray.direction.y < 0.0f ? 0b010 : 0) |
-						(ray.direction.z < 0.0f ? 0b001 : 0);
-
-					oct_inv4 = (7 - oct) * 0x01010101;
-
 					if (triangle_group.y != 0) {
 						stack_push(shared_stack, stack, stack_size, triangle_group);
 					}
@@ -991,6 +988,27 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 					tlas_stack_size = stack_size;
 
 					int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
+					
+					mesh_has_identity_transform = root_index >> 31; // MSB stores whether the Mesh has an identity transform
+					root_index &= 0x7fffffff;
+
+					// Optimization: if the Mesh has an identity transform, don't bother loading and transforming
+					if (!mesh_has_identity_transform) {
+						Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
+						matrix3x4_transform_position (transform_inv, ray.origin);
+						matrix3x4_transform_direction(transform_inv, ray.direction);
+
+						ray.calc_direction_inv();
+
+						// Ray octant, encoded in 3 bits
+						unsigned oct = 
+							(ray.direction.x < 0.0f ? 0b100 : 0) |
+							(ray.direction.y < 0.0f ? 0b010 : 0) |
+							(ray.direction.z < 0.0f ? 0b001 : 0);
+
+						oct_inv4 = (7 - oct) * 0x01010101;
+					}
+
 					current_group = make_uint2(root_index, 0x80000000);
 
 					break;
@@ -1042,18 +1060,20 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				if (stack_size == tlas_stack_size) {
 					tlas_stack_size = INVALID;
 
-					// Reset Ray to untransformed version
-					ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
-					ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
-					ray.calc_direction_inv();
+					if (!mesh_has_identity_transform) {
+						// Reset Ray to untransformed version
+						ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
+						ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
+						ray.calc_direction_inv();
 
-					// Ray octant, encoded in 3 bits
-					unsigned oct = 
-						(ray.direction.x < 0.0f ? 0b100 : 0) |
-						(ray.direction.y < 0.0f ? 0b010 : 0) |
-						(ray.direction.z < 0.0f ? 0b001 : 0);
+						// Ray octant, encoded in 3 bits
+						unsigned oct = 
+							(ray.direction.x < 0.0f ? 0b100 : 0) |
+							(ray.direction.y < 0.0f ? 0b010 : 0) |
+							(ray.direction.z < 0.0f ? 0b001 : 0);
 
-					oct_inv4 = (7 - oct) * 0x01010101;
+						oct_inv4 = (7 - oct) * 0x01010101;
+					}
 				}
 
 				current_group = stack_pop(shared_stack, stack, stack_size);

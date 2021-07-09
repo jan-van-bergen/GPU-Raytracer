@@ -763,7 +763,7 @@ void Pathtracer::build_tlas() {
 	for (int i = 0; i < scene.meshes.size(); i++) {
 		const Mesh & mesh = scene.meshes[tlas.indices[i]];
 
-		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_id.handle];
+		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_id.handle] | (mesh.has_identity_transform() << 31);
 
 		assert(mesh.material_id.handle != INVALID);
 		pinned_mesh_material_ids[i] = mesh.material_id.handle;
