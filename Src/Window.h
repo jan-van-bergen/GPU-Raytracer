@@ -21,8 +21,8 @@ public:
 
 	bool is_closed = false;
 
-	Window(const char * title);
-	~Window();
+	void init(const char * title);
+	void free();
 
 	void render_framebuffer() const;
 
