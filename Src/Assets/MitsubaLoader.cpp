@@ -22,37 +22,75 @@ static bool is_whitespace(char c) {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
-static void skip_whitespace(const char *& cur, const char * end) {
-	while (cur < end && is_whitespace(*cur)) cur++;
-}
+#define PARSER_ERROR(line, col, msg, ...) \
+	printf("Mitsuba XML Parsing error at %i:%i:\n" msg, line, col, __VA_ARGS__); \
+	abort();
 
-static bool match(const char *& cur, const char * end, char target) {
-	if (cur < end && *cur == target) {
+struct ParserState {
+	const char * cur;
+	const char * end;
+
+	int line;
+	int col;
+
+	void init(const char * cur, const char * end) {
+		this->cur = cur;
+		this->end = end;
+		line = 1;
+		col  = 0;
+	}
+
+	bool reached_end() const {
+		return cur >= end;
+	}
+
+	void advance() {
+		if (*cur == '\n') {
+			line++;
+			col = 0;
+		} else {
+			col++;
+		}
+
 		cur++;
-		return true;
 	}
 
-	return false;
-}
-
-static void expect(const char *& cur, const char * end, char expected) {
-	if (cur >= end || *cur != expected) {
-		if (cur < end) printf("Unexpected char '%c', expected '%c'!\n", *cur, expected);
-		abort();
+	void skip_whitespace() {
+		while (cur < end && is_whitespace(*cur)) advance();
 	}
-	cur++;
-}
 
-template<typename T>
-static float parse_number(const char *& cur, const char * end) {
-	float T; 
-	std::from_chars_result result = std::from_chars(cur, end, T);
+	bool match(char target) {
+		if (cur < end && *cur == target) {
+			advance();
+			return true;
+		}
 
-	if ((bool)result.ec) abort();
+		return false;
+	}
 
-	cur = result.ptr;
-	return T;
-}
+	void expect(char expected) {
+		if (reached_end()) {
+			PARSER_ERROR(line, col, "End of File!\n");
+		}
+		if (*cur != expected) {
+			PARSER_ERROR(line, col, "Unexpected char '%c', expected '%c'!\n", *cur, expected)
+		}
+		advance();
+	}
+
+	template<typename T>
+	T parse_number() {
+		T number; 
+		std::from_chars_result result = std::from_chars(cur, end, number);
+
+		if ((bool)result.ec) {
+			PARSER_ERROR(line, col, "Failed to parse number!\n");
+		}
+
+		cur = result.ptr;
+		return number;
+	}
+};
 
 struct StringView {
 	const char * start;
@@ -127,14 +165,16 @@ struct XMLAttribute {
 
 	template<>
 	int get_value() const {
-		const char * cur = value.start;
-		return parse_number<int>(cur, value.end);
+		ParserState parser = { };
+		parser.init(value.start, value.end);
+		return parser.parse_number<int>();
 	}
 	
 	template<>
 	float get_value() const {
-		const char * cur = value.start;
-		return parse_number<float>(cur, value.end);
+		ParserState parser = { };
+		parser.init(value.start, value.end);
+		return parser.parse_number<float>();
 	}
 	
 	template<>
@@ -146,17 +186,18 @@ struct XMLAttribute {
 
 	template<>
 	Vector3 get_value() const {
-		const char * cur = value.start;
+		ParserState parser = { };
+		parser.init(value.start, value.end);
 
 		int i = 0;
 		Vector3 v;
 		while (true) {
-			v[i] = parse_number<float>(cur, value.end);
+			v[i] = parser.parse_number<float>();
 
 			if (i++ == 2) break;
 			
-			expect(cur, value.end, ',');
-			match(cur, value.end, ' '); // optional
+			parser.expect(',');
+			parser.match(' '); // optional
 		}
 
 		return v;
@@ -164,16 +205,17 @@ struct XMLAttribute {
 
 	template<>
 	Matrix4 get_value() const {
-		const char * cur = value.start;
+		ParserState parser = { };
+		parser.init(value.start, value.end);
 
 		int i = 0;
 		Matrix4 m;
 		while (true) {
-			m.cells[i] = parse_number<float>(cur, value.end);
+			m.cells[i] = parser.parse_number<float>();
 
 			if (i++ == 15) break;
 			
-			expect(cur, value.end, ' ');
+			parser.expect(' ');
 		}
 
 		return m;
@@ -236,81 +278,103 @@ struct XMLNode {
 	}
 };
 
-static XMLNode parse_tag(const char *& cur, const char * end) {
-	if (cur >= end) return { };
+static XMLNode parse_tag(ParserState & parser) {
+	if (parser.reached_end()) return { };
 
-	expect(cur, end, '<');
+	parser.expect('<');
 
+	// Parse Comment
+	if (parser.match('!')) {
+		parser.expect('-');
+		parser.expect('-');
+
+		while (!parser.reached_end()) {
+			if (parser.match('-') && parser.match('-') && parser.match('>')) break;
+			parser.advance();
+		}
+
+		parser.skip_whitespace();
+		parser.expect('<');
+	}
+		
 	XMLNode node = { };
-	node.is_question_mark = match(cur, end, '?');
+	node.is_question_mark = parser.match('?');
 
 	// Parse node tag
-	node.tag.start = cur;
-	while (cur < end && !is_whitespace(*cur)) cur++;
-	node.tag.end = cur;
+	node.tag.start = parser.cur;
+	while (!parser.reached_end() && !is_whitespace(*parser.cur)) parser.advance();
+	node.tag.end = parser.cur;
 
-	skip_whitespace(cur, end);
+	parser.skip_whitespace();
 
 	// Parse attributes
-	while (cur < end && !match(cur, end, '>')) {
+	while (!parser.reached_end() && !parser.match('>')) {
 		XMLAttribute attribute = { };
 		
 		// Parse attribute name
-		attribute.name.start = cur;
-		while (cur < end && *cur != '=') cur++;
-		attribute.name.end = cur;
+		attribute.name.start = parser.cur;
+		while (!parser.reached_end() && *parser.cur != '=') parser.advance();
+		attribute.name.end = parser.cur;
 
-		expect(cur, end, '=');
-		expect(cur, end, '"');
+		parser.expect('=');
 
+		char quote_type; // Either single or double quotes
+		if (parser.match('"')) {
+			quote_type = '"';
+		} else if (parser.match('\'')) {
+			quote_type = '\'';
+		} else {
+			abort();
+		}
+		
 		// Parse attribute value
-		attribute.value.start = cur;
-		while (cur < end && *cur != '"') cur++;
-		attribute.value.end = cur;
+		attribute.value.start = parser.cur;
+		while (!parser.reached_end() && *parser.cur != quote_type) parser.advance();
+		attribute.value.end = parser.cur;
 
-		expect(cur, end, '"');
-		skip_whitespace(cur, end);
+		parser.expect(quote_type);
+		parser.skip_whitespace();
 
 		node.attributes.push_back(attribute);
 
 		// Check if this is an inline tag (i.e. <tag/> or <?tag?>), if so return
-		if (match(cur, end, '/') || (node.is_question_mark && match(cur, end, '?'))) {
-			expect(cur, end, '>');
+		if (parser.match('/') || (node.is_question_mark && parser.match('?'))) {
+			parser.expect('>');
 			return node;
 		}
 	}
 
-	skip_whitespace(cur, end);
+	parser.skip_whitespace();
 
 	// Parse children
 	do {
-		node.children.push_back(parse_tag(cur, end));
-		skip_whitespace(cur, end);
-	} while (!(cur + 1 < end && cur[0] == '<' && cur[1] == '/'));
+		node.children.push_back(parse_tag(parser));
+		parser.skip_whitespace();
+	} while (!(parser.cur + 1 < parser.end && parser.cur[0] == '<' && parser.cur[1] == '/'));
 
-	expect(cur, end, '<');
-	expect(cur, end, '/');
+	parser.expect('<');
+	parser.expect('/');
 
 	int i = 0;
-	while (cur < end && !match(cur, end, '>')) {
-		if (*cur != node.tag.start[i++]) {
+	while (!parser.reached_end() && !parser.match('>')) {
+		if (*parser.cur != node.tag.start[i++]) {
 			const char * str = node.tag.c_str();
 			printf("ERROR: Non matching closing tag for '%s'!\n", str);
 			delete [] str;
 			abort();
 		}
-		cur++;
+		parser.advance();
 	}
 
 	return node;
 }
 
-static XMLNode parse_xml(const char *& cur, const char * end) {
+static XMLNode parse_xml(ParserState & parser) {
 	XMLNode node;
 
 	do {
-		skip_whitespace(cur, end);
-		node = parse_tag(cur, end);
+		parser.skip_whitespace();
+		node = parse_tag(parser);
 	} while (node.is_question_mark);
 
 	return node;
@@ -591,7 +655,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 
 			Mesh & mesh = scene.meshes.emplace_back();
-			mesh.init("rectangle", mesh_data_id, scene);
+			mesh.init(type->value.c_str(), mesh_data_id, scene);
 			mesh.material_id = find_material(&node, scene, materials, path);
 		} else {
 			const char * str = type->value.c_str();
@@ -627,9 +691,10 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	const char * file = Util::file_read(filename);
 	int          file_len = strlen(file);
 
-	const char * cur = file;
+	ParserState parser = { };
+	parser.init(file, file + file_len);
 
-	XMLNode root = parse_xml(cur, file + file_len);
+	XMLNode root = parse_xml(parser);
 
 	MaterialMap materials;
 	char path[128];	Util::get_path(filename, path);
