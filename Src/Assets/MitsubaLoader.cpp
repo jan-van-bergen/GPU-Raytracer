@@ -284,7 +284,7 @@ static XMLNode parse_tag(ParserState & parser) {
 	parser.expect('<');
 
 	// Parse Comment
-	if (parser.match('!')) {
+	while (parser.match('!')) {
 		parser.expect('-');
 		parser.expect('-');
 
