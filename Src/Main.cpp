@@ -14,8 +14,37 @@
 #include "Util/PerfTest.h"
 #include "Util/ScopeTimer.h"
 
-// Forces NVIDIA driver to be used 
-extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; }
+extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used 
+
+// Index of frame to take screen capture on
+static constexpr int capture_frame_index = -1;
+static constexpr bool exit_after_capture = true;
+
+static Window window;
+
+static Pathtracer pathtracer;
+static PerfTest   perf_test;
+
+#define FRAMETIME_HISTORY_LENGTH 100
+
+struct Timing {
+	Uint64 now;
+	Uint64 last;
+
+	double inv_perf_freq;
+	double delta_time;
+
+	double second;
+	int frames_this_second;
+	int fps;
+
+	double avg;
+	double min;
+	double max;
+	double history[FRAMETIME_HISTORY_LENGTH];
+
+	int frame_index ;
+} static timing;
 
 static void capture_screen(const Window & window, const char * file_name) {
 	ScopeTimer timer("Screenshot");
@@ -48,36 +77,6 @@ static void capture_screen(const Window & window, const char * file_name) {
 	delete [] temp;
 	delete [] data;
 }
-
-// Index of frame to take screen capture on
-static constexpr int capture_frame_index = -1;
-static constexpr bool exit_after_capture = true;
-
-static Window window;
-
-static Pathtracer pathtracer;
-static PerfTest   perf_test;
-
-#define FRAMETIME_HISTORY_LENGTH 100
-
-struct Timing {
-	Uint64 now;
-	Uint64 last;
-
-	double inv_perf_freq;
-	double delta_time;
-
-	double second;
-	int frames_this_second;
-	int fps;
-
-	double avg;
-	double min;
-	double max;
-	double history[FRAMETIME_HISTORY_LENGTH];
-
-	int frame_index ;
-} static timing;
 
 static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_free();
@@ -451,13 +450,18 @@ static void draw_gui() {
 		}
 	}
 	ImGui::End();
-		
+
+	window.gui_end();
 }
 
 int main(int argument_count, char ** arguments) {
 	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/sponza/scene.xml";
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
-	
+
+	if (argument_count > 1) {
+		scene_filename = arguments[1];
+	}
+
 	{
 		ScopeTimer timer("Initialization");
 	
@@ -472,7 +476,7 @@ int main(int argument_count, char ** arguments) {
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
-	timing.last          = SDL_GetPerformanceCounter();
+	timing.last = SDL_GetPerformanceCounter();
 
 	// Game loop
 	while (!window.is_closed) {
@@ -514,7 +518,6 @@ int main(int argument_count, char ** arguments) {
 
 		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
 
-		window.gui_end();
 		window.swap();
 	}
 

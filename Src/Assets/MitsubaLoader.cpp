@@ -18,6 +18,8 @@
 #include "Util/Util.h"
 #include "Util/Geometry.h"
 
+#define TAB_WIDTH 4
+
 static bool is_whitespace(char c) {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
@@ -48,6 +50,8 @@ struct ParserState {
 		if (*cur == '\n') {
 			line++;
 			col = 0;
+		} else if (*cur == '\t') {
+			col += TAB_WIDTH;
 		} else {
 			col++;
 		}
@@ -194,7 +198,7 @@ struct XMLAttribute {
 		while (true) {
 			v[i] = parser.parse_number<float>();
 
-			if (i++ == 2) break;
+			if (++i == 3) break;
 			
 			parser.expect(',');
 			parser.match(' '); // optional
@@ -213,7 +217,7 @@ struct XMLAttribute {
 		while (true) {
 			m.cells[i] = parser.parse_number<float>();
 
-			if (i++ == 15) break;
+			if (++i == 16) break;
 			
 			parser.expect(' ');
 		}
@@ -324,7 +328,7 @@ static XMLNode parse_tag(ParserState & parser) {
 		} else if (parser.match('\'')) {
 			quote_type = '\'';
 		} else {
-			abort();
+			PARSER_ERROR(parser.line, parser.col, "An attribute must begin with either double or single quotes!\n");
 		}
 		
 		// Parse attribute value
@@ -358,10 +362,7 @@ static XMLNode parse_tag(ParserState & parser) {
 	int i = 0;
 	while (!parser.reached_end() && !parser.match('>')) {
 		if (*parser.cur != node.tag.start[i++]) {
-			const char * str = node.tag.c_str();
-			printf("ERROR: Non matching closing tag for '%s'!\n", str);
-			delete [] str;
-			abort();
+			PARSER_ERROR(parser.line, parser.col, "Non matching closing tag for '%s'!\n", node.tag.c_str());
 		}
 		parser.advance();
 	}
