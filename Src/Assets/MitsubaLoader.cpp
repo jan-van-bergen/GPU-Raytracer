@@ -20,26 +20,41 @@
 
 #define TAB_WIDTH 4
 
+#define PARSER_ERROR(loc, msg, ...) \
+	printf("Mitsuba XML Parsing error at %s:%i:%i:\n" msg, loc.file, loc.line, loc.col, __VA_ARGS__); \
+	abort();
+
 static bool is_whitespace(char c) {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
-#define PARSER_ERROR(line, col, msg, ...) \
-	printf("Mitsuba XML Parsing error at %i:%i:\n" msg, line, col, __VA_ARGS__); \
-	abort();
+struct SourceLocation {
+	const char * file;
+	int          line;
+	int          col;
+
+	void advance(char c) {
+		if (c == '\n') {
+			line++;
+			col = 0;
+		} else if (c == '\t') {
+			col += TAB_WIDTH;
+		} else {
+			col++;
+		}
+	}
+};
 
 struct ParserState {
 	const char * cur;
 	const char * end;
 
-	int line;
-	int col;
+	SourceLocation location;
 
-	void init(const char * cur, const char * end) {
+	void init(const char * cur, const char * end, SourceLocation location) {
 		this->cur = cur;
 		this->end = end;
-		line = 1;
-		col  = 0;
+		this->location = location;
 	}
 
 	bool reached_end() const {
@@ -47,15 +62,7 @@ struct ParserState {
 	}
 
 	void advance() {
-		if (*cur == '\n') {
-			line++;
-			col = 0;
-		} else if (*cur == '\t') {
-			col += TAB_WIDTH;
-		} else {
-			col++;
-		}
-
+		location.advance(*cur);
 		cur++;
 	}
 
@@ -74,10 +81,10 @@ struct ParserState {
 
 	void expect(char expected) {
 		if (reached_end()) {
-			PARSER_ERROR(line, col, "End of File!\n");
+			PARSER_ERROR(location, "End of File!\n");
 		}
 		if (*cur != expected) {
-			PARSER_ERROR(line, col, "Unexpected char '%c', expected '%c'!\n", *cur, expected)
+			PARSER_ERROR(location, "Unexpected char '%c', expected '%c'!\n", *cur, expected)
 		}
 		advance();
 	}
@@ -88,7 +95,7 @@ struct ParserState {
 		std::from_chars_result result = std::from_chars(cur, end, number);
 
 		if ((bool)result.ec) {
-			PARSER_ERROR(line, col, "Failed to parse number!\n");
+			PARSER_ERROR(location, "Failed to parse '%.*s' as a number!\n", unsigned(end - cur), cur);
 		}
 
 		cur = result.ptr;
@@ -165,19 +172,21 @@ struct XMLAttribute {
 	StringView name;
 	StringView value;
 
+	SourceLocation location_of_value;
+
 	template<typename T> T get_value() const;
 
 	template<>
 	int get_value() const {
 		ParserState parser = { };
-		parser.init(value.start, value.end);
+		parser.init(value.start, value.end, location_of_value);
 		return parser.parse_number<int>();
 	}
 	
 	template<>
 	float get_value() const {
 		ParserState parser = { };
-		parser.init(value.start, value.end);
+		parser.init(value.start, value.end, location_of_value);
 		return parser.parse_number<float>();
 	}
 	
@@ -191,17 +200,23 @@ struct XMLAttribute {
 	template<>
 	Vector3 get_value() const {
 		ParserState parser = { };
-		parser.init(value.start, value.end);
+		parser.init(value.start, value.end, location_of_value);
 
-		int i = 0;
 		Vector3 v;
-		while (true) {
-			v[i] = parser.parse_number<float>();
+		v.x = parser.parse_number<float>();
 
-			if (++i == 3) break;
-			
+		if (parser.match(',')) {
+			parser.match(' ');
+
+			v.y = parser.parse_number<float>();
+
 			parser.expect(',');
-			parser.match(' '); // optional
+			parser.match(' ');
+
+			v.z = parser.parse_number<float>();
+		} else {
+			v.y = v.x;
+			v.z = v.x;
 		}
 
 		return v;
@@ -210,7 +225,7 @@ struct XMLAttribute {
 	template<>
 	Matrix4 get_value() const {
 		ParserState parser = { };
-		parser.init(value.start, value.end);
+		parser.init(value.start, value.end, location_of_value);
 
 		int i = 0;
 		Matrix4 m;
@@ -280,6 +295,16 @@ struct XMLNode {
 			return attr->value == name;
 		});
 	}
+	template<typename T>
+	T get_optional_child_value(const char * name, T default_value) const {
+		const XMLNode * child = find_child_by_name(name);
+		if (child) {
+			return child->get_optional_attribute("value", default_value);
+		} else {
+			return default_value;
+		}
+	}
+	
 };
 
 static XMLNode parse_tag(ParserState & parser) {
@@ -328,9 +353,11 @@ static XMLNode parse_tag(ParserState & parser) {
 		} else if (parser.match('\'')) {
 			quote_type = '\'';
 		} else {
-			PARSER_ERROR(parser.line, parser.col, "An attribute must begin with either double or single quotes!\n");
+			PARSER_ERROR(parser.location, "An attribute must begin with either double or single quotes!\n");
 		}
-		
+
+		attribute.location_of_value = parser.location;
+
 		// Parse attribute value
 		attribute.value.start = parser.cur;
 		while (!parser.reached_end() && *parser.cur != quote_type) parser.advance();
@@ -362,7 +389,7 @@ static XMLNode parse_tag(ParserState & parser) {
 	int i = 0;
 	while (!parser.reached_end() && !parser.match('>')) {
 		if (*parser.cur != node.tag.start[i++]) {
-			PARSER_ERROR(parser.line, parser.col, "Non matching closing tag for '%s'!\n", node.tag.c_str());
+			PARSER_ERROR(parser.location, "Non matching closing tag for '%.*s'!\n", unsigned(node.tag.end - node.tag.start), node.tag.start);
 		}
 		parser.advance();
 	}
@@ -380,8 +407,6 @@ static XMLNode parse_xml(ParserState & parser) {
 
 	return node;
 }
-
-using MaterialMap = std::unordered_map<std::string, MaterialHandle>;
 
 static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
 	char * filename_abs = new char[len_path + len_filename + 1];
@@ -493,6 +518,8 @@ static void decompose_matrix(const Matrix4 & matrix, Vector3 * position, Quatern
 	}
 }
 
+using MaterialMap = std::unordered_map<std::string, MaterialHandle>;
+
 static MaterialHandle find_material(const XMLNode * node, Scene & scene, MaterialMap & materials, const char * path) {
 	const XMLNode * ref     = node->find_child("ref");
 	const XMLNode * emitter = node->find_child("emitter");
@@ -503,10 +530,8 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 
 		auto material_id = materials.find(std::string(material_name.start, material_name.end));
 		if (material_id == materials.end()) {
-			const char * str = material_name.c_str();
-			printf("Invalid material Ref '%s'!\n", str);
-			delete [] str;
-
+			printf("Invalid material Ref '%.*s'!\n", unsigned(material_name.end - material_name.start), material_name.start);
+			
 			return MaterialHandle::get_default();
 		}
 
@@ -564,22 +589,22 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 			find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
 			material.linear_roughness    = 0.0f;
-			material.index_of_refraction = bsdf->get_optional_attribute("eta", 1.0f);
+			material.index_of_refraction = bsdf->get_optional_child_value("eta", 1.0f);
 		} else if (inner_bsdf_type->value == "roughconductor" || inner_bsdf_type->value == "roughdiffuse") {
 			material.type = Material::Type::GLOSSY;
 
 			find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
-			material.linear_roughness    = bsdf->get_optional_attribute("alpha", 0.5f);
-			material.index_of_refraction = bsdf->get_optional_attribute("eta",   1.0f);
+			material.linear_roughness    = bsdf->get_optional_child_value("alpha", 0.5f);
+			material.index_of_refraction = bsdf->get_optional_child_value("eta",   1.0f);
 		} else if (inner_bsdf_type->value == "plastic" || inner_bsdf_type->value == "roughplastic") {
 			material.type = Material::Type::GLOSSY;
-				
+
 			find_rgb_or_texture(inner_bsdf, "diffuseReflectance", path, scene, material.diffuse, material.texture_id);
 
-			material.linear_roughness    = bsdf->get_optional_attribute("alpha",  0.5f);
-			material.index_of_refraction = bsdf->get_optional_attribute("intIOR", 1.0f);
-				
+			material.linear_roughness    = bsdf->get_optional_child_value("alpha",  0.5f);
+			material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.0f);
+
 			const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
 			if (nonlinear && nonlinear->find_attribute("value")->get_value<bool>()) {
 				material.linear_roughness = sqrtf(material.linear_roughness);
@@ -587,12 +612,10 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 		} else if (inner_bsdf_type->value == "thindielectric" || inner_bsdf_type->value == "dielectric" || inner_bsdf_type->value == "roughdielectric") {
 			material.type = Material::Type::DIELECTRIC;
 			material.transmittance = Vector3(1.0f);
-			material.index_of_refraction = bsdf->get_optional_attribute("intIOR", 1.333f);
+			material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.333f);
 		} else {
-			const char * str = inner_bsdf_type->value.c_str();
-			printf("WARNING: BSDF type '%s' not supported!\n", str);
-			delete [] str;
-
+			printf("WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.end - inner_bsdf_type->value.start), inner_bsdf_type->value.start);
+			
 			return MaterialHandle::get_default();
 		}
 	}
@@ -633,7 +656,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			} else if (type->value == "disk") {
 				Geometry::disk(triangles, triangle_count, world);
 			} else if (type->value == "sphere") {
-				float   radius = node.get_optional_attribute("radius", 1.0f);
+				float   radius = node.get_optional_child_value("radius", 1.0f);
 				Vector3 center = Vector3(0.0f);
 
 				const XMLNode * xml_center = node.find_child_by_name("center");
@@ -648,7 +671,9 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 				world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
 				Geometry::sphere(triangles, triangle_count, world);
-			} else abort();
+			} else {
+				UNREACHABLE;
+			}
 
 			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 
@@ -656,29 +681,21 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 			mesh.init(type->value.c_str(), mesh_data_id, scene);
 			mesh.material_id = find_material(&node, scene, materials, path);
 		} else {
-			const char * str = type->value.c_str();
-			printf("Shape type '%s' not supported!\n", str);
-			delete [] str;
+			printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.end - type->value.start), type->value.start);
 		}
 	} else if (node.tag == "sensor") {
 		const StringView & camera_type = node.find_attribute("type")->value;
 
-		if (camera_type == "perspective") {
-			float fov = node.get_optional_attribute("fov", 110.0f);
+		if (camera_type == "perspective" || camera_type == "thinlens") {
+			float fov = node.get_optional_child_value("fov", 110.0f);
 			scene.camera.set_fov(Math::deg_to_rad(fov));
-
-			Matrix4 world = find_transform(&node);
-			decompose_matrix(world, &scene.camera.position, &scene.camera.rotation, nullptr);
-		} else if (camera_type == "thinlens") {
-			scene.camera.aperture_radius = node.find_child_by_name("aperatureRadius")->find_attribute("value")->get_value<float>();
-			scene.camera.focal_distance  = node.find_child_by_name("focusDistance")  ->find_attribute("value")->get_value<float>();
+			scene.camera.aperture_radius = node.get_optional_child_value("aperatureRadius", 0.1f);
+			scene.camera.focal_distance  = node.get_optional_child_value("focusDistance", 10.0f);
 
 			Matrix4 world = find_transform(&node);
 			decompose_matrix(world, &scene.camera.position, &scene.camera.rotation, nullptr);
 		} else {
-			const char * str = camera_type.c_str();
-			printf("Camera type '%s' not supported!\n", str);
-			delete [] str;
+			printf("WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.end - camera_type.start), camera_type.start);
 		}
 	} else for (int i = 0; i < node.children.size(); i++) {
 		walk_xml_tree(node.children[i], scene, materials, path);
@@ -689,12 +706,17 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	const char * file = Util::file_read(filename);
 	int          file_len = strlen(file);
 
+	SourceLocation location = { };
+	location.file = filename;
+	location.line = 1;
+	location.col  = 0;
+
 	ParserState parser = { };
-	parser.init(file, file + file_len);
+	parser.init(file, file + file_len, location);
 
 	XMLNode root = parse_xml(parser);
 
 	MaterialMap materials;
-	char path[128];	Util::get_path(filename, path);
+	char path[512];	Util::get_path(filename, path);
 	walk_xml_tree(root, scene, materials, path);
 }
