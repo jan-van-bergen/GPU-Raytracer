@@ -549,53 +549,51 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 			name_str = name->value.c_str();
 		}
 		material.name = name_str;
-
+		
+		const XMLNode * inner_bsdf = bsdf;		
 		if (type->value == "twosided") {
-			const XMLNode      * inner_bsdf = bsdf->find_child("bsdf");
-			const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
+			inner_bsdf = bsdf->find_child("bsdf");
+		}
 
-			if (inner_bsdf_type->value == "diffuse") {
-				material.type = Material::Type::DIFFUSE;
+		const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
+
+		if (inner_bsdf_type->value == "diffuse") {
+			material.type = Material::Type::DIFFUSE;
 				
-				find_rgb_or_texture(inner_bsdf, "reflectance", path, scene, material.diffuse, material.texture_id);
-			} else if (inner_bsdf_type->value == "conductor") {
-				material.type = Material::Type::GLOSSY;
+			find_rgb_or_texture(inner_bsdf, "reflectance", path, scene, material.diffuse, material.texture_id);
+		} else if (inner_bsdf_type->value == "conductor") {
+			material.type = Material::Type::GLOSSY;
 
-				find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
+			find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
-				material.linear_roughness    = 0.0f;
-				material.index_of_refraction = bsdf->get_optional_attribute("eta", 1.0f);
-			} else if (inner_bsdf_type->value == "roughconductor") {
-				material.type = Material::Type::GLOSSY;
+			material.linear_roughness    = 0.0f;
+			material.index_of_refraction = bsdf->get_optional_attribute("eta", 1.0f);
+		} else if (inner_bsdf_type->value == "roughconductor") {
+			material.type = Material::Type::GLOSSY;
 
-				find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
+			find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
-				material.linear_roughness    = bsdf->get_optional_attribute("alpha", 0.5f);
-				material.index_of_refraction = bsdf->get_optional_attribute("eta",   1.0f);
-			} else if (inner_bsdf_type->value == "roughplastic") {
-				material.type = Material::Type::GLOSSY;
+			material.linear_roughness    = bsdf->get_optional_attribute("alpha", 0.5f);
+			material.index_of_refraction = bsdf->get_optional_attribute("eta",   1.0f);
+		} else if (inner_bsdf_type->value == "roughplastic") {
+			material.type = Material::Type::GLOSSY;
 				
-				find_rgb_or_texture(inner_bsdf, "diffuseReflectance", path, scene, material.diffuse, material.texture_id);
+			find_rgb_or_texture(inner_bsdf, "diffuseReflectance", path, scene, material.diffuse, material.texture_id);
 
-				material.linear_roughness    = bsdf->get_optional_attribute("alpha",  0.5f);
-				material.index_of_refraction = bsdf->get_optional_attribute("intIOR", 1.0f);
+			material.linear_roughness    = bsdf->get_optional_attribute("alpha",  0.5f);
+			material.index_of_refraction = bsdf->get_optional_attribute("intIOR", 1.0f);
 				
-				const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
-				if (nonlinear && nonlinear->find_attribute("value")->get_value<bool>()) {
-					material.linear_roughness = sqrtf(material.linear_roughness);
-				}
-			} else {
-				const char * str = inner_bsdf_type->value.c_str();
-				printf("BSDF type '%s' not supported!\n", str);
-				delete [] str;
+			const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
+			if (nonlinear && nonlinear->find_attribute("value")->get_value<bool>()) {
+				material.linear_roughness = sqrtf(material.linear_roughness);
 			}
 		} else if (type->value == "thindielectric" || type->value == "dielectric") {
 			material.type = Material::Type::DIELECTRIC;
 			material.transmittance = Vector3(1.0f);
 			material.index_of_refraction = bsdf->get_optional_attribute("intIOR", 1.333f);
 		} else {
-			const char * str = type->value.c_str();
-			printf("Material type '%s' not supported!\n", str);
+			const char * str = inner_bsdf_type->value.c_str();
+			printf("BSDF type '%s' not supported!\n", str);
 			delete [] str;
 		}
 	}
