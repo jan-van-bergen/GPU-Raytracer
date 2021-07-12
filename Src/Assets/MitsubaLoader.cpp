@@ -565,19 +565,15 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 			material.name = name->value.c_str();
 		}
 		
-		const XMLNode * inner_bsdf = bsdf;
-		while (true) {
-			const XMLAttribute * type = inner_bsdf->find_attribute("type");
-		
-			if (type->value == "twosided" || type->value == "mask" || type->value == "bumpmap") {
-				inner_bsdf = inner_bsdf->find_child("bsdf");
-			} else {
-				break;
-			}
-		}
-
+		const XMLNode      * inner_bsdf = bsdf;
 		const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
 
+		// Keep peeling back nested BSDFs, we only care about the inner one
+		while (inner_bsdf_type->value == "twosided" || inner_bsdf_type->value == "mask" || inner_bsdf_type->value == "bumpmap") {
+			inner_bsdf      = inner_bsdf->find_child("bsdf");
+			inner_bsdf_type = inner_bsdf->find_attribute("type");
+		}
+		
 		if (inner_bsdf_type->value == "diffuse") {
 			material.type = Material::Type::DIFFUSE;
 				
