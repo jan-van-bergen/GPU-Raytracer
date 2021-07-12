@@ -141,13 +141,10 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		should_recompile = Util::file_is_newer(ptx_filename, filename);
 	}
 
-	char * path = MALLOCA(char, strlen(filename) + 1);
-	Util::get_path(filename, path);
+	char path[512]; Util::get_path(filename, path);
 
 	std::vector<Include> includes;
 	const char * source = scan_includes_recursive(filename, path, includes, ptx_filename, should_recompile);
-
-	FREEA(path);
 
 	if (should_recompile) {
 		nvrtcProgram program;

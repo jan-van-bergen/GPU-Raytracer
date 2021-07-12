@@ -351,7 +351,7 @@ __device__ inline void nee_sample(
 		float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
 
 		float brdf_pdf;
-		float brdf = brdf_evaluator(to_light, cos_i, brdf_pdf);
+		float brdf = brdf_evaluator(to_light, brdf_pdf);
 
 		float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
 		
@@ -362,7 +362,7 @@ __device__ inline void nee_sample(
 			pdf = light_pdf;
 		}
 
-		float3 illumination = throughput * brdf * material_light.emission / pdf;
+		float3 illumination = throughput * brdf * material_light.emission * cos_i / pdf;
 
 		int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
@@ -530,9 +530,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f) {
-		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [](float3 to_light, float cos_i, float & pdf) {
-			pdf = cos_i * ONE_OVER_PI;
-			return cos_i * ONE_OVER_PI; // NOTE: N dot L is included here
+		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
+			pdf = dot(to_light, hit_normal) * ONE_OVER_PI;
+			return ONE_OVER_PI;
 		});
 	}
 
@@ -758,56 +758,46 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	}
 
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
+	float alpha = material.roughness; // (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
+	float alpha2 = alpha * alpha;
 	
+	// Construct orthonormal basis
+	float3 hit_tangent, hit_binormal;
+	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
+
+	float3 omega_i = world_to_local(-ray_direction, hit_tangent, hit_binormal, hit_normal);
+
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
-		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](float3 to_light, float cos_i, float & pdf) {
-			float3 half_vector = normalize(to_light - ray_direction);
-
-			float i_dot_n = -dot(ray_direction, hit_normal);
-			float m_dot_n =  dot(half_vector,   hit_normal);
-
-			float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n);
-			float D = microfacet_D(m_dot_n, alpha);
-			float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
-
-			pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
-
-			return (F * G * D) / (4.0f * i_dot_n); // NOTE: N dot L is omitted from the denominator here
+		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
+			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
+			return ggx_eval(omega_o, omega_i, material.index_of_refraction, alpha, alpha, pdf);
 		});
 	}
 
 	if (bounce == settings.num_bounces - 1) return;
 
-	// Sample normal distribution in spherical coordinates
-	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 2, seed) + 1e-8f)));
-	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 3, seed);
+	// Importance sample distribution of normals
+	float u1 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
+	float u2 = random_float_heitz(x, y, sample_index, bounce, 3, seed);
 
-	float sin_theta, cos_theta; sincos(theta, &sin_theta, &cos_theta);
-	float sin_phi,   cos_phi;   sincos(phi,   &sin_phi,   &cos_phi);
+	float3 micro_normal_local = ggx_sample_distribution_of_normals(omega_i, alpha, alpha, u1, u2);	
+    float3 omega_o = reflect(-omega_i, micro_normal_local);
 
-	// Convert from spherical coordinates to cartesian coordinates
-	float3 micro_normal_local = make_float3(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta);
+	float3 half_vector = normalize(omega_o + omega_i);
+	float mu = fmaxf(0.0, dot(omega_o, half_vector));
 
-	// Convert from tangent to world space
-	float3 hit_tangent, hit_binormal;
-	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
+	float F = fresnel_schlick(material.index_of_refraction, 1.0f, mu);
+	float D = ggx_D(half_vector, alpha, alpha);
 
-	float3 micro_normal_world = local_to_world(micro_normal_local, hit_tangent, hit_binormal, hit_normal);
+	// Masking/shadowing using two monodirectional Smith terms
+	float G1_o = ggx_G1(omega_o, alpha2, alpha2);
+	float G1_i = ggx_G1(omega_i, alpha2, alpha2);
+	float G2 = G1_o * G1_i;
 
-	// Apply perfect mirror reflection to world space normal
-	float3 direction_out = reflect(ray_direction, micro_normal_world);
+	float pdf = G1_o * D * mu / (4.0f * omega_i.z * omega_o.z);
+	throughput *= F * G2 / (G1_o * mu);
 
-	float i_dot_m = -dot(ray_direction, micro_normal_world);
-	float o_dot_m =  dot(direction_out, micro_normal_world);
-	float i_dot_n = -dot(ray_direction,      hit_normal);
-	float o_dot_n =  dot(direction_out,      hit_normal);
-	float m_dot_n =  dot(micro_normal_world, hit_normal);
-
-	float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_m);
-	float D = microfacet_D(m_dot_n, alpha);
-	float G = microfacet_G(i_dot_m, o_dot_m, i_dot_n, o_dot_n, m_dot_n, alpha);
-	float weight = fabsf(i_dot_m) * F * G / fabsf(i_dot_n * m_dot_n);
+	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
@@ -817,7 +807,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness >= ROUGHNESS_CUTOFF) << 31);
 	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);
 
-	ray_buffer_trace.last_pdf[index_out] = weight;
+	ray_buffer_trace.last_pdf[index_out] = pdf;
 }
 
 extern "C" __global__ void kernel_trace_shadow(int bounce) {

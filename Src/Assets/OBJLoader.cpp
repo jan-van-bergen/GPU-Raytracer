@@ -21,8 +21,7 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 	std::string warning;
 	std::string error;
 
-	char * path = MALLOCA(char, strlen(filename) + 1);
-	Util::get_path(filename, path);
+	char path[512];	Util::get_path(filename, path);
 
 	bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, filename, path);
 	if (!success) {
@@ -31,8 +30,6 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 		return false;
 	}
 
-	FREEA(path);
-	
 	// Load Geometry
 	int total_vertex_count = 0;
 	

@@ -840,7 +840,7 @@ void Pathtracer::update(float delta) {
 					cuda_materials[i].glossy.diffuse             = material.diffuse;
 					cuda_materials[i].glossy.texture_id          = material.texture_id.handle;
 					cuda_materials[i].glossy.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
-					cuda_materials[i].glossy.roughness           = material.linear_roughness * material.linear_roughness;
+					cuda_materials[i].glossy.roughness           = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}
 				default: abort();
@@ -1031,7 +1031,6 @@ void Pathtracer::render() {
 		for (int bounce = 0; bounce < settings.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
 			event_pool.record(event_desc_trace[bounce]);
-
 			kernel_trace.execute(bounce);
 			
 			event_pool.record(event_desc_sort[bounce]);

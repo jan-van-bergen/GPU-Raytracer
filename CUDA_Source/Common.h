@@ -80,17 +80,6 @@ struct Settings {
 #define ENABLE_MIPMAPPING true
 
 
-// Microfacet
-#define MICROFACET_BECKMANN 0 
-#define MICROFACET_GGX      1
-
-#define MICROFACET_MODEL MICROFACET_GGX
-
-// If MICROFACET_SEPARATE_G_TERMS is set to true, two monodirectional Smith terms G1 are used,
-// otherwise a Height-Correlated Masking and Shadowing term G2 is used based on 2 lambda terms.
-#define MICROFACET_SEPARATE_G_TERMS false
-
-
 // BVH related
 #define SAH_COST_NODE 4.0f
 #define SAH_COST_LEAF 1.0f

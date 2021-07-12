@@ -12,6 +12,8 @@
 
 #define FORCEINLINE __forceinline
 
+#define UNREACHABLE __assume(false)
+
 #define ALLIGNED_MALLOC(size, align) _aligned_malloc(size, align)
 #define ALLIGNED_FREE(ptr)           _aligned_free(ptr)
 
