@@ -551,7 +551,7 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 		material.name = name_str;
 		
 		const XMLNode * inner_bsdf = bsdf;		
-		if (type->value == "twosided") {
+		if (type->value == "twosided" || type->value == "mask") {
 			inner_bsdf = bsdf->find_child("bsdf");
 		}
 
@@ -568,14 +568,14 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 
 			material.linear_roughness    = 0.0f;
 			material.index_of_refraction = bsdf->get_optional_attribute("eta", 1.0f);
-		} else if (inner_bsdf_type->value == "roughconductor") {
+		} else if (inner_bsdf_type->value == "roughconductor" || inner_bsdf_type->value == "roughdiffuse") {
 			material.type = Material::Type::GLOSSY;
 
 			find_rgb_or_texture(inner_bsdf, "specularReflectance", path, scene, material.diffuse, material.texture_id);
 
 			material.linear_roughness    = bsdf->get_optional_attribute("alpha", 0.5f);
 			material.index_of_refraction = bsdf->get_optional_attribute("eta",   1.0f);
-		} else if (inner_bsdf_type->value == "roughplastic") {
+		} else if (inner_bsdf_type->value == "plastic" || inner_bsdf_type->value == "roughplastic") {
 			material.type = Material::Type::GLOSSY;
 				
 			find_rgb_or_texture(inner_bsdf, "diffuseReflectance", path, scene, material.diffuse, material.texture_id);
@@ -587,14 +587,16 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 			if (nonlinear && nonlinear->find_attribute("value")->get_value<bool>()) {
 				material.linear_roughness = sqrtf(material.linear_roughness);
 			}
-		} else if (type->value == "thindielectric" || type->value == "dielectric") {
+		} else if (inner_bsdf_type->value == "thindielectric" || inner_bsdf_type->value == "dielectric" || inner_bsdf_type->value == "roughdielectric") {
 			material.type = Material::Type::DIELECTRIC;
 			material.transmittance = Vector3(1.0f);
 			material.index_of_refraction = bsdf->get_optional_attribute("intIOR", 1.333f);
 		} else {
 			const char * str = inner_bsdf_type->value.c_str();
-			printf("BSDF type '%s' not supported!\n", str);
+			printf("WARNING: BSDF type '%s' not supported!\n", str);
 			delete [] str;
+
+			return MaterialHandle::get_default();
 		}
 	}
 
