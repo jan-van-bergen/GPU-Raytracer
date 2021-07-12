@@ -83,6 +83,81 @@ static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_init(frame_buffer_handle, width, height);
 };
 
+static void calc_timing();
+static void draw_gui();
+
+int main(int argument_count, char ** arguments) {
+	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/brdf_eval.xml";
+	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
+
+	if (argument_count > 1) {
+		scene_filename = arguments[1];
+	}
+
+	{
+		ScopeTimer timer("Initialization");
+	
+		window.init("Pathtracer");
+		window.resize_handler = &window_resize;
+
+		CUDAContext::init();
+		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
+
+		perf_test.init(&pathtracer, false, scene_filename);	
+		Random::init(1337);
+	}
+
+	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
+	timing.last = SDL_GetPerformanceCounter();
+
+	// Game loop
+	while (!window.is_closed) {
+		perf_test.frame_begin();
+
+		pathtracer.update((float)timing.delta_time);
+		pathtracer.render();
+		
+		window.render_framebuffer();
+		
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || timing.frame_index == capture_frame_index) {
+			char screenshot_name[32];
+			sprintf_s(screenshot_name, "screenshot_%i.ppm", timing.frame_index);
+
+			capture_screen(window, screenshot_name);
+
+			if (timing.frame_index == capture_frame_index && exit_after_capture) break;
+		}
+		
+		calc_timing();
+		draw_gui();
+
+		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
+			int mouse_x, mouse_y;			
+			Input::mouse_position(&mouse_x, &mouse_y);
+
+			pathtracer.set_pixel_query(mouse_x, mouse_y);
+		}
+
+		if (Input::is_key_released(SDL_SCANCODE_F5)) {
+			ScopeTimer timer("Hot Reload");
+
+			pathtracer.cuda_free();
+			pathtracer.cuda_init(window.frame_buffer_handle, window.width, window.height);
+		}
+
+		if (perf_test.frame_end((float)timing.delta_time)) break;
+
+		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
+
+		window.swap();
+	}
+
+	CUDAContext::free();
+	window.free();
+
+	return EXIT_SUCCESS;
+}
+
 static void calc_timing() {
 	// Calculate delta time
 	timing.now = SDL_GetPerformanceCounter();
@@ -452,77 +527,4 @@ static void draw_gui() {
 	ImGui::End();
 
 	window.gui_end();
-}
-
-int main(int argument_count, char ** arguments) {
-	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/sponza/scene.xml";
-	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
-
-	if (argument_count > 1) {
-		scene_filename = arguments[1];
-	}
-
-	{
-		ScopeTimer timer("Initialization");
-	
-		window.init("Pathtracer");
-		window.resize_handler = &window_resize;
-
-		CUDAContext::init();
-		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
-
-		perf_test.init(&pathtracer, false, scene_filename);	
-		Random::init(1337);
-	}
-
-	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
-	timing.last = SDL_GetPerformanceCounter();
-
-	// Game loop
-	while (!window.is_closed) {
-		perf_test.frame_begin();
-
-		pathtracer.update((float)timing.delta_time);
-		pathtracer.render();
-		
-		window.render_framebuffer();
-		
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || timing.frame_index == capture_frame_index) {
-			char screenshot_name[32];
-			sprintf_s(screenshot_name, "screenshot_%i.ppm", timing.frame_index);
-
-			capture_screen(window, screenshot_name);
-
-			if (timing.frame_index == capture_frame_index && exit_after_capture) break;
-		}
-		
-		calc_timing();
-
-		draw_gui();
-
-		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
-			int mouse_x, mouse_y;			
-			Input::mouse_position(&mouse_x, &mouse_y);
-
-			pathtracer.set_pixel_query(mouse_x, mouse_y);
-		}
-
-		if (Input::is_key_released(SDL_SCANCODE_F5)) {
-			ScopeTimer timer("Hot Reload");
-
-			pathtracer.cuda_free();
-			pathtracer.cuda_init(window.frame_buffer_handle, window.width, window.height);
-		}
-
-		if (perf_test.frame_end((float)timing.delta_time)) break;
-
-		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
-
-		window.swap();
-	}
-
-	CUDAContext::destroy();
-	window.free();
-
-	return EXIT_SUCCESS;
 }

@@ -541,14 +541,11 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 		}
 
 		const XMLAttribute * name = bsdf->find_attribute("id");
-
-		const char * name_str = nullptr;
 		if (name == nullptr) {
-			name_str = "NO_NAME";
+			material.name = "NO_NAME";
 		} else {
-			name_str = name->value.c_str();
+			material.name = name->value.c_str();
 		}
-		material.name = name_str;
 		
 		const XMLNode * inner_bsdf = bsdf;		
 		if (type->value == "twosided" || type->value == "mask") {
