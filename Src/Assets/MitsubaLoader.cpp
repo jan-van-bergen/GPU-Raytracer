@@ -91,10 +91,10 @@ struct ParserState {
 
 	template<typename T>
 	T parse_number() {
-		T number; 
+		T number = { }; 
 		std::from_chars_result result = std::from_chars(cur, end, number);
 
-		if ((bool)result.ec) {
+		if (bool(result.ec)) {
 			PARSER_ERROR(location, "Failed to parse '%.*s' as a number!\n", unsigned(end - cur), cur);
 		}
 
@@ -194,7 +194,7 @@ struct XMLAttribute {
 	bool get_value() const {
 		if (value == "true")  return true;
 		if (value == "false") return false;
-		abort();
+		PARSER_ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", unsigned(value.end - value.start), value.start);
 	}
 
 	template<>
@@ -558,13 +558,6 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 			}
 		}
 
-		const XMLAttribute * type = bsdf->find_attribute("type");
-		
-		if (type->value == "bumpmap") {
-			bsdf = bsdf->find_child("bsdf");
-			type = bsdf->find_attribute("type");
-		}
-
 		const XMLAttribute * name = bsdf->find_attribute("id");
 		if (name == nullptr) {
 			material.name = "NO_NAME";
@@ -572,9 +565,15 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 			material.name = name->value.c_str();
 		}
 		
-		const XMLNode * inner_bsdf = bsdf;		
-		if (type->value == "twosided" || type->value == "mask") {
-			inner_bsdf = bsdf->find_child("bsdf");
+		const XMLNode * inner_bsdf = bsdf;
+		while (true) {
+			const XMLAttribute * type = inner_bsdf->find_attribute("type");
+		
+			if (type->value == "twosided" || type->value == "mask" || type->value == "bumpmap") {
+				inner_bsdf = inner_bsdf->find_child("bsdf");
+			} else {
+				break;
+			}
 		}
 
 		const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
