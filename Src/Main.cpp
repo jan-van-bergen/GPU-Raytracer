@@ -87,7 +87,7 @@ static void calc_timing();
 static void draw_gui();
 
 int main(int argument_count, char ** arguments) {
-	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/living-room-2/scene.xml";
+	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/staircase/scene.xml";
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 
 	if (argument_count > 1) {
@@ -346,7 +346,7 @@ static void draw_gui() {
 			pathtracer.pixel_query.material_id = INVALID;
 		}
 
-		ImGui::BeginChild("Instances", ImVec2(0, 200), true);
+		ImGui::BeginChild("Meshes", ImVec2(0, 200), true);
 
 		for (int m = 0; m < pathtracer.scene.meshes.size(); m++) {
 			const Mesh & mesh = pathtracer.scene.meshes[m];
@@ -367,33 +367,35 @@ static void draw_gui() {
 		if (pathtracer.pixel_query.mesh_id != INVALID) {
 			Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
 				
-			ImGui::TextUnformatted(mesh.name);
+			if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::TextUnformatted(mesh.name);
 
-			bool mesh_changed = false;
-			mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
+				bool mesh_changed = false;
+				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
 
-			static bool dragging = false;
+				static bool dragging = false;
 				
-			if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
-				mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
-				mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
-				mesh.euler_angles.z = Math::wrap(mesh.euler_angles.z, 0.0f, 360.0f);
+				if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
+					mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
+					mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
+					mesh.euler_angles.z = Math::wrap(mesh.euler_angles.z, 0.0f, 360.0f);
 
-				if (!dragging) {
-					mesh.euler_angles = Quaternion::to_euler(mesh.rotation);
-					mesh.euler_angles.x = Math::rad_to_deg(mesh.euler_angles.x);
-					mesh.euler_angles.y = Math::rad_to_deg(mesh.euler_angles.y);
-					mesh.euler_angles.z = Math::rad_to_deg(mesh.euler_angles.z);
-					dragging = true;
+					if (!dragging) {
+						mesh.euler_angles = Quaternion::to_euler(mesh.rotation);
+						mesh.euler_angles.x = Math::rad_to_deg(mesh.euler_angles.x);
+						mesh.euler_angles.y = Math::rad_to_deg(mesh.euler_angles.y);
+						mesh.euler_angles.z = Math::rad_to_deg(mesh.euler_angles.z);
+						dragging = true;
+					}
+
+					mesh.rotation = Quaternion::from_euler(Math::deg_to_rad(mesh.euler_angles.x), Math::deg_to_rad(mesh.euler_angles.y), Math::deg_to_rad(mesh.euler_angles.z));
+					mesh_changed = true;
 				}
 
-				mesh.rotation = Quaternion::from_euler(Math::deg_to_rad(mesh.euler_angles.x), Math::deg_to_rad(mesh.euler_angles.y), Math::deg_to_rad(mesh.euler_angles.z));
-				mesh_changed = true;
+				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
+
+				if (mesh_changed) pathtracer.invalidated_scene = true;
 			}
-
-			mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
-
-			if (mesh_changed) pathtracer.invalidated_scene = true;
 
 			ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
 
@@ -484,44 +486,45 @@ static void draw_gui() {
 		if (pathtracer.pixel_query.material_id != INVALID) {
 			Material & material = pathtracer.scene.asset_manager.get_material(MaterialHandle { pathtracer.pixel_query.material_id });
 
-			ImGui::Separator();
-			ImGui::Text("Name: %s", material.name);
+			if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
+				ImGui::Text("Name: %s", material.name);
 
-			bool material_changed = false;
+				bool material_changed = false;
 
-			int material_type = int(material.type);
-			if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Dielectric\0Glossy\0")) {
-				material.type = Material::Type(material_type);
-				material_changed = true;
+				int material_type = int(material.type);
+				if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Dielectric\0Glossy\0")) {
+					material.type = Material::Type(material_type);
+					material_changed = true;
+				}
+
+				switch (material.type) {
+					case Material::Type::LIGHT: {
+						material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
+						break;
+					}
+					case Material::Type::DIFFUSE: {
+						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
+						break;
+					}
+					case Material::Type::DIELECTRIC: {
+						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
+						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 5.0f);
+						break;
+					}
+					case Material::Type::GLOSSY: {
+						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
+						material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
+						break;
+					}
+
+					default: abort();
+				}
+
+				if (material_changed) pathtracer.invalidated_materials = true;
 			}
-
-			switch (material.type) {
-				case Material::Type::LIGHT: {
-					material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
-					break;
-				}
-				case Material::Type::DIFFUSE: {
-					material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
-					material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
-					break;
-				}
-				case Material::Type::DIELECTRIC: {
-					material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
-					material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 5.0f);
-					break;
-				}
-				case Material::Type::GLOSSY: {
-					material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
-					material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
-					material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
-					material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
-					break;
-				}
-
-				default: abort();
-			}
-
-			if (material_changed) pathtracer.invalidated_materials = true;
 		}
 	}
 	ImGui::End();
