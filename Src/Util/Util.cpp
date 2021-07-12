@@ -9,8 +9,8 @@ void Util::get_path(const char * filename, char * path) {
 	const char * path_end      = filename;
 	const char * last_path_end = nullptr;
 
-	// Keep advancing the path_end pointer until we run out of '/' characters in the string
-	while (path_end = strchr(path_end, '/')) {
+	// Keep advancing the path_end pointer until we run out of '/' or '\\' characters in the string
+	while (path_end = strpbrk(path_end, "/\\")) {
 		path_end++;
 		last_path_end = path_end;
 	}
