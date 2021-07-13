@@ -507,7 +507,11 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		hit_normal,
 		hit_tex_coord,
 		ray_direction,
+#if ENABLE_MIPMAPPING
 		ray_buffer_shade_diffuse.cone,
+#else
+		nullptr,
+#endif
 		index,
 		cone_angle, cone_width
 	);
@@ -735,7 +739,11 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		hit_normal,
 		hit_tex_coord,
 		ray_direction,
+#if ENABLE_MIPMAPPING
 		ray_buffer_shade_dielectric_and_glossy.cone,
+#else
+		nullptr,
+#endif
 		index,
 		cone_angle, cone_width
 	);
