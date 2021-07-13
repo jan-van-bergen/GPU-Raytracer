@@ -38,7 +38,7 @@ bool Util::file_is_newer(const char * file_reference, const char * file_check) {
 	return last_write_time_reference < last_write_time_check;
 }
 
-char * Util::file_read(const char * filename) {
+char * Util::file_read(const char * filename, int & file_length) {
 	FILE * file;
 	fopen_s(&file, filename, "rb");
 
@@ -49,7 +49,7 @@ char * Util::file_read(const char * filename) {
 
 	// Get file length
 	fseek(file, 0, SEEK_END);
-	int file_length = ftell(file);
+	file_length = ftell(file);
 	rewind(file);
 
 	// Copy file source into c string

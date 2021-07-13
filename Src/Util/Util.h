@@ -28,7 +28,7 @@ namespace Util {
 	// Checks if file_check is newer than file_reference
 	bool file_is_newer(const char * file_reference, const char * file_check);
 
-	char * file_read(const char * filename);
+	char * file_read(const char * filename, int & file_length);
 
 	const char * file_get_extension(const char * filename);
 

@@ -518,7 +518,7 @@ static void decompose_matrix(const Matrix4 & matrix, Vector3 * position, Quatern
 	}
 }
 
-using MaterialMap = std::unordered_map<std::string, MaterialHandle>;
+using MaterialMap = std::unordered_map<StringView, MaterialHandle, StringView::Hash>;
 
 static MaterialHandle find_material(const XMLNode * node, Scene & scene, MaterialMap & material_map, const char * path) {
 	const XMLNode * ref     = node->find_child("ref");
@@ -528,7 +528,7 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 	if (ref && emitter == nullptr) { // If both a ref and emitter are defined, prefer the emitter
 		const StringView & material_name = ref->find_attribute("id")->value;
 
-		auto material_id = material_map.find(std::string(material_name.start, material_name.end));
+		auto material_id = material_map.find(material_name);
 		if (material_id == material_map.end()) {
 			printf("Invalid material Ref '%.*s'!\n", unsigned(material_name.end - material_name.start), material_name.start);
 			
@@ -633,7 +633,8 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 		MaterialHandle   material_id = find_material(&node, scene, material_map, path);
 		const Material & material = scene.asset_manager.get_material(material_id);
 
-		material_map[material.name] = material_id; 
+		StringView str = { material.name, material.name + strlen(material.name) };
+		material_map[str] = material_id; 
 	} else if (node.tag == "shape") {
 		const XMLAttribute * type = node.find_attribute("type");
 		if (type->value == "obj") {
@@ -708,8 +709,8 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 }
 
 void MitsubaLoader::load(const char * filename, Scene & scene) {
-	const char * file = Util::file_read(filename);
-	int          file_len = strlen(file);
+	int          source_length;
+	const char * source = Util::file_read(filename, source_length);
 
 	SourceLocation location = { };
 	location.file = filename;
@@ -717,7 +718,7 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	location.col  = 0;
 
 	ParserState parser = { };
-	parser.init(file, file + file_len, location);
+	parser.init(source, source + source_length, location);
 
 	XMLNode root = parse_xml(parser);
 
