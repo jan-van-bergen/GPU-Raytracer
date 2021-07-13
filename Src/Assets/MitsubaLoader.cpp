@@ -441,7 +441,7 @@ static void find_rgb_or_texture(const XMLNode * node, const char * name, const c
 	}
 }
 
-static Matrix4 find_transform(const XMLNode * node) {
+static Matrix4 parse_transform(const XMLNode * node) {
 	const XMLNode * transform = node->find_child("transform");
 	if (transform) {
 		const XMLNode * matrix = transform->find_child("matrix");
@@ -496,11 +496,11 @@ static Matrix4 find_transform(const XMLNode * node) {
 	}
 }
 
-static void decompose_matrix(const Matrix4 & matrix, Vector3 * position, Quaternion * rotation, float * scale) {
+static void decompose_matrix(const Matrix4 & matrix, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
 	if (position) *position = Vector3(matrix(0, 3), matrix(1, 3), matrix(2, 3));
 	
 	if (rotation) *rotation = Quaternion::look_rotation(
-		Matrix4::transform_direction(matrix, Vector3(0.0f, 0.0f, 1.0f)),
+		Matrix4::transform_direction(matrix, forward),
 		Matrix4::transform_direction(matrix, Vector3(0.0f, 1.0f, 0.0f))
 	);
 
@@ -520,7 +520,7 @@ static void decompose_matrix(const Matrix4 & matrix, Vector3 * position, Quatern
 
 using MaterialMap = std::unordered_map<std::string, MaterialHandle>;
 
-static MaterialHandle find_material(const XMLNode * node, Scene & scene, MaterialMap & materials, const char * path) {
+static MaterialHandle find_material(const XMLNode * node, Scene & scene, MaterialMap & material_map, const char * path) {
 	const XMLNode * ref     = node->find_child("ref");
 	const XMLNode * emitter = node->find_child("emitter");
 
@@ -528,8 +528,8 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 	if (ref && emitter == nullptr) { // If both a ref and emitter are defined, prefer the emitter
 		const StringView & material_name = ref->find_attribute("id")->value;
 
-		auto material_id = materials.find(std::string(material_name.start, material_name.end));
-		if (material_id == materials.end()) {
+		auto material_id = material_map.find(std::string(material_name.start, material_name.end));
+		if (material_id == material_map.end()) {
 			printf("Invalid material Ref '%.*s'!\n", unsigned(material_name.end - material_name.start), material_name.start);
 			
 			return MaterialHandle::get_default();
@@ -559,11 +559,6 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 		}
 
 		const XMLAttribute * name = bsdf->find_attribute("id");
-		if (name == nullptr) {
-			material.name = "NO_NAME";
-		} else {
-			material.name = name->value.c_str();
-		}
 		
 		const XMLNode      * inner_bsdf = bsdf;
 		const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
@@ -577,6 +572,16 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 		) {
 			inner_bsdf      = inner_bsdf->find_child("bsdf");
 			inner_bsdf_type = inner_bsdf->find_attribute("type");
+
+			if (name == nullptr) {
+				name = inner_bsdf->find_attribute("id");
+			} 
+		}
+
+		if (name) {
+			material.name = name->value.c_str();
+		} else {
+			material.name = "Material";
 		}
 		
 		if (inner_bsdf_type->value == "diffuse") {
@@ -623,12 +628,12 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 	return scene.asset_manager.add_material(material);
 }
 
-static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & materials, const char * path) {
+static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & material_map, const char * path) {
 	if (node.tag == "bsdf") {
-		MaterialHandle   material_id = find_material(&node, scene, materials, path);
+		MaterialHandle   material_id = find_material(&node, scene, material_map, path);
 		const Material & material = scene.asset_manager.get_material(material_id);
 
-		materials[material.name] = material_id; 
+		material_map[material.name] = material_id; 
 	} else if (node.tag == "shape") {
 		const XMLAttribute * type = node.find_attribute("type");
 		if (type->value == "obj") {
@@ -639,12 +644,12 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init(filename_rel.c_str(), mesh_data_id, scene);
-			mesh.material_id = find_material(&node, scene, materials, path);
+			mesh.material_id = find_material(&node, scene, material_map, path);
 
-			Matrix4 world = find_transform(&node);			
+			Matrix4 world = parse_transform(&node);			
 			decompose_matrix(world, &mesh.position, &mesh.rotation, &mesh.scale);
 		} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere") {
-			Matrix4 world = find_transform(&node);
+			Matrix4 world = parse_transform(&node);
 
 			Triangle * triangles = nullptr;
 			int        triangle_count = 0;
@@ -679,26 +684,26 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 
 			Mesh & mesh = scene.meshes.emplace_back();
 			mesh.init(type->value.c_str(), mesh_data_id, scene);
-			mesh.material_id = find_material(&node, scene, materials, path);
+			mesh.material_id = find_material(&node, scene, material_map, path);
 		} else {
 			printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.end - type->value.start), type->value.start);
 		}
 	} else if (node.tag == "sensor") {
 		const StringView & camera_type = node.find_attribute("type")->value;
 
-		if (camera_type == "perspective" || camera_type == "thinlens") {
+		if (camera_type == "perspective" || camera_type == "perspective_rdist" || camera_type == "thinlens") {
 			float fov = node.get_optional_child_value("fov", 110.0f);
 			scene.camera.set_fov(Math::deg_to_rad(fov));
 			scene.camera.aperture_radius = node.get_optional_child_value("aperatureRadius", 0.1f);
 			scene.camera.focal_distance  = node.get_optional_child_value("focusDistance", 10.0f);
 
-			Matrix4 world = find_transform(&node);
-			decompose_matrix(world, &scene.camera.position, &scene.camera.rotation, nullptr);
+			Matrix4 world = parse_transform(&node);
+			decompose_matrix(world, &scene.camera.position, &scene.camera.rotation, nullptr, Vector3(0.0f, 0.0f, -1.0f));
 		} else {
 			printf("WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.end - camera_type.start), camera_type.start);
 		}
 	} else for (int i = 0; i < node.children.size(); i++) {
-		walk_xml_tree(node.children[i], scene, materials, path);
+		walk_xml_tree(node.children[i], scene, material_map, path);
 	}
 }
 
