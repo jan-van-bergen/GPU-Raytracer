@@ -569,7 +569,12 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 		const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
 
 		// Keep peeling back nested BSDFs, we only care about the inner one
-		while (inner_bsdf_type->value == "twosided" || inner_bsdf_type->value == "mask" || inner_bsdf_type->value == "bumpmap") {
+		while (
+			inner_bsdf_type->value == "twosided" ||
+			inner_bsdf_type->value == "mask" ||
+			inner_bsdf_type->value == "bumpmap" ||
+			inner_bsdf_type->value == "coating"
+		) {
 			inner_bsdf      = inner_bsdf->find_child("bsdf");
 			inner_bsdf_type = inner_bsdf->find_attribute("type");
 		}
