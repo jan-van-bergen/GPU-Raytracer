@@ -12,8 +12,8 @@ private:
 			DISTRIBUTE
 		} type;
 
-		char distribute_0 = -1;
-		char distribute_1 = -1;
+		char distribute_left  = INVALID;
+		char distribute_right = INVALID;
 	};
 	
 	float    * cost;

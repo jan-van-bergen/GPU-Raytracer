@@ -29,8 +29,8 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 
 			float cost_distribute = INFINITY;
 			
-			char distribute_0 = -1;
-			char distribute_1 = -1;
+			char distribute_left  = INVALID;
+			char distribute_right = INVALID;
 
 			for (int k = 0; k < 7; k++) {
 				float c = 
@@ -40,8 +40,8 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 				if (c < cost_distribute) {
 					cost_distribute = c;
 					
-					distribute_0 =     k;
-					distribute_1 = 6 - k;
+					distribute_left  =     k;
+					distribute_right = 6 - k;
 				}
 			}
 
@@ -57,16 +57,16 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 				decisions[node_index * 7].type = Decision::Type::INTERNAL;
 			}
 
-			decisions[node_index * 7].distribute_0 = distribute_0;
-			decisions[node_index * 7].distribute_1 = distribute_1;
+			decisions[node_index * 7].distribute_left  = distribute_left;
+			decisions[node_index * 7].distribute_right = distribute_right;
 		}
 
 		// In the paper i=2..7
 		for (int i = 1; i < 7; i++) {
 			float cost_distribute = cost[node_index * 7 + i - 1];
 
-			char distribute_0 = -1;
-			char distribute_1 = -1;
+			char distribute_left  = INVALID;
+			char distribute_right = INVALID;
 
 			for (int k = 0; k < i; k++) {
 				float c = 
@@ -76,21 +76,19 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 				if (c < cost_distribute) {
 					cost_distribute = c;
 					
-					distribute_0 =     k;
-					distribute_1 = i - k - 1;
+					distribute_left  =     k;
+					distribute_right = i - k - 1;
 				}
 			}
 
 			cost[node_index * 7 + i] = cost_distribute;
 
-			if (distribute_0 != -1) {
+			if (distribute_left != INVALID) {
 				decisions[node_index * 7 + i].type = Decision::Type::DISTRIBUTE;
-				decisions[node_index * 7 + i].distribute_0 = distribute_0;
-				decisions[node_index * 7 + i].distribute_1 = distribute_1;
+				decisions[node_index * 7 + i].distribute_left  = distribute_left;
+				decisions[node_index * 7 + i].distribute_right = distribute_right;
 			} else {
-				decisions[node_index * 7 + i].type         = decisions[node_index * 7 + i - 1].type;
-				decisions[node_index * 7 + i].distribute_0 = decisions[node_index * 7 + i - 1].distribute_0;
-				decisions[node_index * 7 + i].distribute_1 = decisions[node_index * 7 + i - 1].distribute_1;
+				decisions[node_index * 7 + i] = decisions[node_index * 7 + i - 1];
 			}
 		}
 	}
@@ -107,24 +105,24 @@ void CWBVHBuilder::get_children(int node_index, const BVHNode nodes[], int i, in
 		return;
 	}
 
-	int distribute_0 = decisions[node_index * 7 + i].distribute_0;
-	int distribute_1 = decisions[node_index * 7 + i].distribute_1;
+	char distribute_left  = decisions[node_index * 7 + i].distribute_left;
+	char distribute_right = decisions[node_index * 7 + i].distribute_right;
 
-	assert(distribute_0 >= 0 && distribute_0 < 7);
-	assert(distribute_1 >= 0 && distribute_1 < 7);
+	assert(distribute_left  >= 0 && distribute_left  < 7);
+	assert(distribute_right >= 0 && distribute_right < 7);
 	
 	assert(child_count < 8);
 
 	// Recurse on left child if it needs to distribute
-	if (decisions[node.left * 7 + distribute_0].type == Decision::Type::DISTRIBUTE) {
-		get_children(node.left, nodes, distribute_0, child_count, children);
+	if (decisions[node.left * 7 + distribute_left].type == Decision::Type::DISTRIBUTE) {
+		get_children(node.left, nodes, distribute_left, child_count, children);
 	} else {
 		children[child_count++] = node.left;
 	}
 	
 	// Recurse on right child if it needs to distribute
-	if (decisions[(node.left + 1) * 7 + distribute_1].type == Decision::Type::DISTRIBUTE) {
-		get_children(node.left + 1, nodes, distribute_1, child_count, children);
+	if (decisions[(node.left + 1) * 7 + distribute_right].type == Decision::Type::DISTRIBUTE) {
+		get_children(node.left + 1, nodes, distribute_right, child_count, children);
 	} else {
 		children[child_count++] = node.left + 1;
 	}
@@ -154,7 +152,7 @@ int CWBVHBuilder::count_primitives(int node_index, const BVHNode nodes[], const 
 void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int children[8], int child_count) {
 	Vector3 p = nodes[node_index].aabb.get_center();
 
-	float cost[8][8];
+	float cost[8][8] = { };
 
 	// Fill cost table
 	for (int c = 0; c < child_count; c++) {
@@ -169,7 +167,7 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 		}
 	}
 
-	int   assignment[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
+	int   assignment[8] = { INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID };
 	bool slot_filled[8] = { };
 
 	// Greedy child ordering, the paper mentions this as an alternative
@@ -177,12 +175,12 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 	while (true) {
 		float min_cost = INFINITY;
 
-		int min_slot  = -1;
-		int min_index = -1;
+		int min_slot  = INVALID;
+		int min_index = INVALID;
 
 		// Find cheapest unfilled slot of any unassigned child
 		for (int c = 0; c < child_count; c++) {
-			if (assignment[c] == -1) {
+			if (assignment[c] == INVALID) {
 				for (int s = 0; s < 8; s++) {
 					if (!slot_filled[s] && cost[c][s] < min_cost) {
 						min_cost = cost[c][s];
@@ -194,7 +192,7 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 			}
 		}
 
-		if (min_slot == -1) break;
+		if (min_slot == INVALID) break;
 
 		slot_filled[min_slot]  = true;
 		assignment [min_index] = min_slot;
@@ -204,11 +202,11 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 	int children_copy[8];
 	memcpy(children_copy, children, sizeof(children_copy));
 
-	for (int i = 0; i < 8; i++) children[i] = -1;
+	for (int i = 0; i < 8; i++) children[i] = INVALID;
 
 	for (int i = 0; i < child_count; i++) {
-		assert(assignment   [i] != -1);
-		assert(children_copy[i] != -1);
+		assert(assignment   [i] != INVALID);
+		assert(children_copy[i] != INVALID);
 
 		children[assignment[i]] = children_copy[i];
 	}
@@ -248,7 +246,7 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 	node.e[2] = u_ez >> 23;
 	
 	int child_count = 0;
-	int children[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
+	int children[8] = { INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID };
 	get_children(node_index_sbvh, nodes_sbvh, 0, child_count, children);
 
 	assert(child_count <= 8);
@@ -265,7 +263,7 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 
 	for (int i = 0; i < 8; i++) {
 		int child_index = children[i];
-		if (child_index == -1) continue; // Empty slot
+		if (child_index == INVALID) continue; // Empty slot
 
 		const AABB & child_aabb = nodes_sbvh[child_index].aabb;
 
@@ -316,7 +314,7 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 	// Recurse on Internal Nodes
 	for (int i = 0; i < 8; i++) {
 		int child_index = children[i];
-		if (child_index == -1) continue;
+		if (child_index == INVALID) continue;
 
 		if (decisions[child_index * 7].type == Decision::Type::INTERNAL) {
 			collapse(nodes_sbvh, indices_sbvh, node.base_index_child + (node.meta[i] & 31) - 24, child_index);
