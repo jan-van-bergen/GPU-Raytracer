@@ -420,25 +420,32 @@ static const char * get_absolute_filename(const char * path, int len_path, const
 
 static void find_rgb_or_texture(const XMLNode * node, const char * name, const char * path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
 	const XMLNode * reflectance = node->find_child_by_name(name);
-	if (reflectance == nullptr) {
-		rgb = Vector3(1.0f);
-	} else if (reflectance->tag == "rgb") {
-		rgb = reflectance->get_optional_attribute("value", Vector3(1.0f));
-	} else if (reflectance->tag == "texture") {
-		const StringView & filename_rel = reflectance->find_child_by_name("filename")->find_attribute("value")->value;
-		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+	if (reflectance) {
+		if (reflectance->tag == "rgb") {
+			rgb = reflectance->get_optional_attribute("value", Vector3(1.0f));
+			return;
+		} else if (reflectance->tag == "srgb") {
+			rgb = reflectance->get_optional_attribute("value", Vector3(1.0f));
+			rgb.x = Math::gamma_to_linear(rgb.x);
+			rgb.y = Math::gamma_to_linear(rgb.y);
+			rgb.z = Math::gamma_to_linear(rgb.z);
+			return;
+		} else if (reflectance->tag == "texture") {
+			const StringView & filename_rel = reflectance->find_child_by_name("filename")->find_attribute("value")->value;
+			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-		texture = scene.asset_manager.add_texture(filename_abs);
+			texture = scene.asset_manager.add_texture(filename_abs);
 
-		const XMLNode * scale = reflectance->find_child_by_name("scale");
-		if (scale) {
-			rgb = scale->get_optional_attribute("value", Vector3(1.0f));
+			const XMLNode * scale = reflectance->find_child_by_name("scale");
+			if (scale) {
+				rgb = scale->get_optional_attribute("value", Vector3(1.0f));
+			}
+
+			delete [] filename_abs;
+			return;
 		}
-
-		delete [] filename_abs;	
-	} else {
-		abort();
 	}
+	rgb = Vector3(1.0f);
 }
 
 static Matrix4 parse_transform(const XMLNode * node) {
@@ -528,7 +535,7 @@ static MaterialHandle find_material(const XMLNode * node, Scene & scene, Materia
 	if (ref && emitter == nullptr) { // If both a ref and emitter are defined, prefer the emitter
 		const StringView & material_name = ref->find_attribute("id")->value;
 
-		auto material_id = material_map.find(material_name);
+		MaterialMap::iterator material_id = material_map.find(material_name);
 		if (material_id == material_map.end()) {
 			printf("Invalid material Ref '%.*s'!\n", unsigned(material_name.end - material_name.start), material_name.start);
 			
@@ -677,8 +684,6 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 				world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
 				Geometry::sphere(triangles, triangle_count, world);
-			} else {
-				UNREACHABLE;
 			}
 
 			MeshDataHandle mesh_data_id = scene.asset_manager.add_mesh_data(triangles, triangle_count);
@@ -695,7 +700,7 @@ static void walk_xml_tree(const XMLNode & node, Scene & scene, MaterialMap & mat
 		if (camera_type == "perspective" || camera_type == "perspective_rdist" || camera_type == "thinlens") {
 			float fov = node.get_optional_child_value("fov", 110.0f);
 			scene.camera.set_fov(Math::deg_to_rad(fov));
-			scene.camera.aperture_radius = node.get_optional_child_value("aperatureRadius", 0.1f);
+			scene.camera.aperture_radius = node.get_optional_child_value("aperatureRadius", 0.05f);
 			scene.camera.focal_distance  = node.get_optional_child_value("focusDistance", 10.0f);
 
 			Matrix4 world = parse_transform(&node);
@@ -725,4 +730,6 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	MaterialMap materials;
 	char path[512];	Util::get_path(filename, path);
 	walk_xml_tree(root, scene, materials, path);
+
+	delete [] source;
 }
