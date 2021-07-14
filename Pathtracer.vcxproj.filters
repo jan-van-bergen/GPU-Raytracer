@@ -283,5 +283,8 @@
     <ClInclude Include="Src\Util\Geometry.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Util\StringView.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

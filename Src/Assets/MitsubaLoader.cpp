@@ -17,11 +17,15 @@
 
 #include "Util/Util.h"
 #include "Util/Geometry.h"
+#include "Util/StringView.h"
 
 #define TAB_WIDTH 4
 
-#define PARSER_ERROR(loc, msg, ...) \
-	printf("Mitsuba XML Parsing error at %s:%i:%i:\n" msg, loc.file, loc.line, loc.col, __VA_ARGS__); \
+#define WARNING(loc, msg, ...) \
+	printf("%s:%i:%i: " msg, loc.file, loc.line, loc.col, __VA_ARGS__);
+
+#define ERROR(loc, msg, ...) \
+	WARNING(loc, msg, __VA_ARGS__); \
 	abort();
 
 static bool is_whitespace(char c) {
@@ -81,10 +85,10 @@ struct ParserState {
 
 	void expect(char expected) {
 		if (reached_end()) {
-			PARSER_ERROR(location, "End of File!\n");
+			ERROR(location, "End of File!\n");
 		}
 		if (*cur != expected) {
-			PARSER_ERROR(location, "Unexpected char '%c', expected '%c'!\n", *cur, expected)
+			ERROR(location, "Unexpected char '%c', expected '%c'!\n", *cur, expected)
 		}
 		advance();
 	}
@@ -95,89 +99,13 @@ struct ParserState {
 		std::from_chars_result result = std::from_chars(cur, end, number);
 
 		if (bool(result.ec)) {
-			PARSER_ERROR(location, "Failed to parse '%.*s' as a number!\n", unsigned(end - cur), cur);
+			ERROR(location, "Failed to parse '%.*s' as a number!\n", unsigned(end - cur), cur);
 		}
 
 		cur = result.ptr;
 		return number;
 	}
 };
-
-struct StringView {
-	const char * start;
-	const char * end;
-
-	inline char operator[](int index) const { return start[index]; }
-
-	int length() const { return end - start; }
-
-	char * c_str() const {
-		int len = length();
-		char * str = new char[len + 1];
-		memcpy(str, start, len);
-		str[len] = '\0';
-		return str;
-	}
-
-	struct Hash {
-		size_t operator()(const StringView & str) const {
-			static constexpr int p = 31;
-			static constexpr int m = 1e9 + 9;
-
-			size_t hash = 0;
-			size_t p_pow = 1;
-			for (int i = 0; i < str.length(); i++) {
-				hash = (hash + (str[i] - 'a' + 1) * p_pow) % m;
-				p_pow = (p_pow * p) % m;
-			}
-
-			return hash;
-		}
-	};
-};
-
-template<int N>
-static bool operator==(const StringView & a, const char (&b)[N]) {
-	if (a.length() != N - 1) return false;
-
-	for (int i = 0; i < N - 1; i++) {
-		if (a[i] != b[i]) return false;
-	}
-
-	return true;
-}
-
-template<int N>
-static bool operator!=(const StringView & a, const char (&b)[N]) {
-	if (a.length() != N - 1) return true;
-
-	for (int i = 0; i < N - 1; i++) {
-		if (a[i] == b[i]) return false;
-	}
-
-	return true;
-}
-
-static bool operator==(const StringView & a, const char * b) {
-	int length = a.length();
-
-	for (int i = 0; i < length; i++) {
-		if (a[i] != b[i] || b[i] == '\0') return false;
-	}
-
-	return true;
-}
-
-static bool operator==(const StringView & a, const StringView & b) {
-	int length_a = a.length();
-	int length_b = b.length();
-
-	for (int i = 0; i < length_a; i++) {
-		if (a[i] != b[i]) return false;
-	}
-
-	return true;
-}
 
 struct XMLAttribute {
 	StringView name;
@@ -205,7 +133,7 @@ struct XMLAttribute {
 	bool get_value() const {
 		if (value == "true")  return true;
 		if (value == "false") return false;
-		PARSER_ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", unsigned(value.length()), value.start);
+		ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", unsigned(value.length()), value.start);
 	}
 
 	template<>
@@ -259,6 +187,8 @@ struct XMLNode {
 
 	std::vector<XMLAttribute> attributes;
 	std::vector<XMLNode>      children;
+
+	SourceLocation location;
 
 	template<typename Predicate>
 	const XMLAttribute * find_attribute(Predicate predicate) const {
@@ -337,6 +267,7 @@ static XMLNode parse_tag(ParserState & parser) {
 	}
 		
 	XMLNode node = { };
+	node.location         = parser.location;
 	node.is_question_mark = parser.match('?');
 
 	// Parse node tag
@@ -363,7 +294,7 @@ static XMLNode parse_tag(ParserState & parser) {
 		} else if (parser.match('\'')) {
 			quote_type = '\'';
 		} else {
-			PARSER_ERROR(parser.location, "An attribute must begin with either double or single quotes!\n");
+			ERROR(parser.location, "An attribute must begin with either double or single quotes!\n");
 		}
 
 		attribute.location_of_value = parser.location;
@@ -399,7 +330,7 @@ static XMLNode parse_tag(ParserState & parser) {
 	int i = 0;
 	while (!parser.reached_end() && !parser.match('>')) {
 		if (*parser.cur != node.tag.start[i++]) {
-			PARSER_ERROR(parser.location, "Non matching closing tag for '%.*s'!\n", unsigned(node.tag.length()), node.tag.start);
+			ERROR(parser.location, "Non matching closing tag for '%.*s'!\n", unsigned(node.tag.length()), node.tag.start);
 		}
 		parser.advance();
 	}
@@ -473,35 +404,33 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 	rgb = Vector3(1.0f);
 }
 
-static void decompose_matrix(const Matrix4 & matrix, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
-	if (position) *position = Vector3(matrix(0, 3), matrix(1, 3), matrix(2, 3));
-	
-	if (rotation) *rotation = Quaternion::look_rotation(
-		Matrix4::transform_direction(matrix, forward),
-		Matrix4::transform_direction(matrix, Vector3(0.0f, 1.0f, 0.0f))
-	);
-
-	if (scale) {
-		float scale_x = Vector3::length(Vector3(matrix(0, 0), matrix(0, 1), matrix(0, 2)));
-		float scale_y = Vector3::length(Vector3(matrix(1, 0), matrix(1, 1), matrix(1, 2)));
-		float scale_z = Vector3::length(Vector3(matrix(2, 0), matrix(2, 1), matrix(2, 2)));
-
-		if (Math::approx_equal(scale_x, scale_y) && Math::approx_equal(scale_y, scale_z)) {
-			*scale = scale_x;
-		} else {
-			puts("Warning: nonuniform scaling!");
-			*scale = cbrt(scale_x * scale_y * scale_y);
-		}
-	}
-}
-
 static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
 	const XMLNode * transform = node->find_child("transform");
 	if (transform) {
 		const XMLNode * matrix = transform->find_child("matrix");
 		if (matrix) {
 			Matrix4 world = matrix->find_attribute("value")->get_value<Matrix4>();
-			decompose_matrix(world, position, rotation, scale, forward);
+
+			// Decompose Matrix
+			if (position) *position = Vector3(world(0, 3), world(1, 3), world(2, 3));
+	
+			if (rotation) *rotation = Quaternion::look_rotation(
+				Matrix4::transform_direction(world, forward),
+				Matrix4::transform_direction(world, Vector3(0.0f, 1.0f, 0.0f))
+			);
+
+			if (scale) {
+				float scale_x = Vector3::length(Vector3(world(0, 0), world(0, 1), world(0, 2)));
+				float scale_y = Vector3::length(Vector3(world(1, 0), world(1, 1), world(1, 2)));
+				float scale_z = Vector3::length(Vector3(world(2, 0), world(2, 1), world(2, 2)));
+
+				if (Math::approx_equal(scale_x, scale_y) && Math::approx_equal(scale_y, scale_z)) {
+					*scale = scale_x;
+				} else {
+					WARNING(matrix->location, "Warning: non-uniform scaling is not supported!\n");
+					*scale = cbrt(scale_x * scale_y * scale_y);
+				}
+			}
 
 			return;
 		}
@@ -516,14 +445,20 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 
 			if (position) *position = origin;
 			if (rotation) *rotation = Quaternion::look_rotation(forward, up);
-			if (scale) *scale = 1.0f;
-
-			return;
 		}
 
 		const XMLNode * scale_node = transform->find_child("scale");
 		if (scale_node && scale) {
-			*scale = scale_node->get_optional_attribute("value", 1.0f);
+			const XMLAttribute * scale_value = scale_node->find_attribute("value");
+			if (scale_value) {
+				*scale = scale_value->get_value<float>();
+			} else {
+				float x = scale_node->get_optional_attribute("x", 1.0f);
+				float y = scale_node->get_optional_attribute("y", 1.0f);
+				float z = scale_node->get_optional_attribute("z", 1.0f);
+
+				*scale = x * y * z;
+			}
 		}
 		
 		const XMLNode * rotate = transform->find_child("rotate");
@@ -533,7 +468,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 			float z = rotate->get_optional_attribute("z", 0.0f);
 
 			if (x == 0.0f && y == 0.0f && z == 0.0f) {
-				printf("WARNING: Rotation without axis specified!\n");
+				WARNING(rotate->location, "WARNING: Rotation without axis specified!\n");
 			} else {
 				float angle = rotate->get_optional_attribute("angle", 0.0f);
 				*rotation = Quaternion::axis_angle(Vector3(x, y, z), Math::deg_to_rad(angle));
@@ -595,7 +530,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		
 			MaterialMap::const_iterator material_id = material_map.find(material_name);
 			if (material_id == material_map.end()) {
-				printf("Invalid material Ref '%.*s'!\n", unsigned(material_name.length()), material_name.start);
+				WARNING(ref->location, "Invalid material Ref '%.*s'!\n", unsigned(material_name.length()), material_name.start);
 			
 				return MaterialHandle::get_default();
 			}
@@ -606,7 +541,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		// Otherwise, parse BSDF
 		bsdf = node->find_child("bsdf");
 		if (bsdf == nullptr) {
-			printf("Unable to parse BSDF!\n");
+			WARNING(node->location, "Unable to parse BSDF!\n");
 			return MaterialHandle::get_default();
 		}
 	} else {
@@ -674,7 +609,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.transmittance = Vector3(1.0f);
 		material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.333f);
 	} else {
-		printf("WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.length()), inner_bsdf_type->value.start);
+		WARNING(inner_bsdf_type->location_of_value, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.length()), inner_bsdf_type->value.start);
 			
 		return MaterialHandle::get_default();
 	}
@@ -728,7 +663,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, const cha
 
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
 	} else {
-		printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
+		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
 		return MeshDataHandle { INVALID };
 	}
 }
@@ -788,7 +723,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				}
 			}
 		} else {
-			printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
+			WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
 		}
 	} else if (node->tag == "sensor") {
 		const StringView & camera_type = node->find_attribute("type")->value;
@@ -799,9 +734,14 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			scene.camera.aperture_radius = node->get_optional_child_value("aperatureRadius", 0.05f);
 			scene.camera.focal_distance  = node->get_optional_child_value("focusDistance", 10.0f);
 
-			parse_transform(node, &scene.camera.position, &scene.camera.rotation, nullptr, Vector3(0.0f, 0.0f, -1.0f));
+			float scale = 1.0f;
+			parse_transform(node, &scene.camera.position, &scene.camera.rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
+			
+			if (scale < 0.0f) {
+				scene.camera.rotation = Quaternion::conjugate(scene.camera.rotation);
+			}
 		} else {
-			printf("WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
+			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
 		}
 	} else for (int i = 0; i < node->children.size(); i++) {
 		walk_xml_tree(&node->children[i], scene, shape_group_map, material_map, texture_map, path);

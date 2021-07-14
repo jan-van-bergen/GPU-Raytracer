@@ -280,6 +280,7 @@
     <ClInclude Include="Src\Util\Random.h" />
     <ClInclude Include="Src\Util\ScopeTimer.h" />
     <ClInclude Include="Src\Util\Shader.h" />
+    <ClInclude Include="Src\Util\StringView.h" />
     <ClInclude Include="Src\Util\Util.h" />
     <ClInclude Include="Src\Window.h" />
   </ItemGroup>
