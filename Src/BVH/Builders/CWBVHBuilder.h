@@ -6,14 +6,14 @@ private:
 	CWBVH * cwbvh;
 	
 	struct Decision {
-		enum class Type : char {
+		enum struct Type : char {
 			LEAF,
 			INTERNAL,
 			DISTRIBUTE
 		} type;
 
-		char distribute_0 = -1;
-		char distribute_1 = -1;
+		char distribute_left  = INVALID;
+		char distribute_right = INVALID;
 	};
 	
 	float    * cost;
