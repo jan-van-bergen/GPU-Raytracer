@@ -303,6 +303,77 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	}
 }
 
+#if ENABLE_MIPMAPPING
+__device__ inline float3 sample_albedo(
+	int                       bounce,
+	const float3            & material_diffuse,
+	int                       material_texture_id,
+	const RayHit            & hit,
+	const TrianglePosNorTex & hit_triangle,
+	const float3            & hit_point_local,
+	const float3            & hit_normal,
+	const float2            & hit_tex_coord,
+	const float3            & ray_direction,
+	const float2            * cone_buffer,
+	int                       cone_buffer_index,
+	float                   & cone_angle, 
+	float                   & cone_width
+) {
+	float3 albedo;
+
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float  triangle_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_area_inv; // Normalize
+
+	float mesh_scale = mesh_get_scale(hit.mesh_id);
+
+	if (bounce == 0) {
+		cone_angle = camera.pixel_spread_angle;
+		cone_width = cone_angle * hit.t;
+
+		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
+
+		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
+			mesh_scale,
+			geometric_normal,
+			triangle_area_inv,
+			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
+			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
+			hit_point_local, hit_tex_coord,
+			ellipse_axis_1, ellipse_axis_2,
+			gradient_1, gradient_2
+		);
+
+		// Anisotropic sampling
+		albedo = material_get_albedo(material_diffuse, material_texture_id, hit_tex_coord.x, hit_tex_coord.y, gradient_1, gradient_2);
+	} else {
+		float2 cone = cone_buffer[cone_buffer_index];
+		cone_angle = cone.x;
+		cone_width = cone.y + cone_angle * hit.t;
+
+		float2 tex_size = texture_get_size(material_texture_id);
+
+		float lod_triangle = sqrtf(tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2));
+		float lod_ray_cone = ray_cone_get_lod(ray_direction, hit_normal, cone_width);
+		float lod = log2f(lod_triangle * lod_ray_cone);
+
+		// Trilinear sampling
+		albedo = material_get_albedo(material_diffuse, material_texture_id, hit_tex_coord.x, hit_tex_coord.y, lod);
+	}
+
+	float curvature = triangle_get_curvature(
+		hit_triangle.position_edge_1,
+		hit_triangle.position_edge_2,
+		hit_triangle.normal_edge_1,
+		hit_triangle.normal_edge_2
+	) / mesh_scale;
+
+	cone_angle += -2.0f * curvature * fabsf(cone_width / dot(hit_normal, ray_direction)); // Eq. 5 (Akenine-Möller 2021)
+
+	return albedo;
+}
+#endif
+
 template<typename BRDFEvaluator>
 __device__ inline void nee_sample(
 	int x, int y,
@@ -380,79 +451,6 @@ __device__ inline void nee_sample(
 	}
 }
 
-__device__ inline float3 sample_albedo(
-	int                       bounce,
-	const float3            & material_diffuse,
-	int                       material_texture_id,
-	const RayHit            & hit,
-	const TrianglePosNorTex & hit_triangle,
-	const float3            & hit_point_local,
-	const float3            & hit_normal,
-	const float2            & hit_tex_coord,
-	const float3            & ray_direction,
-	const float2            * cone_buffer,
-	int                       cone_buffer_index,
-	float                   & cone_angle, 
-	float                   & cone_width
-) {
-	float3 albedo;
-
-#if ENABLE_MIPMAPPING
-	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
-	float  triangle_area_inv = 1.0f / length(geometric_normal);
-	geometric_normal *= triangle_area_inv; // Normalize
-
-	float mesh_scale = mesh_get_scale(hit.mesh_id);
-
-	if (bounce == 0) {
-		cone_angle = camera.pixel_spread_angle;
-		cone_width = cone_angle * hit.t;
-
-		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
-
-		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
-			mesh_scale,
-			geometric_normal,
-			triangle_area_inv,
-			hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
-			hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
-			hit_point_local, hit_tex_coord,
-			ellipse_axis_1, ellipse_axis_2,
-			gradient_1, gradient_2
-		);
-
-		// Anisotropic sampling
-		albedo = material_get_albedo(material_diffuse, material_texture_id, hit_tex_coord.x, hit_tex_coord.y, gradient_1, gradient_2);
-	} else {
-		float2 cone = cone_buffer[cone_buffer_index];
-		cone_angle = cone.x;
-		cone_width = cone.y + cone_angle * hit.t;
-
-		float2 tex_size = texture_get_size(material_texture_id);
-
-		float lod_triangle = sqrtf(tex_size.x * tex_size.y * triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2));
-		float lod_ray_cone = ray_cone_get_lod(ray_direction, hit_normal, cone_width);
-		float lod = log2f(lod_triangle * lod_ray_cone);
-
-		// Trilinear sampling
-		albedo = material_get_albedo(material_diffuse, material_texture_id, hit_tex_coord.x, hit_tex_coord.y, lod);
-	}
-
-	float curvature = triangle_get_curvature(
-		hit_triangle.position_edge_1,
-		hit_triangle.position_edge_2,
-		hit_triangle.normal_edge_1,
-		hit_triangle.normal_edge_2
-	) / mesh_scale;
-
-	cone_angle += -2.0f * curvature * fabsf(cone_width / dot(hit_normal, ray_direction)); // Eq. 5 (Akenine-Möller 2021)
-#else
-	albedo = material_get_albedo(material_diffuse, material_texture_id, hit_tex_coord.x, hit_tex_coord.y);
-#endif
-
-	return albedo;
-}
-
 extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.diffuse[bounce]) return;
@@ -495,6 +493,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	// Sample albedo
+#if ENABLE_MIPMAPPING
 	float cone_angle;
 	float cone_width;
 	float3 albedo = sample_albedo(
@@ -507,14 +506,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		hit_normal,
 		hit_tex_coord,
 		ray_direction,
-#if ENABLE_MIPMAPPING
 		ray_buffer_shade_diffuse.cone,
-#else
-		nullptr,
-#endif
 		index,
 		cone_angle, cone_width
 	);
+#else
+	float3 albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
+#endif
 
 	float3 throughput = ray_throughput;
 	
@@ -727,6 +725,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	// Sample albedo
+#if ENABLE_MIPMAPPING
 	float cone_angle;
 	float cone_width;
 	float3 albedo = sample_albedo(
@@ -739,14 +738,13 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		hit_normal,
 		hit_tex_coord,
 		ray_direction,
-#if ENABLE_MIPMAPPING
 		ray_buffer_shade_dielectric_and_glossy.cone,
-#else
-		nullptr,
-#endif
 		index,
 		cone_angle, cone_width
 	);
+#else
+	float3 albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
+#endif
 
 	float3 throughput = ray_throughput;
 
@@ -811,6 +809,10 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_out);
+
+#if ENABLE_MIPMAPPING
+	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
+#endif
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness >= ROUGHNESS_CUTOFF) << 31);
 	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);

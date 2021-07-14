@@ -727,9 +727,9 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 
 	XMLNode root = parse_xml(parser);
 
-	MaterialMap materials;
+	MaterialMap material_map;
 	char path[512];	Util::get_path(filename, path);
-	walk_xml_tree(root, scene, materials, path);
+	walk_xml_tree(root, scene, material_map, path);
 
 	delete [] source;
 }
