@@ -624,8 +624,8 @@ void Pathtracer::calc_light_power() {
 	// For every Mesh, check whether it is a Light based on its Material
 	for (int m = 0; m < scene.meshes.size(); m++) {
 		const Mesh     & mesh      = scene.meshes[m];
-		const Material & material  = scene.asset_manager.get_material (mesh.material_id);
-		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh.mesh_data_id);
+		const Material & material  = scene.asset_manager.get_material (mesh.material_handle);
+		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
 		if (material.type == Material::Type::LIGHT) {
 			light_mesh_data_indices[m] = light_meshes.size();
@@ -691,7 +691,7 @@ void Pathtracer::calc_light_power() {
 	int light_mesh_count  = 0;
 		
 	for (int m = 0; m < scene.meshes.size(); m++) {
-		int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_id.handle];
+		int light_mesh_data_index = light_mesh_data_indices[scene.meshes[m].mesh_data_handle.handle];
 
 		if (light_mesh_data_index != INVALID) {
 			const LightMesh & light_mesh = light_meshes[light_mesh_data_index];
@@ -763,10 +763,10 @@ void Pathtracer::build_tlas() {
 	for (int i = 0; i < scene.meshes.size(); i++) {
 		const Mesh & mesh = scene.meshes[tlas.indices[i]];
 
-		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_id.handle] | (mesh.has_identity_transform() << 31);
+		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_handle.handle] | (mesh.has_identity_transform() << 31);
 
-		assert(mesh.material_id.handle != INVALID);
-		pinned_mesh_material_ids[i] = mesh.material_id.handle;
+		assert(mesh.material_handle.handle != INVALID);
+		pinned_mesh_material_ids[i] = mesh.material_handle.handle;
 
 		memcpy(pinned_mesh_transforms     [i].cells, mesh.transform     .cells, sizeof(Matrix3x4));
 		memcpy(pinned_mesh_transforms_inv [i].cells, mesh.transform_inv .cells, sizeof(Matrix3x4));

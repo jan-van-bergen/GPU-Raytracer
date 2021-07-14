@@ -24,6 +24,8 @@ struct Scene {
 
 	void init(const char * scene_name, const char * sky_name);
 
+	Mesh & add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
+
 	void check_materials();
 
 	void update(float delta);

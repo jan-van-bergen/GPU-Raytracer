@@ -357,7 +357,7 @@ static void draw_gui() {
 			if (ImGui::Selectable(mesh.name, &is_selected)) {
 				pathtracer.pixel_query.mesh_id     = m;
 				pathtracer.pixel_query.triangle_id = INVALID;
-				pathtracer.pixel_query.material_id = mesh.material_id.handle;
+				pathtracer.pixel_query.material_id = mesh.material_handle.handle;
 			}
 			ImGui::PopID();
 		}
@@ -445,9 +445,9 @@ static void draw_gui() {
 			draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
 
 			if (pathtracer.pixel_query.triangle_id != INVALID) {
-				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_id);
+				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
-				int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_id.handle]]; 
+				int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]]; 
 				const Triangle & triangle = mesh_data.triangles[index];
 
 				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));

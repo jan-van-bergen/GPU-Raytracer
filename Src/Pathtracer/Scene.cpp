@@ -20,17 +20,19 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 	const char * file_extension = Util::file_get_extension(scene_name);
 
 	if (strcmp(file_extension, "obj") == 0) {
-		MeshDataHandle mesh_data_id = asset_manager.add_mesh_data(scene_name);
-
-		Mesh & mesh = meshes.emplace_back();
-		mesh.init(scene_name, mesh_data_id, *this);
-		mesh.material_id = MaterialHandle::get_default();
+		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name));
 	} else if (strcmp(file_extension, "xml") == 0) {
 		MitsubaLoader::load(scene_name, *this);		
 	} else abort();
 
 	// Initialize Sky
 	sky.init(sky_name);
+}
+
+Mesh & Scene::add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
+	Mesh & mesh = meshes.emplace_back();
+	mesh.init(name, mesh_data_handle, material_handle, *this);
+	return mesh;
 }
 
 void Scene::check_materials() {
