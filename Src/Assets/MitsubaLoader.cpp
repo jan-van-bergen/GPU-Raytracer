@@ -205,7 +205,7 @@ struct XMLAttribute {
 	bool get_value() const {
 		if (value == "true")  return true;
 		if (value == "false") return false;
-		PARSER_ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", unsigned(value.end - value.start), value.start);
+		PARSER_ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", unsigned(value.length()), value.start);
 	}
 
 	template<>
@@ -399,7 +399,7 @@ static XMLNode parse_tag(ParserState & parser) {
 	int i = 0;
 	while (!parser.reached_end() && !parser.match('>')) {
 		if (*parser.cur != node.tag.start[i++]) {
-			PARSER_ERROR(parser.location, "Non matching closing tag for '%.*s'!\n", unsigned(node.tag.end - node.tag.start), node.tag.start);
+			PARSER_ERROR(parser.location, "Non matching closing tag for '%.*s'!\n", unsigned(node.tag.length()), node.tag.start);
 		}
 		parser.advance();
 	}
@@ -595,7 +595,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		
 			MaterialMap::const_iterator material_id = material_map.find(material_name);
 			if (material_id == material_map.end()) {
-				printf("Invalid material Ref '%.*s'!\n", unsigned(material_name.end - material_name.start), material_name.start);
+				printf("Invalid material Ref '%.*s'!\n", unsigned(material_name.length()), material_name.start);
 			
 				return MaterialHandle::get_default();
 			}
@@ -674,7 +674,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.transmittance = Vector3(1.0f);
 		material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.333f);
 	} else {
-		printf("WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.end - inner_bsdf_type->value.start), inner_bsdf_type->value.start);
+		printf("WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.length()), inner_bsdf_type->value.start);
 			
 		return MaterialHandle::get_default();
 	}
@@ -728,7 +728,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, const cha
 
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
 	} else {
-		printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.end - type->value.start), type->value.start);
+		printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
 		return MeshDataHandle { INVALID };
 	}
 }
@@ -788,7 +788,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				}
 			}
 		} else {
-			printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.end - type->value.start), type->value.start);
+			printf("WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
 		}
 	} else if (node->tag == "sensor") {
 		const StringView & camera_type = node->find_attribute("type")->value;
@@ -801,7 +801,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, nullptr, Vector3(0.0f, 0.0f, -1.0f));
 		} else {
-			printf("WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.end - camera_type.start), camera_type.start);
+			printf("WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
 		}
 	} else for (int i = 0; i < node->children.size(); i++) {
 		walk_xml_tree(&node->children[i], scene, shape_group_map, material_map, texture_map, path);
