@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <charconv>
 
+#include <miniz/miniz.h>
+
 #include "MeshData.h"
 
 #include "BVH/Builders/BVHBuilder.h"
@@ -354,7 +356,14 @@ struct ShapeGroup {
 	MaterialHandle material_handle;
 };
 
+struct Serialized {
+	uint32_t         num_meshes;
+	const char    ** mesh_names;
+	MeshDataHandle * mesh_data_handles;
+};
+
 using ShapeGroupMap = std::unordered_map<StringView, ShapeGroup,     StringView::Hash>;
+using SerializedMap = std::unordered_map<StringView, Serialized,     StringView::Hash>;
 using MaterialMap   = std::unordered_map<StringView, MaterialHandle, StringView::Hash>;
 using TextureMap    = std::unordered_map<StringView, TextureHandle,  StringView::Hash>;
 
@@ -428,7 +437,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 					*scale = scale_x;
 				} else {
 					WARNING(matrix->location, "Warning: non-uniform scaling is not supported!\n");
-					*scale = cbrt(scale_x * scale_y * scale_y);
+					*scale = cbrt(scale_x * scale_y * scale_z);
 				}
 			}
 
@@ -608,6 +617,10 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance = Vector3(1.0f);
 		material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.333f);
+	} else if (inner_bsdf_type->value == "difftrans") {
+		material.type = Material::Type::DIFFUSE;
+				
+		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else {
 		WARNING(inner_bsdf_type->location_of_value, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.length()), inner_bsdf_type->value.start);
 			
@@ -617,7 +630,215 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	return scene.asset_manager.add_material(material);
 }
 
-static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, const char * path, const char *& name) {
+static Serialized parse_serialized(const XMLNode * node, const char * filename, Scene & scene) {
+	int          serialized_length;
+	const char * serialized = Util::file_read(filename, serialized_length);
+		
+	uint16_t file_format_id; memcpy(&file_format_id, serialized,                    sizeof(uint16_t));
+	uint16_t file_version;   memcpy(&file_version,   serialized + sizeof(uint16_t), sizeof(uint16_t));
+	
+	if (file_format_id != 0x041c) {
+		ERROR(node->location, "ERROR: Serialized file '%s' does not start with format ID 0x041c!\n", filename);
+	}
+
+	// Read the End-of-File Dictionary
+	uint32_t num_meshes; memcpy(&num_meshes, serialized + serialized_length - sizeof(uint32_t), sizeof(uint32_t));
+
+	uint64_t eof_dictionary_offset = serialized_length - sizeof(uint32_t) - (num_meshes - 1) * sizeof(uint64_t) - 8;
+
+	uint64_t * mesh_offsets = new uint64_t[num_meshes + 1];
+	memcpy(mesh_offsets, serialized + eof_dictionary_offset, num_meshes * sizeof(uint64_t));
+	mesh_offsets[num_meshes] = serialized_length - sizeof(uint32_t);
+	assert(mesh_offsets[0] == 0);
+
+	const char    ** mesh_names        = new const char * [num_meshes];
+	MeshDataHandle * mesh_data_handles = new MeshDataHandle[num_meshes];
+
+	for (uint32_t i = 0; i < num_meshes; i++) {
+		// Decompress stream for this Mesh
+		mz_ulong num_bytes = mesh_offsets[i+1] - mesh_offsets[i] - 4;
+
+		uLong  deserialized_length;
+		char * deserialized;
+
+		while (true) {
+			deserialized_length = compressBound(num_bytes);
+			deserialized = new char[deserialized_length];
+
+			int status = uncompress(
+				reinterpret_cast<      unsigned char *>(deserialized), &deserialized_length,
+				reinterpret_cast<const unsigned char *>(serialized + mesh_offsets[i] + 4), num_bytes
+			);
+
+			if (status == MZ_BUF_ERROR) {
+				delete [] deserialized;
+				num_bytes *= 2;
+			} else if (status == MZ_OK) {
+				break;
+			} else {
+				ERROR(node->location, "ERROR: Failed to decompress file '%s'!\n", filename);
+			}
+		} 
+
+		char const * cur = deserialized;
+
+		// Helper function to copy over n bytes from the stream
+		auto read_n = [&cur, deserialized, deserialized_length, node](void * dst, size_t num_bytes) {
+			size_t offset = cur - deserialized;
+			if (offset + num_bytes > deserialized_length) {
+				ERROR(node->location, "ERROR: Buffer overflow!");
+			}
+
+			memcpy(dst, cur, num_bytes);
+			cur += num_bytes;
+		};
+
+		// Read flags field
+		uint32_t flags; read_n(&flags, sizeof(uint32_t));
+		bool flag_has_normals      = flags & 0x0001;
+		bool flag_has_tex_coords   = flags & 0x0002;
+		bool flag_has_colours      = flags & 0x0008;
+		bool flag_use_face_normals = flags & 0x0010;
+		bool flag_single_precision = flags & 0x1000;
+		bool flag_double_precision = flags & 0x2000;
+
+		// Read null terminated name
+		const char * name_start = cur;
+		cur += strlen(cur) + 1;
+
+		size_t name_length = cur - name_start;
+		char * mesh_name = new char[name_length];
+		memcpy(mesh_name, name_start, name_length);
+		mesh_names[i] = mesh_name;
+
+		// Read number of vertices and triangles
+		uint64_t num_vertices;  read_n(&num_vertices,  sizeof(uint64_t));
+		uint64_t num_triangles;	read_n(&num_triangles, sizeof(uint64_t));
+		
+		if (num_vertices == 0 || num_triangles == 0) {
+			mesh_data_handles[i] = MeshDataHandle { INVALID };
+			
+			WARNING(node->location, "WARNING: Serialized Mesh defined without vertices or triangles, skipping\n");
+
+			delete [] deserialized;
+			continue;
+		}
+		
+		// Check if num_vertices fits inside a uint32_t to determine whether indices use 32 or 64 bits
+		bool fits_in_32_bits = num_vertices <= 0xffffffff;
+
+		size_t element_size;
+		if (flag_single_precision) {
+			element_size = sizeof(float);
+		} else if (flag_double_precision) {
+			element_size = sizeof(double);
+		} else {
+			ERROR(node->location, "ERROR: Neither single nor double precision specified!\n");
+		}
+
+		const char * vertex_positions = cur;
+		cur += num_vertices * 3 * element_size;
+
+		const char * vertex_normals = cur;
+		if (flag_has_normals) cur += num_vertices * 3 * element_size;
+		
+		const char * vertex_tex_coords = cur;
+		if (flag_has_tex_coords) cur += num_vertices * 2 * element_size;
+		
+		// Vertex colours, not used
+		if (flag_has_colours) cur += num_vertices * 3 * element_size;
+		
+		const char * indices = cur;
+
+		// Reads a Vector3 from a buffer with the appropriate precision
+		auto read_vector3 = [flag_single_precision](const char * buffer, uint64_t index) {
+			Vector3 result;
+			if (flag_single_precision) {
+				result.x = reinterpret_cast<const float *>(buffer)[3*index];
+				result.y = reinterpret_cast<const float *>(buffer)[3*index + 1];
+				result.z = reinterpret_cast<const float *>(buffer)[3*index + 2];
+			} else {
+				result.x = reinterpret_cast<const double *>(buffer)[3*index];
+				result.y = reinterpret_cast<const double *>(buffer)[3*index + 1];
+				result.z = reinterpret_cast<const double *>(buffer)[3*index + 2];
+			}
+			return result;
+		};
+		
+		// Reads a Vector2 from a buffer with the appropriate precision
+		auto read_vector2 = [flag_single_precision](const char * buffer, uint64_t index) {
+			Vector2 result;
+			if (flag_single_precision) {
+				result.x = reinterpret_cast<const float *>(buffer)[2*index];
+				result.y = reinterpret_cast<const float *>(buffer)[2*index + 1];
+			} else {
+				result.x = reinterpret_cast<const double *>(buffer)[2*index];
+				result.y = reinterpret_cast<const double *>(buffer)[2*index + 1];
+			}
+			return result;
+		};
+		
+		// Reads a 32 or 64 bit indx from the specified buffer
+		auto read_index = [fits_in_32_bits](const char * buffer, uint64_t index) -> uint64_t {
+			if (fits_in_32_bits) {
+				return reinterpret_cast<const uint32_t *>(buffer)[index];
+			} else {
+				return reinterpret_cast<const uint64_t *>(buffer)[index];
+			}
+		};
+		
+		// Construct triangles
+		Triangle * triangles = new Triangle[num_triangles];
+		
+		for (size_t t = 0; t < num_triangles; t++) {
+			uint64_t index_0 = read_index(indices, 3*t);
+			uint64_t index_1 = read_index(indices, 3*t + 1);
+			uint64_t index_2 = read_index(indices, 3*t + 2);
+
+			triangles[t].position_0 = read_vector3(vertex_positions, index_0);
+			triangles[t].position_1 = read_vector3(vertex_positions, index_1);
+			triangles[t].position_2 = read_vector3(vertex_positions, index_2);
+
+			if (flag_use_face_normals) {
+				Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
+					triangles[t].position_1 - triangles[t].position_0,
+					triangles[t].position_2 - triangles[t].position_0
+				));
+				triangles[t].normal_0 = geometric_normal;
+				triangles[t].normal_1 = geometric_normal;
+				triangles[t].normal_2 = geometric_normal;
+			} else if (flag_has_normals) {
+				triangles[t].normal_0 = read_vector3(vertex_normals, index_0);
+				triangles[t].normal_1 = read_vector3(vertex_normals, index_1);
+				triangles[t].normal_2 = read_vector3(vertex_normals, index_2);
+			}
+
+			if (flag_has_tex_coords) {
+				triangles[t].tex_coord_0 = read_vector2(vertex_tex_coords, index_0);
+				triangles[t].tex_coord_1 = read_vector2(vertex_tex_coords, index_1);
+				triangles[t].tex_coord_2 = read_vector2(vertex_tex_coords, index_2);
+			}
+
+			triangles[t].calc_aabb();
+		}
+
+		mesh_data_handles[i] = scene.asset_manager.add_mesh_data(triangles, num_triangles);
+
+		delete [] deserialized;
+	}
+
+	delete [] mesh_offsets;
+	delete [] serialized;
+	
+	Serialized result = { };
+	result.num_meshes        = num_meshes;
+	result.mesh_names        = mesh_names;
+	result.mesh_data_handles = mesh_data_handles;
+
+	return result;
+}
+
+static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
 	const XMLAttribute * type = node->find_attribute("type");
 	if (type->value == "obj") {
 		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
@@ -662,13 +883,34 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, const cha
 		name = type->value.c_str();
 
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
+	} else if (type->value == "serialized") {
+		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+
+		Serialized serialized;
+
+		SerializedMap::const_iterator lookup = serialized_map.find(filename_rel);
+		if (lookup == serialized_map.end()) {
+			const char * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+		
+			serialized = parse_serialized(node, filename_abs, scene);
+			serialized_map[filename_rel] = serialized;
+
+			delete [] filename_abs;
+		} else {
+			serialized = lookup->second;
+		}
+		
+		int shape_index = node->get_optional_child_value("shapeIndex", 0);
+
+		name = serialized.mesh_names[shape_index];
+		return serialized.mesh_data_handles[shape_index];
 	} else {
 		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
 		return MeshDataHandle { INVALID };
 	}
 }
 
-static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & shape_group_map, MaterialMap & material_map, TextureMap & texture_map, const char * path) {
+static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, const char * path) {
 	if (node->tag == "bsdf") {
 		MaterialHandle   material_handle = parse_material(node, scene, material_map, texture_map, path);
 		const Material & material = scene.asset_manager.get_material(material_handle);
@@ -691,22 +933,26 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		delete [] filename_abs;
 	} else if (node->tag == "shape") {
 		const XMLAttribute * type = node->find_attribute("type");
-		if (type->value == "obj" || type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere") {
+		if (type->value == "obj" || type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere" || type->value == "serialized") {
 			char const * name = nullptr;
-			MeshDataHandle mesh_data_handle = parse_shape(node, scene, path, name);
+			MeshDataHandle mesh_data_handle = parse_shape(node, scene, serialized_map, path, name);
 			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
 
-			Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
+			if (mesh_data_handle.handle != INVALID) {
+				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
 
-			// Apply transform to OBJ shape, the other primitive shapes have the transform baked into their vertices
-			if (type->value == "obj") { 
-				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
+				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
+				if (type->value == "obj" || type->value == "serialized") { 
+					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
+				}
 			}
-		} else if (type->value == "shapegroup") {		
+		} else if (type->value == "shapegroup") {
+			const XMLNode * shape = node->find_child("shape");
+
 			const char * name = nullptr;
-			MeshDataHandle mesh_data_handle = parse_shape(node->find_child("shape"), scene, path, name);
-			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
-				
+			MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
+			MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
+			
 			const StringView & id = node->find_attribute("id")->value;
 			shape_group_map[id] = { mesh_data_handle, material_handle };
 		} else if (type->value == "instance") {
@@ -744,7 +990,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
 		}
 	} else for (int i = 0; i < node->children.size(); i++) {
-		walk_xml_tree(&node->children[i], scene, shape_group_map, material_map, texture_map, path);
+		walk_xml_tree(&node->children[i], scene, shape_group_map, serialized_map, material_map, texture_map, path);
 	}
 }
 
@@ -763,10 +1009,11 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	XMLNode root = parse_xml(parser);
 
 	ShapeGroupMap shape_group_map;
+	SerializedMap serialized_map;
 	MaterialMap   material_map;
 	TextureMap    texture_map;
 	char path[512];	Util::get_path(filename, path);
-	walk_xml_tree(&root, scene, shape_group_map, material_map, texture_map, path);
+	walk_xml_tree(&root, scene, shape_group_map, serialized_map, material_map, texture_map, path);
 
 	delete [] source;
 }

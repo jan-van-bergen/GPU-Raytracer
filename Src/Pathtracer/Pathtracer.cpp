@@ -628,7 +628,7 @@ void Pathtracer::calc_light_power() {
 		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
 		if (material.type == Material::Type::LIGHT) {
-			light_mesh_data_indices[m] = light_meshes.size();
+			light_mesh_data_indices[mesh.mesh_data_handle.handle] = light_meshes.size();
 
 			LightMesh & light_mesh = light_meshes.emplace_back();
 			light_mesh.triangle_first_index = light_triangles.size();
@@ -643,7 +643,7 @@ void Pathtracer::calc_light_power() {
 				));
 				float power = material.emission.x + material.emission.y + material.emission.z;
 
-				light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[m] + t], power * area });
+				light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[mesh.mesh_data_handle.handle] + t], power * area });
 			}
 				
 			// Sort Lights by power within each Mesh

@@ -198,6 +198,7 @@
     <ClCompile Include="Imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="Imgui\imgui_impl_sdl.cpp" />
     <ClCompile Include="Imgui\imgui_widgets.cpp" />
+    <ClCompile Include="include\miniz\miniz.c" />
     <ClCompile Include="Src\Assets\AssetManager.cpp" />
     <ClCompile Include="Src\Assets\BVHLoader.cpp" />
     <ClCompile Include="Src\Assets\MeshData.cpp" />
