@@ -11,6 +11,8 @@
 void Scene::init(const char * scene_name, const char * sky_name) {
 	camera.init(DEG_TO_RAD(110.0f));
 
+	asset_manager.init();
+
 	// Default Material
 	Material default_material = { };
 	default_material.name    = "Default";

@@ -101,7 +101,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("material_types").set_value(ptr_material_types);
 	cuda_module.get_global("materials")     .set_value(ptr_materials);
 	
-	scene.asset_manager.wait_until_textures_loaded();
+	scene.asset_manager.wait_until_loaded();
 
 	// Set global Texture table
 	int texture_count = scene.asset_manager.textures.size();

@@ -51,7 +51,7 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 		goto exit;
 	}
 
-	if (header.filetype_version < BVH_FILETYPE_VERSION) goto exit;
+	if (header.filetype_version != BVH_FILETYPE_VERSION) goto exit;
 
 	// Check if the settings used to create the BVH file are the same as the current settings
 	if (header.underlying_bvh_type    != UNDERLYING_BVH_TYPE || 

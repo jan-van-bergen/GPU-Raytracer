@@ -41,6 +41,10 @@ static BVH build_bvh(const Triangle * triangles, int triangle_count) {
 	return bvh;
 }
 
+void AssetManager::init() {
+	thread_pool.init();
+}
+
 MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
 
@@ -87,43 +91,6 @@ MaterialHandle AssetManager::add_material(const Material & material) {
 	return material_id;
 }
 
-static void load_texture(char * filename, int texture_id, AssetManager & asset_manager) {
-	Texture texture = { };
-	bool success = false;
-	
-	const char * file_extension = Util::file_get_extension(filename);
-	if (file_extension) {
-		if (strcmp(file_extension, "dds") == 0) {
-			success = TextureLoader::load_dds(filename, texture); // DDS is loaded using custom code
-		} else {
-			success = TextureLoader::load_stb(filename, texture); // other file formats use stb_image
-		}
-	}
-
-	if (!success) {
-		printf("WARNING: Failed to load Texture '%s'!\n", filename);
-
-		if (texture.data) delete [] texture.data;
-
-		// Use a default 1x1 pink Texture
-		texture.data = reinterpret_cast<const unsigned char *>(new Vector4(1.0f, 0.0f, 1.0f, 1.0f));
-		texture.format = Texture::Format::RGBA;
-		texture.width  = 1;
-		texture.height = 1;
-		texture.channels = 4;
-		texture.mip_levels  = 1;
-		texture.mip_offsets = new int(0);
-	}
-	
-	{
-		std::lock_guard<std::mutex> lock(asset_manager.textures_mutex);
-		asset_manager.textures[texture_id] = texture;
-	}
-	asset_manager.num_textures_finished++;
-
-	free(filename); // Allocated by strdup
-}
-
 TextureHandle AssetManager::add_texture(const char * filename) {
 	TextureHandle & texture_id = texture_cache[filename];
 
@@ -137,20 +104,54 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 		texture_id.handle = textures.size();
 		textures.emplace_back();
 	}
+	
+	thread_pool.submit([this, filename = _strdup(filename), texture_id]() {
+		Texture texture = { };
+		bool success = false;
+	
+		const char * file_extension = Util::file_get_extension(filename);
+		if (file_extension) {
+			if (strcmp(file_extension, "dds") == 0) {
+				success = TextureLoader::load_dds(filename, texture); // DDS is loaded using custom code
+			} else {
+				success = TextureLoader::load_stb(filename, texture); // other file formats use stb_image
+			}
+		}
 
-	std::thread loader(load_texture, _strdup(filename), texture_id.handle, std::ref(*this));
-	loader.detach();
+		if (!success) {
+			printf("WARNING: Failed to load Texture '%s'!\n", filename);
+
+			if (texture.data) delete [] texture.data;
+
+			// Use a default 1x1 pink Texture
+			texture.data = reinterpret_cast<const unsigned char *>(new Vector4(1.0f, 0.0f, 1.0f, 1.0f));
+			texture.format = Texture::Format::RGBA;
+			texture.width  = 1;
+			texture.height = 1;
+			texture.channels = 4;
+			texture.mip_levels  = 1;
+			texture.mip_offsets = new int(0);
+		}
+	
+		{
+			std::lock_guard<std::mutex> lock(textures_mutex);
+			textures[texture_id.handle] = texture;
+		}
+	
+		free(filename);
+	});
 
 	return texture_id;
 }
 
-void AssetManager::wait_until_textures_loaded() {
-	using namespace std::chrono_literals;
+void AssetManager::wait_until_loaded() {
+	if (assets_loaded) return; // Only necessary to wait the first time
 
-	while (num_textures_finished < textures.size()) {
-		std::this_thread::sleep_for(100ms);
-	}
+	thread_pool.sync();
+	thread_pool.free();
 
 	mesh_data_cache.clear();
 	texture_cache.clear();
+
+	assets_loaded = true;
 }

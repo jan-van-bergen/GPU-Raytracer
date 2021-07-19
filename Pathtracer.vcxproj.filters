@@ -103,6 +103,9 @@
     <ClCompile Include="include\miniz\miniz.c">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Util\ThreadPool.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -287,6 +290,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Util\StringView.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\ThreadPool.h">
       <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
