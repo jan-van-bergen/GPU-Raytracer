@@ -22,6 +22,8 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
 	char * bvh_filename      = MALLOCA(char, bvh_filename_size);
 
+	if (!bvh_filename) return false;
+
 	strcpy_s(bvh_filename, bvh_filename_size, filename);
 	strcat_s(bvh_filename, bvh_filename_size, BVH_FILE_EXTENSION);
 
@@ -32,18 +34,16 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 		return false;
 	}
 
-	FILE * file;
-	fopen_s(&file, bvh_filename, "rb");
+	FILE * file; fopen_s(&file, bvh_filename, "rb");
 	
 	BVHFileHeader header = { };
-
 	bool success = false;
 
 	if (!file) {
 		printf("WARNING: Unable to open BVH file '%s'!\n", bvh_filename);
 		goto exit;
 	}
-
+	
 	fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
 
 	if (strcmp(header.filetype_identifier, "BVH") != 0) {
@@ -81,28 +81,27 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	success = true;
 
 exit:
-	fclose(file);
+	if (file) fclose(file);
 
 	FREEA(bvh_filename);
-
 	return success;
 }
 
 bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	int    bvh_filename_length = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
 	char * bvh_filename        = MALLOCA(char, bvh_filename_length);
+	
+	if (!bvh_filename) return false;
 
 	strcpy_s(bvh_filename, bvh_filename_length, filename);
 	strcat_s(bvh_filename, bvh_filename_length, BVH_FILE_EXTENSION);
 
-	FILE * file;
-	fopen_s(&file, bvh_filename, "wb");
+	FILE * file; fopen_s(&file, bvh_filename, "wb");
 
-	if (file == nullptr) {
+	if (!file) {
 		printf("WARNING: Unable to save BVH to file %s!\n", bvh_filename);
 
 		FREEA(bvh_filename);
-
 		return false;
 	}
 
@@ -132,6 +131,5 @@ bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	fclose(file);
 
 	FREEA(bvh_filename);
-
 	return true;
 }
