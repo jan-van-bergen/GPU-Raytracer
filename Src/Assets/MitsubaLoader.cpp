@@ -989,6 +989,13 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		} else {
 			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
 		}
+	} else if (node->tag == "include") {
+		const StringView & filename_rel = node->find_attribute("filename")->value;
+		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+
+		MitsubaLoader::load(filename_abs, scene);
+
+		delete [] filename_abs;
 	} else for (int i = 0; i < node->children.size(); i++) {
 		walk_xml_tree(&node->children[i], scene, shape_group_map, serialized_map, material_map, texture_map, path);
 	}
