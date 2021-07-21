@@ -191,9 +191,10 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		aggregated_index_count    += scene.asset_manager.mesh_datas[i].bvh.index_count;
 	}
 
-	BVHNodeType * aggregated_bvh_nodes = new BVHNodeType[aggregated_bvh_node_count];
-	Triangle    * aggregated_triangles = new Triangle   [aggregated_triangle_count];
-	int         * aggregated_indices   = new int        [aggregated_index_count];
+	BVHNodeType  * aggregated_bvh_nodes = new BVHNodeType[aggregated_bvh_node_count];
+	CUDATriangle * aggregated_triangles = new CUDATriangle[aggregated_index_count];	
+	
+	reverse_indices = new int[aggregated_triangle_count];
 
 	for (int m = 0; m < mesh_data_count; m++) {
 		const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
@@ -224,12 +225,23 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 #endif
 		}
 
-		for (int t = 0; t < mesh_data.triangle_count; t++) {
-			aggregated_triangles[mesh_data_triangle_offsets[m] + t] = mesh_data.triangles[t];
-		}
-
 		for (int i = 0; i < mesh_data.bvh.index_count; i++) {
-			aggregated_indices[mesh_data_index_offsets[m] + i] = mesh_data.bvh.indices[i] + mesh_data_triangle_offsets[m];
+			int index = mesh_data.bvh.indices[i];
+			Triangle & triangle = mesh_data.triangles[index];
+			
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_0      = triangle.position_0;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_edge_1 = triangle.position_1 - triangle.position_0;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_edge_2 = triangle.position_2 - triangle.position_0;
+
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].normal_0      = triangle.normal_0;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].normal_edge_1 = triangle.normal_1 - triangle.normal_0;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].normal_edge_2 = triangle.normal_2 - triangle.normal_0;
+
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].tex_coord_0      = triangle.tex_coord_0;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].tex_coord_edge_1 = triangle.tex_coord_1 - triangle.tex_coord_0;
+			aggregated_triangles[mesh_data_triangle_offsets[m] + i].tex_coord_edge_2 = triangle.tex_coord_2 - triangle.tex_coord_0;
+
+			reverse_indices[mesh_data_triangle_offsets[m] + index] = mesh_data_index_offsets[m] + i;
 		}
 	}
 
@@ -272,39 +284,12 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	tlas_converter.init(&tlas, tlas_raw);
 #endif
 
-	CUDATriangle * triangles = new CUDATriangle[aggregated_index_count];
-	
-	reverse_indices = new int[aggregated_index_count];
-
-	for (int i = 0; i < aggregated_index_count; i++) {
-		int index = aggregated_indices[i];
-
-		assert(index < aggregated_triangle_count);
-
-		triangles[i].position_0      = aggregated_triangles[index].position_0;
-		triangles[i].position_edge_1 = aggregated_triangles[index].position_1 - aggregated_triangles[index].position_0;
-		triangles[i].position_edge_2 = aggregated_triangles[index].position_2 - aggregated_triangles[index].position_0;
-
-		triangles[i].normal_0      = aggregated_triangles[index].normal_0;
-		triangles[i].normal_edge_1 = aggregated_triangles[index].normal_1 - aggregated_triangles[index].normal_0;
-		triangles[i].normal_edge_2 = aggregated_triangles[index].normal_2 - aggregated_triangles[index].normal_0;
-
-		triangles[i].tex_coord_0      = aggregated_triangles[index].tex_coord_0;
-		triangles[i].tex_coord_edge_1 = aggregated_triangles[index].tex_coord_1 - aggregated_triangles[index].tex_coord_0;
-		triangles[i].tex_coord_edge_2 = aggregated_triangles[index].tex_coord_2 - aggregated_triangles[index].tex_coord_0;
-
-		reverse_indices[index] = i;
-	}
-
-	ptr_triangles = CUDAMemory::malloc(triangles, aggregated_index_count);
+	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
 	
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
 	
 	delete [] aggregated_bvh_nodes;
-	delete [] aggregated_indices;
 	delete [] aggregated_triangles;
-
-	delete [] triangles;
 	
 	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
 
