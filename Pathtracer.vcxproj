@@ -216,6 +216,7 @@
     <ClCompile Include="Src\Input.cpp" />
     <ClCompile Include="Src\Main.cpp" />
     <ClCompile Include="Src\Math\AABB.cpp" />
+    <ClCompile Include="Src\Math\Mipmap.cpp" />
     <ClCompile Include="Src\Pathtracer\Camera.cpp" />
     <ClCompile Include="Src\Pathtracer\Mesh.cpp" />
     <ClCompile Include="Src\Pathtracer\Pathtracer.cpp" />
@@ -265,6 +266,7 @@
     <ClInclude Include="Src\Math\AABB.h" />
     <ClInclude Include="Src\Math\Math.h" />
     <ClInclude Include="Src\Math\Matrix4.h" />
+    <ClInclude Include="Src\Math\Mipmap.h" />
     <ClInclude Include="Src\Math\Quaternion.h" />
     <ClInclude Include="Src\Math\Vector2.h" />
     <ClInclude Include="Src\Math\Vector3.h" />

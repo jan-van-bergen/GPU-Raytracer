@@ -227,7 +227,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 		for (int i = 0; i < mesh_data.bvh.index_count; i++) {
 			int index = mesh_data.bvh.indices[i];
-			Triangle & triangle = mesh_data.triangles[index];
+			const Triangle & triangle = mesh_data.triangles[index];
 			
 			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_0      = triangle.position_0;
 			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_edge_1 = triangle.position_1 - triangle.position_0;
