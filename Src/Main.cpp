@@ -87,7 +87,7 @@ static void calc_timing();
 static void draw_gui();
 
 int main(int argument_count, char ** arguments) {
-	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/Mitsuba/instancing.xml";
+	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/Sponza/scene.xml";
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 
 	if (argument_count > 1) {
@@ -333,10 +333,12 @@ static void draw_gui() {
 	ImGui::End();
 
 	if (ImGui::Begin("Scene")) {
-		ImGui::Text("Has Diffuse:    %s", pathtracer.scene.has_diffuse    ? "True" : "False");
-		ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
-		ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
-		ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
+		if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Text("Has Diffuse:    %s", pathtracer.scene.has_diffuse    ? "True" : "False");
+			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
+			ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
+			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
+		}
 
 		if (ImGui::IsMouseClicked(1)) {
 			// Deselect current object
@@ -345,24 +347,26 @@ static void draw_gui() {
 			pathtracer.pixel_query.triangle_id = INVALID;
 			pathtracer.pixel_query.material_id = INVALID;
 		}
+		
+		if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::BeginChild("Meshes", ImVec2(0, 200), true);
 
-		ImGui::BeginChild("Meshes", ImVec2(0, 200), true);
+			for (int m = 0; m < pathtracer.scene.meshes.size(); m++) {
+				const Mesh & mesh = pathtracer.scene.meshes[m];
 
-		for (int m = 0; m < pathtracer.scene.meshes.size(); m++) {
-			const Mesh & mesh = pathtracer.scene.meshes[m];
+				bool is_selected = pathtracer.pixel_query.mesh_id == m;
 
-			bool is_selected = pathtracer.pixel_query.mesh_id == m;
-
-			ImGui::PushID(m);
-			if (ImGui::Selectable(mesh.name, &is_selected)) {
-				pathtracer.pixel_query.mesh_id     = m;
-				pathtracer.pixel_query.triangle_id = INVALID;
-				pathtracer.pixel_query.material_id = mesh.material_handle.handle;
+				ImGui::PushID(m);
+				if (ImGui::Selectable(mesh.name, &is_selected)) {
+					pathtracer.pixel_query.mesh_id     = m;
+					pathtracer.pixel_query.triangle_id = INVALID;
+					pathtracer.pixel_query.material_id = mesh.material_handle.handle;
+				}
+				ImGui::PopID();
 			}
-			ImGui::PopID();
-		}
 
-		ImGui::EndChild();
+			ImGui::EndChild();
+		}
 
 		if (pathtracer.pixel_query.mesh_id != INVALID) {
 			Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
