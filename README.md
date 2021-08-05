@@ -28,7 +28,7 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 - Multiple Material types
   - *Diffuse*
   - *Dielectrics*
-  - *Microfacets* (Beckmann and GGX models)
+  - *Microfacets* (GGX)
 
 ## Screenshots
 
