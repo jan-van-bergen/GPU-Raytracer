@@ -1,0 +1,1752 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<scene version="0.5.0">
+	<sensor type="perspective">
+		<transform name="toWorld" >
+			<translate x="1.272743" y="3.097532" z="-3.189943"/>
+			<rotate y="1" angle="190.33"/>
+		</transform>
+	</sensor>
+	<bsdf type="twosided" id="Material__25">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\lion.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="Material__298">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\background.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="Material__47">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.4704, 0.4704, 0.4704"/>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="Material__57">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\vase_plant.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="None">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.052218, 0.052218, 0.052218"/>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="arch">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_arch_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="bricks">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\spnza_bricks_a_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="ceiling">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_ceiling_a_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="chain">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\chain_texture.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="column_a">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_column_a_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="column_b">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_column_b_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="column_c">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_column_c_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="details">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_details_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="fabric_a">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_fabric_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="fabric_c">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_curtain_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="fabric_d">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_fabric_blue_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="fabric_e">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_fabric_green_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="fabric_f">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_curtain_green_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="fabric_g">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_curtain_blue_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="flagpole">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_flagpole_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="floor">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_floor_a_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="leaf">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_thorn_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="roof">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\sponza_roof_diff.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="vase">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\vase_dif.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="vase_hanging">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\vase_hanging.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<bsdf type="twosided" id="vase_round">
+		<bsdf type="diffuse">
+			<texture name="reflectance" type="bitmap">
+				<string name="filename" value="textures\\vase_round.tga"/>
+				<rgb name="scale" value="0.4704, 0.4704, 0.4704"/>
+			</texture>
+		</bsdf>
+	</bsdf>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_236.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_328.obj"/>
+		<ref id="fabric_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_329.obj"/>
+		<ref id="fabric_g"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_237.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_261.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_99.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_98.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_320.obj"/>
+		<ref id="fabric_g"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_321.obj"/>
+		<ref id="fabric_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_322.obj"/>
+		<ref id="fabric_f"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_323.obj"/>
+		<ref id="fabric_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_324.obj"/>
+		<ref id="fabric_f"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_325.obj"/>
+		<ref id="fabric_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_326.obj"/>
+		<ref id="fabric_g"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_327.obj"/>
+		<ref id="fabric_f"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_263.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_150.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_265.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_156.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_155.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_266.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_117.obj"/>
+		<ref id="floor"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_116.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_115.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_114.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_113.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_220.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_223.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_222.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_229.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_228.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_119.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_118.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_75.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_74.obj"/>
+		<ref id="details"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_77.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_76.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_71.obj"/>
+		<ref id="details"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_70.obj"/>
+		<ref id="details"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_73.obj"/>
+		<ref id="details"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_72.obj"/>
+		<ref id="details"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_90.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_79.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_78.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_97.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_96.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_95.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_343.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_340.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_341.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_346.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_347.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_94.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_345.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_348.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_349.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_93.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_92.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_188.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_189.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_184.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_185.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_186.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_187.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_180.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_181.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_182.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_183.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_122.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_123.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_120.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_121.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_126.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_127.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_171.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_209.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_208.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_207.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_206.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_205.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_204.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_203.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_202.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_201.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_200.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_173.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_59.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_58.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_172.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_53.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_52.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_51.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_50.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_57.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_56.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_55.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_54.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_282.obj"/>
+		<ref id="fabric_e"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_175.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_177.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_286.obj"/>
+		<ref id="fabric_d"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_176.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_218.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_219.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_214.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_215.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_216.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_217.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_210.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_211.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_212.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_213.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_260.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_28.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_29.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_26.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_27.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_24.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_25.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_22.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_23.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_20.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_21.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_269.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_268.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_159.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_158.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_153.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_152.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_151.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_262.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_157.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_264.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_267.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_154.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_302.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_91.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_306.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_307.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_304.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_305.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_276.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_303.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_300.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_301.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_277.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_308.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_309.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_142.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_143.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_144.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_145.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_146.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_147.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_05.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_06.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_07.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_00.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_01.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_03.obj"/>
+		<ref id="Material__298"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_08.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_09.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_139.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_138.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_135.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_134.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_137.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_136.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_131.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_130.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_133.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_132.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_243.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_242.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_241.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_240.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_247.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_246.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_245.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_244.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_249.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_248.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_17.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_16.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_15.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_14.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_13.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_12.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_11.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_10.obj"/>
+		<ref id="column_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_19.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_18.obj"/>
+		<ref id="floor"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_250.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_251.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_252.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_253.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_254.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_255.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_256.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_257.obj"/>
+		<ref id="Material__47"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_258.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_259.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_128.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_129.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_351.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_62.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_63.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_60.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_61.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_66.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_67.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_64.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_65.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_68.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_69.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_225.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_333.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_224.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_227.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_359.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_358.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_226.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_355.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_354.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_357.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_356.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_221.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_350.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_353.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_352.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_112.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_294.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_111.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_167.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_110.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_296.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_165.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_198.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_197.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_196.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_195.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_194.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_193.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_192.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_191.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_190.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_291.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_292.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_293.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_104.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_105.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_238.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_239.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_100.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_101.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_102.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_103.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_232.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_233.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_230.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_231.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_108.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_109.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_234.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_235.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_48.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_49.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_40.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_41.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_42.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_43.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_44.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_45.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_46.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_47.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_364.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_199.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_287.obj"/>
+		<ref id="fabric_e"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_170.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_285.obj"/>
+		<ref id="fabric_e"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_284.obj"/>
+		<ref id="fabric_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_283.obj"/>
+		<ref id="fabric_d"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_174.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_281.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_280.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_179.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_178.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_289.obj"/>
+		<ref id="fabric_d"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_288.obj"/>
+		<ref id="fabric_a"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_377.obj"/>
+		<ref id="Material__25"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_376.obj"/>
+		<ref id="vase"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_375.obj"/>
+		<ref id="vase"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_374.obj"/>
+		<ref id="vase"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_373.obj"/>
+		<ref id="vase"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_372.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_371.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_370.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_362.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_379.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_378.obj"/>
+		<ref id="Material__25"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_124.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_290.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_368.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_166.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_295.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_164.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_297.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_162.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_163.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_160.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_161.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_332.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_125.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_298.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_299.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_168.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_169.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_331.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_365.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_366.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_367.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_360.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_361.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_330.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_363.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_337.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_369.obj"/>
+		<ref id="vase_round"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_336.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_335.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_334.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_311.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_310.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_313.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_312.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_315.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_314.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_317.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_316.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_319.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_318.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_31.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_30.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_33.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_32.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_35.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_34.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_37.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_36.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_39.obj"/>
+		<ref id="arch"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_38.obj"/>
+		<ref id="ceiling"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_148.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_149.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_278.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_279.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_140.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_141.obj"/>
+		<ref id="column_b"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_274.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_275.obj"/>
+		<ref id="leaf"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_272.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_273.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_270.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_271.obj"/>
+		<ref id="flagpole"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_382.obj"/>
+		<ref id="bricks"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_380.obj"/>
+		<ref id="roof"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_381.obj"/>
+		<ref id="roof"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_342.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_106.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_339.obj"/>
+		<ref id="chain"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_338.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_88.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_89.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_107.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_84.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_85.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_86.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_87.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_80.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_81.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_82.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_83.obj"/>
+		<ref id="column_c"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/sponza_344.obj"/>
+		<ref id="vase_hanging"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/Plane.001.obj"/>
+		<ref id="None"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/Icosphere.obj"/>
+		<emitter type="area">
+			<rgb name="radiance" value="12, 12, 12"/>
+		</emitter>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="models/Icosphere.001.obj"/>
+		<emitter type="area">
+			<rgb name="radiance" value="12, 12, 12"/>
+		</emitter>
+	</shape>
+</scene>
