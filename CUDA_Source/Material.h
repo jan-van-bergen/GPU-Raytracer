@@ -1,7 +1,7 @@
 #pragma once
 
 // Glossy materials with roughness below the cutoff don't use direct Light sampling
-#define ROUGHNESS_CUTOFF 0.3f
+#define ROUGHNESS_CUTOFF (0.1f * 0.1f)
 
 __device__ const Texture<float4> * textures;
 
@@ -151,116 +151,76 @@ __device__ inline float fresnel_schlick(float eta_1, float eta_2, float cos_thet
 	return r_0 + (1.0f - r_0) * (cos_theta_i * cos_theta_i * cos_theta_i * cos_theta_i * cos_theta_i);
 }
 
-// Distribution of Normals term D for the Beckmann microfacet model
-__device__ inline float beckmann_D(float m_dot_n, float alpha) {
-	if (m_dot_n <= 0.0f) return 0.0f;
-
-	float cos_theta_m  = m_dot_n;
-	float cos2_theta_m = cos_theta_m  * cos_theta_m;
-	float cos4_theta_m = cos2_theta_m * cos2_theta_m;
-
-	float tan2_theta_m = max(0.0f, 1.0f - cos2_theta_m) / cos2_theta_m; // tan^2(x) = sec^2(x) - 1 = (1 - cos^2(x)) / cos^2(x)
-
-	float alpha2 = alpha * alpha;
-
-	return exp(-tan2_theta_m / alpha2) / (PI * alpha2 * cos4_theta_m);
-}
-
-// Monodirectional Smith shadowing term G1 for the Beckmann microfacet model
-__device__ inline float beckmann_G1(float v_dot_n, float v_dot_m, float alpha) {
-	if (v_dot_m <= 0.0f || v_dot_n <= 0.0f) return 0.0f;
-
-	float cos_theta_v = v_dot_n;
-	float tan_theta_v = sqrt(max(1e-8f, 1.0f - cos_theta_v*cos_theta_v)) / cos_theta_v; // tan(acos(x)) = sqrt(1 - x^2) / x
-
-	float a = 1.0f / (alpha * tan_theta_v);
-	if (a >= 1.6f) return 1.0f;
-
-	// Rational approximation
-	return (a * (3.535f + 2.181f * a)) / (1.0f + a * (2.276f + 2.577f * a));
-}
-
-// Rational approximation to lambda term for the Beckmann microfacet model
-__device__ float beckmann_lambda(float cos_theta, float alpha) {
-	float tan_theta_v = sqrtf(max(1e-8f, 1.0f - cos_theta*cos_theta)) / cos_theta;
-	float a = 1.0f / (alpha * tan_theta_v);
-
-	if (a >= 1.6f) return 0.0f;
-
-	return (1.0f - a * (1.259f + 0.396f*a)) / (a * (3.535f + 2.181f*a));
-};
-
 // Distribution of Normals term D for the GGX microfacet model
-__device__ inline float ggx_D(float m_dot_n, float alpha) {
-	if (m_dot_n <= 0.0f) return 0.0f;
+__device__ inline float ggx_D(const float3 & micro_normal, float alpha_x, float alpha_y) {
+	float sx = -micro_normal.x / (micro_normal.z * alpha_x);
+	float sy = -micro_normal.y / (micro_normal.z * alpha_y);
 
-	float cos_theta  = m_dot_n;
-	float cos_theta2 = cos_theta  * cos_theta;
-	float cos_theta4 = cos_theta2 * cos_theta2;
+	float sl = 1.0f + sx * sx + sy * sy;
 
-	float tan_theta2 = (1.0f - cos_theta2) / cos_theta2;
+	float cos_theta_2 = micro_normal.z * micro_normal.z;
+	float cos_theta_4 = cos_theta_2 * cos_theta_2;
 
-	float alpha2 = alpha * alpha;
-	float alpha2_plus_tan_theta2 = alpha2 + tan_theta2;
-
-	return alpha2 / (PI * cos_theta4 * alpha2_plus_tan_theta2 * alpha2_plus_tan_theta2);
+	return 1.0f / (sl * sl * PI * alpha_x * alpha_y * cos_theta_4);
 }
 
-// Monodirectional Smith shadowing term G1 for the GGX microfacet model
-__device__ inline float ggx_G1(float v_dot_n, float v_dot_m, float alpha) {
-	if (v_dot_m <= 0.0f || v_dot_n <= 0.0f) return 0.0f;
+// Monodirectional Smith shadowing/masking term G1 for the GGX microfacet model
+__device__ inline float ggx_G1(const float3 & omega, float alpha_x2, float alpha_y2) {
+	float cos_o2 = omega.z * omega.z;
+	float tan_theta_o2 = (1.0f - cos_o2) / cos_o2;
+	float cos_phi_o2 = omega.x * omega.x;
+	float sin_phi_o2 = omega.y * omega.y;
 
-	float cos_theta  = v_dot_n;
-	float cos_theta2 = cos_theta  * cos_theta;
+	float alpha_o2 = (cos_phi_o2 * alpha_x2 + sin_phi_o2 * alpha_y2) / (cos_phi_o2 + sin_phi_o2);
 
-	float tan_theta2 = (1.0f - cos_theta2) / cos_theta2;
-
-	float alpha2 = alpha * alpha;
-
-	return 2.0f / (1.0f - sqrtf(1.0f + alpha2 * tan_theta2));
+	return 2.0f / (1.0f + sqrtf(fmaxf(0.0f, 1.0f + alpha_o2 * tan_theta_o2)));
 }
 
-// Lambda term for the GGX microfacet model
-__device__ inline float ggx_lambda(float cos_theta, float alpha) {
-	float cos_theta2 = cos_theta  * cos_theta;
-	float tan_theta2 = (1.0f - cos_theta2) / cos_theta2;
-
-	float one_over_a2 = alpha*alpha * tan_theta2;
-
-	return (sqrtf(1.0f + one_over_a2) - 1.0f) * 0.5f;
-}
-
-__device__ inline float microfacet_D(float m_dot_n, float alpha) {
-#if MICROFACET_MODEL == MICROFACET_BECKMANN
-	return beckmann_D(m_dot_n, alpha);
-#elif MICROFACET_MODEL == MICROFACET_GGX
-	return ggx_D(m_dot_n, alpha);
-#endif
-}
-
-// Shadowing/Masking term for the given microfacet model
-// If MICROFACET_SEPARATE_G_TERMS is set to true, two separate monodirectional Smith terms G1 are used,
-// otherwise a Height-Correlated Masking and Shadowing term G2 is used based on 2 lambda terms.
-__device__ inline float microfacet_G(float i_dot_m, float o_dot_m, float i_dot_n, float o_dot_n, float m_dot_n, float alpha) {
-#if MICROFACET_SEPARATE_G_TERMS
-	#if MICROFACET_MODEL == MICROFACET_BECKMANN
-		return
-			beckmann_G1(i_dot_n, m_dot_n, alpha) * 
-			beckmann_G1(o_dot_n, m_dot_n, alpha); 
-	#elif MICROFACET_MODEL == MICROFACET_GGX
-		return
-			ggx_G1(i_dot_n, m_dot_n, alpha) * 
-			ggx_G1(o_dot_n, m_dot_n, alpha); 
-	#endif
-#else
-	#if MICROFACET_MODEL == MICROFACET_BECKMANN
-		const auto lambda = beckmann_lambda;
-	#elif MICROFACET_MODEL == MICROFACET_GGX
-		const auto lambda = ggx_lambda;
-	#endif
-
-	if (i_dot_m <= 0.0f || o_dot_m <= 0.0f) return 0.0f;
+// Based on: Sampling the GGX Distribution of Visible Normals - Heitz 2018
+__device__ inline float3 ggx_sample_distribution_of_normals(const float3 & omega, float alpha_x, float alpha_y, float u1, float u2){
+	// Transform the view direction to the hemisphere configuration
+	float3 v = normalize(make_float3(alpha_x * omega.x, alpha_y * omega.y, omega.z));
 	
-	return 1.0f / (1.0f + lambda(i_dot_n, alpha) + lambda(o_dot_m, alpha));
-#endif
+	// Orthonormal basis (with special case if cross product is zero)
+	float length_squared = v.x*v.x + v.y*v.y;
+	float3 axis_1 = length_squared > 0.0f ? make_float3(-v.y, v.x, 0.0f) / sqrt(length_squared) : make_float3(1.0f, 0.0f, 0.0f);
+	float3 axis_2 = cross(v, axis_1);
+	
+	// Parameterization of the projected area
+	float r = sqrt(u1);
+	float phi = TWO_PI * u2;
+
+	float sin_phi;
+	float cos_phi;
+	__sincosf(phi, &sin_phi, &cos_phi);
+
+	float t1 = r * cos_phi;
+	float t2 = r * sin_phi;
+
+	float s = 0.5f * (1.0f + v.z);
+	t2 = (1.0f - s) * sqrtf(1.0 - t1*t1) + s*t2;
+	
+	// Reproject onto hemisphere
+	float3 n_h = t1*axis_1 + t2*axis_2 + sqrtf(fmaxf(0.0f, 1.0f - t1*t1 - t2*t2)) * v;
+	
+	// Transform the normal back to the ellipsoid configuration
+	return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, fmaxf(0.0f, n_h.z)));
+}
+
+__device__ inline float ggx_eval(const float3 & omega_o, const float3 & omega_i, float ior, float alpha_x, float alpha_y, float & pdf) {
+	float3 half_vector = normalize(omega_o + omega_i);
+	float mu = fmaxf(0.0, dot(omega_o, half_vector));
+
+	float F = fresnel_schlick(ior, 1.0f, mu);
+	float D = ggx_D(half_vector, alpha_x, alpha_y);
+
+	// Masking/shadowing using two monodirectional Smith terms
+	float G1_o = ggx_G1(omega_o, alpha_x * alpha_x, alpha_y * alpha_y);
+	float G1_i = ggx_G1(omega_i, alpha_x * alpha_x, alpha_y * alpha_y);
+	float G2 = G1_o * G1_i;
+
+	float denom = 4.0f * omega_i.z * omega_o.z;
+
+	pdf = G1_o * D * mu / denom;
+	return F * D * G2 / denom;
 }

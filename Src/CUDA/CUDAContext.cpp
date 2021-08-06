@@ -90,7 +90,7 @@ void CUDAContext::init() {
 	puts("");
 }
 
-void CUDAContext::destroy() {
+void CUDAContext::free() {
 	CUDACALL(cuCtxDestroy(context));
 	CUDACALL(cuDevicePrimaryCtxReset(device));
 }

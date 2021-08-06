@@ -2,15 +2,16 @@
 
 #include "Pathtracer/Scene.h"
 
-void Mesh::init(const char * name, int mesh_data_index, Scene & scene) {
+void Mesh::init(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene) {
 	this->name = name;
-	this->mesh_data_index = mesh_data_index;
+	this->mesh_data_handle = mesh_data_handle;
+	this->material_handle  = material_handle;
 
-	const MeshData * mesh_data = scene.mesh_datas[mesh_data_index];
+	const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
 
 	aabb_untransformed = AABB::create_empty();
-	for (int i = 0; i < mesh_data->triangle_count; i++) {
-		aabb_untransformed.expand(mesh_data->triangles[i].aabb);
+	for (int i = 0; i < mesh_data.triangle_count; i++) {
+		aabb_untransformed.expand(mesh_data.triangles[i].aabb);
 	}
 }
 
@@ -29,5 +30,19 @@ void Mesh::update() {
 
 	// Update AABB from Transform
 	aabb = AABB::transform(aabb_untransformed, transform);
+	aabb.fix_if_needed();
 	assert(aabb.is_valid());
+}
+
+bool Mesh::has_identity_transform() const {
+	constexpr float epsilon = 1e-6f;
+	return 
+		Math::approx_equal(scale, 1.0f, epsilon) &&
+		Math::approx_equal(position.x, 0.0f, epsilon) &&
+		Math::approx_equal(position.y, 0.0f, epsilon) &&
+		Math::approx_equal(position.z, 0.0f, epsilon) &&
+		Math::approx_equal(rotation.x, 0.0f, epsilon) &&
+		Math::approx_equal(rotation.y, 0.0f, epsilon) &&
+		Math::approx_equal(rotation.z, 0.0f, epsilon) &&
+		(Math::approx_equal(rotation.w, 1.0f, epsilon) || Math::approx_equal(rotation.w, -1.0f, epsilon)); // Due to double cover rotation may be (0,0,0,1) or (0,0,0,-1)
 }

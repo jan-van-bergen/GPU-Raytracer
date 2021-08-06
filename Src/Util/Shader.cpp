@@ -8,12 +8,10 @@
 static GLuint load_shader(const char * filename, GLuint shader_type) {
 	GLuint shader = glCreateShader(shader_type);
 
-	const char * source = Util::file_read(filename);
+	int          source_length;
+	const char * source = Util::file_read(filename, source_length);
 
-	const GLchar * srcs[] = { source };
-	const GLint    lens[] = { (int)strlen(source) };
-
-	glShaderSource(shader, 1, srcs, lens);
+	glShaderSource(shader, 1, &source, &source_length);
 	glCompileShader(shader);
 
 	GLint success; glGetShaderiv(shader, GL_COMPILE_STATUS, &success);

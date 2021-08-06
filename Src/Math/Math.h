@@ -22,6 +22,10 @@ namespace Math {
 		return value;
 	}
 
+	inline bool approx_equal(float a, float b, float epsilon = 0.0001f) {
+		return fabsf(a - b) < epsilon;
+	}
+
 	template<typename T>
 	inline constexpr T divide_round_up(T numerator, T denominator) {
 		return (numerator + denominator - 1) / denominator;

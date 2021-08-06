@@ -1,6 +1,7 @@
 #include "Sky.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include <stb_image/stb_image.h>
 

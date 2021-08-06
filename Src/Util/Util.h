@@ -1,4 +1,5 @@
 #pragma once
+#include <malloc.h>
 
 #define DATA_PATH(file_name) "./Data/" file_name
 
@@ -10,6 +11,8 @@
 #define GIGA_BYTE(value) (value) * 1024 * 1024 * 1024
 
 #define FORCEINLINE __forceinline
+
+#define UNREACHABLE __assume(false)
 
 #define ALLIGNED_MALLOC(size, align) _aligned_malloc(size, align)
 #define ALLIGNED_FREE(ptr)           _aligned_free(ptr)
@@ -25,7 +28,9 @@ namespace Util {
 	// Checks if file_check is newer than file_reference
 	bool file_is_newer(const char * file_reference, const char * file_check);
 
-	char * file_read(const char * filename);
+	char * file_read(const char * filename, int & file_length);
+
+	const char * file_get_extension(const char * filename);
 
 	template<typename T>
 	void swap(T & a, T & b) {

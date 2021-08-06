@@ -1,12 +1,12 @@
 #pragma once
-#include <vector>
-
 #include <cuda.h>
+
+#include "../CUDA_Source/Common.h"
 
 struct Scene;
 
 struct Texture {
-	enum class Format {
+	enum struct Format {
 		BC1,
 		BC2,
 		BC3,
@@ -32,6 +32,6 @@ struct Texture {
 	int get_cuda_resource_view_height() const;
 
 	int get_width_in_bytes(int mip_level = 0) const;
-
-	static int load(const char * file_path, Scene & scene);
 };
+
+struct TextureHandle { int handle = INVALID; };

@@ -36,6 +36,8 @@ struct Camera {
 	float3 x_axis;
 	float3 y_axis;
 	float  pixel_spread_angle;
+	float  aperture_radius;
+	float  focal_distance;
 } __device__ __constant__ camera;
 
 __device__ PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
@@ -91,8 +93,8 @@ extern "C" __global__ void kernel_generate(
 	float x_jittered = float(x) + jitter.x;
 	float y_jittered = float(y) + jitter.y;
 
-	float3 focal_point = settings.camera_focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
-	float2 lens_point = 0.5f * settings.camera_aperture * random_point_in_regular_n_gon<5>(u2, u3);
+	float3 focal_point = camera.focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
+	float2 lens_point  = camera.aperture_radius * random_point_in_regular_n_gon<5>(u2, u3);
 
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);
@@ -150,8 +152,8 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		return;
 	}
 
-	// Get the Material of the Triangle we hit
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	// Get the Material of the Mesh we hit
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialType material_type = material_get_type(material_id);
 
 	if (bounce == 0 && pixel_query.pixel_index == ray_pixel_index) {
@@ -301,83 +303,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 	}
 }
 
-template<typename BRDFEvaluator>
-__device__ inline void nee_sample(
-	int x, int y,
-	int bounce,
-	int sample_index,
-	unsigned & seed,
-	const float3 & hit_point,
-	const float3 & hit_normal,
-	const float3 & throughput,
-	BRDFEvaluator brdf_evaluator
-) {
-	// Pick random point on random Light
-	float light_u, light_v;
-	int   light_transform_id;
-	int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_transform_id);
-
-	// Obtain the Light's position and normal
-	TrianglePosNor light = triangle_get_positions_and_normals(light_id);
-
-	float3 light_point;
-	float3 light_normal;
-	triangle_barycentric(light, light_u, light_v, light_point, light_normal);
-
-	// Transform into world space
-	Matrix3x4 light_world = mesh_get_transform(light_transform_id);
-	matrix3x4_transform_position (light_world, light_point);
-	matrix3x4_transform_direction(light_world, light_normal);
-
-	light_normal = normalize(light_normal);
-
-	float3 to_light = light_point - hit_point;
-	float distance_to_light_squared = dot(to_light, to_light);
-	float distance_to_light         = sqrtf(distance_to_light_squared);
-
-	// Normalize the vector to the light
-	to_light /= distance_to_light;
-
-	float cos_o = -dot(to_light, light_normal);
-	float cos_i =  dot(to_light,   hit_normal);
-
-	// Only trace Shadow Ray if light transport is possible given the normals
-	if (cos_o > 0.0f && cos_i > 0.0f) {
-		int light_material_id = triangle_get_material_id(light_id);
-		MaterialLight material_light = material_as_light(light_material_id);
-
-		float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
-
-		float brdf_pdf;
-		float brdf = brdf_evaluator(to_light, cos_i, brdf_pdf);
-
-		float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
-		
-		float pdf;
-		if (settings.enable_multiple_importance_sampling) {
-			pdf = brdf_pdf + light_pdf;
-		} else {
-			pdf = light_pdf;
-		}
-
-		float3 illumination = throughput * brdf * material_light.emission / pdf;
-
-		int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
-
-		ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
-		ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
-
-		ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
-
-		ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
-			illumination.x,
-			illumination.y,
-			illumination.z,
-			__int_as_float(x + y * screen_pitch)
-		);
-	}
-}
-
+#if ENABLE_MIPMAPPING
 __device__ inline float3 sample_albedo(
 	int                       bounce,
 	const float3            & material_diffuse,
@@ -395,7 +321,6 @@ __device__ inline float3 sample_albedo(
 ) {
 	float3 albedo;
 
-#if ENABLE_MIPMAPPING
 	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
 	float  triangle_area_inv = 1.0f / length(geometric_normal);
 	geometric_normal *= triangle_area_inv; // Normalize
@@ -444,11 +369,86 @@ __device__ inline float3 sample_albedo(
 	) / mesh_scale;
 
 	cone_angle += -2.0f * curvature * fabsf(cone_width / dot(hit_normal, ray_direction)); // Eq. 5 (Akenine-Möller 2021)
-#else
-	albedo = material_get_albedo(material_diffuse, material_texture_id, hit_tex_coord.x, hit_tex_coord.y);
-#endif
 
 	return albedo;
+}
+#endif
+
+template<typename BRDFEvaluator>
+__device__ inline void nee_sample(
+	int x, int y,
+	int bounce,
+	int sample_index,
+	unsigned & seed,
+	const float3 & hit_point,
+	const float3 & hit_normal,
+	const float3 & throughput,
+	BRDFEvaluator brdf_evaluator
+) {
+	// Pick random point on random Light
+	float light_u, light_v;
+	int   light_mesh_id;
+	int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_mesh_id);
+
+	// Obtain the Light's position and normal
+	TrianglePosNor light = triangle_get_positions_and_normals(light_id);
+
+	float3 light_point;
+	float3 light_normal;
+	triangle_barycentric(light, light_u, light_v, light_point, light_normal);
+
+	// Transform into world space
+	Matrix3x4 light_world = mesh_get_transform(light_mesh_id);
+	matrix3x4_transform_position (light_world, light_point);
+	matrix3x4_transform_direction(light_world, light_normal);
+
+	light_normal = normalize(light_normal);
+
+	float3 to_light = light_point - hit_point;
+	float distance_to_light_squared = dot(to_light, to_light);
+	float distance_to_light         = sqrtf(distance_to_light_squared);
+
+	// Normalize the vector to the light
+	to_light /= distance_to_light;
+
+	float cos_o = -dot(to_light, light_normal);
+	float cos_i =  dot(to_light,   hit_normal);
+
+	// Only trace Shadow Ray if light transport is possible given the normals
+	if (cos_o > 0.0f && cos_i > 0.0f) {
+		int light_material_id = mesh_get_material_id(light_mesh_id);
+		MaterialLight material_light = material_as_light(light_material_id);
+
+		float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
+
+		float brdf_pdf;
+		float brdf = brdf_evaluator(to_light, brdf_pdf);
+
+		float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
+		
+		float pdf;
+		if (settings.enable_multiple_importance_sampling) {
+			pdf = brdf_pdf + light_pdf;
+		} else {
+			pdf = light_pdf;
+		}
+
+		float3 illumination = throughput * brdf * material_light.emission * cos_i / pdf;
+
+		int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
+
+		ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
+		ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
+
+		ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+
+		ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
+			illumination.x,
+			illumination.y,
+			illumination.z,
+			__int_as_float(x + y * screen_pitch)
+		);
+	}
 }
 
 extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int sample_index) {
@@ -471,7 +471,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialDiffuse material = material_as_diffuse(material_id);
 
 	// Obtain hit Triangle position, normal, and texture coordinates
@@ -493,6 +493,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	// Sample albedo
+#if ENABLE_MIPMAPPING
 	float cone_angle;
 	float cone_width;
 	float3 albedo = sample_albedo(
@@ -509,6 +510,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 		index,
 		cone_angle, cone_width
 	);
+#else
+	float3 albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
+#endif
 
 	float3 throughput = ray_throughput;
 	
@@ -528,9 +532,9 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f) {
-		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [](float3 to_light, float cos_i, float & pdf) {
-			pdf = cos_i * ONE_OVER_PI;
-			return cos_i * ONE_OVER_PI; // NOTE: N dot L is included here
+		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
+			pdf = dot(to_light, hit_normal) * ONE_OVER_PI;
+			return ONE_OVER_PI;
 		});
 	}
 
@@ -576,7 +580,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialDielectric material = material_as_dielectric(material_id);
 
 	// Obtain hit Triangle position, normal, and texture coordinates
@@ -699,7 +703,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	unsigned seed = wang_hash(index ^ rand_seed);
 
-	int material_id = triangle_get_material_id(hit.triangle_id);
+	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialGlossy material = material_as_glossy(material_id);
 
 	// Obtain hit Triangle position, normal, and texture coordinates
@@ -721,6 +725,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	// Sample albedo
+#if ENABLE_MIPMAPPING
 	float cone_angle;
 	float cone_width;
 	float3 albedo = sample_albedo(
@@ -737,6 +742,9 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		index,
 		cone_angle, cone_width
 	);
+#else
+	float3 albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
+#endif
 
 	float3 throughput = ray_throughput;
 
@@ -756,66 +764,60 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	}
 
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
+	float alpha = material.roughness; // (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
+	float alpha2 = alpha * alpha;
 	
+	// Construct orthonormal basis
+	float3 hit_tangent, hit_binormal;
+	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
+
+	float3 omega_i = world_to_local(-ray_direction, hit_tangent, hit_binormal, hit_normal);
+
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
-		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](float3 to_light, float cos_i, float & pdf) {
-			float3 half_vector = normalize(to_light - ray_direction);
-
-			float i_dot_n = -dot(ray_direction, hit_normal);
-			float m_dot_n =  dot(half_vector,   hit_normal);
-
-			float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_n);
-			float D = microfacet_D(m_dot_n, alpha);
-			float G = microfacet_G(i_dot_n, cos_i, i_dot_n, cos_i, m_dot_n, alpha);
-
-			pdf = F * D * m_dot_n / (-4.0f * dot(half_vector, ray_direction));
-
-			return (F * G * D) / (4.0f * i_dot_n); // NOTE: N dot L is omitted from the denominator here
+		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
+			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
+			return ggx_eval(omega_o, omega_i, material.index_of_refraction, alpha, alpha, pdf);
 		});
 	}
 
 	if (bounce == settings.num_bounces - 1) return;
 
-	// Sample normal distribution in spherical coordinates
-	float theta = atanf(sqrtf(-alpha * alpha * logf(random_float_heitz(x, y, sample_index, bounce, 2, seed) + 1e-8f)));
-	float phi   = TWO_PI * random_float_heitz(x, y, sample_index, bounce, 3, seed);
+	// Importance sample distribution of normals
+	float u1 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
+	float u2 = random_float_heitz(x, y, sample_index, bounce, 3, seed);
 
-	float sin_theta, cos_theta; sincos(theta, &sin_theta, &cos_theta);
-	float sin_phi,   cos_phi;   sincos(phi,   &sin_phi,   &cos_phi);
+	float3 micro_normal_local = ggx_sample_distribution_of_normals(omega_i, alpha, alpha, u1, u2);	
+    float3 omega_o = reflect(-omega_i, micro_normal_local);
 
-	// Convert from spherical coordinates to cartesian coordinates
-	float3 micro_normal_local = make_float3(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta);
+	float3 half_vector = normalize(omega_o + omega_i);
+	float mu = fmaxf(0.0, dot(omega_o, half_vector));
 
-	// Convert from tangent to world space
-	float3 hit_tangent, hit_binormal;
-	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
+	float F = fresnel_schlick(material.index_of_refraction, 1.0f, mu);
+	float D = ggx_D(half_vector, alpha, alpha);
 
-	float3 micro_normal_world = local_to_world(micro_normal_local, hit_tangent, hit_binormal, hit_normal);
+	// Masking/shadowing using two monodirectional Smith terms
+	float G1_o = ggx_G1(omega_o, alpha2, alpha2);
+	float G1_i = ggx_G1(omega_i, alpha2, alpha2);
+	float G2 = G1_o * G1_i;
 
-	// Apply perfect mirror reflection to world space normal
-	float3 direction_out = reflect(ray_direction, micro_normal_world);
+	float pdf = G1_o * D * mu / (4.0f * omega_i.z * omega_o.z);
+	throughput *= F * G2 / (G1_o * mu);
 
-	float i_dot_m = -dot(ray_direction, micro_normal_world);
-	float o_dot_m =  dot(direction_out, micro_normal_world);
-	float i_dot_n = -dot(ray_direction,      hit_normal);
-	float o_dot_n =  dot(direction_out,      hit_normal);
-	float m_dot_n =  dot(micro_normal_world, hit_normal);
-
-	float F = fresnel_schlick(material.index_of_refraction, 1.0f, i_dot_m);
-	float D = microfacet_D(m_dot_n, alpha);
-	float G = microfacet_G(i_dot_m, o_dot_m, i_dot_n, o_dot_n, m_dot_n, alpha);
-	float weight = fabsf(i_dot_m) * F * G / fabsf(i_dot_n * m_dot_n);
+	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
 
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
+#if ENABLE_MIPMAPPING
+	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
+#endif
+
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness >= ROUGHNESS_CUTOFF) << 31);
 	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);
 
-	ray_buffer_trace.last_pdf[index_out] = weight;
+	ray_buffer_trace.last_pdf[index_out] = pdf;
 }
 
 extern "C" __global__ void kernel_trace_shadow(int bounce) {

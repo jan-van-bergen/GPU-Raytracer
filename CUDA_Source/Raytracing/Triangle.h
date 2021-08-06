@@ -11,11 +11,6 @@ struct Triangle {
 };
 
 __device__ __constant__ const Triangle * triangles;
-__device__ __constant__ const int      * triangle_material_ids;
-
-__device__ inline int triangle_get_material_id(int index) {
-	return __ldg(&triangle_material_ids[index]);
-}
 
 struct TrianglePos {
 	float3 position_0;

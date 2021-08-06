@@ -12,12 +12,15 @@ struct Camera {
 
 	float fov; // Field of View in radians
 	float pixel_spread_angle;
-
-	float inv_width;
-	float inv_height;
+	
+	float aperture_radius =  0.1f;
+	float focal_distance  = 10.0f;
 
 	float near;
 	float far;
+	
+	float screen_width;
+	float screen_height;
 
 	Vector3 bottom_left_corner, bottom_left_corner_rotated;
 	Vector3 x_axis, x_axis_rotated;
@@ -30,12 +33,17 @@ struct Camera {
 	bool moved;
 
 	inline void init(float fov, float near = 0.1f, float far = 300.0f) {
-		this->fov = fov;
+		set_fov(fov);
 		this->near = near;
 		this->far  = far;
 	}
 
 	void resize(int width, int height);
 
+	void set_fov(float fov);
+
 	void update(float delta, const Settings & settings);
+
+private:
+	void recalibrate();
 };

@@ -161,6 +161,24 @@ __device__ float mitchell_netravali(float x) {
 	}
 }
 
+// Binary search a cumulative (monotone increasing) array for the first index that is smaller than a given value
+__device__ inline int binary_search(const float cumulative_array[], int index_first, int index_last, float value) {
+	int index_left  = index_first;
+	int index_right = index_last;
+
+	while (true) {
+		int index_middle = (index_left + index_right) / 2;
+
+		if (index_middle > index_first && value <= cumulative_array[index_middle - 1]) {
+			index_right = index_middle - 1;
+		} else if (value > cumulative_array[index_middle]) {
+			index_left = index_middle + 1;
+		} else {
+			return index_middle;
+		}
+	}
+}
+
 // Create byte mask from sign bit
 __device__ unsigned sign_extend_s8x4(unsigned x) {
 	unsigned result;

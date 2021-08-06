@@ -9,8 +9,8 @@ void Util::get_path(const char * filename, char * path) {
 	const char * path_end      = filename;
 	const char * last_path_end = nullptr;
 
-	// Keep advancing the path_end pointer until we run out of '/' characters in the string
-	while (path_end = strchr(path_end, '/')) {
+	// Keep advancing the path_end pointer until we run out of '/' or '\\' characters in the string
+	while (path_end = strpbrk(path_end, "/\\")) {
 		path_end++;
 		last_path_end = path_end;
 	}
@@ -38,7 +38,7 @@ bool Util::file_is_newer(const char * file_reference, const char * file_check) {
 	return last_write_time_reference < last_write_time_check;
 }
 
-char * Util::file_read(const char * filename) {
+char * Util::file_read(const char * filename, int & file_length) {
 	FILE * file;
 	fopen_s(&file, filename, "rb");
 
@@ -49,7 +49,7 @@ char * Util::file_read(const char * filename) {
 
 	// Get file length
 	fseek(file, 0, SEEK_END);
-	int file_length = ftell(file);
+	file_length = ftell(file);
 	rewind(file);
 
 	// Copy file source into c string
@@ -60,6 +60,19 @@ char * Util::file_read(const char * filename) {
 
 	data[file_length] = NULL;
 	return data;
+}
+
+const char * Util::file_get_extension(const char * filename) {
+	const char * ptr_prev = nullptr;
+	const char * ptr_curr = filename;
+
+	while (true) {
+		ptr_curr = strchr(ptr_curr, '.');
+
+		if (ptr_curr == nullptr) return ptr_prev;
+
+		ptr_prev = ++ptr_curr;
+	}
 }
 
 // Based on: https://rosettacode.org/wiki/Bitmap/Write_a_PPM_file

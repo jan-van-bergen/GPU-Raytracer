@@ -85,6 +85,30 @@
     <ClCompile Include="Src\Util\Shader.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Assets\MitsubaLoader.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\AssetManager.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\BVHLoader.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\TextureLoader.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Util\Geometry.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="include\miniz\miniz.c">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Util\ThreadPool.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Math\Mipmap.cpp">
+      <Filter>Math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -252,6 +276,30 @@
     </ClInclude>
     <ClInclude Include="Src\Util\Shader.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\MitsubaLoader.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\AssetManager.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\BVHLoader.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\TextureLoader.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Geometry.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\StringView.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\ThreadPool.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Math\Mipmap.h">
+      <Filter>Math</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
