@@ -50,3 +50,10 @@ Various configurable options are available in `Common.h`.
 The project uses SDL and GLEW. Their dll's for x64 are included in the repository, as well as all required headers.
 
 The project uses CUDA 11.0 and requires that the ```CUDA_PATH``` system variable is set to the path where the CUDA 11.0 SDK is installed.
+
+## Scene Sources
+
+- [OBJ files](https://casual-effects.com/data/)
+
+- [Mitsuba files](https://benedikt-bitterli.me/resources/)
+
