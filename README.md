@@ -35,8 +35,9 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
 SVGF: Raw output of the pathtracer on the left and the filtered result on the right.
 
-![Bistro](Screenshots/Bistro.png "Amazon Bistro Scene")
-![Salle_de_Bain](Screenshots/Salle_de_Bain.png "PBRT Salle de Bain Scene")
+![Staircase](Screenshots/Staircase.png "Staircase Scene")
+![Editor](Screenshots/Editor.png "Interactive Scene editor")
+![Coffee](Screenshots/Coffee.png "Coffee")
 
 ## Usage
 
