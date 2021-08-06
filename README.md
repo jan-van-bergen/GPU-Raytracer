@@ -29,14 +29,16 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - *Diffuse*
   - *Dielectrics*
   - *Microfacets* (GGX)
+- Mitsuba XML Scene support: A custom Mitsuba XML parser is included to load scene files.
 
 ## Screenshots
 
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
 SVGF: Raw output of the pathtracer on the left and the filtered result on the right.
 
-![Bistro](Screenshots/Bistro.png "Amazon Bistro Scene")
-![Salle_de_Bain](Screenshots/Salle_de_Bain.png "PBRT Salle de Bain Scene")
+![Staircase](Screenshots/Staircase.png "Staircase Scene")
+![Editor](Screenshots/Editor.png "Interactive Scene editor")
+![Coffee](Screenshots/Coffee.png "Coffee")
 
 ## Usage
 
@@ -48,3 +50,10 @@ Various configurable options are available in `Common.h`.
 The project uses SDL and GLEW. Their dll's for x64 are included in the repository, as well as all required headers.
 
 The project uses CUDA 11.0 and requires that the ```CUDA_PATH``` system variable is set to the path where the CUDA 11.0 SDK is installed.
+
+## Scene Sources
+
+- [OBJ files](https://casual-effects.com/data/)
+
+- [Mitsuba files](https://benedikt-bitterli.me/resources/)
+
