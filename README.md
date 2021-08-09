@@ -47,9 +47,16 @@ Various configurable options are available in `Common.h`.
 
 ## Dependencies
 
-The project uses SDL and GLEW. Their dll's for x64 are included in the repository, as well as all required headers.
+- [SDL 2](https://www.libsdl.org/)
+- [GLEW](http://glew.sourceforge.net/)
+- [Dear ImGui](https://github.com/ocornut/imgui)
+- [Miniz](https://github.com/richgel999/miniz)
+- [STB Image](https://github.com/nothings/stb)
+- [Tiny OBJ Loader](https://github.com/tinyobjloader/tinyobjloader)
+- [CUDA 11.0](https://developer.nvidia.com/cuda-11.0-download-archive)
 
-The project uses CUDA 11.0 and requires that the ```CUDA_PATH``` system variable is set to the path where the CUDA 11.0 SDK is installed.
+All dependecies (headers, libs, and dlls) except CUDA 11.0 are included in the repository.
+The project requires that the ```CUDA_PATH``` system variable is set to the path where the CUDA SDK is installed.
 
 ## Scene Sources
 
