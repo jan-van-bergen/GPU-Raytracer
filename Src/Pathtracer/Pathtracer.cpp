@@ -591,7 +591,7 @@ void Pathtracer::calc_light_power() {
 		int   index;
 		float power;
 	};
-	std::vector<LightTriangle> light_triangles;
+	Array<LightTriangle> light_triangles;
 
 	struct LightMesh {
 		int triangle_first_index;
@@ -599,7 +599,7 @@ void Pathtracer::calc_light_power() {
 
 		float power;
 	};
-	std::vector<LightMesh> light_meshes;
+	Array<LightMesh> light_meshes;
 
 	int mesh_data_count = scene.asset_manager.mesh_datas.size();
 	
@@ -792,7 +792,7 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (invalidated_materials) {
-		const std::vector<Material> & materials = scene.asset_manager.materials;
+		const Array<Material> & materials = scene.asset_manager.materials;
 
 		Material::Type * cuda_material_types = reinterpret_cast<Material::Type *>(new unsigned char[materials.size() * sizeof(Material::Type)]);
 		CUDAMaterial   * cuda_materials      = reinterpret_cast<CUDAMaterial   *>(new unsigned char[materials.size() * sizeof(CUDAMaterial)]);

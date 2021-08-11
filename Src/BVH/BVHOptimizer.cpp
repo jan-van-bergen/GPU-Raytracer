@@ -1,9 +1,9 @@
 #include "BVHOptimizer.h"
 
-#include <vector>
 #include <queue>
 #include <random>
 
+#include "Util/Array.h"
 #include "Util/BitArray.h"
 
 #include "Util/Random.h"
@@ -106,7 +106,7 @@ static void find_reinsertion(const BVH & bvh, const BVHNode & node_reinsert, flo
 		return a.second < b.second;
 	};
 	
-	std::priority_queue<std::pair<int, float>, std::vector<std::pair<int, float>>, decltype(cmp)> priority_queue(cmp);
+	std::priority_queue<std::pair<int, float>, Array<std::pair<int, float>>, decltype(cmp)> priority_queue(cmp);
 
 	priority_queue.emplace(0, 0.0f); // Push BVH root with 0 induced cost
 	

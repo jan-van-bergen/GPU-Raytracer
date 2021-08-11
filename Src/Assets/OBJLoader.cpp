@@ -1,7 +1,5 @@
 #include "OBJLoader.h"
 
-#include <unordered_map>
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader/tiny_obj_loader.h>
 

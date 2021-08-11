@@ -1,7 +1,7 @@
 #pragma once
-#include <vector>
-
 #include "CUDACall.h"
+
+#include "Util/Array.h"
 
 namespace CUDAMemory {
 	// Type safe device pointer wrapper
@@ -47,7 +47,7 @@ namespace CUDAMemory {
 	}
 	
 	template<typename T>
-	inline Ptr<T> malloc(const std::vector<T> & data) {
+	inline Ptr<T> malloc(const Array<T> & data) {
 		return malloc(data.data(), data.size());
 	}
 	

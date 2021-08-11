@@ -1,20 +1,18 @@
 #pragma once
-#include <vector>
-#include <unordered_map>
-
 #include "../CUDA_Source/Common.h"
 
 #include "MeshData.h"
 #include "Material.h"
 #include "Texture.h"
 
+#include "Util/Array.h"
 #include "Util/HashMap.h"
 #include "Util/ThreadPool.h"
 
 struct AssetManager {
-	std::vector<MeshData> mesh_datas;
-	std::vector<Material> materials;
-	std::vector<Texture>  textures;
+	Array<MeshData> mesh_datas;
+	Array<Material> materials;
+	Array<Texture>  textures;
 
 private:
 	HashMap<std::string, MeshDataHandle> mesh_data_cache;

@@ -21,10 +21,10 @@ private:
 
 	Pathtracer * pathtracer;
 
-	std::vector<POV> * povs;
+	Array<POV> * povs;
 
 public:
-	std::vector<POV> povs_sponza = {
+	Array<POV> povs_sponza = {
 		{ Vector3( 18.739738f,  10.332139f, -10.229103f), Quaternion(0.000000f,  0.801883f,  0.000000f,  0.597480f), { } },
 		{ Vector3( 31.355043f,  31.696985f,  13.222142f), Quaternion(0.000000f,  0.387925f,  0.000000f, -0.921690f), { } },
 		{ Vector3( 70.257584f,   8.347624f,  49.902672f), Quaternion(0.000000f, -0.576111f,  0.000000f, -0.817371f), { } },
@@ -36,7 +36,7 @@ public:
 		{ Vector3(-129.707321f, 17.916590f,  43.054050f), Quaternion(0.011467f,  0.408287f,  0.005129f, -0.912762f), { } }
 	};
 
-	std::vector<POV> povs_san_miguel = {
+	Array<POV> povs_san_miguel = {
 		{ Vector3(24.800940f, 2.231690f, 7.698777f),  Quaternion(0.000000f, 0.276862f, 0.000000f, 0.960908f),    { } },
 		{ Vector3(15.381029f, 2.231690f, 5.391366f),  Quaternion(0.000000f, 0.963890f, 0.000000f, 0.266294f),    { } },
 		{ Vector3(-8.911288f, 2.231690f, 0.720734f),  Quaternion(0.000000f, 0.708531f, 0.000000f, -0.705675f),   { } },
@@ -46,7 +46,7 @@ public:
 		{ Vector3(21.197109f, 1.080195f, -2.957915f), Quaternion(-0.010298f, -0.981503f, 0.182976f, -0.055241f), { } }
 	};
 
-	std::vector<POV> povs_bistro = {
+	Array<POV> povs_bistro = {
 		{ Vector3(-7.348903f, 2.480730f, 4.043096f),   Quaternion(0.000000f, -0.772662f, 0.000000f, 0.634818f), { } },
 		{ Vector3(41.444153f, 3.789229f, 34.644260f),  Quaternion(0.000000f, 0.450685f, 0.000000f, 0.892683f),  { } },
 		{ Vector3(5.012013f, 2.168808f, 4.757593f),    Quaternion(0.000000f, 0.607728f, 0.000000f, 0.794145f),  { } },

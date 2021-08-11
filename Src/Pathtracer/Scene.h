@@ -1,6 +1,4 @@
 #pragma once
-#include <vector>
-
 #include <mutex>
 #include <thread>
 
@@ -13,9 +11,9 @@
 struct Scene {
 	AssetManager asset_manager;
 
-	Camera camera;
-	std::vector<Mesh> meshes;
-	Sky sky;
+	Camera      camera;
+	Array<Mesh> meshes;
+	Sky         sky;
 	
 	bool has_diffuse    = false;
 	bool has_dielectric = false;

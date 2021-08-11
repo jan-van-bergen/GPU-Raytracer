@@ -304,5 +304,8 @@
     <ClInclude Include="Src\Util\HashMap.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Util\Array.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

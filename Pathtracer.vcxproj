@@ -277,6 +277,7 @@
     <ClInclude Include="Src\Pathtracer\Scene.h" />
     <ClInclude Include="Src\Pathtracer\Sky.h" />
     <ClInclude Include="Src\Pathtracer\Triangle.h" />
+    <ClInclude Include="Src\Util\Array.h" />
     <ClInclude Include="Src\Util\BitArray.h" />
     <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\Geometry.h" />

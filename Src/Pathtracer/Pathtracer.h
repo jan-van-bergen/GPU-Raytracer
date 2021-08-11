@@ -1,6 +1,4 @@
 #pragma once
-#include <vector>
-
 #include "CUDA/CUDAModule.h"
 #include "CUDA/CUDAKernel.h"
 #include "CUDA/CUDAMemory.h"

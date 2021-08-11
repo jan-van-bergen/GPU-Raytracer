@@ -1,5 +1,6 @@
 #pragma once
-#include <cassert>
+#include <assert.h>
+#include <math.h>
 
 #include <cuda.h>
 

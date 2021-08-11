@@ -2,7 +2,6 @@
 
 #include <cstdio>
 #include <cassert>
-#include <vector>
 
 #include <nvrtc.h>
 
@@ -32,7 +31,7 @@ struct Include {
 // Collects filename and source of included files in 'includes'
 // Also check whether any included file has been modified since last compilation and if so sets 'should_recompile'
 // Returns source code of 'filename'
-static const char * scan_includes_recursive(const char * filename, const char * directory, std::vector<Include> & includes, const char * ptx_filename, bool & should_recompile) {
+static const char * scan_includes_recursive(const char * filename, const char * directory, Array<Include> & includes, const char * ptx_filename, bool & should_recompile) {
 	int    source_length;
 	char * source = Util::file_read(filename, source_length);
 
@@ -144,7 +143,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 
 	char path[512]; Util::get_path(filename, path);
 
-	std::vector<Include> includes;
+	Array<Include> includes;
 	const char * source = scan_includes_recursive(filename, path, includes, ptx_filename, should_recompile);
 
 	if (should_recompile) {

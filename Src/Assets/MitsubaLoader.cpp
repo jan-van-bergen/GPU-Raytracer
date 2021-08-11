@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <vector>
-#include <unordered_map>
 #include <charconv>
 
 #include <miniz/miniz.h>
@@ -18,6 +16,7 @@
 #include "Pathtracer/Scene.h"
 
 #include "Util/Util.h"
+#include "Util/Array.h"
 #include "Util/Geometry.h"
 #include "Util/StringView.h"
 
@@ -187,8 +186,8 @@ struct XMLNode {
 
 	bool is_question_mark;
 
-	std::vector<XMLAttribute> attributes;
-	std::vector<XMLNode>      children;
+	Array<XMLAttribute> attributes;
+	Array<XMLNode>      children;
 
 	SourceLocation location;
 

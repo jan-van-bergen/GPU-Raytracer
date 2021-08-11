@@ -21,8 +21,8 @@ struct CUDAEvent {
 };
 
 struct CUDAEventPool {
-	std::vector<CUDAEvent> pool;
-	int                    num_used;
+	Array<CUDAEvent> pool;
+	int              num_used;
 
 	inline void record(const CUDAEvent::Desc & event_desc, CUstream stream = nullptr) {
 		// Check if the Pool is already using its maximum capacity
