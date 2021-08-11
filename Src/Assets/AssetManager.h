@@ -8,6 +8,7 @@
 #include "Material.h"
 #include "Texture.h"
 
+#include "Util/HashMap.h"
 #include "Util/ThreadPool.h"
 
 struct AssetManager {
@@ -16,8 +17,8 @@ struct AssetManager {
 	std::vector<Texture>  textures;
 
 private:
-	std::unordered_map<std::string, MeshDataHandle> mesh_data_cache;
-	std::unordered_map<std::string, TextureHandle>  texture_cache;
+	HashMap<std::string, MeshDataHandle> mesh_data_cache;
+	HashMap<std::string, TextureHandle>  texture_cache;
 
 	std::mutex mesh_datas_mutex;
 	std::mutex textures_mutex;

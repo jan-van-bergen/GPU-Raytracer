@@ -301,5 +301,8 @@
     <ClInclude Include="Src\Math\Mipmap.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Util\HashMap.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

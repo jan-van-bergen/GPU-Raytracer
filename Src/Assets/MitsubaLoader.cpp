@@ -362,10 +362,10 @@ struct Serialized {
 	MeshDataHandle * mesh_data_handles;
 };
 
-using ShapeGroupMap = std::unordered_map<StringView, ShapeGroup,     StringView::Hash>;
-using SerializedMap = std::unordered_map<StringView, Serialized,     StringView::Hash>;
-using MaterialMap   = std::unordered_map<StringView, MaterialHandle, StringView::Hash>;
-using TextureMap    = std::unordered_map<StringView, TextureHandle,  StringView::Hash>;
+using ShapeGroupMap = HashMap<StringView, ShapeGroup,     StringView::Hash>;
+using SerializedMap = HashMap<StringView, Serialized,     StringView::Hash>;
+using MaterialMap   = HashMap<StringView, MaterialHandle, StringView::Hash>;
+using TextureMap    = HashMap<StringView, TextureHandle,  StringView::Hash>;
 
 static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
 	char * filename_abs = new char[len_path + len_filename + 1];
@@ -403,10 +403,10 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			delete [] filename_abs;
 			return;
 		} else if (reflectance->tag == "ref") {
-			TextureMap::const_iterator texture_ref = texture_map.find(reflectance->find_attribute("id")->value);
-			if (texture_ref != texture_map.end()) {
-				texture = texture_ref->second;
-				return;
+			const StringView & texture_name = reflectance->find_attribute("id")->value;
+			bool found = texture_map.try_get(texture_name, texture);
+			if (!found) {
+				WARNING(reflectance->location, "Invalid texture ref '%.*s'!", unsigned(texture_name.length()), texture_name.start);
 			}
 		}
 	}
@@ -537,14 +537,15 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (ref) {
 			const StringView & material_name = ref->find_attribute("id")->value;
 		
-			MaterialMap::const_iterator material_id = material_map.find(material_name);
-			if (material_id == material_map.end()) {
+			MaterialHandle material_id;
+			bool found = material_map.try_get(material_name, material_id);
+			if (!found) {
 				WARNING(ref->location, "Invalid material Ref '%.*s'!\n", unsigned(material_name.length()), material_name.start);
 			
 				return MaterialHandle::get_default();
 			}
 
-			return material_id->second;
+			return material_id;
 		}
 		
 		// Otherwise, parse BSDF
@@ -887,19 +888,16 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
 
 		Serialized serialized;
-
-		SerializedMap::const_iterator lookup = serialized_map.find(filename_rel);
-		if (lookup == serialized_map.end()) {
+		bool found = serialized_map.try_get(filename_rel, serialized);
+		if (!found) {
 			const char * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 		
 			serialized = parse_serialized(node, filename_abs, scene);
 			serialized_map[filename_rel] = serialized;
 
 			delete [] filename_abs;
-		} else {
-			serialized = lookup->second;
 		}
-		
+
 		int shape_index = node->get_optional_child_value("shapeIndex", 0);
 
 		name = serialized.mesh_names[shape_index];
@@ -959,14 +957,10 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			const XMLNode      * ref = node->find_child("ref");
 			const XMLAttribute * id  = ref->find_attribute("id");
 
-			ShapeGroupMap::const_iterator it = shape_group_map.find(id->value);
-			if (it != shape_group_map.end()) {
-				const ShapeGroup & shape_group = it->second;
-
-				if (shape_group.mesh_data_handle.handle != INVALID) {
-					Mesh & mesh = scene.add_mesh(id->value.c_str(), shape_group.mesh_data_handle, shape_group.material_handle);
-					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
-				}
+			ShapeGroup shape_group;
+			if (shape_group_map.try_get(id->value, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
+				Mesh & mesh = scene.add_mesh(id->value.c_str(), shape_group.mesh_data_handle, shape_group.material_handle);
+				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 			}
 		} else {
 			WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);

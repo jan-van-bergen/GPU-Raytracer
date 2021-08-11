@@ -151,7 +151,7 @@ void AssetManager::wait_until_loaded() {
 	thread_pool.free();
 
 	mesh_data_cache.clear();
-	texture_cache.clear();
+	texture_cache  .clear();
 
 	assets_loaded = true;
 }
