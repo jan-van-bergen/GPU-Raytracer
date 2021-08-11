@@ -7,6 +7,7 @@
 
 #include "Util/Array.h"
 #include "Util/HashMap.h"
+#include "Util/String.h"
 #include "Util/ThreadPool.h"
 
 struct AssetManager {
@@ -15,8 +16,8 @@ struct AssetManager {
 	Array<Texture>  textures;
 
 private:
-	HashMap<std::string, MeshDataHandle> mesh_data_cache;
-	HashMap<std::string, TextureHandle>  texture_cache;
+	HashMap<String, MeshDataHandle, StringHash> mesh_data_cache;
+	HashMap<String, TextureHandle,  StringHash> texture_cache;
 
 	std::mutex mesh_datas_mutex;
 	std::mutex textures_mutex;

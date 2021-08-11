@@ -307,5 +307,8 @@
     <ClInclude Include="Src\Util\Array.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Util\String.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
