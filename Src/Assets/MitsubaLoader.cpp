@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <charconv>
-
 #include <miniz/miniz.h>
 
 #include "MeshData.h"
@@ -17,96 +15,9 @@
 
 #include "Util/Util.h"
 #include "Util/Array.h"
+#include "Util/Parser.h"
 #include "Util/Geometry.h"
 #include "Util/StringView.h"
-
-#define TAB_WIDTH 4
-
-#define WARNING(loc, msg, ...) \
-	printf("%s:%i:%i: " msg, loc.file, loc.line, loc.col, __VA_ARGS__);
-
-#define ERROR(loc, msg, ...) \
-	WARNING(loc, msg, __VA_ARGS__); \
-	abort();
-
-static bool is_whitespace(char c) {
-	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
-}
-
-struct SourceLocation {
-	const char * file;
-	int          line;
-	int          col;
-
-	void advance(char c) {
-		if (c == '\n') {
-			line++;
-			col = 0;
-		} else if (c == '\t') {
-			col += TAB_WIDTH;
-		} else {
-			col++;
-		}
-	}
-};
-
-struct ParserState {
-	const char * cur;
-	const char * end;
-
-	SourceLocation location;
-
-	void init(const char * cur, const char * end, SourceLocation location) {
-		this->cur = cur;
-		this->end = end;
-		this->location = location;
-	}
-
-	bool reached_end() const {
-		return cur >= end;
-	}
-
-	void advance() {
-		location.advance(*cur);
-		cur++;
-	}
-
-	void skip_whitespace() {
-		while (cur < end && is_whitespace(*cur)) advance();
-	}
-
-	bool match(char target) {
-		if (cur < end && *cur == target) {
-			advance();
-			return true;
-		}
-
-		return false;
-	}
-
-	void expect(char expected) {
-		if (reached_end()) {
-			ERROR(location, "End of File!\n");
-		}
-		if (*cur != expected) {
-			ERROR(location, "Unexpected char '%c', expected '%c'!\n", *cur, expected)
-		}
-		advance();
-	}
-
-	template<typename T>
-	T parse_number() {
-		T number = { }; 
-		std::from_chars_result result = std::from_chars(cur, end, number);
-
-		if (bool(result.ec)) {
-			ERROR(location, "Failed to parse '%.*s' as a number!\n", unsigned(end - cur), cur);
-		}
-
-		cur = result.ptr;
-		return number;
-	}
-};
 
 struct XMLAttribute {
 	StringView name;
@@ -118,16 +29,16 @@ struct XMLAttribute {
 
 	template<>
 	int get_value() const {
-		ParserState parser = { };
+		Parser parser = { };
 		parser.init(value.start, value.end, location_of_value);
-		return parser.parse_number<int>();
+		return parser.parse_int();
 	}
 	
 	template<>
 	float get_value() const {
-		ParserState parser = { };
+		Parser parser = { };
 		parser.init(value.start, value.end, location_of_value);
-		return parser.parse_number<float>();
+		return parser.parse_float();
 	}
 	
 	template<>
@@ -139,21 +50,21 @@ struct XMLAttribute {
 
 	template<>
 	Vector3 get_value() const {
-		ParserState parser = { };
+		Parser parser = { };
 		parser.init(value.start, value.end, location_of_value);
 
 		Vector3 v;
-		v.x = parser.parse_number<float>();
+		v.x = parser.parse_float();
 
 		if (parser.match(',')) {
 			parser.match(' ');
 
-			v.y = parser.parse_number<float>();
+			v.y = parser.parse_float();
 
 			parser.expect(',');
 			parser.match(' ');
 
-			v.z = parser.parse_number<float>();
+			v.z = parser.parse_float();
 		} else {
 			v.y = v.x;
 			v.z = v.x;
@@ -164,13 +75,13 @@ struct XMLAttribute {
 
 	template<>
 	Matrix4 get_value() const {
-		ParserState parser = { };
+		Parser parser = { };
 		parser.init(value.start, value.end, location_of_value);
 
 		int i = 0;
 		Matrix4 m;
 		while (true) {
-			m.cells[i] = parser.parse_number<float>();
+			m.cells[i] = parser.parse_float();
 
 			if (++i == 16) break;
 			
@@ -248,7 +159,7 @@ struct XMLNode {
 	}
 };
 
-static XMLNode parse_tag(ParserState & parser) {
+static XMLNode parse_tag(Parser & parser) {
 	if (parser.reached_end()) return { };
 
 	parser.expect('<');
@@ -263,7 +174,7 @@ static XMLNode parse_tag(ParserState & parser) {
 			parser.advance();
 		}
 
-		parser.skip_whitespace();
+		parser.skip_whitespace_or_newline();
 		parser.expect('<');
 	}
 		
@@ -276,7 +187,7 @@ static XMLNode parse_tag(ParserState & parser) {
 	while (!parser.reached_end() && !is_whitespace(*parser.cur)) parser.advance();
 	node.tag.end = parser.cur;
 
-	parser.skip_whitespace();
+	parser.skip_whitespace_or_newline();
 
 	// Parse attributes
 	while (!parser.reached_end() && !parser.match('>')) {
@@ -306,7 +217,7 @@ static XMLNode parse_tag(ParserState & parser) {
 		attribute.value.end = parser.cur;
 
 		parser.expect(quote_type);
-		parser.skip_whitespace();
+		parser.skip_whitespace_or_newline();
 
 		node.attributes.push_back(attribute);
 
@@ -317,12 +228,12 @@ static XMLNode parse_tag(ParserState & parser) {
 		}
 	}
 
-	parser.skip_whitespace();
+	parser.skip_whitespace_or_newline();
 
 	// Parse children
 	do {
 		node.children.push_back(parse_tag(parser));
-		parser.skip_whitespace();
+		parser.skip_whitespace_or_newline();
 	} while (!(parser.cur + 1 < parser.end && parser.cur[0] == '<' && parser.cur[1] == '/'));
 
 	parser.expect('<');
@@ -339,11 +250,11 @@ static XMLNode parse_tag(ParserState & parser) {
 	return node;
 }
 
-static XMLNode parse_xml(ParserState & parser) {
+static XMLNode parse_xml(Parser & parser) {
 	XMLNode node;
 
 	do {
-		parser.skip_whitespace();
+		parser.skip_whitespace_or_newline();
 		node = parse_tag(parser);
 	} while (node.is_question_mark);
 
@@ -361,10 +272,10 @@ struct Serialized {
 	MeshDataHandle * mesh_data_handles;
 };
 
-using ShapeGroupMap = HashMap<StringView, ShapeGroup,     StringView::Hash>;
-using SerializedMap = HashMap<StringView, Serialized,     StringView::Hash>;
-using MaterialMap   = HashMap<StringView, MaterialHandle, StringView::Hash>;
-using TextureMap    = HashMap<StringView, TextureHandle,  StringView::Hash>;
+using ShapeGroupMap = HashMap<StringView, ShapeGroup,     StringViewHash>;
+using SerializedMap = HashMap<StringView, Serialized,     StringViewHash>;
+using MaterialMap   = HashMap<StringView, MaterialHandle, StringViewHash>;
+using TextureMap    = HashMap<StringView, TextureHandle,  StringViewHash>;
 
 static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
 	char * filename_abs = new char[len_path + len_filename + 1];
@@ -1003,7 +914,7 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	location.line = 1;
 	location.col  = 0;
 
-	ParserState parser = { };
+	Parser parser = { };
 	parser.init(source, source + source_length, location);
 
 	XMLNode root = parse_xml(parser);

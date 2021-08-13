@@ -10,28 +10,35 @@ struct StringView {
 	int length() const { return end - start; }
 
 	char * c_str() const {
-		int len = length();
+		int    len = length();
 		char * str = new char[len + 1];
 		memcpy(str, start, len);
 		str[len] = '\0';
 		return str;
 	}
 
-	struct Hash {
-		size_t operator()(const StringView & str) const {
-			static constexpr int p = 31;
-			static constexpr int m = 1e9 + 9;
-
-			size_t hash = 0;
-			size_t p_pow = 1;
-			for (int i = 0; i < str.length(); i++) {
-				hash = (hash + (str[i] - 'a' + 1) * p_pow) % m;
-				p_pow = (p_pow * p) % m;
-			}
-
-			return hash;
+	StringView substr(size_t offset, size_t len = -1) {
+		if (offset + len >= length()) {
+			len = length() - offset;
 		}
-	};
+		return { start + offset, start + offset + len };
+	}
+};
+
+struct StringViewHash {
+	size_t operator()(const StringView & str) const {
+		static constexpr int p = 31;
+		static constexpr int m = 1e9 + 9;
+
+		size_t hash = 0;
+		size_t p_pow = 1;
+		for (int i = 0; i < str.length(); i++) {
+			hash = (hash + (str[i] - 'a' + 1) * p_pow) % m;
+			p_pow = (p_pow * p) % m;
+		}
+
+		return hash;
+	}
 };
 
 template<int N>

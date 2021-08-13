@@ -282,6 +282,7 @@
     <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\Geometry.h" />
     <ClInclude Include="Src\Util\HashMap.h" />
+    <ClInclude Include="Src\Util\Parser.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\Random.h" />
     <ClInclude Include="Src\Util\ScopeTimer.h" />

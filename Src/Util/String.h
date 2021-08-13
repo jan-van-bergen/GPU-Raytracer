@@ -1,4 +1,5 @@
 #pragma once
+#include <string.h>
 
 struct String {
 	static constexpr size_t SSO_SIZE = 16;
@@ -12,6 +13,13 @@ struct String {
 	constexpr String() : length(0), ptr(nullptr) { }
 
 	constexpr String(const char * str) : length(strlen(str)), ptr(nullptr) {
+		if (length >= SSO_SIZE) {
+			ptr = new char[length + 1];
+		}
+		memcpy(data(), str, length + 1);
+	}
+	
+	constexpr String(const char * str, size_t len) : length(len), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
 			ptr = new char[length + 1];
 		}
@@ -82,7 +90,7 @@ struct String {
 
 		return *this;
 	}
-
+	
 	constexpr size_t size() const { return length; }
 
 	constexpr       char * data()       { return length < SSO_SIZE ? buf : ptr; }
@@ -90,7 +98,8 @@ struct String {
 	
 	constexpr const char * c_str() const { return data(); }
 	
-	char operator[](size_t index) const { return data()[index]; }
+	char & operator[](size_t index)       { return data()[index]; }
+	char   operator[](size_t index) const { return data()[index]; }
 
 private:
 	// Constexpr implementations
@@ -133,7 +142,7 @@ struct StringHash {
 	// Based on: https://www.geeksforgeeks.org/string-hashing-using-polynomial-rolling-hash-function/
 	size_t operator()(const String & str) {
 		constexpr int P = 31;
-		constexpr int M = 1e9 + 9;
+		constexpr int M = 1000000009;
 
 		size_t hash  = 0;
 		size_t pow_p = 1;

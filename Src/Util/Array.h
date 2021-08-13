@@ -1,6 +1,9 @@
 #pragma once
-#include <cassert>
-#include <cstring>
+#include <assert.h>
+#include <string.h>
+
+#include <new>
+#include <utility>
 #include <initializer_list>
 
 template<typename T>
@@ -48,8 +51,6 @@ struct Array {
 	}
 	
 	constexpr Array(Array && array) {
-		destroy_buffer();
-
 		buffer   = array.buffer;
 		count    = array.count;
 		capacity = array.capacity;
@@ -135,7 +136,10 @@ struct Array {
 	}
 
 	constexpr void clear() {
-		if (count > 0) resize(0);
+		for (size_t i = 0; i < count; i++) {
+			data()[i].~T();
+		}
+		count = 0;
 	}
 	
 	constexpr size_t size() const { return count; }
