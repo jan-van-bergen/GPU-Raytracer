@@ -107,16 +107,36 @@ struct Parser {
 		}
 		skip_whitespace();
 
-		float value = float(parse_int());
+		double value = 0.0;
+		
+		// Parse integer part
+		if (is_digit(*cur)) {
+			value = parse_int();
+		}
 
+		// Parse fractional part
 		if (match('.')) {
-			static constexpr float DIGIT_LUT[] = { 0.1f, 0.01f, 0.001f, 0.0001f, 0.00001f, 0.000001f, 0.0000001f, 0.00000001f, 0.000000001f, 0.0000000001f, 0.00000000001f };
+			static constexpr double DIGIT_LUT[] = { 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001, 0.0000000001, 0.00000000001 };
 
 			int digit = 0;
 			while (is_digit(*cur)) {
-				value += (*cur - '0') * DIGIT_LUT[digit++];
+				double p;
+				if (digit < Util::array_element_count(DIGIT_LUT)) {
+					p = DIGIT_LUT[digit];
+				} else {
+					p = pow(0.1, digit);
+				}
+				value += double(*cur - '0') * p;
+
+				digit++;
 				advance();
 			}
+		}
+
+		// Parse exponent
+		if (match('e') || match('E')) {
+			int exponent = parse_int();
+			value = value * pow(10.0, exponent);
 		}
 
 		return sign ? -value : value;
