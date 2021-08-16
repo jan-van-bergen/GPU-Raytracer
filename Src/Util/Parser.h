@@ -97,6 +97,13 @@ struct Parser {
 		}
 		advance();
 	}
+	
+	template<int N>
+	void expect(const char (& target)[N]) {
+		for (int i = 0; i < N - 1; i++) {
+			expect(target[i]);
+		}
+	}
 
 	float parse_float() {
 		bool sign = false;
@@ -153,5 +160,10 @@ struct Parser {
 		}
 
 		return sign ? -value : value;
+	}
+	
+	void parse_newline() {
+		match('\r');
+		expect('\n');
 	}
 };

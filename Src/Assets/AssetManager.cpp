@@ -45,6 +45,8 @@ void AssetManager::init() {
 	thread_pool.init();
 }
 
+#include "PLYLoader.h"
+
 MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
 
@@ -56,7 +58,7 @@ MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	bool bvh_loaded = BVHLoader::try_to_load(filename, mesh_data, bvh);
 	if (!bvh_loaded) {
 		// Unable to load disk cached BVH, load model from source and construct BVH
-		OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
+		PLYLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
 		
 		bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
 		BVHLoader::save(filename, mesh_data, bvh);

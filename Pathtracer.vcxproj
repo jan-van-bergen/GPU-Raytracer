@@ -204,6 +204,7 @@
     <ClCompile Include="Src\Assets\MeshData.cpp" />
     <ClCompile Include="Src\Assets\MitsubaLoader.cpp" />
     <ClCompile Include="Src\Assets\OBJLoader.cpp" />
+    <ClCompile Include="Src\Assets\PLYLoader.cpp" />
     <ClCompile Include="Src\Assets\Texture.cpp" />
     <ClCompile Include="Src\Assets\TextureLoader.cpp" />
     <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp" />
@@ -247,6 +248,7 @@
     <ClInclude Include="Src\Assets\MeshData.h" />
     <ClInclude Include="Src\Assets\MitsubaLoader.h" />
     <ClInclude Include="Src\Assets\OBJLoader.h" />
+    <ClInclude Include="Src\Assets\PLYLoader.h" />
     <ClInclude Include="Src\Assets\Texture.h" />
     <ClInclude Include="Src\Assets\TextureLoader.h" />
     <ClInclude Include="Src\BVH\Builders\BVHBuilder.h" />
