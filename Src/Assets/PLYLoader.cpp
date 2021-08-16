@@ -97,24 +97,10 @@ static Property::Type parse_property_type(Parser & parser) {
 	return type;
 }
 
-static StringView parse_name(Parser & parser) {
-	parser.skip_whitespace();
-
-	const char * start = parser.cur;
-	while (!parser.reached_end() && !is_whitespace(*parser.cur) && !is_newline(*parser.cur)) {
-		parser.advance();
-	}
-
-	return StringView { start, parser.cur };
-}
-
 template<typename T>
 static T parse_value(Parser & parser, Format format) {
 	const char * start = parser.cur;
-
-	for (int i = 0; i < sizeof(T); i++) {
-		parser.advance();
-	}
+	parser.cur += sizeof(T);
 
 	T value = { };
 
@@ -235,7 +221,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 
 			property.type = parse_property_type(parser);
 
-			StringView name = parse_name(parser);
+			StringView name = parser.parse_identifier();
 			if (name == "x") {
 				property.kind = Property::Kind::X;
 			} else if (name == "y") {
@@ -275,30 +261,17 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 		switch (element.type.kind) {
 			case Element::Type::Kind::VERTEX: {
 				for (int i = 0; i < element.count; i++) {
-					Vector3 position  = Vector3(0.0f);
-					Vector2 tex_coord = Vector2(0.0f);
-					Vector3 normal    = Vector3(0.0f);
+					float vertex[8] = { };
 
 					for (int p = 0; p < element.property_count; p++) {
 						const Property & property = element.properties[p];
 
-						float value = parse_property_value<float>(parser, property.type.kind, format);
-
-						switch (property.kind) {
-							case Property::Kind::X:  position.x  = value; break;
-							case Property::Kind::Y:  position.y  = value; break;
-							case Property::Kind::Z:  position.z  = value; break;
-							case Property::Kind::NX: normal.x    = value; break;
-							case Property::Kind::NY: normal.y    = value; break;
-							case Property::Kind::NZ: normal.z    = value; break;
-							case Property::Kind::U:  tex_coord.x = value; break;
-							case Property::Kind::V:  tex_coord.y = value; break;
-						}
+						vertex[int(property.kind)] = parse_property_value<float>(parser, property.type.kind, format);
 					}
 
-					positions .push_back(position);
-					tex_coords.push_back(tex_coord);
-					normals   .push_back(normal);
+					positions .emplace_back(vertex[0], vertex[1], vertex[2]);
+					normals   .emplace_back(vertex[3], vertex[4], vertex[5]);
+					tex_coords.emplace_back(vertex[6], 1.0f - vertex[7]);
 
 					if (format == Format::ASCII) parser.parse_newline();
 				}
