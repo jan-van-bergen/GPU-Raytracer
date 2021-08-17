@@ -11,7 +11,7 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 	FILE * file; fopen_s(&file, filename, "rb");
 
 	if (file == nullptr) return false;
-	
+
 	bool success = false;
 
 	fseek(file, 0, SEEK_END);
@@ -65,7 +65,7 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 	fread_s(data, data_size, 1, data_size, file);
 
 	int * mip_offsets = new int[texture.mip_levels];
-	
+
 	int block_size = texture.channels * 4;
 
 	int level_width  = texture.width;
@@ -75,7 +75,7 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 	for (int level = 0; level < texture.mip_levels; level++) {
 		if (level_width == 0 || level_height == 0) {
 			texture.mip_levels = level;
-			
+
 			break;
 		}
 
@@ -85,7 +85,7 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 		level_width  /= 2;
 		level_height /= 2;
 	}
-	
+
 	texture.data = data;
 	texture.mip_offsets = mip_offsets;
 
@@ -105,7 +105,7 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 	}
 
 	texture.channels = 4;
-	
+
 #if ENABLE_MIPMAPPING
 	int pixel_count = 0;
 
@@ -185,6 +185,6 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 #endif
 
 	texture.data = reinterpret_cast<const unsigned char *>(data_rgba);
-	
+
 	return true;
 }

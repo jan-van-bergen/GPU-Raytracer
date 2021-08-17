@@ -4,7 +4,7 @@
 struct CWBVHBuilder {
 private:
 	CWBVH * cwbvh;
-	
+
 	struct Decision {
 		enum struct Type : char {
 			LEAF,
@@ -15,7 +15,7 @@ private:
 		char distribute_left  = INVALID;
 		char distribute_right = INVALID;
 	};
-	
+
 	float    * cost;
 	Decision * decisions;
 

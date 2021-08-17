@@ -7,25 +7,25 @@
 #include "../CUDA_Source/Common.h"
 
 struct Camera {
-	Vector3    position;	
+	Vector3    position;
 	Quaternion rotation;
 
 	float fov; // Field of View in radians
 	float pixel_spread_angle;
-	
+
 	float aperture_radius =  0.1f;
 	float focal_distance  = 10.0f;
 
 	float near;
 	float far;
-	
+
 	float screen_width;
 	float screen_height;
 
 	Vector3 bottom_left_corner, bottom_left_corner_rotated;
 	Vector3 x_axis, x_axis_rotated;
 	Vector3 y_axis, y_axis_rotated;
-	
+
 	Matrix4 projection;
 	Matrix4 view_projection;
 	Matrix4 view_projection_prev;

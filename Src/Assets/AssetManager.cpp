@@ -26,7 +26,7 @@ static BVH build_bvh(const Triangle * triangles, int triangle_count) {
 #else // All other BVH types use standard BVH as a starting point
 	{
 		ScopeTimer timer("BVH Construction");
-			
+
 		BVHBuilder bvh_builder;
 		bvh_builder.init(&bvh, triangle_count, BVHLoader::MAX_PRIMITIVES_IN_LEAF);
 		bvh_builder.build(triangles, triangle_count);
@@ -49,7 +49,7 @@ MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
 
 	if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
-	
+
 	MeshData mesh_data = { };
 
 	BVH bvh;
@@ -57,16 +57,16 @@ MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	if (!bvh_loaded) {
 		// Unable to load disk cached BVH, load model from source and construct BVH
 		OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
-		
+
 		bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
 		BVHLoader::save(filename, mesh_data, bvh);
 	}
-	
+
 	mesh_data.init_bvh(bvh);
-	
+
 	mesh_data_handle.handle = mesh_datas.size();
 	mesh_datas.push_back(mesh_data);
-	
+
 	return mesh_data_handle;
 }
 
@@ -77,10 +77,10 @@ MeshDataHandle AssetManager::add_mesh_data(Triangle * triangles, int triangle_co
 	mesh_data.triangles      = triangles;
 	mesh_data.triangle_count = triangle_count;
 	mesh_data.init_bvh(bvh);
-	
+
 	MeshDataHandle mesh_data_id = { mesh_datas.size() };
 	mesh_datas.push_back(mesh_data);
-	
+
 	return mesh_data_id;
 }
 
@@ -96,7 +96,7 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 
 	// If the cache already contains this Texture simply return its index
 	if (texture_id.handle != INVALID) return texture_id;
-	
+
 	// Otherwise, create new Texture and load it from disk
 	{
 		std::lock_guard<std::mutex> lock(textures_mutex);
@@ -104,11 +104,11 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 		texture_id.handle = textures.size();
 		textures.emplace_back();
 	}
-	
+
 	thread_pool.submit([this, filename = _strdup(filename), texture_id]() {
 		Texture texture = { };
 		bool success = false;
-	
+
 		const char * file_extension = Util::file_get_extension(filename);
 		if (file_extension) {
 			if (strcmp(file_extension, "dds") == 0) {
@@ -132,12 +132,12 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 			texture.mip_levels  = 1;
 			texture.mip_offsets = new int(0);
 		}
-	
+
 		{
 			std::lock_guard<std::mutex> lock(textures_mutex);
 			textures[texture_id.handle] = texture;
 		}
-	
+
 		free(filename);
 	});
 

@@ -15,7 +15,7 @@ public:
 	inline void unbind() const {
 		glUseProgram(0);
 	}
-	
+
 	inline GLuint get_uniform(const char * name) const {
 		return glGetUniformLocation(program_id, name);
 	}

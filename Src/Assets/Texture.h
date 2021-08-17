@@ -14,9 +14,9 @@ struct Texture {
 	};
 
 	const unsigned char * data = nullptr;
-	
+
 	Format format = Format::RGBA;
-	
+
 	int channels;
 	int width, height;
 

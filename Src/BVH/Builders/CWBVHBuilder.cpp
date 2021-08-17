@@ -19,7 +19,7 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 			decisions[node_index * 7 + i].type = Decision::Type::LEAF;
 		}
 	} else {
-		num_primitives = 
+		num_primitives =
 			calculate_cost(node.left,     nodes) +
 			calculate_cost(node.left + 1, nodes);
 
@@ -28,18 +28,18 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 			float cost_leaf = num_primitives <= 3 ? float(num_primitives) * node.aabb.surface_area() : INFINITY;
 
 			float cost_distribute = INFINITY;
-			
+
 			char distribute_left  = INVALID;
 			char distribute_right = INVALID;
 
 			for (int k = 0; k < 7; k++) {
-				float c = 
-					cost[(node.left)     * 7 +     k] + 
+				float c =
+					cost[(node.left)     * 7 +     k] +
 					cost[(node.left + 1) * 7 + 6 - k];
 
 				if (c < cost_distribute) {
 					cost_distribute = c;
-					
+
 					distribute_left  =     k;
 					distribute_right = 6 - k;
 				}
@@ -69,13 +69,13 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 			char distribute_right = INVALID;
 
 			for (int k = 0; k < i; k++) {
-				float c = 
-					cost[(node.left)     * 7 +     k    ] + 
+				float c =
+					cost[(node.left)     * 7 +     k    ] +
 					cost[(node.left + 1) * 7 + i - k - 1];
 
 				if (c < cost_distribute) {
 					cost_distribute = c;
-					
+
 					distribute_left  =     k;
 					distribute_right = i - k - 1;
 				}
@@ -98,7 +98,7 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 
 void CWBVHBuilder::get_children(int node_index, const BVHNode nodes[], int i, int & child_count, int children[8]) {
 	const BVHNode & node = nodes[node_index];
-	
+
 	if (node.is_leaf()) {
 		children[child_count++] = node_index;
 
@@ -110,7 +110,7 @@ void CWBVHBuilder::get_children(int node_index, const BVHNode nodes[], int i, in
 
 	assert(distribute_left  >= 0 && distribute_left  < 7);
 	assert(distribute_right >= 0 && distribute_right < 7);
-	
+
 	assert(child_count < 8);
 
 	// Recurse on left child if it needs to distribute
@@ -119,7 +119,7 @@ void CWBVHBuilder::get_children(int node_index, const BVHNode nodes[], int i, in
 	} else {
 		children[child_count++] = node.left;
 	}
-	
+
 	// Recurse on right child if it needs to distribute
 	if (decisions[(node.left + 1) * 7 + distribute_right].type == Decision::Type::DISTRIBUTE) {
 		get_children(node.left + 1, nodes, distribute_right, child_count, children);
@@ -144,7 +144,7 @@ int CWBVHBuilder::count_primitives(int node_index, const BVHNode nodes[], const 
 		return primitive_count;
 	}
 
-	return 
+	return
 		count_primitives(node.left,     nodes, indices) +
 		count_primitives(node.left + 1, nodes, indices);
 }
@@ -226,9 +226,9 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 		exp2f(ceilf(log2f((aabb.max.y - aabb.min.y) * denom))),
 		exp2f(ceilf(log2f((aabb.max.z - aabb.min.z) * denom)))
 	);
-	
+
 	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
-	
+
 	// Treat float as unsigned
 	unsigned u_ex, u_ey, u_ez;
 	memcpy(&u_ex, &e.x, 4);
@@ -244,7 +244,7 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 	node.e[0] = u_ex >> 23;
 	node.e[1] = u_ey >> 23;
 	node.e[2] = u_ez >> 23;
-	
+
 	int child_count = 0;
 	int children[8] = { INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID };
 	get_children(node_index_sbvh, nodes_sbvh, 0, child_count, children);
@@ -252,7 +252,7 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 	assert(child_count <= 8);
 
 	order_children(node_index_sbvh, nodes_sbvh, children, child_count);
-	
+
 	node.imask = 0;
 
 	node.base_index_child    = cwbvh->node_count;

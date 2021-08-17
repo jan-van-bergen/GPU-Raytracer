@@ -14,7 +14,7 @@ struct Scene {
 	Camera      camera;
 	Array<Mesh> meshes;
 	Sky         sky;
-	
+
 	bool has_diffuse    = false;
 	bool has_dielectric = false;
 	bool has_glossy     = false;

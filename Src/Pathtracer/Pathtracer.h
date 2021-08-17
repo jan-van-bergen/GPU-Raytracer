@@ -83,7 +83,7 @@ struct TraceBuffer {
 
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
-	
+
 #if ENABLE_MIPMAPPING
 	CUDAMemory::Ptr<float2> cone;
 #endif
@@ -94,7 +94,7 @@ struct MaterialBuffer {
 
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
-		
+
 #if ENABLE_MIPMAPPING
 		cone = CUDAMemory::malloc<float2>(buffer_size);
 #endif
@@ -123,7 +123,7 @@ struct ShadowRayBuffer {
 
 	CUDAMemory::Ptr<float>  max_distance;
 	CUDAMemory::Ptr<float4> illumination_and_pixel_index;
-	
+
 	inline void init(int buffer_size) {
 		ray_origin   .init(buffer_size);
 		ray_direction.init(buffer_size);
@@ -174,14 +174,14 @@ struct Pathtracer {
 	int frames_accumulated = -1;
 
 	Settings settings;
-	
+
 	PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
 	int * reverse_indices;
 
 	int * mesh_data_bvh_offsets;
 	int * mesh_data_triangle_offsets;
-	
+
 	CUDAEventPool event_pool;
 
 	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
@@ -207,7 +207,7 @@ private:
 
 	int pixel_count;
 	int batch_size;
-	
+
 	BVH        tlas_raw;
 	BVHBuilder tlas_bvh_builder;
 	BVHType    tlas;
@@ -217,7 +217,7 @@ private:
 #elif BVH_TYPE == BVH_CWBVH
 	CWBVHBuilder tlas_converter;
 #endif
-	
+
 	CUDAModule cuda_module;
 
 	CUstream stream_memset;
@@ -242,7 +242,7 @@ private:
 
 	CUgraphicsResource resource_accumulator;
 	CUsurfObject       surf_accumulator;
-	
+
 	TraceBuffer     ray_buffer_trace;
 	MaterialBuffer  ray_buffer_shade_diffuse;
 	MaterialBuffer  ray_buffer_shade_dielectric_and_glossy;
@@ -250,7 +250,7 @@ private:
 
 	CUDAModule::Global global_ray_buffer_shade_diffuse;
 	CUDAModule::Global global_ray_buffer_shade_dielectric_and_glossy;
-	CUDAModule::Global global_ray_buffer_shadow; 
+	CUDAModule::Global global_ray_buffer_shadow;
 
 	BufferSizes * pinned_buffer_sizes;
 
@@ -260,7 +260,7 @@ private:
 	CUDAModule::Global global_svgf_data;
 
 	CUDAModule::Global global_pixel_query;
-	
+
 	CUarray array_gbuffer_normal_and_depth;
 	CUarray array_gbuffer_mesh_id_and_triangle_id;
 	CUarray array_gbuffer_screen_position_prev;
@@ -279,13 +279,13 @@ private:
 
 	CUDAMemory::Ptr<int>    ptr_history_length;
 	CUDAMemory::Ptr<float4> ptr_history_direct;
-	CUDAMemory::Ptr<float4> ptr_history_indirect; 
+	CUDAMemory::Ptr<float4> ptr_history_indirect;
 	CUDAMemory::Ptr<float4> ptr_history_moment;
 	CUDAMemory::Ptr<float4> ptr_history_normal_and_depth;
 
 	CUDAMemory::Ptr<float4> ptr_taa_frame_prev;
 	CUDAMemory::Ptr<float4> ptr_taa_frame_curr;
-	
+
 	struct Matrix3x4 {
 		float cells[12];
 	};
@@ -319,7 +319,7 @@ private:
 			} glossy;
 		};
 	};
-	
+
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;
 	CUDAMemory::Ptr<CUDAMaterial>   ptr_materials;
 
@@ -332,7 +332,7 @@ private:
 	CUmipmappedArray * texture_arrays;
 
 	CUDAMemory::Ptr<CUDATexture>  ptr_textures;
-	
+
 	struct CUDATriangle {
 		Vector3 position_0;
 		Vector3 position_edge_1;
@@ -346,9 +346,9 @@ private:
 		Vector2 tex_coord_edge_1;
 		Vector2 tex_coord_edge_2;
 	};
-	
+
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
-	
+
 	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
 	CUDAMemory::Ptr<int>         ptr_mesh_material_ids;
@@ -365,7 +365,7 @@ private:
 
 	CUDAMemory::Ptr<float> ptr_light_mesh_power_scaled;
 	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
-	
+
 	CUDAModule::Global global_lights_total_power;
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
@@ -373,7 +373,7 @@ private:
 	CUDAMemory::Ptr<unsigned char> ptr_sobol_256spp_256d;
 	CUDAMemory::Ptr<unsigned char> ptr_scrambling_tile;
 	CUDAMemory::Ptr<unsigned char> ptr_ranking_tile;
-	
+
 	// Timing Events
 	CUDAEvent::Desc event_desc_primary;
 	CUDAEvent::Desc event_desc_trace[MAX_BOUNCES];

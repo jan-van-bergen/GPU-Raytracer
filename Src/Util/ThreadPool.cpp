@@ -11,7 +11,7 @@ void ThreadPool::init(int thread_count) {
 				{
 					std::unique_lock<std::mutex> lock(signal_submit.mutex);
 					signal_submit.condition.wait(lock, [this]{ return !work_queue.empty() || is_done; });
-					
+
 					if (is_done) return;
 
 					work = std::move(work_queue.front());
@@ -21,7 +21,7 @@ void ThreadPool::init(int thread_count) {
 
 				num_done++;
 				signal_done.condition.notify_one();
-			}	
+			}
 		});
 	}
 

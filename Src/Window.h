@@ -10,7 +10,7 @@ struct Window {
 private:
 	SDL_Window *  window;
 	SDL_GLContext context;
-	
+
 	Shader shader;
 
 public:

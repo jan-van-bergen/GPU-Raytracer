@@ -12,7 +12,7 @@
 	abort();
 
 static bool is_digit(char c) {
-	return c >= '0' && c <= '9';	
+	return c >= '0' && c <= '9';
 }
 
 static bool is_whitespace(char c) {
@@ -64,7 +64,7 @@ struct Parser {
 	void skip_whitespace() {
 		while (cur < end && is_whitespace(*cur)) advance();
 	}
-	
+
 	void skip_whitespace_or_newline() {
 		while (cur < end && (is_whitespace(*cur) || is_newline(*cur))) advance();
 	}
@@ -76,7 +76,7 @@ struct Parser {
 		}
 		return false;
 	}
-	
+
 	template<int N>
 	bool match(const char (& target)[N]) {
 		if (cur + N - 1 < end && strncmp(cur, target, N - 1) == 0) {
@@ -108,7 +108,7 @@ struct Parser {
 		skip_whitespace();
 
 		double value = 0.0;
-		
+
 		// Parse integer part
 		if (is_digit(*cur)) {
 			value = parse_int();

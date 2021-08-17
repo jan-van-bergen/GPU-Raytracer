@@ -13,7 +13,7 @@ private:
 	int * indices_x = nullptr;
 	int * indices_y = nullptr;
 	int * indices_z = nullptr;
-		
+
 	float * sah  = nullptr;
 	int   * temp = nullptr;
 
@@ -22,7 +22,7 @@ private:
 	template<typename Primitive>
 	void build_bvh_recursive(BVHNode & node, const Primitive * primitives, const Vector3 * centers, int * indices[3], int & node_index, int first_index, int index_count) {
 		node.aabb = BVHPartitions::calculate_bounds(primitives, indices[0], first_index, first_index + index_count);
-		
+
 		if (index_count == 1) {
 			// Leaf Node, terminate recursion
 			node.first = first_index;
@@ -52,7 +52,7 @@ private:
 
 		node.left = node_index;
 		node_index += 2;
-		
+
 		float split = centers[indices[split_dimension][split_index]][split_dimension];
 		BVHPartitions::split_indices(primitives, indices, first_index, index_count, temp, split_dimension, split_index, split);
 
@@ -76,9 +76,9 @@ private:
 		std::sort(indices_x, indices_x + primitive_count, [centers](int a, int b) { return centers[a].x < centers[b].x; });
 		std::sort(indices_y, indices_y + primitive_count, [centers](int a, int b) { return centers[a].y < centers[b].y; });
 		std::sort(indices_z, indices_z + primitive_count, [centers](int a, int b) { return centers[a].z < centers[b].z; });
-		
+
 		int * indices[3] = { indices_x, indices_y, indices_z };
-	
+
 		int node_index = 2;
 		build_bvh_recursive(bvh->nodes[0], primitives, centers, indices, node_index, 0, primitive_count);
 
@@ -104,10 +104,10 @@ public:
 			indices_y[i] = i;
 			indices_z[i] = i;
 		}
-			
+
 		sah  = new float[primitive_count];
 		temp = new int  [primitive_count];
-		
+
 		bvh->indices = indices_x;
 		bvh->nodes   = new BVHNode[2 * primitive_count];
 	}
@@ -119,7 +119,7 @@ public:
 		delete [] sah;
 		delete [] temp;
 	}
-	
+
 	inline void build(const Triangle * triangles, int triangle_count) {
 		return build_bvh_impl(triangles, triangle_count);
 	}

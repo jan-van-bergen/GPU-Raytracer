@@ -84,7 +84,7 @@ static void select_nodes_measure(const BVH & bvh, const int parent_indices[], in
 			float cost_area = area;
 
 			costs[i] = cost_sum * cost_min * cost_area;
-			
+
 			batch_indices[offset++] = i;
 		}
 	}
@@ -105,11 +105,11 @@ static void find_reinsertion(const BVH & bvh, const BVHNode & node_reinsert, flo
 	auto cmp = [](const std::pair<int, float> & a, const std::pair<int, float> & b) {
 		return a.second < b.second;
 	};
-	
+
 	std::priority_queue<std::pair<int, float>, Array<std::pair<int, float>>, decltype(cmp)> priority_queue(cmp);
 
 	priority_queue.emplace(0, 0.0f); // Push BVH root with 0 induced cost
-	
+
 	while (priority_queue.size() > 0) {
 		auto [node_index, induced_cost] = priority_queue.top();
 		priority_queue.pop();
@@ -168,8 +168,8 @@ static void bvh_node_calc_axis(const BVH & bvh, int parent_indices[], int displa
 
 	// Calculate split axis based on a distance heuristic
 	for (int dim = 0; dim < 3; dim++) {
-		float dist = 
-			fabsf(bvh.nodes[node.left].aabb.min[dim] - bvh.nodes[node.left + 1].aabb.min[dim]) + 
+		float dist =
+			fabsf(bvh.nodes[node.left].aabb.min[dim] - bvh.nodes[node.left + 1].aabb.min[dim]) +
 			fabsf(bvh.nodes[node.left].aabb.max[dim] - bvh.nodes[node.left + 1].aabb.max[dim]);
 
 		if (dist >= max_dist) {
@@ -277,7 +277,7 @@ static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, BitArray
 
 	if (node.is_leaf()) {
 		int count = node.get_count();
-		
+
 		new_node.first = new_bvh.index_count;
 
 		for (int i = 0; i < count; i++) {
@@ -290,7 +290,7 @@ static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, BitArray
 		if (collapse[node_index]) {
 			new_node.count = collapse_subtree(bvh, new_bvh, node_index);
 			new_node.first = new_bvh.index_count - new_node.count;
-			
+
 			assert(new_node.is_leaf());
 		} else {
 			new_node.left = new_bvh.node_count;
@@ -306,7 +306,7 @@ static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, BitArray
 
 void BVHOptimizer::optimize(BVH & bvh) {
 	ScopeTimer timer("BVH Optimization");
-	
+
 	float cost_before = bvh_sah_cost(bvh);
 
 	if (bvh.node_count < 8) return; // Tree too small to optimize
@@ -314,11 +314,11 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	int * parent_indices = new int[bvh.node_count];
 	parent_indices[0] = -1; // Root has no parent
 	init_parent_indices(bvh, parent_indices);
-	
-	constexpr int P_R = 5;  // After P_R batches with no improvement to the best SAH cost we switch to random Node selection 
+
+	constexpr int P_R = 5;  // After P_R batches with no improvement to the best SAH cost we switch to random Node selection
 	constexpr int P_T = 10; // After P_T batches with no improvement to the best SAH cost we terminate the algorithm
 	constexpr int k = 100;
-	
+
 	static_assert(P_T >= P_R);
 
 	constexpr size_t TIME_OUT = -1; // Time budget in seconds, after this amount of time the algorithm terminates
@@ -355,22 +355,22 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			displacement[i] = i;
 		}
 
-		for (int i = 0; i < batch_size; i++) {			
+		for (int i = 0; i < batch_size; i++) {
 			int node_index = displacement[batch_indices[i]];
 			if (node_index == -1) continue; // This Node was overwritten by another reinsertion and no longer exists
 
 			const BVHNode & node = bvh.nodes[node_index];
-		
+
 			int parent        = parent_indices[node_index];
 			int parent_parent = parent_indices[parent];
-		
+
 			if (node.is_leaf() || parent == 0 || parent == -1) continue;
 
 			int sibling = (node_index & 1) ? node_index - 1 : node_index + 1; // Other child of the same parent as current node
 
 			int child_left  = node.left;
 			int child_right = node.left + 1;
-			
+
 			struct Reinsert {
 				int     node_index;
 				BVHNode node;
@@ -398,7 +398,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			bvh.nodes[parent] = bvh.nodes[sibling];
 			parent_indices[sibling] = parent_parent;
 
-			displacement[originated[sibling]] = parent; 
+			displacement[originated[sibling]] = parent;
 			originated[parent] = originated[sibling];
 
 			if (!bvh.nodes[sibling].is_leaf()) {
@@ -410,14 +410,14 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			displacement[originated[node_index]] = -1;
 
 			update_aabbs_bottom_up(bvh, parent_indices, parent_parent);
-			
+
 			// Reinsert Nodes
 			for (int j = 0; j < 2; j++) {
 				int      unused   = nodes_unused  [j];
 				Reinsert reinsert = nodes_reinsert[j];
 
 				assert((unused & 1) == 0);
-			
+
 				// Find the best position to reinsert the given Node
 				float min_cost  = INFINITY;
 				int   min_index = -1;
@@ -447,17 +447,17 @@ void BVHOptimizer::optimize(BVH & bvh) {
 					parent_indices[reinsert.node.left + 1] = unused + 1;
 				}
 
-				bvh.nodes[min_index].left  = unused;		
+				bvh.nodes[min_index].left  = unused;
 				bvh.nodes[min_index].count = 0;
 
 				update_aabbs_bottom_up(bvh, parent_indices, min_index);
-				
+
 				bvh_node_calc_axis(bvh, parent_indices, displacement, originated, bvh.nodes[min_index]);
 
 				assert(!bvh.nodes[min_index].is_leaf());
 			}
 		}
-		
+
 		float sah_cost = bvh_sah_cost(bvh);
 
 		if (sah_cost < sah_cost_best) {
@@ -487,7 +487,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 
 			break;
 		}
-			
+
 		printf("%i: SAH=%f best=%f last_reduction=%i     \r", batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
 
 		batch_count++;

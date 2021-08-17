@@ -12,15 +12,15 @@ struct CUDAKernel {
 	CUfunction kernel;
 
 	mutable unsigned char parameter_buffer[PARAMETER_BUFFER_SIZE];
-	
+
 	int  grid_dim_x = 64,  grid_dim_y = 1,  grid_dim_z = 1;
 	int block_dim_x = 64, block_dim_y = 1, block_dim_z = 1;
 
 	unsigned shared_memory_bytes = 0;
-	
+
 	inline void init(const CUDAModule * module, const char * kernel_name) {
 		CUDACALL(cuModuleGetFunction(&kernel, module->module, kernel_name));
-		
+
 		CUDACALL(cuFuncSetCacheConfig    (kernel, CU_FUNC_CACHE_PREFER_L1));
 		CUDACALL(cuFuncSetSharedMemConfig(kernel, CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE));
 	}
@@ -54,7 +54,7 @@ struct CUDAKernel {
 	inline void occupancy_max_block_size_1d() {
 		int grid, block;
 
-		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0)); 
+		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0));
 
 		set_block_dim(block, 1, 1);
 	}
@@ -62,7 +62,7 @@ struct CUDAKernel {
 	inline void occupancy_max_block_size_2d() {
 		int grid, block;
 
-		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0)); 
+		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0));
 
 		// Take sqrt because we want block_x x block_y to be as square as possible
 		int block_x = int(sqrt(block));
@@ -104,15 +104,15 @@ private:
 	}
 
 	inline void execute_internal(size_t parameter_buffer_size) const {
-		void * params[] = { 
-			CU_LAUNCH_PARAM_BUFFER_POINTER, parameter_buffer, 
-			CU_LAUNCH_PARAM_BUFFER_SIZE,   &parameter_buffer_size, 
-			CU_LAUNCH_PARAM_END 
+		void * params[] = {
+			CU_LAUNCH_PARAM_BUFFER_POINTER, parameter_buffer,
+			CU_LAUNCH_PARAM_BUFFER_SIZE,   &parameter_buffer_size,
+			CU_LAUNCH_PARAM_END
 		};
-		
-		CUDACALL(cuLaunchKernel(kernel, 
-			grid_dim_x,  grid_dim_y,  grid_dim_z, 
-			block_dim_x, block_dim_y, block_dim_z, 
+
+		CUDACALL(cuLaunchKernel(kernel,
+			grid_dim_x,  grid_dim_y,  grid_dim_z,
+			block_dim_x, block_dim_y, block_dim_z,
 			shared_memory_bytes, nullptr, nullptr, params
 		));
 	}

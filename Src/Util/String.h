@@ -18,14 +18,14 @@ struct String {
 		}
 		memcpy(data(), str, length + 1);
 	}
-	
+
 	constexpr String(const char * str, size_t len) : length(len), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
 			ptr = new char[length + 1];
 		}
 		memcpy(data(), str, length + 1);
 	}
-	
+
 	template<size_t N>
 	constexpr String(const char (& str)[N]) : length(N - 1), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
@@ -39,7 +39,7 @@ struct String {
 			delete [] ptr;
 		}
 	}
-	
+
 	constexpr String(const String & str) : length(str.length), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
 			ptr = new char[length + 1];
@@ -65,7 +65,7 @@ struct String {
 
 		return *this;
 	}
-	
+
 	constexpr String(String && str) : length(str.length), ptr(nullptr) {
 		if (length < SSO_SIZE) {
 			memcpy(buf, str.buf, length + 1);
@@ -90,14 +90,14 @@ struct String {
 
 		return *this;
 	}
-	
+
 	constexpr size_t size() const { return length; }
 
 	constexpr       char * data()       { return length < SSO_SIZE ? buf : ptr; }
 	constexpr const char * data() const { return length < SSO_SIZE ? buf : ptr; }
-	
+
 	constexpr const char * c_str() const { return data(); }
-	
+
 	char & operator[](size_t index)       { return data()[index]; }
 	char   operator[](size_t index) const { return data()[index]; }
 

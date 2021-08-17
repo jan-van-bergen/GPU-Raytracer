@@ -4,7 +4,7 @@
 struct PerfTest {
 private:
 	static constexpr int BUFFER_SIZE = 32;
-	
+
 	static constexpr const char * output_file = "perf.txt";
 
 	struct POV {

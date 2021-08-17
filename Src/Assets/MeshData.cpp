@@ -14,7 +14,7 @@ void MeshData::init_bvh(const BVH & bvh) {
 	QBVHBuilder qbvh_builder;
 	qbvh_builder.init(&this->bvh, bvh);
 	qbvh_builder.build(bvh);
-	
+
 	delete [] bvh.nodes;
 #elif BVH_TYPE == BVH_CWBVH
 	// Collapse binary BVH into 8-way Compressed Wide BVH

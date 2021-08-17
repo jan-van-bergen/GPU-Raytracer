@@ -144,7 +144,7 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			int v = face.indices[i].v;
 			int t = face.indices[i].t;
 			int n = face.indices[i].n;
-			
+
 			if (v != INVALID) {
 				positions[i] = obj.positions[v];
 			}
@@ -175,7 +175,7 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			if (normal_0_invalid) normals[0] = geometric_normal;
 			if (normal_1_invalid) normals[1] = geometric_normal;
 			if (normal_2_invalid) normals[2] = geometric_normal;
-		} 
+		}
 
 		triangles[f].normal_0 = normals[0];
 		triangles[f].normal_1 = normals[1];

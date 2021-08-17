@@ -11,7 +11,7 @@ struct Mesh {
 	AABB aabb;
 
 	MeshDataHandle mesh_data_handle;
-	
+
 	Vector3    position;
 	Quaternion rotation;
 	float      scale = 1.0f;

@@ -18,15 +18,15 @@ struct alignas(16) Matrix4 {
 		cells[15] = 1.0f;
 	}
 
-	inline FORCEINLINE float & operator()(int row, int col) { 
-		assert(row >= 0 && row < 4); 
-		assert(col >= 0 && col < 4); 
-		return cells[col + (row << 2)]; 
+	inline FORCEINLINE float & operator()(int row, int col) {
+		assert(row >= 0 && row < 4);
+		assert(col >= 0 && col < 4);
+		return cells[col + (row << 2)];
 	}
 
-	inline FORCEINLINE const float & operator()(int row, int col) const { 
-		assert(row >= 0 && row < 4); 
-		assert(col >= 0 && col < 4); 
+	inline FORCEINLINE const float & operator()(int row, int col) const {
+		assert(row >= 0 && row < 4);
+		assert(col >= 0 && col < 4);
 		return cells[col + (row << 2)];
 	}
 
@@ -54,18 +54,18 @@ struct alignas(16) Matrix4 {
 		result(0, 0) = 1.0f - 2.0f * (yy + zz);
 		result(1, 0) =        2.0f * (xy + wz);
 		result(2, 0) =        2.0f * (xz - wy);
-		
+
 		result(0, 1) =        2.0f * (xy - wz);
 		result(1, 1) = 1.0f - 2.0f * (xx + zz);
 		result(2, 1) =        2.0f * (yz + wx);
-		
+
 		result(0, 2) =        2.0f * (xz + wy);
 		result(1, 2) =        2.0f * (yz - wx);
 		result(2, 2) = 1.0f - 2.0f * (xx + yy);
-		
+
 		return result;
 	}
-	
+
 	inline static Matrix4 create_scale(float scale) {
 		Matrix4 result;
 		result(0, 0) = scale;
@@ -88,7 +88,7 @@ struct alignas(16) Matrix4 {
 
 		return result;
 	}
-	
+
 	inline static Matrix4 perspective_infinite(float fov, float aspect, float near) {
 		float tan_half_fov = tanf(0.5f * fov);
 
@@ -102,7 +102,7 @@ struct alignas(16) Matrix4 {
 
 		return result;
 	}
-	
+
 	// Transforms a Vector3 as if the fourth coordinate is 1
 	inline static Vector3 transform_position(const Matrix4 & matrix, const Vector3 & position) {
 		return Vector3(
@@ -111,7 +111,7 @@ struct alignas(16) Matrix4 {
 			matrix(2, 0) * position.x + matrix(2, 1) * position.y + matrix(2, 2) * position.z + matrix(2, 3)
 		);
 	}
-	
+
 	// Transforms a Vector3 as if the fourth coordinate is 0
 	inline static Vector3 transform_direction(const Matrix4 & matrix, const Vector3 & direction) {
 		return Vector3(
@@ -120,7 +120,7 @@ struct alignas(16) Matrix4 {
 			matrix(2, 0) * direction.x + matrix(2, 1) * direction.y + matrix(2, 2) * direction.z
 		);
 	}
-	
+
 	inline static Vector4 transform(const Matrix4 & matrix, const Vector4 & vector) {
 		return Vector4(
 			matrix(0, 0) * vector.x + matrix(0, 1) * vector.y + matrix(0, 2) * vector.z + matrix(0, 3) * vector.w,
@@ -129,7 +129,7 @@ struct alignas(16) Matrix4 {
 			matrix(3, 0) * vector.x + matrix(3, 1) * vector.y + matrix(3, 2) * vector.z + matrix(3, 3) * vector.w
 		);
 	}
-	
+
 	inline static Matrix4 transpose(const Matrix4 & matrix) {
 		Matrix4 result;
 
@@ -144,7 +144,7 @@ struct alignas(16) Matrix4 {
 
 	// Based on: https://github.com/graphitemaster/normals_revisited
 	inline static float minor(const Matrix4 & matrix, int r0, int r1, int r2, int c0, int c1, int c2) {
-	  return 
+	  return
 			matrix(r0, c0) * (matrix(r1, c1) * matrix(r2, c2) - matrix(r2, c1) * matrix(r1, c2)) -
 			matrix(r0, c1) * (matrix(r1, c0) * matrix(r2, c2) - matrix(r2, c0) * matrix(r1, c2)) +
 			matrix(r0, c2) * (matrix(r1, c0) * matrix(r2, c1) - matrix(r2, c0) * matrix(r1, c1));
@@ -189,7 +189,7 @@ inline Matrix4 operator*(const Matrix4 & left, const Matrix4 & right) {
 
 	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < 4; i++) {
-			result(i, j) = 
+			result(i, j) =
 				left(i, 0) * right(0, j) +
 				left(i, 1) * right(1, j) +
 				left(i, 2) * right(2, j) +

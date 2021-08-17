@@ -9,7 +9,7 @@ private:
 	static constexpr int SBVH_OVERALLOCATION = 4; // SBVH requires more space
 
 	BVH * sbvh = nullptr;
-	
+
 	using PrimitiveRef = BVHPartitions::PrimitiveRef;
 
 	PrimitiveRef * indices_x = nullptr;
@@ -20,7 +20,7 @@ private:
 	PrimitiveRef * indices_going_right_y = nullptr;
 	PrimitiveRef * indices_going_right_z = nullptr;
 	int            indices_going_right_offset;
-	
+
 	// Scatch memory
 	float * sah    = nullptr;
 	AABB  * bounds = nullptr;
@@ -45,12 +45,12 @@ public:
 		indices_going_right_x = indices_going_right_xyz;
 		indices_going_right_y = indices_going_right_xyz + 2 * triangle_count;
 		indices_going_right_z = indices_going_right_xyz + 2 * triangle_count * 2;
-		
+
 		sah    = new float[triangle_count];
 		bounds = new AABB [triangle_count * 2 + 1];
 		indices_going_left .init(triangle_count);
 		indices_going_right.init(triangle_count);
-		
+
 		sbvh->indices = new int    [SBVH_OVERALLOCATION * triangle_count];
 		sbvh->nodes   = new BVHNode[SBVH_OVERALLOCATION * triangle_count];
 	}

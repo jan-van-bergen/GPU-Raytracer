@@ -34,7 +34,7 @@ struct Settings {
 	bool enable_svgf                         = false;
 	bool enable_spatial_variance             = true;
 	bool enable_taa                          = true;
-	
+
 	bool modulate_albedo = true;
 
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::GAUSSIAN;

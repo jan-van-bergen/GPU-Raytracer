@@ -32,7 +32,7 @@ namespace CUDAMemory {
 
 		return Ptr<T>(ptr);
 	}
-	
+
 	template<typename T>
 	inline Ptr<T> malloc(const T * data, int count) {
 		Ptr<T> ptr = malloc<T>(count);
@@ -40,17 +40,17 @@ namespace CUDAMemory {
 
 		return ptr;
 	}
-	
+
 	template<typename T, int N>
 	inline Ptr<T> malloc(const T (& data)[N]) {
 		return malloc(data, N);
 	}
-	
+
 	template<typename T>
 	inline Ptr<T> malloc(const Array<T> & data) {
 		return malloc(data.data(), data.size());
 	}
-	
+
 	template<typename T>
 	inline void free_pinned(T * ptr) {
 		assert(ptr);
@@ -72,7 +72,7 @@ namespace CUDAMemory {
 
 		CUDACALL(cuMemcpyHtoD(ptr.ptr, data, count * sizeof(T)));
 	}
-	
+
 	template<typename T>
 	inline void memcpy(T * data, Ptr<T> ptr, int count = 1) {
 		assert(ptr.ptr);
@@ -81,7 +81,7 @@ namespace CUDAMemory {
 
 		CUDACALL(cuMemcpyDtoH(data, ptr.ptr, count * sizeof(T)));
 	}
-	
+
 	template<typename T>
 	inline void memset_async(Ptr<T> ptr, int value, int count, CUstream stream) {
 		int size_in_bytes = count * sizeof(T);
@@ -100,7 +100,7 @@ namespace CUDAMemory {
 
 	// Copies data from the Host Texture to the Device Array
 	void copy_array(CUarray array, int width_in_bytes, int height, const void * data);
-	
+
 	CUtexObject  create_texture(CUarray array, CUfilter_mode filter);
 	CUsurfObject create_surface(CUarray array);
 

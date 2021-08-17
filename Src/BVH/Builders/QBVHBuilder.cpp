@@ -44,7 +44,7 @@ void QBVHBuilder::collapse(int node_index) {
 		node.aabb_max_z[max_index] = max_child.aabb_max_z[0];
 		node.get_index(max_index) = max_child.get_index(0);
 		node.get_count(max_index) = max_child.get_count(0);
-		
+
 		int max_child_child_count = max_child.get_child_count();
 
 		// Add the rest of max child Node's children after the current Node's own children
@@ -110,8 +110,8 @@ void QBVHBuilder::build(const BVH & bvh) {
 				qbvh->nodes[i].get_index(1) = bvh.nodes[i].left + 1;
 				qbvh->nodes[i].get_count(1) = 0;
 			}
-				
-			// For now the tree is binary, 
+
+			// For now the tree is binary,
 			// so make the rest of the indices invalid
 			for (int j = 2; j < 4; j++) {
 				qbvh->nodes[i].get_index(j) = -1;

@@ -47,7 +47,7 @@ namespace Mipmap {
 			}
 		}
 	};
-	
+
 #if MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
 	typedef FilterBox Filter;
 #elif MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_LANCZOS
