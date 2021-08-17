@@ -343,13 +343,16 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("AttributeBegin")) {
 			parser_skip(parser);
-			attribute_stack.emplace_back();
+			if (attribute_stack.size() == 0) {
+				ERROR(parser.location, "Invalid AttributeBegin block!\n");
+			}
+			attribute_stack.emplace_back(attribute_stack.back());
 
 		} else if (parser.match("AttributeEnd")) {
 			parser_skip(parser);
 
 			if (attribute_stack.size() == 0) {
-				ERROR(parser.location, "Invalid Attribute block!\n");
+				ERROR(parser.location, "Invalid AttributeEnd block!\n");
 			}
 			attribute_stack.pop_back();
 
@@ -569,6 +572,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			Array<Param> params = parse_params(parser);
 
 			Material material = { };
+			material.name = "AreaLightSource";
 			material.type = Material::Type::LIGHT;
 
 			const Param * emit = find_param_optional(params, "L");
@@ -668,10 +672,12 @@ static void load_include(const char * filename, const char * path, int path_leng
 				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 				scene.add_mesh("Triangle Mesh", mesh_data_handle, attribute_stack.back().current_material);
 			} else if (type == "sphere") {
+				float radius = find_param_float(params, "radius", 1.0f);
+
 				Matrix4 transform =
 					Matrix4::create_translation(attribute_stack.back().current_transform.position) *
 					Matrix4::create_rotation   (attribute_stack.back().current_transform.rotation) *
-					Matrix4::create_scale      (attribute_stack.back().current_transform.scale);
+					Matrix4::create_scale      (attribute_stack.back().current_transform.scale * radius);
 
 				int        triangle_count;
 				Triangle * triangles;
@@ -683,7 +689,17 @@ static void load_include(const char * filename, const char * path, int path_leng
 				WARNING(parser.location, "Unsupported Shape type '%.*s'!\n", unsigned(type.length()), type.start);
 			}
 
-		} else if (parser.match("WorldBegin") || parser.match("WorldEnd")) {
+		} else if (parser.match("WorldBegin")) {
+			parser_skip(parser);
+
+			if (attribute_stack.size() != 1) {
+				ERROR(parser.location, "Invalid AttributeBegin block!\n");
+			}
+			attribute_stack.back().current_transform.position = Vector3(0.0f, 0.0f, 0.0f);
+			attribute_stack.back().current_transform.rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+			attribute_stack.back().current_transform.scale    = 1.0f;
+
+		} else if (parser.match("WorldEnd")) {
 			parser_skip(parser);
 
 		} else if (parser.match("Film") || parser.match("Sampler") || parser.match("Integrator")) { // Ingnore

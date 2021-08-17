@@ -103,7 +103,7 @@ MaterialHandle AssetManager::add_material(const Material & material) {
 	return material_id;
 }
 
-TextureHandle AssetManager::add_texture(const char * filename) { return { INVALID };
+TextureHandle AssetManager::add_texture(const char * filename) {
 	TextureHandle & texture_id = texture_cache[filename];
 
 	// If the cache already contains this Texture simply return its index
