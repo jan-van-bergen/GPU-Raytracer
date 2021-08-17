@@ -14,7 +14,7 @@
 #include "Util/PerfTest.h"
 #include "Util/ScopeTimer.h"
 
-extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used 
+extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used
 
 // Index of frame to take screen capture on
 static constexpr int capture_frame_index = -1;
@@ -48,15 +48,15 @@ struct Timing {
 
 static void capture_screen(const Window & window, const char * file_name) {
 	ScopeTimer timer("Screenshot");
-	
+
 	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
 	int window_pitch = Math::divide_round_up(window.width * 3, pack_alignment) * pack_alignment;
 
 	unsigned char * data = new unsigned char[window_pitch * window.height];
 	unsigned char * temp = new unsigned char[window_pitch];
-			
+
 	window.read_frame_buffer(data);
-	
+
 	// Flip image vertically
 	for (int j = 0; j < window.height / 2; j++) {
 		unsigned char * row_top    = data +                  j      * window_pitch;
@@ -96,14 +96,14 @@ int main(int argument_count, char ** arguments) {
 
 	{
 		ScopeTimer timer("Initialization");
-	
+
 		window.init("Pathtracer");
 		window.resize_handler = &window_resize;
 
 		CUDAContext::init();
 		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
 
-		perf_test.init(&pathtracer, false, scene_filename);	
+		perf_test.init(&pathtracer, false, scene_filename);
 		Random::init(1337);
 	}
 
@@ -116,9 +116,9 @@ int main(int argument_count, char ** arguments) {
 
 		pathtracer.update((float)timing.delta_time);
 		pathtracer.render();
-		
+
 		window.render_framebuffer();
-		
+
 		if (Input::is_key_pressed(SDL_SCANCODE_P) || timing.frame_index == capture_frame_index) {
 			char screenshot_name[32];
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", timing.frame_index);
@@ -127,12 +127,12 @@ int main(int argument_count, char ** arguments) {
 
 			if (timing.frame_index == capture_frame_index && exit_after_capture) break;
 		}
-		
+
 		calc_timing();
 		draw_gui();
 
 		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
-			int mouse_x, mouse_y;			
+			int mouse_x, mouse_y;
 			Input::mouse_position(&mouse_x, &mouse_y);
 
 			pathtracer.set_pixel_query(mouse_x, mouse_y);
@@ -203,14 +203,14 @@ static void draw_gui() {
 			ImGui::Text("Min:   %.2f ms", 1000.0f * timing.min);
 			ImGui::Text("Max:   %.2f ms", 1000.0f * timing.max);
 			ImGui::Text("FPS: %i", timing.fps);
-			
+
 			ImGui::BeginChild("Performance Region", ImVec2(0, 150), true);
 
 			struct EventTiming {
 				CUDAEvent::Desc desc;
 				float           timing;
 			};
-			
+
 			int           event_timing_count = pathtracer.event_pool.num_used - 1;
 			EventTiming * event_timings = new EventTiming[event_timing_count];
 
@@ -290,7 +290,7 @@ static void draw_gui() {
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			bool invalidated_settings = false;
-			
+
 			invalidated_settings |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
 
 			float fov = Math::rad_to_deg(pathtracer.scene.camera.fov);
@@ -298,13 +298,13 @@ static void draw_gui() {
 				pathtracer.scene.camera.set_fov(Math::deg_to_rad(fov));
 				pathtracer.invalidated_camera = true;
 			}
-				
+
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius, 0.0f, 1.0f);
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
 			invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
 			invalidated_settings |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
-			
+
 			invalidated_settings |= ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update);
 
 			if (ImGui::Checkbox("SVGF", &pathtracer.settings.enable_svgf)) {
@@ -347,7 +347,7 @@ static void draw_gui() {
 			pathtracer.pixel_query.triangle_id = INVALID;
 			pathtracer.pixel_query.material_id = INVALID;
 		}
-		
+
 		if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::BeginChild("Meshes", ImVec2(0, 200), true);
 
@@ -370,7 +370,7 @@ static void draw_gui() {
 
 		if (pathtracer.pixel_query.mesh_id != INVALID) {
 			Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
-				
+
 			if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen)) {
 				ImGui::TextUnformatted(mesh.name);
 
@@ -378,7 +378,7 @@ static void draw_gui() {
 				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
 
 				static bool dragging = false;
-				
+
 				if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
 					mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
 					mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
@@ -429,7 +429,7 @@ static void draw_gui() {
 				// Clip space to NDC to Window coordinates
 				ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };
 				ImVec2 b_window = { (0.5f + 0.5f * b.x / b.w) * window.width, (0.5f - 0.5f * b.y / b.w) * window.height };
-					
+
 				draw_list->AddLine(a_window, b_window, colour, thickness);
 			};
 
@@ -451,7 +451,7 @@ static void draw_gui() {
 			if (pathtracer.pixel_query.triangle_id != INVALID) {
 				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
-				int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]]; 
+				int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
 				const Triangle & triangle = mesh_data.triangles[index];
 
 				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
@@ -461,7 +461,7 @@ static void draw_gui() {
 					Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
 					Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
 				};
-					
+
 				Vector4 triangle_normals[3] = {
 					Vector4(triangle.normal_0.x, triangle.normal_0.y, triangle.normal_0.z, 0.0f),
 					Vector4(triangle.normal_1.x, triangle.normal_1.y, triangle.normal_1.z, 0.0f),

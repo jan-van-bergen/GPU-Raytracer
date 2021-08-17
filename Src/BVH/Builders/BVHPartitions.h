@@ -6,7 +6,7 @@
 // Contains various ways to parition space into "left" and "right" as well as helper methods
 namespace BVHPartitions {
 	const int SBVH_BIN_COUNT = 256;
-	
+
 	struct PrimitiveRef {
 		int  index;
 		AABB aabb;
@@ -27,7 +27,7 @@ namespace BVHPartitions {
 		assert(aabb.is_valid());
 
 		return aabb;
-	} 
+	}
 
 	// Reorders indices arrays such that indices on the left side of the splitting dimension end up on the left partition in the other dimensions as well
 	template<typename Primitive>
@@ -43,7 +43,7 @@ namespace BVHPartitions {
 					if (primitives[indices[dimension][i]].get_center()[split_dimension] == split) {
 						// In case the current primitive has the same coordianate as the one we split on along the split dimension,
 						// We don't know whether the primitive should go left or right.
-						// In this case check all primitive indices on the left side of the split that 
+						// In this case check all primitive indices on the left side of the split that
 						// have the same split coordinate for equality with the current primitive index i
 
 						int j = split_index - 1;
@@ -59,7 +59,7 @@ namespace BVHPartitions {
 						}
 					}
 
-					if (goes_left) {					
+					if (goes_left) {
 						temp[left++] = indices[dimension][i];
 					} else {
 						temp[right++] = indices[dimension][i];
@@ -90,7 +90,7 @@ namespace BVHPartitions {
 			// First traverse left to right along the current dimension to evaluate first half of the SAH
 			for (int i = 0; i < index_count - 1; i++) {
 				aabb_left.expand(primitives[indices[dimension][first_index + i]].aabb);
-				
+
 				sah[i] = aabb_left.surface_area() * float(i + 1);
 			}
 
@@ -113,7 +113,7 @@ namespace BVHPartitions {
 		}
 
 		assert(min_split_dimension != -1);
-		
+
 		split_cost      = min_split_cost;
 		split_dimension = min_split_dimension;
 
@@ -124,7 +124,7 @@ namespace BVHPartitions {
 		int   index;
 		float cost;
 		int   dimension;
-		
+
 		AABB aabb_left;
 		AABB aabb_right;
 	};
@@ -135,10 +135,10 @@ namespace BVHPartitions {
 		split.cost = INFINITY;
 		split.index     = -1;
 		split.dimension = -1;
-		
+
 		AABB * bounds_left  = bounds;
 		AABB * bounds_right = bounds + index_count;
-		
+
 		// Check splits along all 3 dimensions
 		for (int dimension = 0; dimension < 3; dimension++) {
 			bounds_left [0]           = AABB::create_empty();
@@ -159,7 +159,7 @@ namespace BVHPartitions {
 
 				sah[i] += bounds_right[i].surface_area() * float(index_count - i);
 			}
-			
+
 			// Find the minimum of the SAH
 			for (int i = 1; i < index_count; i++) {
 				float cost = sah[i];
@@ -167,7 +167,7 @@ namespace BVHPartitions {
 					split.cost = cost;
 					split.index = first_index + i;
 					split.dimension = dimension;
-					
+
 					assert(!bounds_left [i].is_empty());
 					assert(!bounds_right[i].is_empty());
 
@@ -203,12 +203,12 @@ namespace BVHPartitions {
 			}
 		}
 	}
-	
+
 	struct SpatialSplit {
 		int   index;
 		float cost;
 		int   dimension;
-		
+
 		float plane_distance;
 
 		AABB aabb_left;
@@ -229,7 +229,7 @@ namespace BVHPartitions {
 			float bounds_min  = bounds.min[dimension] - 0.001f;
 			float bounds_max  = bounds.max[dimension] + 0.001f;
 			float bounds_step = (bounds_max - bounds_min) / SBVH_BIN_COUNT;
-			
+
 			float inv_bounds_delta = 1.0f / (bounds_max - bounds_min);
 
 			struct Bin {
@@ -240,15 +240,15 @@ namespace BVHPartitions {
 
 			for (int i = first_index; i < first_index + index_count; i++) {
 				const Triangle & triangle = triangles[indices[dimension][i].index];
-				
+
 				AABB triangle_aabb = indices[dimension][i].aabb;
 
-				Vector3 vertices[3] = { 
+				Vector3 vertices[3] = {
 					triangle.position_0,
-					triangle.position_1, 
-					triangle.position_2 
+					triangle.position_1,
+					triangle.position_2
 				};
-				
+
 				// Sort the vertices along the current dimension
 				if (vertices[0][dimension] > vertices[1][dimension]) Util::swap(vertices[0], vertices[1]);
 				if (vertices[1][dimension] > vertices[2][dimension]) Util::swap(vertices[1], vertices[2]);
@@ -256,7 +256,7 @@ namespace BVHPartitions {
 
 				float vertex_min = triangle_aabb.min[dimension];
 				float vertex_max = triangle_aabb.max[dimension];
-				
+
 				int bin_min = int(SBVH_BIN_COUNT * ((vertex_min - bounds_min) * inv_bounds_delta));
 				int bin_max = int(SBVH_BIN_COUNT * ((vertex_max - bounds_min) * inv_bounds_delta));
 
@@ -269,7 +269,7 @@ namespace BVHPartitions {
 				// Iterate over bins that intersect the AABB along the current dimension
 				for (int b = bin_min; b <= bin_max; b++) {
 					Bin & bin = bins[b];
-					
+
 					float bin_left_plane  = bounds_min + float(b) * bounds_step;
 					float bin_right_plane = bin_left_plane + bounds_step;
 
@@ -279,10 +279,10 @@ namespace BVHPartitions {
 					if (vertex_min >= bin_right_plane || vertex_max <= bin_left_plane) {
 						continue;
 					}
-					
+
 					// Calculate relevant portion of the AABB with regard to the two planes that define the current Bin
 					AABB triangle_aabb_clipped_against_bin = AABB::create_empty();
-					
+
 					// If all verticies lie between the two planes, the AABB is just the Triangle's entire AABB
 					if (vertex_min >= bin_left_plane && vertex_max <= bin_right_plane) {
 						triangle_aabb_clipped_against_bin = triangle_aabb;
@@ -321,7 +321,7 @@ namespace BVHPartitions {
 
 					// AABB must be valid
 					assert(bin.aabb.is_valid() || bin.aabb.is_empty());
-					
+
 					// The AABB of the current Bin cannot exceed the planes of the current Bin
 					const float epsilon = 0.01f;
 					assert(bin.aabb.min[dimension] > bin_left_plane  - epsilon);
@@ -338,7 +338,7 @@ namespace BVHPartitions {
 
 			AABB bounds_left [SBVH_BIN_COUNT];
 			AABB bounds_right[SBVH_BIN_COUNT + 1];
-			
+
 			bounds_left [0]              = AABB::create_empty();
 			bounds_right[SBVH_BIN_COUNT] = AABB::create_empty();
 
@@ -347,7 +347,7 @@ namespace BVHPartitions {
 
 			count_left [0]              = 0;
 			count_right[SBVH_BIN_COUNT] = 0;
-			
+
 			// First traverse left to right along the current dimension to evaluate first half of the SAH
 			for (int b = 1; b < SBVH_BIN_COUNT; b++) {
 				bounds_left[b] = bounds_left[b-1];
@@ -368,7 +368,7 @@ namespace BVHPartitions {
 			for (int b = SBVH_BIN_COUNT - 1; b > 0; b--) {
 				bounds_right[b] = bounds_right[b+1];
 				bounds_right[b].expand(bins[b].aabb);
-				
+
 				assert(bounds_right[b].is_valid() || bounds_right[b].is_empty());
 
 				count_right[b] = count_right[b+1] + bins[b].exits;
@@ -390,7 +390,7 @@ namespace BVHPartitions {
 					split.cost = cost;
 					split.index = b;
 					split.dimension = dimension;
-					
+
 					split.plane_distance = bounds_min + bounds_step * float(b);
 
 					split.aabb_left  = bounds_left [b];

@@ -26,8 +26,8 @@ struct Vector4 {
 	inline static Vector4 normalize(const Vector4 & vector) {
 		float inv_length = 1.0f / length(vector);
 		return Vector4(
-			vector.x * inv_length, 
-			vector.y * inv_length, 
+			vector.x * inv_length,
+			vector.y * inv_length,
 			vector.z * inv_length,
 			vector.w * inv_length
 		);
@@ -45,7 +45,7 @@ struct Vector4 {
 			left.w < right.w ? left.w : right.w
 		);
 	}
-	
+
 	inline static Vector4 max(const Vector4 & left, const Vector4 & right) {
 		return Vector4(
 			left.x > right.x ? left.x : right.x,

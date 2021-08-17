@@ -22,7 +22,7 @@
 
 namespace Util {
 	void get_path(const char * filename, char * path);
-	
+
 	bool file_exists(const char * filename);
 
 	// Checks if file_check is newer than file_reference

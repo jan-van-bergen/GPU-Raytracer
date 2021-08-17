@@ -30,7 +30,7 @@ void CUDAContext::init() {
 	}
 
 	CUdevice * devices = MALLOCA(CUdevice, device_count);
-		
+
 	unsigned gl_device_count;
 	CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
 
@@ -61,7 +61,7 @@ void CUDAContext::init() {
 	device = best_device;
 
 	CUDACALL(cuCtxCreate(&context, 0, device));
-		
+
 	CUfunc_cache   config_cache;
 	CUsharedconfig config_shared;
 	CUDACALL(cuCtxGetCacheConfig    (&config_cache));

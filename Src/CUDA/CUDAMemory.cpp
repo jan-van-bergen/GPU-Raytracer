@@ -9,7 +9,7 @@ CUarray CUDAMemory::create_array(int width, int height, int channels, CUarray_fo
 	desc.Height      = height;
 	desc.NumChannels = channels;
 	desc.Format      = format;
-		
+
 	CUarray array;
 	CUDACALL(cuArrayCreate(&array, &desc));
 
@@ -53,7 +53,7 @@ void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, const
 	CUDACALL(cuMemcpy2D(&copy));
 }
 
-CUtexObject CUDAMemory::create_texture(CUarray array, CUfilter_mode filter) {	
+CUtexObject CUDAMemory::create_texture(CUarray array, CUfilter_mode filter) {
 	CUDA_RESOURCE_DESC res_desc = { };
 	res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
 	res_desc.res.array.hArray = array;
@@ -88,7 +88,7 @@ void CUDAMemory::free_surface(CUsurfObject surface) {
 }
 
 CUgraphicsResource CUDAMemory::resource_register(unsigned gl_texture, unsigned flags) {
-	CUgraphicsResource resource; 
+	CUgraphicsResource resource;
 	CUDACALL(cuGraphicsGLRegisterImage(&resource, gl_texture, GL_TEXTURE_2D, flags));
 
 	return resource;
@@ -103,7 +103,7 @@ CUarray CUDAMemory::resource_get_array(CUgraphicsResource resource) {
 
 	CUarray result;
 	CUDACALL(cuGraphicsSubResourceGetMappedArray(&result, resource, 0, 0));
-                
+
 	CUDACALL(cuGraphicsUnmapResources(1, &resource, 0));
 
 	return result;

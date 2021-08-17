@@ -24,7 +24,7 @@ struct HashMap {
 
 			memset(hashes, 0, capacity * sizeof(size_t));
 		}
-		
+
 		constexpr void free() {
 			Key   * ks = get_keys();
 			Value * vs = get_values();
@@ -52,7 +52,7 @@ struct HashMap {
 	~HashMap() {
 		map.free();
 	}
-	
+
 	constexpr Value & insert(const Key & key, const Value & value) {
 		return insert(Hash()(key), key, value);
 	}
@@ -66,7 +66,7 @@ struct HashMap {
 
 	constexpr bool try_get(const Key & key, Value & value) const {
 		if (map.count == 0) return false;
-		
+
 		Value * value_ptr = get(map, Hash()(key), key);
 
 		if (value_ptr) {
@@ -85,7 +85,7 @@ struct HashMap {
 
 		return insert(hash, key, Value { });
 	}
-	
+
 	constexpr void clear() {
 		map.free();
 		map.init(0);
@@ -95,7 +95,7 @@ private:
 	static constexpr Value * get(const Map & map, size_t hash, const Key & key) {
 		Cmp cmp = { };
 		size_t i = hash;
-		
+
 		while (true) {
 			i &= map.capacity - 1;
 
@@ -108,9 +108,9 @@ private:
 			i++;
 		}
 	}
-	
+
 	constexpr Value & insert(Map & map, size_t hash, const Key & key, const Value & value) {
-		Cmp cmp = { };		
+		Cmp cmp = { };
 		size_t i = hash;
 
 		while (true) {

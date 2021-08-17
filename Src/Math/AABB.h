@@ -6,7 +6,7 @@
 struct AABB {
 	Vector3 min;
 	Vector3 max;
-	
+
 	static AABB create_empty();
 
 	static AABB from_points(const Vector3 * points, int point_count);
@@ -16,7 +16,7 @@ struct AABB {
 	}
 
 	inline bool is_empty() const {
-		return 
+		return
 			min.x ==  INFINITY && min.y ==  INFINITY && min.z ==  INFINITY &&
 			max.x == -INFINITY && max.y == -INFINITY && max.z == -INFINITY;
 	}
@@ -85,6 +85,6 @@ struct AABB {
 
 	static AABB unify  (const AABB & b1, const AABB & b2);
 	static AABB overlap(const AABB & b1, const AABB & b2);
-	
+
 	static AABB transform(const AABB & aabb, const Matrix4 & transformation);
 };

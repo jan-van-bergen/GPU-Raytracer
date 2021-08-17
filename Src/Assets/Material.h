@@ -16,10 +16,10 @@ struct Material {
 	};
 
 	Type type = Type::DIFFUSE;
-	
+
 	Vector3 emission;
 
-	Vector3 diffuse = Vector3(1.0f, 1.0f, 1.0f);	
+	Vector3 diffuse = Vector3(1.0f, 1.0f, 1.0f);
 	TextureHandle texture_id;
 
 	Vector3 transmittance = Vector3(0.0f);

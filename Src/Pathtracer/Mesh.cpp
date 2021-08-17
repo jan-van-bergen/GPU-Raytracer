@@ -36,7 +36,7 @@ void Mesh::update() {
 
 bool Mesh::has_identity_transform() const {
 	constexpr float epsilon = 1e-6f;
-	return 
+	return
 		Math::approx_equal(scale, 1.0f, epsilon) &&
 		Math::approx_equal(position.x, 0.0f, epsilon) &&
 		Math::approx_equal(position.y, 0.0f, epsilon) &&

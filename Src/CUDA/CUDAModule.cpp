@@ -17,7 +17,7 @@ static void check_nvrtc_call(nvrtcResult result, const char * file, int line) {
 		const char * error_string = nvrtcGetErrorString(result);
 
 		printf("NVRTC call at %s line %i failed with error %s!\n", file, line, error_string);
-	  
+
 		__debugbreak();
 	}
 }
@@ -65,7 +65,7 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 
 		memcpy_s(include_filename, include_filename_length, source + include_filename_start_index, include_filename_length);
 		include_filename[include_filename_length] = NULL;
-		
+
 		// Check whether the include has been processed before
 		bool unseen_include = true;
 
@@ -83,7 +83,7 @@ static const char * scan_includes_recursive(const char * filename, const char * 
 
 			int    include_full_path_length = directory_length + include_filename_length + 1;
 			char * include_full_path = MALLOCA(char, include_full_path_length);
-			
+
 			memcpy_s(include_full_path,                    include_full_path_length,                    directory,               directory_length);
 			memcpy_s(include_full_path + directory_length, include_full_path_length - directory_length, include_filename, include_filename_length);
 			include_full_path[include_full_path_length - 1] = NULL;
@@ -132,7 +132,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 #else
 	sprintf_s(ptx_filename, ptx_filename_size, "%s.release.ptx", filename);
 #endif
-	
+
 	bool should_recompile = true;
 
 	// If the binary does not exists we definately need to compile
@@ -154,7 +154,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 
 			const char ** include_names   = MALLOCA(const char *, num_includes);
 			const char ** include_sources = MALLOCA(const char *, num_includes);
-		
+
 			for (int i = 0; i < num_includes; i++) {
 				include_names  [i] = includes[i].filename;
 				include_sources[i] = includes[i].source;
@@ -219,17 +219,17 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 
 		fwrite(ptx, 1, ptx_size, file_out);
 		fclose(file_out);
-		
+
 		delete [] ptx;
 	} else {
 		printf("CUDA Module %s did not need to recompile.\n", filename);
 	}
-	
+
 	for (int i = 0; i < includes.size(); i++) {
 		delete [] includes[i].filename;
 		delete [] includes[i].source;
 	}
-	
+
 	delete [] source;
 
 	char log_buffer[8192];
@@ -259,7 +259,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	CUDACALL(cuModuleLoadData(&module, cubin));
 
 	CUDACALL(cuLinkDestroy(link_state));
-	
+
 	if (should_recompile) puts(log_buffer);
 	puts("");
 

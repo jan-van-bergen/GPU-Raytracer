@@ -14,7 +14,7 @@ struct Array {
 	using size_type       = size_t;
 
 	char * buffer = nullptr;
-	
+
 	size_t count    = 0;
 	size_t capacity = 0;
 
@@ -32,7 +32,7 @@ struct Array {
 	}
 
 	~Array() {
-		destroy_buffer();	
+		destroy_buffer();
 	}
 
 	constexpr Array(const Array & array) {
@@ -41,7 +41,7 @@ struct Array {
 			data()[i] = array.data()[i];
 		}
 	}
-	
+
 	constexpr Array & operator=(const Array & array) {
 		resize(array.count);
 		for (size_t i = 0; i < count; i++) {
@@ -49,7 +49,7 @@ struct Array {
 		}
 		return *this;
 	}
-	
+
 	constexpr Array(Array && array) {
 		buffer   = array.buffer;
 		count    = array.count;
@@ -84,10 +84,10 @@ struct Array {
 		grow_if_needed();
 		return *(new (&data()[count++]) T { std::forward<Args>(args) ... });
 	}
-	
+
 	constexpr void pop_back() {
 		if (count > 0) {
-			data()[--count].~T();;
+			data()[--count].~T();
 		}
 	}
 
@@ -96,37 +96,49 @@ struct Array {
 
 		if (buffer) {
 			size_t num_move = std::min(count, new_count);
-			
-			// Move these elements over to the new buffer
-			for (size_t i = 0; i < num_move; i++) {
-				new (new_buffer + i * sizeof(T)) T(std::move(data()[i]));
-			}
-			// Destroy these elements from the old buffer
-			for (size_t i = num_move; i < count; i++) {
-				data()[i].~T();
+
+			if constexpr (std::is_trivially_copyable_v<T>) {
+				memcpy(new_buffer, buffer, num_move * sizeof(T));
+			} else {
+				// Move these elements over to the new buffer
+				for (size_t i = 0; i < num_move; i++) {
+					new (new_buffer + i * sizeof(T)) T(std::move(data()[i]));
+					data()[i].~T();
+				}
+				// Destroy these elements from the old buffer
+				for (size_t i = num_move; i < count; i++) {
+					data()[i].~T();
+				}
 			}
 
 			delete [] buffer;
-		}		
+		}
 		buffer = new_buffer;
 
-		// Construct new elements (if any)
-		for (size_t i = count; i < new_count; i++) {
-			data()[i] = { };
+		if constexpr (!std::is_trivially_constructible_v<T>) {
+			// Construct new elements (if any)
+			for (size_t i = count; i < new_count; i++) {
+				data()[i] = { };
+			}
 		}
 
 		count    = new_count;
 		capacity = new_count;
 	}
-	
+
 	constexpr void reserve(size_t new_capacity) {
 		if (new_capacity <= capacity) return;
 
 		char * new_buffer = new char[new_capacity * sizeof(T)];
 
 		if (buffer) {
-			for (size_t i = 0; i < count; i++) {
-				new (new_buffer + i * sizeof(T)) T(std::move(data()[i]));
+			if constexpr (std::is_trivially_copyable_v<T>) {
+				memcpy(new_buffer, buffer, count * sizeof(T));
+			} else {
+				for (size_t i = 0; i < count; i++) {
+					new (new_buffer + i * sizeof(T)) T(std::move(data()[i]));
+					data()[i].~T();
+				}
 			}
 			delete [] buffer;
 		}
@@ -136,18 +148,21 @@ struct Array {
 	}
 
 	constexpr void clear() {
-		for (size_t i = 0; i < count; i++) {
-			data()[i].~T();
+		if constexpr (!std::is_trivially_destructible_v<T>) {
+			// Fire destructors in reverse order
+			for (size_t i = count - 1; i < count; i--) {
+				data()[i].~T();
+			}
 		}
 		count = 0;
 	}
-	
+
 	constexpr size_t size() const { return count; }
 
 	constexpr T * data() {
 		return reinterpret_cast<T *>(buffer);
 	}
-	
+
 	constexpr const T * data() const {
 		return reinterpret_cast<const T *>(buffer);
 	}
@@ -156,7 +171,7 @@ struct Array {
 		assert(0 <= index && index < count);
 		return data()[index];
 	}
-	
+
 	constexpr const T & operator[](int index) const {
 		assert(0 <= index && index < count);
 		return data()[index];
@@ -166,7 +181,7 @@ struct Array {
 	constexpr const T * begin() const { return data(); }
 	constexpr       T * end  ()       { return data() + count; }
 	constexpr const T * end  () const { return data() + count; }
-	
+
 	constexpr       T & front()       { return data()[0]; }
 	constexpr const T & front() const { return data()[0]; }
 	constexpr       T & back ()       { return data()[count - 1]; }
@@ -175,8 +190,10 @@ struct Array {
 private:
 	constexpr void destroy_buffer() {
 		if (buffer) {
-			for (size_t i = 0; i < count; i++) {
-				data()[i].~T();
+			if (!std::is_trivially_destructible_v<T>) {
+				for (size_t i = count - 1; i < count; i--) {
+					data()[i].~T();
+				}
 			}
 
 			delete [] buffer;
@@ -186,7 +203,7 @@ private:
 
 	constexpr void grow_if_needed() {
 		if (count == capacity) {
-			reserve(capacity + capacity / 2 + 1);
+			reserve(capacity + capacity / 2 + 16);
 		}
 	}
 };

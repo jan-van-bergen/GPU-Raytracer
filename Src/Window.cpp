@@ -27,7 +27,7 @@ void Window::init(const char * title) {
 
 	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
 	context = SDL_GL_CreateContext(window);
-	
+
 	SDL_SetWindowResizable(window, SDL_TRUE);
 
 	SDL_GL_SetSwapInterval(0);
@@ -37,7 +37,7 @@ void Window::init(const char * title) {
 		printf("Glew failed to initialize!\n");
 		abort();
 	}
-	
+
 	puts("OpenGL Info:");
 	printf("Version:  %s\n", glGetString(GL_VERSION));
 	printf("GLSL:     %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
@@ -57,7 +57,7 @@ void Window::init(const char * title) {
 
 	width  = SCREEN_WIDTH;
 	height = SCREEN_HEIGHT;
-	
+
 	glGenTextures(1, &frame_buffer_handle);
 
 	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
@@ -67,7 +67,7 @@ void Window::init(const char * title) {
 
 	shader = Shader::load("Shaders/screen_vertex.glsl", "Shaders/screen_fragment.glsl");
 	shader.bind();
-	
+
 	glUniform1i(shader.get_uniform("screen"), 0);
 
 	IMGUI_CHECKVERSION();
@@ -123,7 +123,7 @@ void Window::swap() {
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
 					width  = event.window.data1;
 					height = event.window.data2;
-					
+
 					glDeleteTextures(1, &frame_buffer_handle);
 					glGenTextures   (1, &frame_buffer_handle);
 
@@ -136,7 +136,7 @@ void Window::swap() {
 
 					if (resize_handler) resize_handler(frame_buffer_handle, width, height);
 				}
-				
+
 				break;
 			}
 

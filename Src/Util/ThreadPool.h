@@ -12,7 +12,7 @@ private:
 	int           thread_count;
 
 	std::queue<Work> work_queue;
-	
+
 	struct Signal {
 		std::condition_variable condition;
 		std::mutex              mutex;

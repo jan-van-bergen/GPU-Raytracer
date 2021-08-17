@@ -33,14 +33,14 @@ struct XMLAttribute {
 		parser.init(value.start, value.end, location_of_value);
 		return parser.parse_int();
 	}
-	
+
 	template<>
 	float get_value() const {
 		Parser parser = { };
 		parser.init(value.start, value.end, location_of_value);
 		return parser.parse_float();
 	}
-	
+
 	template<>
 	bool get_value() const {
 		if (value == "true")  return true;
@@ -84,7 +84,7 @@ struct XMLAttribute {
 			m.cells[i] = parser.parse_float();
 
 			if (++i == 16) break;
-			
+
 			parser.expect(' ');
 		}
 
@@ -111,7 +111,7 @@ struct XMLNode {
 		}
 		return nullptr;
 	}
-	
+
 	template<typename Predicate>
 	const XMLNode * find_child(Predicate predicate) const {
 		for (int i = 0; i < children.size(); i++) {
@@ -121,11 +121,11 @@ struct XMLNode {
 		}
 		return nullptr;
 	}
-	
+
 	const XMLAttribute * find_attribute(const char * name) const {
 		return find_attribute([name](const XMLAttribute & attribute) { return attribute.name == name; });
 	}
-	
+
 	template<typename T>
 	T get_optional_attribute(const char * name, T default_value) const {
 		const XMLAttribute * attribute = find_attribute([name](const XMLAttribute & attribute) { return attribute.name == name; });
@@ -135,11 +135,11 @@ struct XMLNode {
 			return default_value;
 		}
 	}
-	
+
 	const XMLNode * find_child(const char * tag) const {
 		return find_child([tag](const XMLNode & node) { return node.tag == tag; });
 	}
-	
+
 	const XMLNode * find_child_by_name(const char * name) const {
 		return find_child([name](const XMLNode & node) {
 			const XMLAttribute * attr = node.find_attribute("name");
@@ -177,7 +177,7 @@ static XMLNode parse_tag(Parser & parser) {
 		parser.skip_whitespace_or_newline();
 		parser.expect('<');
 	}
-		
+
 	XMLNode node = { };
 	node.location         = parser.location;
 	node.is_question_mark = parser.match('?');
@@ -192,7 +192,7 @@ static XMLNode parse_tag(Parser & parser) {
 	// Parse attributes
 	while (!parser.reached_end() && !parser.match('>')) {
 		XMLAttribute attribute = { };
-		
+
 		// Parse attribute name
 		attribute.name.start = parser.cur;
 		while (!parser.reached_end() && *parser.cur != '=') parser.advance();
@@ -332,7 +332,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 
 			// Decompose Matrix
 			if (position) *position = Vector3(world(0, 3), world(1, 3), world(2, 3));
-	
+
 			if (rotation) *rotation = Quaternion::look_rotation(
 				Matrix4::transform_direction(world, forward),
 				Matrix4::transform_direction(world, Vector3(0.0f, 1.0f, 0.0f))
@@ -353,7 +353,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 
 			return;
 		}
-		
+
 		const XMLNode * lookat = transform->find_child("lookat");
 		if (lookat) {
 			Vector3 origin = lookat->get_optional_attribute("origin", Vector3(0.0f, 0.0f,  0.0f));
@@ -379,7 +379,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 				*scale = x * y * z;
 			}
 		}
-		
+
 		const XMLNode * rotate = transform->find_child("rotate");
 		if (rotate && rotation) {
 			float x = rotate->get_optional_attribute("x", 0.0f);
@@ -446,18 +446,18 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		const XMLNode * ref = node->find_child("ref");
 		if (ref) {
 			const StringView & material_name = ref->find_attribute("id")->value;
-		
+
 			MaterialHandle material_id;
 			bool found = material_map.try_get(material_name, material_id);
 			if (!found) {
 				WARNING(ref->location, "Invalid material Ref '%.*s'!\n", unsigned(material_name.length()), material_name.start);
-			
+
 				return MaterialHandle::get_default();
 			}
 
 			return material_id;
 		}
-		
+
 		// Otherwise, parse BSDF
 		bsdf = node->find_child("bsdf");
 		if (bsdf == nullptr) {
@@ -469,7 +469,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	}
 
 	const XMLAttribute * name = bsdf->find_attribute("id");
-		
+
 	const XMLNode      * inner_bsdf = bsdf;
 	const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
 
@@ -485,7 +485,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 		if (name == nullptr) {
 			name = inner_bsdf->find_attribute("id");
-		} 
+		}
 	}
 
 	if (name) {
@@ -493,10 +493,10 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	} else {
 		material.name = "Material";
 	}
-		
+
 	if (inner_bsdf_type->value == "diffuse") {
 		material.type = Material::Type::DIFFUSE;
-				
+
 		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else if (inner_bsdf_type->value == "conductor") {
 		material.type = Material::Type::GLOSSY;
@@ -530,11 +530,11 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.333f);
 	} else if (inner_bsdf_type->value == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
-				
+
 		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else {
 		WARNING(inner_bsdf_type->location_of_value, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.length()), inner_bsdf_type->value.start);
-			
+
 		return MaterialHandle::get_default();
 	}
 
@@ -544,10 +544,10 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 static Serialized parse_serialized(const XMLNode * node, const char * filename, Scene & scene) {
 	int          serialized_length;
 	const char * serialized = Util::file_read(filename, serialized_length);
-		
+
 	uint16_t file_format_id; memcpy(&file_format_id, serialized,                    sizeof(uint16_t));
 	uint16_t file_version;   memcpy(&file_version,   serialized + sizeof(uint16_t), sizeof(uint16_t));
-	
+
 	if (file_format_id != 0x041c) {
 		ERROR(node->location, "ERROR: Serialized file '%s' does not start with format ID 0x041c!\n", filename);
 	}
@@ -589,7 +589,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			} else {
 				ERROR(node->location, "ERROR: Failed to decompress file '%s'!\n", filename);
 			}
-		} 
+		}
 
 		char const * cur = deserialized;
 
@@ -625,16 +625,16 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 		// Read number of vertices and triangles
 		uint64_t num_vertices;  read_n(&num_vertices,  sizeof(uint64_t));
 		uint64_t num_triangles;	read_n(&num_triangles, sizeof(uint64_t));
-		
+
 		if (num_vertices == 0 || num_triangles == 0) {
 			mesh_data_handles[i] = MeshDataHandle { INVALID };
-			
+
 			WARNING(node->location, "WARNING: Serialized Mesh defined without vertices or triangles, skipping\n");
 
 			delete [] deserialized;
 			continue;
 		}
-		
+
 		// Check if num_vertices fits inside a uint32_t to determine whether indices use 32 or 64 bits
 		bool fits_in_32_bits = num_vertices <= 0xffffffff;
 
@@ -652,13 +652,13 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 		const char * vertex_normals = cur;
 		if (flag_has_normals) cur += num_vertices * 3 * element_size;
-		
+
 		const char * vertex_tex_coords = cur;
 		if (flag_has_tex_coords) cur += num_vertices * 2 * element_size;
-		
+
 		// Vertex colours, not used
 		if (flag_has_colours) cur += num_vertices * 3 * element_size;
-		
+
 		const char * indices = cur;
 
 		// Reads a Vector3 from a buffer with the appropriate precision
@@ -675,7 +675,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			}
 			return result;
 		};
-		
+
 		// Reads a Vector2 from a buffer with the appropriate precision
 		auto read_vector2 = [flag_single_precision](const char * buffer, uint64_t index) {
 			Vector2 result;
@@ -688,7 +688,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			}
 			return result;
 		};
-		
+
 		// Reads a 32 or 64 bit indx from the specified buffer
 		auto read_index = [fits_in_32_bits](const char * buffer, uint64_t index) -> uint64_t {
 			if (fits_in_32_bits) {
@@ -697,10 +697,10 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 				return reinterpret_cast<const uint64_t *>(buffer)[index];
 			}
 		};
-		
+
 		// Construct triangles
 		Triangle * triangles = new Triangle[num_triangles];
-		
+
 		for (size_t t = 0; t < num_triangles; t++) {
 			uint64_t index_0 = read_index(indices, 3*t);
 			uint64_t index_1 = read_index(indices, 3*t + 1);
@@ -740,7 +740,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 	delete [] mesh_offsets;
 	delete [] serialized;
-	
+
 	Serialized result = { };
 	result.num_meshes        = num_meshes;
 	result.mesh_names        = mesh_names;
@@ -759,7 +759,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		delete [] filename_abs;
 
 		name = filename_rel.c_str();
-		
+
 		return mesh_data_handle;
 	} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere") {
 		Matrix4 world = parse_transform_matrix(node);
@@ -785,7 +785,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 					xml_center->get_optional_attribute("z", 0.0f)
 				);
 			}
-				
+
 			world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
 			Geometry::sphere(triangles, triangle_count, world);
@@ -801,7 +801,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		bool found = serialized_map.try_get(filename_rel, serialized);
 		if (!found) {
 			const char * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
-		
+
 			serialized = parse_serialized(node, filename_abs, scene);
 			serialized_map[filename_rel] = serialized;
 
@@ -824,7 +824,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		const Material & material = scene.asset_manager.get_material(material_handle);
 
 		StringView str = { material.name, material.name + strlen(material.name) };
-		material_map[str] = material_handle; 
+		material_map[str] = material_handle;
 	} else if (node->tag == "texture") {
 		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
@@ -850,7 +850,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
 
 				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
-				if (type->value == "obj" || type->value == "serialized") { 
+				if (type->value == "obj" || type->value == "serialized") {
 					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 				}
 			}
@@ -860,7 +860,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			const char * name = nullptr;
 			MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
 			MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
-			
+
 			const StringView & id = node->find_attribute("id")->value;
 			shape_group_map[id] = { mesh_data_handle, material_handle };
 		} else if (type->value == "instance") {
@@ -886,7 +886,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 			float scale = 1.0f;
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
-			
+
 			if (scale < 0.0f) {
 				scene.camera.rotation = Quaternion::conjugate(scene.camera.rotation);
 			}

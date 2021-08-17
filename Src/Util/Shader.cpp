@@ -18,7 +18,7 @@ static GLuint load_shader(const char * filename, GLuint shader_type) {
 
 	if (!success) {
 		GLchar info_log[1024]; glGetShaderInfoLog(shader, sizeof(info_log), nullptr, info_log);
-		
+
 		printf("Error compiling shader type %d: '%s'\n", shader_type, info_log);
 		__debugbreak();
 	}
@@ -62,7 +62,7 @@ Shader Shader::load(const char * vertex_filename, const char * fragment_filename
 
 	if (!valid) {
 		GLchar info_log[1024]; glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
-		
+
 		printf("Error validating shader program: '%s'\n", info_log);
 		__debugbreak();
 	}

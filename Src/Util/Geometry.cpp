@@ -15,7 +15,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 
 	triangle_count = 2;
 	triangles = new Triangle[triangle_count];
-		
+
 	triangles[0].position_0 = vertex_0;
 	triangles[0].position_1 = vertex_1;
 	triangles[0].position_2 = vertex_2;
@@ -26,7 +26,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	triangles[0].tex_coord_1 = tex_coord_1;
 	triangles[0].tex_coord_2 = tex_coord_2;
 	triangles[0].calc_aabb();
-			
+
 	triangles[1].position_0 = vertex_0;
 	triangles[1].position_1 = vertex_2;
 	triangles[1].position_2 = vertex_3;
@@ -86,7 +86,7 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 			cube_vertices[indices[face][2]],
 			cube_vertices[indices[face][3]]
 		};
-		
+
 		triangles[2*face].position_0 = vertices[0];
 		triangles[2*face].position_1 = vertices[1];
 		triangles[2*face].position_2 = vertices[2];
@@ -117,7 +117,7 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 
 	Vector3 vertex_center = Matrix4::transform_position(transform, Vector3(0.0f, 0.0f, 0.0f));
 	Vector3 vertex_prev   = Matrix4::transform_position(transform, Vector3(1.0f, 0.0f, 0.0f));
-	
+
 	Vector3 normal = Vector3::normalize(Matrix4::transform_direction(Matrix4::cofactor(transform), Vector3(0.0f, 0.0f, 1.0f)));
 
 	Vector2 uv_prev = Vector2(1.0f, 0.5f);
@@ -145,7 +145,7 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		triangles[i].tex_coord_0 = uv_curr;
 		triangles[i].tex_coord_0 = Vector2(0.5f, 0.5f);
 		triangles[i].calc_aabb();
-		
+
 		vertex_prev = vertex_curr;
 		uv_prev = uv_curr;
 	}
@@ -153,17 +153,17 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 
 void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4 & transform, int num_subdivisions) {
 	constexpr float x = 0.525731112119133606f;
-	constexpr float z = 0.850650808352039932f; 
+	constexpr float z = 0.850650808352039932f;
 
-	static Vector3 icosahedron_vertices[12] = {    
-		Vector3(-x, 0.0f, z), Vector3(x, 0.0f, z),  Vector3(-x, 0.0f, -z), Vector3(x, 0.0f, -z),    
-		Vector3(0.0f, z, x),  Vector3(0.0f, z, -x), Vector3(0.0f, -z, x),  Vector3(0.0, -z, -x),    
-		Vector3(z, x, 0.0f),  Vector3(-z, x, 0.0f), Vector3(z, -x, 0.0f),  Vector3(-z, -x, 0.0f) 
+	static Vector3 icosahedron_vertices[12] = {
+		Vector3(-x, 0.0f, z), Vector3(x, 0.0f, z),  Vector3(-x, 0.0f, -z), Vector3(x, 0.0f, -z),
+		Vector3(0.0f, z, x),  Vector3(0.0f, z, -x), Vector3(0.0f, -z, x),  Vector3(0.0, -z, -x),
+		Vector3(z, x, 0.0f),  Vector3(-z, x, 0.0f), Vector3(z, -x, 0.0f),  Vector3(-z, -x, 0.0f)
 	};
 	static int icosahedron_indices[20][3] = {
-		{ 0, 4, 1 },  { 0, 9, 4 },  { 9, 5, 4 },  { 4, 5, 8 },  { 4, 8, 1 },    
-		{ 8, 10, 1 }, { 8, 3, 10 }, { 5, 3, 8 },  { 5, 2, 3 },  { 2, 7, 3 },    
-		{ 7, 10, 3 }, { 7, 6, 10 }, { 7, 11, 6 }, { 11, 0, 6 }, { 0, 1, 6 }, 
+		{ 0, 4, 1 },  { 0, 9, 4 },  { 9, 5, 4 },  { 4, 5, 8 },  { 4, 8, 1 },
+		{ 8, 10, 1 }, { 8, 3, 10 }, { 5, 3, 8 },  { 5, 2, 3 },  { 2, 7, 3 },
+		{ 7, 10, 3 }, { 7, 6, 10 }, { 7, 11, 6 }, { 11, 0, 6 }, { 0, 1, 6 },
 		{ 6, 1, 10 }, { 9, 0, 11 }, { 9, 11, 2 }, { 9, 2, 5 },  { 7, 2, 11 }
 	};
 

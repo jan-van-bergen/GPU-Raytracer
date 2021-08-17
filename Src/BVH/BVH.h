@@ -29,7 +29,7 @@ struct QBVHNode {
 	float aabb_max_x[4] = { 0.0f };
 	float aabb_max_y[4] = { 0.0f };
 	float aabb_max_z[4] = { 0.0f };
-	
+
 	struct {
 		int index;
 		int count;

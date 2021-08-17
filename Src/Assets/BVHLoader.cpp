@@ -35,7 +35,7 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	}
 
 	FILE * file; fopen_s(&file, bvh_filename, "rb");
-	
+
 	BVHFileHeader header = { };
 	bool success = false;
 
@@ -43,7 +43,7 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 		printf("WARNING: Unable to open BVH file '%s'!\n", bvh_filename);
 		goto exit;
 	}
-	
+
 	fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
 
 	if (strcmp(header.filetype_identifier, "BVH") != 0) {
@@ -54,10 +54,10 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	if (header.filetype_version != BVH_FILETYPE_VERSION) goto exit;
 
 	// Check if the settings used to create the BVH file are the same as the current settings
-	if (header.underlying_bvh_type    != UNDERLYING_BVH_TYPE || 
-		header.bvh_is_optimized       != BVH_ENABLE_OPTIMIZATION || 
+	if (header.underlying_bvh_type    != UNDERLYING_BVH_TYPE ||
+		header.bvh_is_optimized       != BVH_ENABLE_OPTIMIZATION ||
 		header.max_primitives_in_leaf != MAX_PRIMITIVES_IN_LEAF ||
-		header.sah_cost_node != SAH_COST_NODE || 
+		header.sah_cost_node != SAH_COST_NODE ||
 		header.sah_cost_leaf != SAH_COST_LEAF
 	) {
 		printf("BVH file '%s' was created with different settings, rebuiling BVH from scratch.\n", bvh_filename);
@@ -90,7 +90,7 @@ exit:
 bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	int    bvh_filename_length = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
 	char * bvh_filename        = MALLOCA(char, bvh_filename_length);
-	
+
 	if (!bvh_filename) return false;
 
 	strcpy_s(bvh_filename, bvh_filename_length, filename);

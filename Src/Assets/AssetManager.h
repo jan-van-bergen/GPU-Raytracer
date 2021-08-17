@@ -37,7 +37,7 @@ public:
 	TextureHandle add_texture(const char * filename);
 
 	void wait_until_loaded();
-	
+
 	inline MeshData & get_mesh_data(MeshDataHandle handle) { return mesh_datas[handle.handle]; }
 	inline Material & get_material (MaterialHandle handle) { return materials [handle.handle]; }
 	inline Texture  & get_texture  (TextureHandle  handle) { return textures  [handle.handle]; }

@@ -9,15 +9,15 @@
 
 struct CUDAModule {
 	CUmodule module;
-	
+
 	struct Global {
 		CUdeviceptr ptr;
-		
+
 		template<typename T>
 		inline void set_value(const T & value) const {
 			CUDACALL(cuMemcpyHtoD(ptr, &value, sizeof(T)));
 		}
-		
+
 		template<typename T>
 		inline void set_value_async(const T & value, CUstream stream) const {
 			CUDACALL(cuMemcpyHtoDAsync(ptr, &value, sizeof(T), stream));
