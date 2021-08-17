@@ -329,28 +329,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 		const XMLNode * matrix = transform->find_child("matrix");
 		if (matrix) {
 			Matrix4 world = matrix->find_attribute("value")->get_value<Matrix4>();
-
-			// Decompose Matrix
-			if (position) *position = Vector3(world(0, 3), world(1, 3), world(2, 3));
-
-			if (rotation) *rotation = Quaternion::look_rotation(
-				Matrix4::transform_direction(world, forward),
-				Matrix4::transform_direction(world, Vector3(0.0f, 1.0f, 0.0f))
-			);
-
-			if (scale) {
-				float scale_x = Vector3::length(Vector3(world(0, 0), world(0, 1), world(0, 2)));
-				float scale_y = Vector3::length(Vector3(world(1, 0), world(1, 1), world(1, 2)));
-				float scale_z = Vector3::length(Vector3(world(2, 0), world(2, 1), world(2, 2)));
-
-				if (Math::approx_equal(scale_x, scale_y) && Math::approx_equal(scale_y, scale_z)) {
-					*scale = scale_x;
-				} else {
-					WARNING(matrix->location, "Warning: non-uniform scaling is not supported!\n");
-					*scale = cbrt(scale_x * scale_y * scale_z);
-				}
-			}
-
+			Matrix4::decompose(world, position, rotation, scale, forward);
 			return;
 		}
 

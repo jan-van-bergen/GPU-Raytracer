@@ -87,7 +87,7 @@ static void calc_timing();
 static void draw_gui();
 
 int main(int argument_count, char ** arguments) {
-	const char * scene_filename = DATA_PATH("Sponza/scene.xml");
+	const char * scene_filename = "D:\\Data\\pbrt-v4-scenes\\zero-day\\geometry\\359e336935be2d4963c51c1718e526b47e0cef911a1036e28d38e90f1a8e965f.ply"; // "C:/Users/Startklaar/Downloads/mesh_00023.ply"; // DATA_PATH("Sponza/scene.xml");
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 
 	if (argument_count > 1) {

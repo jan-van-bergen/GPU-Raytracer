@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "StringView.h"
+
 #define TAB_WIDTH 4
 
 #define WARNING(loc, msg, ...) \
@@ -161,7 +163,18 @@ struct Parser {
 
 		return sign ? -value : value;
 	}
-	
+
+	StringView parse_identifier() {
+		skip_whitespace();
+
+		const char * start = cur;
+		while (!reached_end() && !is_whitespace(*cur) && !is_newline(*cur)) {
+			advance();
+		}
+
+		return StringView { start, cur };
+	}
+
 	void parse_newline() {
 		match('\r');
 		expect('\n');

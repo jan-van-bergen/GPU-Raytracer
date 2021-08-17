@@ -1,6 +1,8 @@
 #pragma once
 #include <string.h>
 
+#include "StringView.h"
+
 struct String {
 	static constexpr size_t SSO_SIZE = 16;
 
@@ -23,8 +25,11 @@ struct String {
 		if (length >= SSO_SIZE) {
 			ptr = new char[length + 1];
 		}
-		memcpy(data(), str, length + 1);
+		memcpy(data(), str, length);
+		data()[length] = '\0';
 	}
+
+	constexpr String(const StringView & str) : String(str.start, str.length()) { }
 
 	template<size_t N>
 	constexpr String(const char (& str)[N]) : length(N - 1), ptr(nullptr) {
