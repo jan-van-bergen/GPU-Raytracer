@@ -5,7 +5,9 @@
 
 void Texture::free() {
 	delete [] data;
+#if ENABLE_MIPMAPPING
 	delete [] mip_offsets;
+#endif
 }
 
 CUarray_format Texture::get_cuda_array_format() const {

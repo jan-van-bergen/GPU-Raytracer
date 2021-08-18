@@ -47,7 +47,7 @@ void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, const
 	copy.srcPitch      = width_in_bytes;
 	copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
 	copy.dstArray      = array;
-	copy.WidthInBytes  = copy.srcPitch;
+	copy.WidthInBytes  = width_in_bytes;
 	copy.Height        = height;
 
 	CUDACALL(cuMemcpy2D(&copy));

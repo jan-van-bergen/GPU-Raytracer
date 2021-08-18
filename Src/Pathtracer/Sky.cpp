@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include <stb_image/stb_image.h>
+#include <stb_image.h>
 
 void Sky::init(const char * filename) {
 	int channels;
