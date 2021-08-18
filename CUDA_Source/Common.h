@@ -70,7 +70,9 @@ struct Settings {
 #define MAX_ATROUS_ITERATIONS 10
 
 
-// Mipmapping
+// Textures
+#define ENABLE_BLOCK_COMPRESSION true
+
 #define MIPMAP_DOWNSAMPLE_FILTER_BOX     0
 #define MIPMAP_DOWNSAMPLE_FILTER_LANCZOS 1
 #define MIPMAP_DOWNSAMPLE_FILTER_KAISER  2

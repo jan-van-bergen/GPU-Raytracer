@@ -1,9 +1,12 @@
 #include "TextureLoader.h"
 
 #include <ctype.h>
+#include <string.h>
 
+#define STB_DXT_IMPLEMENTATION
+#include <stb_dxt.h>
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image/stb_image.h>
+#include <stb_image.h>
 
 #include "Math/Mipmap.h"
 
@@ -92,6 +95,26 @@ exit:
 	return success;
 }
 
+static void mip_count(int width, int height, int & mip_levels, int & pixel_count) {
+#if ENABLE_MIPMAPPING
+	mip_levels  = 0;
+	pixel_count = 0;
+
+	while (true) {
+		mip_levels++;
+		pixel_count += width * height;
+
+		if (width == 1 && height == 1) break;
+
+		if (width  > 1) width  /= 2;
+		if (height > 1) height /= 2;
+	}
+#else
+	mip_levels  = 1;
+	pixel_count = width * height;
+#endif
+}
+
 bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 	unsigned char * data = stbi_load(filename, &texture.width, &texture.height, &texture.channels, STBI_rgb_alpha);
 
@@ -101,23 +124,8 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 	texture.channels = 4;
 
-#if ENABLE_MIPMAPPING
 	int pixel_count = 0;
-
-	int w = texture.width;
-	int h = texture.height;
-
-	while (true) {
-		pixel_count += w * h;
-
-		if (w == 1 && h == 1) break;
-
-		if (w > 1) w /= 2;
-		if (h > 1) h /= 2;
-	}
-#else
-	int pixel_count = texture.width * texture.height;
-#endif
+	mip_count(texture.width, texture.height, texture.mip_levels, pixel_count);
 
 	Vector4 * data_rgba = new Vector4[pixel_count];
 
@@ -134,8 +142,6 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 	stbi_image_free(data);
 
 #if ENABLE_MIPMAPPING
-	texture.mip_levels = 1 + int(log2f(Math::max(texture.width, texture.height)));
-
 	int * mip_offsets = new int[texture.mip_levels];
 	mip_offsets[0] = 0;
 
@@ -190,6 +196,73 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 			unsigned(Math::clamp(data_rgba[i].x * 255.0f, 0.0f, 255.0f));
 	}
 	delete [] data_rgba;
+
+#if ENABLE_BLOCK_COMPRESSION
+	// Block Compression
+	int new_width  = Math::divide_round_up(texture.width,  4);
+	int new_height = Math::divide_round_up(texture.height, 4);
+
+	int new_mip_levels  = 0;
+	int new_pixel_count = 0;
+	mip_count(new_width, new_height, new_mip_levels, new_pixel_count);
+
+	int * new_mip_offsets = new int[new_mip_levels];
+
+	unsigned * compressed_data = new unsigned[new_pixel_count * 2];
+	int        compressed_data_offset = 0;
+
+	for (int l = 0; l < new_mip_levels; l++) {
+		new_mip_offsets[l] = compressed_data_offset * sizeof(unsigned);
+
+		unsigned * level_data = data_rgba_u8 + texture.mip_offsets[l] / sizeof(unsigned);
+
+		int level_width  = Math::max(texture.width  >> l, 1);
+		int level_height = Math::max(texture.height >> l, 1);
+
+		for (int y = 0; y < level_height; y += 4) {
+			for (int x = 0; x < level_width; x += 4) {
+				unsigned block[4 * 4] = { };
+
+				for (int j = 0; j < 4; j++) {
+					int pixel_y = y + j;
+					if (pixel_y < level_height) {
+						for (int i = 0; i < 4; i++) {
+							int pixel_x = x + i;
+							if (pixel_x < level_width) {
+								block[i + j * 4] = level_data[pixel_x + pixel_y * level_width];
+							}
+						}
+					}
+				}
+
+				unsigned compressed[2] = { };
+				stb_compress_dxt_block(
+					reinterpret_cast<      unsigned char *>(compressed),
+					reinterpret_cast<const unsigned char *>(block),
+					false, STB_DXT_HIGHQUAL
+				);
+				compressed_data[compressed_data_offset++] = compressed[0];
+				compressed_data[compressed_data_offset++] = compressed[1];
+			}
+		}
+	}
+
+	assert(compressed_data_offset == new_pixel_count * 2);
+
+	delete [] data_rgba_u8;
+	data_rgba_u8 = compressed_data;
+
+	texture.format   = Texture::Format::BC1;
+	texture.channels = 2;
+	texture.width    = new_width;
+	texture.height   = new_height;
+
+#if ENABLE_MIPMAPPING
+	delete [] texture.mip_offsets;
+#endif
+	texture.mip_levels  = new_mip_levels;
+	texture.mip_offsets = new_mip_offsets;
+#endif
 
 	texture.data = reinterpret_cast<const unsigned char *>(data_rgba_u8);
 
