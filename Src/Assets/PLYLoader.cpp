@@ -33,7 +33,7 @@ struct Property {
 			} custom;
 		};
 	} type;
-		
+
 	enum struct Kind {
 		X,
 		Y,
@@ -56,9 +56,9 @@ struct Element {
 
 		StringView custom_name;
 	} type;
-		
+
 	int count;
-	
+
 	static constexpr int MAX_PROPERTIES = 16;
 
 	Property properties[MAX_PROPERTIES];
@@ -108,8 +108,8 @@ static T parse_value(Parser & parser, Format format) {
 	switch (format) {
 		case Format::BINARY_LITTLE_ENDIAN: memcpy(&value, start, sizeof(T)); break;
 		case Format::BINARY_BIG_ENDIAN: {
-			char       * dst = reinterpret_cast<char *>(&value); 
-			const char * src = start; 
+			char       * dst = reinterpret_cast<char *>(&value);
+			const char * src = start;
 			for (int i = 0; i < sizeof(T) / 2; i++) {
 				dst[i] = src[sizeof(T) - 1 - i];
 			}
@@ -128,7 +128,7 @@ static T parse_property_value(Parser & parser, Property::Type::Kind kind, Format
 		if (kind == Property::Type::Kind::FLOAT32 || kind == Property::Type::Kind::FLOAT64) {
 			return parser.parse_float();
 		} else {
-			return parser.parse_int();		
+			return parser.parse_int();
 		}
 	} else {
 		// Parse as binary data
@@ -237,14 +237,14 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			} else if (name == "u" || name == "s") {
 				property.kind = Property::Kind::U;
 			} else if (name == "v" || name == "t") {
-				property.kind = Property::Kind::V;				 
+				property.kind = Property::Kind::V;
 			} else if (name == "vertex_index" || name == "vertex_indices") {
 				property.kind = Property::Kind::VERTEX_INDEX;
 			} else {
 				ERROR(parser.location, "Unknown property '%.*s'!\n", unsigned(name.length()), name.c_str());
 			}
 		}
-		
+
 		parser.parse_newline();
 	}
 	parser.parse_newline();
@@ -283,10 +283,11 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 				if (element.property_count > 1) {
 					WARNING(parser.location, "Warning: Face has more than one property!\n");
 				}
+				tris.reserve(element.count); // Expect as many triangles as there are faces, but there could be more (if faces have more than 3 vertices)
 				for (int i = 0; i < element.count; i++) {
 					for (int p = 0; p < element.property_count; p++) {
 						const Property & property = element.properties[p];
-						
+
 						if (property.kind != Property::Kind::VERTEX_INDEX) {
 							ERROR(parser.location, "Face property should be vertex_index!\n");
 						}
@@ -302,7 +303,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 
 						size_t elem_0 = parse_property_value<size_t>(parser, property.type.list.list_type_kind, format);
 						size_t elem_1 = parse_property_value<size_t>(parser, property.type.list.list_type_kind, format);
-								
+
 						Vector3 pos[3] = { positions [elem_0], positions [elem_1] };
 						Vector2 tex[3] = { tex_coords[elem_0], tex_coords[elem_1] };
 						Vector3 nor[3] = { normals   [elem_0], normals   [elem_1] };
