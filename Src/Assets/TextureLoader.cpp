@@ -219,15 +219,18 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 		int level_width  = Math::max(texture.width  >> l, 1);
 		int level_height = Math::max(texture.height >> l, 1);
 
-		for (int y = 0; y < level_height; y += 4) {
-			for (int x = 0; x < level_width; x += 4) {
+		int new_level_width  = Math::max(new_width  >> l, 1);
+		int new_level_height = Math::max(new_height >> l, 1);
+
+		for (int y = 0; y < new_level_height; y++) {
+			for (int x = 0; x < new_level_width; x++) {
 				unsigned block[4 * 4] = { };
 
 				for (int j = 0; j < 4; j++) {
-					int pixel_y = y + j;
+					int pixel_y = 4*y + j;
 					if (pixel_y < level_height) {
 						for (int i = 0; i < 4; i++) {
-							int pixel_x = x + i;
+							int pixel_x = 4*x + i;
 							if (pixel_x < level_width) {
 								block[i + j * 4] = level_data[pixel_x + pixel_y * level_width];
 							}
