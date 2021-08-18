@@ -52,6 +52,7 @@ Various configurable options are available in `Common.h`.
 - [Dear ImGui](https://github.com/ocornut/imgui)
 - [Miniz](https://github.com/richgel999/miniz)
 - [STB Image](https://github.com/nothings/stb)
+- [STB DXT](https://github.com/nothings/stb)
 - [CUDA 11.0](https://developer.nvidia.com/cuda-11.0-download-archive)
 
 All dependecies (headers, libs, and dlls) except CUDA 11.0 are included in the repository.
