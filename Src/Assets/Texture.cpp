@@ -13,7 +13,7 @@ CUarray_format Texture::get_cuda_array_format() const {
 		case Format::BC1:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;
 		case Format::BC2:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;
 		case Format::BC3:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;
-		case Format::RGBA: return CUarray_format::CU_AD_FORMAT_FLOAT;
+		case Format::RGBA: return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8;
 
 		default: abort();
 	}
@@ -24,7 +24,7 @@ CUresourceViewFormat Texture::get_cuda_resource_view_format() const {
 		case Texture::Format::BC1:  return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UNSIGNED_BC1;
 		case Texture::Format::BC2:  return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UNSIGNED_BC2;
 		case Texture::Format::BC3:  return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UNSIGNED_BC3;
-		case Texture::Format::RGBA: return CUresourceViewFormat::CU_RES_VIEW_FORMAT_FLOAT_4X32;
+		case Texture::Format::RGBA: return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UINT_4X8;
 
 		default: abort();
 	}
@@ -50,7 +50,7 @@ int Texture::get_width_in_bytes(int mip_level) const {
 	int level_width = Math::max(width >> mip_level, 1);
 
 	if (format == Format::RGBA) {
-		return level_width * sizeof(Vector4);
+		return level_width * sizeof(unsigned);
 	} else {
 		return level_width * channels * 4;
 	}

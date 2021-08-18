@@ -29,8 +29,8 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 	memcpy_s(&texture.height,     sizeof(int), header + 12, sizeof(int));
 	memcpy_s(&texture.mip_levels, sizeof(int), header + 28, sizeof(int));
 
-	texture.width  = (texture.width  + 3) / 4;
-	texture.height = (texture.height + 3) / 4;
+	texture.width  = Math::divide_round_up(texture.width,  4);
+	texture.height = Math::divide_round_up(texture.height, 4);
 
 	if (memcmp(header + 84, "DXT", 3) != 0) goto exit;
 
@@ -40,22 +40,18 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 		case '1': { // DXT1
 			texture.format = Texture::Format::BC1;
 			texture.channels = 2;
-
 			break;
 		}
 		case '3': { // DXT3
 			texture.format = Texture::Format::BC2;
 			texture.channels = 4;
-
 			break;
 		}
 		case '5': { // DXT5
 			texture.format = Texture::Format::BC3;
 			texture.channels = 4;
-
 			break;
 		}
-
 		default: goto exit; // Unsupported format
 	}
 
@@ -75,7 +71,6 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 	for (int level = 0; level < texture.mip_levels; level++) {
 		if (level_width == 0 || level_height == 0) {
 			texture.mip_levels = level;
-
 			break;
 		}
 
@@ -163,7 +158,7 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 		Mipmap::downsample(texture.width, texture.height, level_width, level_height, data_rgba, data_rgba + offset, temp);
 #endif
 
-		mip_offsets[level++] = offset * sizeof(Vector4);
+		mip_offsets[level++] = offset * sizeof(unsigned);
 
 		if (level_width == 1 && level_height == 1) break;
 
@@ -180,11 +175,23 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 	texture.mip_offsets = mip_offsets;
 #else
-	texture.mip_levels = 1;
-	texture.mip_offsets = new int(0);
+	static constexpr int OFFSET_ZERO = 0;
+	texture.mip_levels  = 1;
+	texture.mip_offsets = &OFFSET_ZERO;
 #endif
 
-	texture.data = reinterpret_cast<const unsigned char *>(data_rgba);
+	// Convert floating point pixels to unsigned bytes
+	unsigned * data_rgba_u8 = new unsigned[pixel_count];
+	for (int i = 0; i < pixel_count; i++) {
+		data_rgba_u8[i] =
+			unsigned(Math::clamp(data_rgba[i].w * 255.0f, 0.0f, 255.0f)) << 24 |
+			unsigned(Math::clamp(data_rgba[i].z * 255.0f, 0.0f, 255.0f)) << 16 |
+			unsigned(Math::clamp(data_rgba[i].y * 255.0f, 0.0f, 255.0f)) << 8 |
+			unsigned(Math::clamp(data_rgba[i].x * 255.0f, 0.0f, 255.0f));
+	}
+	delete [] data_rgba;
+
+	texture.data = reinterpret_cast<const unsigned char *>(data_rgba_u8);
 
 	return true;
 }
