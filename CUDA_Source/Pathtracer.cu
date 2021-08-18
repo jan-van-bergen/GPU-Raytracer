@@ -331,7 +331,7 @@ __device__ inline float3 sample_albedo(
 		cone_angle = camera.pixel_spread_angle;
 		cone_width = cone_angle * hit.t;
 
-		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
+		float3 ellipse_axis_1, ellipse_axis_2; ray_cone_get_ellipse_axes(ray_direction, hit_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
 		float2 gradient_1, gradient_2; ray_cone_get_texture_gradients(
 			mesh_scale,
