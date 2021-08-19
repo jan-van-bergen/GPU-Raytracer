@@ -43,6 +43,7 @@ struct Property {
 		NZ,
 		U,
 		V,
+		IGNORED, // Unknown properties are ignored
 		VERTEX_INDEX
 	} kind;
 };
@@ -159,7 +160,9 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 	Parser parser;
 	parser.init(file, file + file_length, location);
 
-	parser.expect("ply\n");
+	parser.expect("ply");
+	parser.skip_whitespace();
+	parser.parse_newline();
 	parser.expect("format");
 	parser.skip_whitespace();
 
@@ -200,7 +203,8 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			} else if (parser.match("face ")) {
 				element.type.kind = Element::Type::Kind::FACE;
 			} else {
-				ERROR(parser.location, "Unsupported element type!\n");
+				StringView element_name = parser.parse_identifier();
+				ERROR(parser.location, "Unsupported element type '%.*s'!\n", unsigned(element_name.length()), element_name.start);
 			}
 			parser.skip_whitespace();
 
@@ -241,12 +245,16 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			} else if (name == "vertex_index" || name == "vertex_indices") {
 				property.kind = Property::Kind::VERTEX_INDEX;
 			} else {
-				ERROR(parser.location, "Unknown property '%.*s'!\n", unsigned(name.length()), name.c_str());
+				property.kind = Property::Kind::IGNORED;
+				WARNING(parser.location, "Unknown property '%.*s'!\n", unsigned(name.length()), name.c_str());
 			}
 		}
 
+		parser.skip_whitespace();
 		parser.parse_newline();
 	}
+
+	parser.skip_whitespace();
 	parser.parse_newline();
 
 	Array<Vector3> positions;
@@ -261,7 +269,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 		switch (element.type.kind) {
 			case Element::Type::Kind::VERTEX: {
 				for (int i = 0; i < element.count; i++) {
-					float vertex[8] = { };
+					float vertex[9] = { }; // x, y, z, nx, ny, nz, u, v, ignored
 
 					for (int p = 0; p < element.property_count; p++) {
 						const Property & property = element.properties[p];
@@ -273,26 +281,23 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 					normals   .emplace_back(vertex[3], vertex[4], vertex[5]);
 					tex_coords.emplace_back(vertex[6], 1.0f - vertex[7]);
 
-					if (format == Format::ASCII) parser.parse_newline();
+					if (format == Format::ASCII) {
+						parser.skip_whitespace();
+						parser.parse_newline();
+					}
 				}
 
 				break;
 			}
 
 			case Element::Type::Kind::FACE: {
-				if (element.property_count > 1) {
-					WARNING(parser.location, "Warning: Face has more than one property!\n");
-				}
 				tris.reserve(element.count); // Expect as many triangles as there are faces, but there could be more (if faces have more than 3 vertices)
 				for (int i = 0; i < element.count; i++) {
 					for (int p = 0; p < element.property_count; p++) {
 						const Property & property = element.properties[p];
 
-						if (property.kind != Property::Kind::VERTEX_INDEX) {
-							ERROR(parser.location, "Face property should be vertex_index!\n");
-						}
-						if (property.type.kind != Property::Type::Kind::LIST) {
-							ERROR(parser.location, "Face property should have list type!\n");
+						if (property.kind != Property::Kind::VERTEX_INDEX || property.type.kind != Property::Type::Kind::LIST) {
+							break;
 						}
 
 						size_t size = parse_property_value<size_t>(parser, property.type.list.size_type_kind, format);
@@ -334,7 +339,10 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 						}
 					}
 
-					if (format == Format::ASCII && !parser.reached_end()) parser.parse_newline();
+					if (format == Format::ASCII && !parser.reached_end()) {
+						parser.skip_whitespace();
+						parser.parse_newline();
+					}
 				}
 
 				break;
