@@ -730,7 +730,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
 	const XMLAttribute * type = node->find_attribute("type");
-	if (type->value == "obj") {
+	if (type->value == "obj" || type->value == "ply") {
 		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
