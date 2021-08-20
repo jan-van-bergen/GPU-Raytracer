@@ -308,6 +308,39 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	return num_leaves_left + num_leaves_right;
 }
 
+void SBVHBuilder::init(BVH * sbvh, int triangle_count, int max_primitives_in_leaf) {
+	this->sbvh = sbvh;
+	this->max_primitives_in_leaf = max_primitives_in_leaf;
+
+	PrimitiveRef * indices_xyz = new PrimitiveRef[3 * SBVH_OVERALLOCATION * triangle_count];
+	indices_x = indices_xyz;
+	indices_y = indices_xyz + SBVH_OVERALLOCATION * triangle_count;
+	indices_z = indices_xyz + SBVH_OVERALLOCATION * triangle_count * 2;
+
+	PrimitiveRef * indices_going_right_xyz = new PrimitiveRef[3 * 2 * triangle_count];
+	indices_going_right_x = indices_going_right_xyz;
+	indices_going_right_y = indices_going_right_xyz + 2 * triangle_count;
+	indices_going_right_z = indices_going_right_xyz + 2 * triangle_count * 2;
+
+	sah    = new float[triangle_count];
+	bounds = new AABB [triangle_count * 2 + 1];
+	indices_going_left .init(triangle_count);
+	indices_going_right.init(triangle_count);
+
+	sbvh->indices = new int    [SBVH_OVERALLOCATION * triangle_count];
+	sbvh->nodes   = new BVHNode[SBVH_OVERALLOCATION * triangle_count];
+}
+
+void SBVHBuilder::free() {
+	delete [] indices_x;
+	delete [] indices_going_right_x;
+
+	delete [] sah;
+	delete [] bounds;
+	indices_going_left .free();
+	indices_going_right.free();
+}
+
 void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 	puts("Construcing SBVH, this may take a few seconds for large scenes...");
 
