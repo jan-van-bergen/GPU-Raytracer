@@ -114,6 +114,8 @@
     </ClCompile>
     <ClCompile Include="Src\Assets\PBRTLoader.cpp">
       <Filter>Assets</Filter>
+    <ClCompile Include="Src\BVH\Builders\BVHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

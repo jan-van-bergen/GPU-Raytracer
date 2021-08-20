@@ -39,6 +39,27 @@ namespace Util {
 		b = temp;
 	}
 
+	template<typename T, typename Cmp = std::less<T>>
+	constexpr void quick_sort(T * first, T * last, Cmp cmp = { }) {
+		if (first >= last) return;
+
+		// Partition
+		const T & pivot = *(last - 1);
+		T * p = first;
+
+		for (T * ptr = first; ptr != last; ptr++) {
+			if (cmp(*ptr, pivot)) {
+				Util::swap(*p, *ptr);
+				p++;
+			}
+		}
+		Util::swap(*p, *(last - 1));
+
+		// Recurse
+		quick_sort(first, p,    cmp);
+		quick_sort(p + 1, last, cmp);
+	}
+
 	template<typename T, int N>
 	constexpr int array_element_count(const T (& array)[N]) {
 		return N;

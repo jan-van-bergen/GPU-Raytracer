@@ -1,7 +1,5 @@
 #include "SBVHBuilder.h"
 
-#include <algorithm>
-
 #include "BVHPartitions.h"
 
 #include "Util/Util.h"
@@ -258,13 +256,13 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 			}
 		}
 
-		std::sort(children_left[0], children_left[0] + children_left_count[0], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		std::sort(children_left[1], children_left[1] + children_left_count[1], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		std::sort(children_left[2], children_left[2] + children_left_count[2], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+		Util::quick_sort(children_left[0], children_left[0] + children_left_count[0], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+		Util::quick_sort(children_left[1], children_left[1] + children_left_count[1], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+		Util::quick_sort(children_left[2], children_left[2] + children_left_count[2], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
-		std::sort(children_right[0], children_right[0] + children_right_count[0], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		std::sort(children_right[1], children_right[1] + children_right_count[1], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		std::sort(children_right[2], children_right[2] + children_right_count[2], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+		Util::quick_sort(children_right[0], children_right[0] + children_right_count[0], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+		Util::quick_sort(children_right[1], children_right[1] + children_right_count[1], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+		Util::quick_sort(children_right[2], children_right[2] + children_right_count[2], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
 		// We should have made the same decision (going left/right) in every dimension
 		assert(children_left_count [0] == children_left_count [1] && children_left_count [1] == children_left_count [2]);
@@ -334,9 +332,9 @@ void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 		root_aabb.expand(aabb);
 	}
 
-	std::sort(indices_x, indices_x + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-	std::sort(indices_y, indices_y + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-	std::sort(indices_z, indices_z + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+	Util::quick_sort(indices_x, indices_x + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+	Util::quick_sort(indices_y, indices_y + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+	Util::quick_sort(indices_z, indices_z + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
 	indices_going_right_offset = 0;
 
