@@ -527,6 +527,25 @@ static void load_include(const char * filename, const char * path, int path_leng
 				if (texture_map.try_get(tex, texture_handle)) {
 					texture_map.insert(name, texture_handle); // Reinsert under new name
 				}
+			} else if (clas == "mix") {
+				StringView texture_name = { };
+
+				const Param & param_tex1   = find_param(params, "tex1");
+				const Param & param_tex2   = find_param(params, "tex2");
+				const Param & param_amount = find_param(params, "amount");
+
+				if (param_tex1.type == Param::Type::TEXTURE) {
+					texture_name = param_tex1.strings[0];
+				} else if (param_tex2.type == Param::Type::TEXTURE) {
+					texture_name = param_tex2.strings[0];
+				} else if (param_tex2.type == Param::Type::TEXTURE) {
+					texture_name = param_amount.strings[0];
+				}
+
+				TextureHandle texture_handle;
+				if (texture_map.try_get(texture_name, texture_handle)) {
+					texture_map.insert(name, texture_handle); // Reinsert under new name
+				}
 			} else {
 				WARNING(parser.location, "Unsupported texture class '%.*s'!\n", unsigned(clas.length()), clas.start);
 			}
@@ -664,6 +683,10 @@ static void load_include(const char * filename, const char * path, int path_leng
 						triangle.tex_coord_0 = tex_coords->float2s[index_0];
 						triangle.tex_coord_1 = tex_coords->float2s[index_1];
 						triangle.tex_coord_2 = tex_coords->float2s[index_2];
+					} else {
+						triangle.tex_coord_0 = Vector2(0.0f);
+						triangle.tex_coord_1 = Vector2(0.0f);
+						triangle.tex_coord_2 = Vector2(0.0f);
 					}
 
 					triangle.init();
