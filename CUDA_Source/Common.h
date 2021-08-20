@@ -93,9 +93,13 @@ struct Settings {
 
 #define BVH_TYPE BVH_CWBVH
 
+#define SBVH_ALPHA 10e-5f // Alpha parameter for SBVH construction, alpha == 1 means regular BVH, alpha == 0 means full SBVH
+
 #define BVH_ENABLE_OPTIMIZATION true
 
-#define SBVH_ALPHA 10e-5f // Alpha parameter for SBVH construction, alpha == 1 means regular BVH, alpha == 0 means full SBVH
+#define BVH_OPTIMIZER_MAX_TIME -1 // Time limit in milliseconds
+#define BVH_OPTIMIZER_MAX_NUM_BATCHES 1000
+
 
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to

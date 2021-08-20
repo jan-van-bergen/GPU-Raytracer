@@ -321,8 +321,6 @@ void BVHOptimizer::optimize(BVH & bvh) {
 
 	static_assert(P_T >= P_R);
 
-	constexpr size_t TIME_OUT = -1; // Time budget in seconds, after this amount of time the algorithm terminates
-
 	int   batch_size = bvh.node_count / k;
 	int * batch_indices = new int[bvh.node_count];
 
@@ -339,7 +337,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	int * originated   = new int[bvh.node_count];
 	int * displacement = new int[bvh.node_count];
 
-	auto start_time = std::chrono::high_resolution_clock::now();
+	clock_t start_time = clock();
 
 	while (true) {
 		// Select a batch of internal Nodes, either randomly or using a heuristic measure
@@ -479,17 +477,14 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			}
 		}
 
-		auto   curr_time = std::chrono::high_resolution_clock::now();
-		size_t duration  = std::chrono::duration_cast<std::chrono::seconds>(curr_time - start_time).count();
+		clock_t curr_time = clock();
+		size_t  duration  = (curr_time - start_time) * 1000 / CLOCKS_PER_SEC;
 
-		if (duration > TIME_OUT) {
-			printf("\nTime budget of %zu seconds exceeded! Optimization process was terminated.", TIME_OUT);
-
+		if (duration >= BVH_OPTIMIZER_MAX_TIME || batch_count >= BVH_OPTIMIZER_MAX_NUM_BATCHES) {
 			break;
 		}
 
 		printf("%i: SAH=%f best=%f last_reduction=%i     \r", batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
-
 		batch_count++;
 	}
 
@@ -527,12 +522,9 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	delete [] bvh.nodes;
 	delete [] bvh.indices;
 
-	int node_count_before = bvh    .node_count;
-	int node_count_after  = new_bvh.node_count;
-
 	bvh = new_bvh;
 
 	// Report the improvement of the SAH cost
 	float cost_after = bvh_sah_cost(bvh);
-	printf("\ncost: %f -> %f - nodes: %i -> %i\n", cost_before, cost_after, node_count_before, node_count_after);
+	printf("\ncost: %f -> %f\n", cost_before, cost_after);
 }
