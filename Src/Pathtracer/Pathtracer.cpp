@@ -1,7 +1,5 @@
 #include "Pathtracer.h"
 
-#include <algorithm>
-
 #include <GL/glew.h>
 
 #include "CUDA/CUDAContext.h"
@@ -636,7 +634,7 @@ void Pathtracer::calc_light_power() {
 			LightTriangle * triangles_end   = triangles_begin        + light_mesh.triangle_count;
 
 			assert(triangles_end > triangles_begin);
-			std::sort(triangles_begin, triangles_end, [](const LightTriangle & a, const LightTriangle & b) { return a.power < b.power; });
+			Util::quick_sort(triangles_begin, triangles_end, [](const LightTriangle & a, const LightTriangle & b) { return a.power < b.power; });
 		}
 	}
 

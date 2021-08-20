@@ -1,7 +1,5 @@
 #include "BVHBuilder.h"
 
-#include <algorithm>
-
 #include "BVH/BVH.h"
 #include "BVHPartitions.h"
 
@@ -61,9 +59,9 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 		centers[i] = primitives[i].get_center();
 	}
 
-	std::sort(builder.indices_x, builder.indices_x + primitive_count, [centers](int a, int b) { return centers[a].x < centers[b].x; });
-	std::sort(builder.indices_y, builder.indices_y + primitive_count, [centers](int a, int b) { return centers[a].y < centers[b].y; });
-	std::sort(builder.indices_z, builder.indices_z + primitive_count, [centers](int a, int b) { return centers[a].z < centers[b].z; });
+	Util::quick_sort(builder.indices_x, builder.indices_x + primitive_count, [centers](int a, int b) { return centers[a].x < centers[b].x; });
+	Util::quick_sort(builder.indices_y, builder.indices_y + primitive_count, [centers](int a, int b) { return centers[a].y < centers[b].y; });
+	Util::quick_sort(builder.indices_z, builder.indices_z + primitive_count, [centers](int a, int b) { return centers[a].z < centers[b].z; });
 
 	int * indices[3] = {
 		builder.indices_x,
