@@ -329,7 +329,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 							triangle.normal_0    = nor[0];
 							triangle.normal_1    = nor[1];
 							triangle.normal_2    = nor[2];
-							triangle.calc_aabb();
+							triangle.init();
 
 							tris.push_back(triangle);
 

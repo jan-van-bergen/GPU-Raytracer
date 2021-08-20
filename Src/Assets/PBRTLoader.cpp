@@ -666,7 +666,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 						triangle.tex_coord_2 = tex_coords->float2s[index_2];
 					}
 
-					triangle.calc_aabb();
+					triangle.init();
 				}
 
 				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);

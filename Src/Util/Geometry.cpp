@@ -25,7 +25,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	triangles[0].tex_coord_0 = tex_coord_0;
 	triangles[0].tex_coord_1 = tex_coord_1;
 	triangles[0].tex_coord_2 = tex_coord_2;
-	triangles[0].calc_aabb();
+	triangles[0].init();
 
 	triangles[1].position_0 = vertex_0;
 	triangles[1].position_1 = vertex_2;
@@ -36,7 +36,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	triangles[1].tex_coord_0 = tex_coord_0;
 	triangles[1].tex_coord_1 = tex_coord_2;
 	triangles[1].tex_coord_2 = tex_coord_3;
-	triangles[1].calc_aabb();
+	triangles[1].init();
 }
 
 void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 & transform) {
@@ -96,7 +96,7 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		triangles[2*face].tex_coord_0 = cube_tex_coords[0];
 		triangles[2*face].tex_coord_1 = cube_tex_coords[1];
 		triangles[2*face].tex_coord_2 = cube_tex_coords[2];
-		triangles[2*face].calc_aabb();
+		triangles[2*face].init();
 
 		triangles[2*face + 1].position_0 = vertices[0];
 		triangles[2*face + 1].position_1 = vertices[2];
@@ -107,7 +107,7 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		triangles[2*face + 1].tex_coord_0 = cube_tex_coords[0];
 		triangles[2*face + 1].tex_coord_1 = cube_tex_coords[2];
 		triangles[2*face + 1].tex_coord_2 = cube_tex_coords[3];
-		triangles[2*face + 1].calc_aabb();
+		triangles[2*face + 1].init();
 	}
 }
 
@@ -144,7 +144,7 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		triangles[i].tex_coord_0 = uv_prev;
 		triangles[i].tex_coord_0 = uv_curr;
 		triangles[i].tex_coord_0 = Vector2(0.5f, 0.5f);
-		triangles[i].calc_aabb();
+		triangles[i].init();
 
 		vertex_prev = vertex_curr;
 		uv_prev = uv_curr;
@@ -242,6 +242,6 @@ void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4
 			0.5f + asinf (-triangles[i].normal_2.y)                           * ONE_OVER_PI
 		);
 
-		triangles[i].calc_aabb();
+		triangles[i].init();
 	}
 }

@@ -709,7 +709,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 				triangles[t].tex_coord_2 = read_vector2(vertex_tex_coords, index_2);
 			}
 
-			triangles[t].calc_aabb();
+			triangles[t].init();
 		}
 
 		mesh_data_handles[i] = scene.asset_manager.add_mesh_data(triangles, num_triangles);

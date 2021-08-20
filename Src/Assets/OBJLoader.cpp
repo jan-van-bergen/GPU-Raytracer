@@ -160,32 +160,13 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 		triangles[f].position_0 = positions[0];
 		triangles[f].position_1 = positions[1];
 		triangles[f].position_2 = positions[2];
-
-		bool normal_0_invalid = Math::approx_equal(Vector3::length(normals[0]), 0.0f);
-		bool normal_1_invalid = Math::approx_equal(Vector3::length(normals[1]), 0.0f);
-		bool normal_2_invalid = Math::approx_equal(Vector3::length(normals[2]), 0.0f);
-
-		// Replace zero normals with the geometric normal of defined by the Triangle
-		if (normal_0_invalid || normal_1_invalid || normal_2_invalid) {
-			Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
-				triangles[f].position_1 - triangles[f].position_0,
-				triangles[f].position_2 - triangles[f].position_0
-			));
-
-			if (normal_0_invalid) normals[0] = geometric_normal;
-			if (normal_1_invalid) normals[1] = geometric_normal;
-			if (normal_2_invalid) normals[2] = geometric_normal;
-		}
-
 		triangles[f].normal_0 = normals[0];
 		triangles[f].normal_1 = normals[1];
 		triangles[f].normal_2 = normals[2];
-
 		triangles[f].tex_coord_0 = tex_coords[0];
 		triangles[f].tex_coord_1 = tex_coords[1];
 		triangles[f].tex_coord_2 = tex_coords[2];
-
-		triangles[f].calc_aabb();
+		triangles[f].init();
 	}
 
 	printf("Loaded OBJ %s from disk (%i triangles)\n", filename, triangle_count);
