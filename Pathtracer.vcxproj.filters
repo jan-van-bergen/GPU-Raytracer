@@ -109,6 +109,9 @@
     <ClCompile Include="Src\Math\Mipmap.cpp">
       <Filter>Math</Filter>
     </ClCompile>
+    <ClCompile Include="Src\BVH\Builders\BVHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">

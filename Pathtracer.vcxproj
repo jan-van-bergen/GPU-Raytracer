@@ -206,6 +206,7 @@
     <ClCompile Include="Src\Assets\OBJLoader.cpp" />
     <ClCompile Include="Src\Assets\Texture.cpp" />
     <ClCompile Include="Src\Assets\TextureLoader.cpp" />
+    <ClCompile Include="Src\BVH\Builders\BVHBuilder.cpp" />
     <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp" />
     <ClCompile Include="Src\BVH\Builders\QBVHBuilder.cpp" />
     <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp" />
