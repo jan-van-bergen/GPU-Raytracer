@@ -5,6 +5,7 @@
 #include "Assets/Material.h"
 #include "Assets/OBJLoader.h"
 #include "Assets/MitsubaLoader.h"
+#include "Assets/PBRTLoader.h"
 
 #include "Util/Util.h"
 
@@ -25,6 +26,8 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name));
 	} else if (strcmp(file_extension, "xml") == 0) {
 		MitsubaLoader::load(scene_name, *this);
+	} else if (strcmp(file_extension, "pbrt") == 0) {
+		PBRTLoader::load(scene_name, *this);
 	} else {
 		printf("ERROR: '%s' file format is not supported!\n", file_extension);
 		abort();
