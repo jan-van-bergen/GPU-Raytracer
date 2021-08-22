@@ -20,11 +20,13 @@ struct Scene {
 	bool has_glossy     = false;
 	bool has_lights     = false;
 
+	int triangle_count = 0;
+
 	void init(const char * scene_name, const char * sky_name);
 
 	Mesh & add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
 
-	void check_materials();
+	void calc_properties();
 
 	void update(float delta);
 };

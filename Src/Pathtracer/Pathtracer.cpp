@@ -841,7 +841,7 @@ void Pathtracer::update(float delta) {
 		bool had_glossy     = scene.has_glossy;
 		bool had_lights     = scene.has_lights;
 
-		scene.check_materials();
+		scene.calc_properties();
 
 		bool diffuse_changed              =  had_diffuse                   ^  scene.has_diffuse;
 		bool dielectric_or_glossy_changed = (had_dielectric || had_glossy) ^ (scene.has_dielectric || scene.has_glossy);

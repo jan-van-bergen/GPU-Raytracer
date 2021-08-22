@@ -43,7 +43,7 @@ Mesh & Scene::add_mesh(const char * name, MeshDataHandle mesh_data_handle, Mater
 	return mesh;
 }
 
-void Scene::check_materials() {
+void Scene::calc_properties() {
 	has_diffuse    = false;
 	has_dielectric = false;
 	has_glossy     = false;
@@ -57,6 +57,12 @@ void Scene::check_materials() {
 			case Material::Type::GLOSSY:     has_glossy     = true; break;
 			case Material::Type::LIGHT:      has_lights     = true; break;
 		}
+	}
+
+	// Calculate total number of Triangles in the Scene
+	triangle_count = 0;
+	for (int i = 0; i < meshes.size(); i++) {
+		triangle_count += asset_manager.get_mesh_data(meshes[i].mesh_data_handle).triangle_count;
 	}
 }
 
