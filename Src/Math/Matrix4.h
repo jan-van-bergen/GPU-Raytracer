@@ -172,6 +172,25 @@ struct alignas(16) Matrix4 {
 		return result;
 	}
 
+	inline static void decompose(const Matrix4 & matrix, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, -1.0f)) {
+		if (position) *position = Vector3(matrix(0, 3), matrix(1, 3), matrix(2, 3));
+		if (rotation) *rotation = Quaternion::look_rotation(
+			Matrix4::transform_direction(matrix, forward),
+			Matrix4::transform_direction(matrix, Vector3(0.0f, 1.0f, 0.0f))
+		);
+		if (scale) {
+			float scale_x = Vector3::length(Vector3(matrix(0, 0), matrix(0, 1), matrix(0, 2)));
+			float scale_y = Vector3::length(Vector3(matrix(1, 0), matrix(1, 1), matrix(1, 2)));
+			float scale_z = Vector3::length(Vector3(matrix(2, 0), matrix(2, 1), matrix(2, 2)));
+
+			if (Math::approx_equal(scale_x, scale_y) && Math::approx_equal(scale_y, scale_z)) {
+				*scale = scale_x;
+			} else {
+				*scale = cbrt(scale_x * scale_y * scale_z);
+			}
+		}
+	}
+
 	// Component-wise absolute value
 	inline static Matrix4 abs(const Matrix4 & matrix) {
 		Matrix4 result;

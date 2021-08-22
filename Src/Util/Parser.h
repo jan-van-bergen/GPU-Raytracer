@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "StringView.h"
+
 #define TAB_WIDTH 4
 
 #define WARNING(loc, msg, ...) \
@@ -98,6 +100,13 @@ struct Parser {
 		advance();
 	}
 
+	template<int N>
+	void expect(const char (& target)[N]) {
+		for (int i = 0; i < N - 1; i++) {
+			expect(target[i]);
+		}
+	}
+
 	float parse_float() {
 		bool sign = false;
 		if (match('-')) {
@@ -153,5 +162,21 @@ struct Parser {
 		}
 
 		return sign ? -value : value;
+	}
+
+	StringView parse_identifier() {
+		skip_whitespace();
+
+		const char * start = cur;
+		while (!reached_end() && !is_whitespace(*cur) && !is_newline(*cur)) {
+			advance();
+		}
+
+		return StringView { start, cur };
+	}
+
+	void parse_newline() {
+		match('\r');
+		expect('\n');
 	}
 };

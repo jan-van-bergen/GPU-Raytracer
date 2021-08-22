@@ -109,6 +109,9 @@
     <ClCompile Include="Src\Math\Mipmap.cpp">
       <Filter>Math</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Assets\PLYLoader.cpp">
+      <Filter>Assets</Filter>
+    </ClCompile>
     <ClCompile Include="Src\BVH\Builders\BVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
@@ -315,6 +318,9 @@
     </ClInclude>
     <ClInclude Include="Src\Util\Parser.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\PLYLoader.h">
+      <Filter>Assets</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

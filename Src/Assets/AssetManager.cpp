@@ -2,6 +2,7 @@
 
 #include "BVHLoader.h"
 #include "OBJLoader.h"
+#include "PLYLoader.h"
 #include "TextureLoader.h"
 
 #include "BVH/Builders/BVHBuilder.h"
@@ -56,7 +57,16 @@ MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	bool bvh_loaded = BVHLoader::try_to_load(filename, mesh_data, bvh);
 	if (!bvh_loaded) {
 		// Unable to load disk cached BVH, load model from source and construct BVH
-		OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
+		const char * extension = Util::file_get_extension(filename);
+
+		if (strcmp(extension, "obj") == 0) {
+			OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
+		} else if (strcmp(extension, "ply") == 0) {
+			PLYLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
+		} else {
+			printf("ERROR: '%s' file format is not supported!\n", extension);
+			abort();
+		}
 
 		bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
 		BVHLoader::save(filename, mesh_data, bvh);

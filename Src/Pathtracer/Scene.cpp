@@ -21,11 +21,14 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 
 	const char * file_extension = Util::file_get_extension(scene_name);
 
-	if (strcmp(file_extension, "obj") == 0) {
+	if (strcmp(file_extension, "obj") == 0 || strcmp(file_extension, "ply") == 0) {
 		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name));
 	} else if (strcmp(file_extension, "xml") == 0) {
 		MitsubaLoader::load(scene_name, *this);
-	} else abort();
+	} else {
+		printf("ERROR: '%s' file format is not supported!\n", file_extension);
+		abort();
+	}
 
 	// Initialize Sky
 	sky.init(sky_name);

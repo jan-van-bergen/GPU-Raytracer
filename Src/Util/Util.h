@@ -39,8 +39,8 @@ namespace Util {
 		b = temp;
 	}
 
-	template<typename T, typename Cmp = std::less<T>>
-	constexpr void quick_sort(T * first, T * last, Cmp cmp = { }) {
+	template<typename T, typename Cmp>
+	constexpr void quick_sort(T * first, T * last, Cmp cmp) {
 		if (first >= last) return;
 
 		// Partition
@@ -58,6 +58,11 @@ namespace Util {
 		// Recurse
 		quick_sort(first, p,    cmp);
 		quick_sort(p + 1, last, cmp);
+	}
+
+	template<typename T>
+	constexpr void quick_sort(T * first, T * last) {
+		quick_sort(first, last, [](const T & a, const T & b) { return a < b; });
 	}
 
 	template<typename T, int N>

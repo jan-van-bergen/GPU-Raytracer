@@ -329,28 +329,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 		const XMLNode * matrix = transform->find_child("matrix");
 		if (matrix) {
 			Matrix4 world = matrix->find_attribute("value")->get_value<Matrix4>();
-
-			// Decompose Matrix
-			if (position) *position = Vector3(world(0, 3), world(1, 3), world(2, 3));
-
-			if (rotation) *rotation = Quaternion::look_rotation(
-				Matrix4::transform_direction(world, forward),
-				Matrix4::transform_direction(world, Vector3(0.0f, 1.0f, 0.0f))
-			);
-
-			if (scale) {
-				float scale_x = Vector3::length(Vector3(world(0, 0), world(0, 1), world(0, 2)));
-				float scale_y = Vector3::length(Vector3(world(1, 0), world(1, 1), world(1, 2)));
-				float scale_z = Vector3::length(Vector3(world(2, 0), world(2, 1), world(2, 2)));
-
-				if (Math::approx_equal(scale_x, scale_y) && Math::approx_equal(scale_y, scale_z)) {
-					*scale = scale_x;
-				} else {
-					WARNING(matrix->location, "Warning: non-uniform scaling is not supported!\n");
-					*scale = cbrt(scale_x * scale_y * scale_z);
-				}
-			}
-
+			Matrix4::decompose(world, position, rotation, scale, forward);
 			return;
 		}
 
@@ -730,7 +709,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 				triangles[t].tex_coord_2 = read_vector2(vertex_tex_coords, index_2);
 			}
 
-			triangles[t].calc_aabb();
+			triangles[t].init();
 		}
 
 		mesh_data_handles[i] = scene.asset_manager.add_mesh_data(triangles, num_triangles);
@@ -751,7 +730,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
 	const XMLAttribute * type = node->find_attribute("type");
-	if (type->value == "obj") {
+	if (type->value == "obj" || type->value == "ply") {
 		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
