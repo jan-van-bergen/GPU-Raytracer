@@ -172,7 +172,7 @@ struct alignas(16) Matrix4 {
 		return result;
 	}
 
-	inline static void decompose(const Matrix4 & matrix, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
+	inline static void decompose(const Matrix4 & matrix, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, -1.0f)) {
 		if (position) *position = Vector3(matrix(0, 3), matrix(1, 3), matrix(2, 3));
 		if (rotation) *rotation = Quaternion::look_rotation(
 			Matrix4::transform_direction(matrix, forward),

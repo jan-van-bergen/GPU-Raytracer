@@ -285,9 +285,17 @@ static Material parse_material(const char * name, const StringView & type, const
 	} else if (type == "coateddiffuse") {
 		material.type = Material::Type::GLOSSY;
 		parse_reflectance();
-		material.linear_roughness = sqrtf(find_param_float(params, "roughness", 0.5f));
+
+		const Param * param_roughness = find_param_optional(params, "roughness");
+		if (param_roughness && param_roughness->type == Param::Type::FLOAT) {
+			material.linear_roughness = sqrtf(param_roughness->floats[0]);
+		} else {
+			material.linear_roughness = 0.5f;
+		}
 	} else if (type == "dielectric") {
 		material.type = Material::Type::DIELECTRIC;
+		material.transmittance       = Vector3(1.0f);
+		material.index_of_refraction = 1.333f;
 	} else {
 		printf("WARNING: Material Type '%.*s' is not supported!\n", unsigned(type.length()), type.start);
 	}
@@ -309,12 +317,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 	struct Attribute {
 		MaterialHandle material = MaterialHandle::get_default();
-
-		struct Transform {
-			Vector3    position;
-			Quaternion rotation;
-			float      scale = 1.0f;
-		} transform;
+		Matrix4        transform;
 	};
 
 	Array<Attribute> attribute_stack;
@@ -390,17 +393,13 @@ static void load_include(const char * filename, const char * path, int path_leng
 				const Instance & instance = shape[i];
 
 				Mesh & mesh = scene.add_mesh(name.c_str(), instance.mesh_data_handle, instance.material_handle);
-				mesh.position = attribute_stack.back().transform.position;
-				mesh.rotation = attribute_stack.back().transform.rotation;
-				mesh.scale    = attribute_stack.back().transform.scale;
+				Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 			}
 
 		} else if (parser.match("Identity")) {
 			parser_skip(parser);
 
-			attribute_stack.back().transform.position = Vector3(0.0f);
-			attribute_stack.back().transform.rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
-			attribute_stack.back().transform.scale    = 1.0f;
+			attribute_stack.back().transform = Matrix4();
 
 		} else if (parser.match("Translate")) {
 			parser_skip(parser);
@@ -408,7 +407,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			float y = parser.parse_float(); parser_skip(parser);
 			float z = parser.parse_float(); parser_skip(parser);
 
-			attribute_stack.back().transform.position = Vector3(x, y, z);
+			attribute_stack.back().transform = Matrix4::create_translation(Vector3(x, y, z)) * attribute_stack.back().transform;
 
 		} else if (parser.match("Rotate")) {
 			parser_skip(parser);
@@ -417,7 +416,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			float y = parser.parse_float(); parser_skip(parser);
 			float z = parser.parse_float(); parser_skip(parser);
 
-			attribute_stack.back().transform.rotation = Quaternion::axis_angle(Vector3(x, y, z), angle) * attribute_stack.back().transform.rotation;
+			attribute_stack.back().transform = Matrix4::create_rotation(Quaternion::axis_angle(Vector3(x, y, z), angle)) * attribute_stack.back().transform;
 
 		} else if (parser.match("Scale")) {
 			parser_skip(parser);
@@ -425,7 +424,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			float y = parser.parse_float(); parser_skip(parser);
 			float z = parser.parse_float(); parser_skip(parser);
 
-			attribute_stack.back().transform.scale = cbrtf(x * y * z); // Geometric mean
+			attribute_stack.back().transform = Matrix4::create_scale(cbrtf(x * y * z)) * attribute_stack.back().transform; // Geometric mean
 
 		} else if (parser.match("Transform")) {
 			parser_skip(parser);
@@ -437,16 +436,11 @@ static void load_include(const char * filename, const char * path, int path_leng
 				matrix.cells[i] = parser.parse_float();
 				parser_skip(parser);
 			}
+//			attribute_stack.back().transform = Matrix4::transpose(matrix);
+			attribute_stack.back().transform = matrix;
 
 			parser.expect(']');
 			parser_skip(parser);
-
-			Matrix4::decompose(matrix,
-				&attribute_stack.back().transform.position,
-				&attribute_stack.back().transform.rotation,
-				&attribute_stack.back().transform.scale,
-				Vector3(0.0f, 0.0f, -1.0f)
-			);
 
 		} else if (parser.match("ConcatTransform")) {
 			parser_skip(parser);
@@ -458,18 +452,11 @@ static void load_include(const char * filename, const char * path, int path_leng
 				matrix.cells[i] = parser.parse_float();
 				parser_skip(parser);
 			}
+//			attribute_stack.back().transform = Matrix4::transpose(matrix) * attribute_stack.back().transform;
+			attribute_stack.back().transform = matrix * attribute_stack.back().transform;
 
 			parser.expect(']');
 			parser_skip(parser);
-
-			Vector3    position;
-			Quaternion rotation;
-			float      scale;
-			Matrix4::decompose(matrix, &position, &rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
-
-			attribute_stack.back().transform.position = Matrix4::transform_position(matrix, attribute_stack.back().transform.position);
-			attribute_stack.back().transform.rotation = rotation * attribute_stack.back().transform.rotation;
-			attribute_stack.back().transform.scale *= scale;
 
 		} else if (parser.match("LookAt")) {
 			parser_skip(parser);
@@ -483,8 +470,9 @@ static void load_include(const char * filename, const char * path, int path_leng
 			float u_y = parser.parse_float(); parser_skip(parser);
 			float u_z = parser.parse_float(); parser_skip(parser);
 
-			attribute_stack.back().transform.position = Vector3(e_x, e_y, e_z);
-			attribute_stack.back().transform.rotation = Quaternion::look_rotation(Vector3(f_x, f_y, f_z), Vector3(u_x, u_y, u_z));
+			attribute_stack.back().transform =
+				Matrix4::create_translation(Vector3(e_x, e_y, e_z)) *
+				Matrix4::create_rotation(Quaternion::look_rotation(Vector3(f_x, f_y, f_z), Vector3(u_x, u_y, u_z)));
 
 		} else if (parser.match("Camera")) {
 			StringView type = parse_quoted(parser);
@@ -500,8 +488,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 				WARNING(parser.location, "Unsupported Camera type '%.*s'!\m", unsigned(type.length()), type.start);
 			}
 
-			scene.camera.position = attribute_stack.back().transform.position;
-			scene.camera.rotation = attribute_stack.back().transform.rotation;
+			Matrix4::decompose(attribute_stack.back().transform, &scene.camera.position, &scene.camera.rotation, nullptr);
 
 		} else if (parser.match("Texture")) {
 			StringView name = parse_quoted(parser);
@@ -633,9 +620,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 					current_object.shapes.push_back(instance);
 				} else {
 					Mesh & mesh = scene.add_mesh(filename_rel, mesh_data_handle, attribute_stack.back().material);
-					mesh.position = attribute_stack.back().transform.position;
-					mesh.rotation = attribute_stack.back().transform.rotation;
-					mesh.scale    = attribute_stack.back().transform.scale;
+					Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 				}
 
 				delete [] filename_abs;
@@ -697,14 +682,9 @@ static void load_include(const char * filename, const char * path, int path_leng
 			} else if (type == "sphere") {
 				float radius = find_param_float(params, "radius", 1.0f);
 
-				Matrix4 transform =
-					Matrix4::create_translation(attribute_stack.back().transform.position) *
-					Matrix4::create_rotation   (attribute_stack.back().transform.rotation) *
-					Matrix4::create_scale      (attribute_stack.back().transform.scale * radius);
-
 				int        triangle_count;
 				Triangle * triangles;
-				Geometry::sphere(triangles, triangle_count, transform);
+				Geometry::sphere(triangles, triangle_count, attribute_stack.back().transform);
 
 				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 				scene.add_mesh("Sphere", mesh_data_handle, attribute_stack.back().material);
@@ -718,9 +698,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			if (attribute_stack.size() != 1) {
 				ERROR(parser.location, "Invalid AttributeBegin block!\n");
 			}
-			attribute_stack.back().transform.position = Vector3(0.0f, 0.0f, 0.0f);
-			attribute_stack.back().transform.rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
-			attribute_stack.back().transform.scale    = 1.0f;
+			attribute_stack.back().transform = Matrix4();
 
 		} else if (parser.match("WorldEnd")) {
 			parser_skip(parser);
