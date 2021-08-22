@@ -87,7 +87,7 @@ static void calc_timing();
 static void draw_gui();
 
 int main(int argument_count, char ** arguments) {
-	const char * scene_filename = "D:\\Data\\pbrt-v4-scenes\\bistro\\bistro_cafe.pbrt"; // "C:/Users/Startklaar/Downloads/mesh_00023.ply"; // DATA_PATH("Sponza/scene.xml");
+	const char * scene_filename = DATA_PATH("Sponza/scene.xml");
 	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
 
 	if (argument_count > 1) {
