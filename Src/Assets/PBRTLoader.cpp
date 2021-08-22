@@ -485,7 +485,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 				scene.camera.aperture_radius = find_param_float(params, "lensradius", 0.1f);
 				scene.camera.focal_distance  = find_param_float(params, "focaldistance", 10.0f);
 			} else {
-				WARNING(parser.location, "Unsupported Camera type '%.*s'!\m", unsigned(type.length()), type.start);
+				WARNING(parser.location, "Unsupported Camera type '%.*s'!\n", unsigned(type.length()), type.start);
 			}
 
 			Matrix4::decompose(attribute_stack.back().transform, &scene.camera.position, &scene.camera.rotation, nullptr);

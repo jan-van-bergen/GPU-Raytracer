@@ -338,6 +338,7 @@ static void draw_gui() {
 			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
 			ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
+			ImGui::Text("Num Triangles:  %i", pathtracer.scene.triangle_count);
 		}
 
 		if (ImGui::IsMouseClicked(1)) {
