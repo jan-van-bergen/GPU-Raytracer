@@ -46,8 +46,6 @@ void AssetManager::init() {
 	thread_pool.init();
 }
 
-#include "PLYLoader.h"
-
 MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
 
