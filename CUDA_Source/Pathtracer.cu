@@ -60,10 +60,10 @@ extern "C" __global__ void kernel_generate(
 	int pixel_index = x + y * screen_pitch;
 	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
 
-	float u0 = random_float_xorshift(seed);
 	float u1 = random_float_xorshift(seed);
-	float u2 = random_float_heitz(x, y, sample_index, 0, 0, seed);
-	float u3 = random_float_heitz(x, y, sample_index, 0, 1, seed);
+	float u2 = random_float_xorshift(seed);
+	float u3 = random_float_heitz(x, y, sample_index, 0, 0, seed);
+	float u4 = random_float_heitz(x, y, sample_index, 0, 1, seed);
 
 	float2 jitter;
 
@@ -94,7 +94,7 @@ extern "C" __global__ void kernel_generate(
 	float y_jittered = float(y) + jitter.y;
 
 	float3 focal_point = camera.focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
-	float2 lens_point  = camera.aperture_radius * random_point_in_regular_n_gon<5>(u2, u3);
+	float2 lens_point  = camera.aperture_radius * random_point_in_regular_n_gon<5>(u3, u4);
 
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);
