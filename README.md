@@ -29,7 +29,7 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - *Diffuse*
   - *Dielectrics*
   - *Microfacets* (GGX)
-- Mitsuba XML Scene support: A custom Mitsuba XML parser is included to load scene files.
+- Mitsuba XML Scene support: A custom Mitsuba XML parser is included to load scene files. Custom loaders for OBJ and PLY files are available.
 
 ## Screenshots
 
