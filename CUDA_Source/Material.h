@@ -63,7 +63,7 @@ struct MaterialGlossy {
 	float3 diffuse;
 	int    texture_id;
 	float  index_of_refraction;
-	float  roughness; 
+	float  roughness;
 };
 
 __device__ inline MaterialLight material_as_light(int material_id) {
@@ -180,12 +180,12 @@ __device__ inline float ggx_G1(const float3 & omega, float alpha_x2, float alpha
 __device__ inline float3 ggx_sample_distribution_of_normals(const float3 & omega, float alpha_x, float alpha_y, float u1, float u2){
 	// Transform the view direction to the hemisphere configuration
 	float3 v = normalize(make_float3(alpha_x * omega.x, alpha_y * omega.y, omega.z));
-	
+
 	// Orthonormal basis (with special case if cross product is zero)
 	float length_squared = v.x*v.x + v.y*v.y;
 	float3 axis_1 = length_squared > 0.0f ? make_float3(-v.y, v.x, 0.0f) / sqrt(length_squared) : make_float3(1.0f, 0.0f, 0.0f);
 	float3 axis_2 = cross(v, axis_1);
-	
+
 	// Parameterization of the projected area
 	float r = sqrt(u1);
 	float phi = TWO_PI * u2;
@@ -199,10 +199,10 @@ __device__ inline float3 ggx_sample_distribution_of_normals(const float3 & omega
 
 	float s = 0.5f * (1.0f + v.z);
 	t2 = (1.0f - s) * sqrtf(1.0 - t1*t1) + s*t2;
-	
+
 	// Reproject onto hemisphere
 	float3 n_h = t1*axis_1 + t2*axis_2 + sqrtf(fmaxf(0.0f, 1.0f - t1*t1 - t2*t2)) * v;
-	
+
 	// Transform the normal back to the ellipsoid configuration
 	return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, fmaxf(0.0f, n_h.z)));
 }

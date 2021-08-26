@@ -56,7 +56,7 @@ struct HitBuffer {
 
 		ray_hit.mesh_id     = hit.x;
 		ray_hit.triangle_id = hit.y;
-		
+
 		ray_hit.t = uint_as_float(hit.z);
 
 		ray_hit.u = float(hit.w & 0xffff) / 65535.0f;
@@ -85,7 +85,7 @@ struct TraceBuffer {
 
 // Input to the various Shade Kernels in SoA layout
 struct MaterialBuffer {
-	Vector3_SoA direction;	
+	Vector3_SoA direction;
 
 #if ENABLE_MIPMAPPING
 	float2 * cone;

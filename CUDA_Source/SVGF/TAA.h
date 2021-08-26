@@ -44,7 +44,7 @@ extern "C" __global__ void kernel_taa(int sample_index) {
 			if (i < 0 || i >= screen_width) continue;
 
 			float weight =
-				mitchell_netravali(float(i) + 0.5f - s_prev) * 
+				mitchell_netravali(float(i) + 0.5f - s_prev) *
 				mitchell_netravali(float(j) + 0.5f - t_prev);
 
 			sum_weight += weight;
@@ -79,7 +79,7 @@ extern "C" __global__ void kernel_taa(int sample_index) {
 				colour_var += f * f;
 			}
 		}
-		
+
 		if (y >= 1) {
 			float3 f = rgb_to_ycocg(make_float3(taa_frame_curr[pixel_index - screen_pitch]));
 

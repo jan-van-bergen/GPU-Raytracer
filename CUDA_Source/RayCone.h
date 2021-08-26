@@ -7,7 +7,7 @@ __device__ inline void ray_cone_get_ellipse_axes(
 ) {
 	float3 h_1 = ray_direction - dot(geometric_normal, ray_direction) * geometric_normal;
 	float3 h_2 = cross(geometric_normal, h_1);
-	
+
 	ellipse_axis_1 = cone_width / max(0.0001f, length(h_1 - dot(ray_direction, h_1) * ray_direction)) * h_1;
 	ellipse_axis_2 = cone_width / max(0.0001f, length(h_2 - dot(ray_direction, h_2) * ray_direction)) * h_2;
 }

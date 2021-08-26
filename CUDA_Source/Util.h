@@ -35,7 +35,7 @@ struct Surface {
 	__device__ inline T get(int x, int y) const {
 		// assert(x >= 0 && x < screen_width);
 		// assert(y >= 0 && y < screen_height);
-		
+
 		T value;
 		surf2Dread<T>(&value, surface, x * sizeof(T), y, cudaBoundaryModeClamp);
 		return value;
@@ -141,15 +141,15 @@ __device__ inline void orthonormal_basis(const float3 & normal, float3 & tangent
 	float sign = copysignf(1.0f, normal.z);
 	float a = -1.0f / (sign + normal.z);
 	float b = normal.x * normal.y * a;
-	
+
 	tangent  = make_float3(1.0f + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
 	binormal = make_float3(b, sign + normal.y * normal.y * a, -normal.y);
 }
 
 __device__ inline float3 local_to_world(const float3 & vector, const float3 & tangent, const float3 & binormal, const float3 & normal) {
 	return make_float3(
-		tangent.x * vector.x + binormal.x * vector.y + normal.x * vector.z, 
-		tangent.y * vector.x + binormal.y * vector.y + normal.y * vector.z, 
+		tangent.x * vector.x + binormal.x * vector.y + normal.x * vector.z,
+		tangent.y * vector.x + binormal.y * vector.y + normal.y * vector.z,
 		tangent.z * vector.x + binormal.z * vector.y + normal.z * vector.z
 	);
 }
@@ -167,7 +167,7 @@ __device__ inline int atomic_agg_inc(int * ctr) {
 	int mask   = active_thread_mask();
 	int leader = __ffs(mask) - 1;
 	int laneid = threadIdx.x & 31;
-	
+
 	int res;
 	if (laneid == leader) {
 		res = atomicAdd(ctr, __popc(mask));
@@ -183,7 +183,7 @@ __device__ inline float2 oct_encode_normal(float3 n) {
 
 	if (n.z < 0.0f) {
 		// Oct wrap
-		n.x = (1.0f - abs(n.y)) * (n.x >= 0.0f ? +1.0f : -1.0f);	
+		n.x = (1.0f - abs(n.y)) * (n.x >= 0.0f ? +1.0f : -1.0f);
 		n.y = (1.0f - abs(n.x)) * (n.y >= 0.0f ? +1.0f : -1.0f);
 	}
 
@@ -213,7 +213,7 @@ __device__ float mitchell_netravali(float x) {
 	if (x < 1.0f) {
 		return (1.0f / 6.0f) * ((12.0f - 9.0f * B - 6.0f * C) * x3 + (-18.0f + 12.0f * B + 6.0f  * C) * x2 + (6.0f - 2.0f * B));
 	} else if (x < 2.0f) {
-		return (1.0f / 6.0f) * (              (-B - 6.0f * C) * x3 +           (6.0f * B + 30.0f * C) * x2 + (-12.0f * B - 48.0f * C) * x + (8.0f * B + 24.0f * C)); 
+		return (1.0f / 6.0f) * (              (-B - 6.0f * C) * x3 +           (6.0f * B + 30.0f * C) * x2 + (-12.0f * B - 48.0f * C) * x + (8.0f * B + 24.0f * C));
 	} else {
 		return 0.0f;
 	}
@@ -263,7 +263,7 @@ __device__ float vmin_min(float a, float b, float c) {
 	int result;
 
 	asm("vmin.s32.s32.s32.min %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
-	
+
 	return __int_as_float(result);
 }
 
@@ -272,16 +272,16 @@ __device__ float vmin_max(float a, float b, float c) {
 	int result;
 
 	asm("vmin.s32.s32.s32.max %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
-	
+
 	return __int_as_float(result);
 }
 
 // Computes min(max(a, b), c)
 __device__ float vmax_min(float a, float b, float c) {
 	int result;
-	
+
 	asm("vmax.s32.s32.s32.min %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
-	
+
 	return __int_as_float(result);
 }
 
@@ -290,6 +290,6 @@ __device__ float vmax_max(float a, float b, float c) {
 	int result;
 
 	asm("vmax.s32.s32.s32.max %0, %1, %2, %3;" : "=r"(result) : "r"(__float_as_int(a)), "r"(__float_as_int(b)), "r"(__float_as_int(c)));
-	
+
 	return __int_as_float(result);
 }

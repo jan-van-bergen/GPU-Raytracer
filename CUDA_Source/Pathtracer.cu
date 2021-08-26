@@ -23,7 +23,7 @@ __device__ __constant__ float4 * frame_buffer_direct;
 __device__ __constant__ float4 * frame_buffer_indirect;
 
 // Final Frame Buffer, shared with OpenGL
-__device__ __constant__ Surface<float4> accumulator; 
+__device__ __constant__ Surface<float4> accumulator;
 
 #include "Raytracing/BVH.h"
 
@@ -70,7 +70,7 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 			case ReconstructionFilter::GAUSSIAN: {
 				float2 gaussians = box_muller(rand_filter.x, rand_filter.y);
 				jitter.x = 0.5f + 0.5f * gaussians.x;
-				jitter.y = 0.5f + 0.5f * gaussians.y;		
+				jitter.y = 0.5f + 0.5f * gaussians.y;
 				break;
 			}
 		}
@@ -148,32 +148,32 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		pixel_query.material_id = material_id;
 	}
 
-	if (material_type == MaterialType::LIGHT) {	
+	if (material_type == MaterialType::LIGHT) {
 		// Obtain the Light's position and normal
 		TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
-		
+
 		float3 light_point;
 		float3 light_normal;
 		triangle_barycentric(light, hit.u, hit.v, light_point, light_normal);
-		
+
 		float3 light_point_prev = light_point;
-		
+
 		// Transform into world space
 		Matrix3x4 world = mesh_get_transform(hit.mesh_id);
 		matrix3x4_transform_position (world, light_point);
 		matrix3x4_transform_direction(world, light_normal);
-		
+
 		light_normal = normalize(light_normal);
-		
+
 		if (bounce == 0 && settings.enable_svgf) {
 			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 			matrix3x4_transform_position(world_prev, light_point_prev);
-			
+
 			svgf_set_gbuffers(x, y, hit, light_point, light_normal, light_point_prev);
 		}
 
 		MaterialLight material_light = material_as_light(material_id);
-		
+
 		bool should_count_light_contribution = settings.enable_next_event_estimation ? !mis_eligable : true;
 		if (should_count_light_contribution) {
 			float3 illumination = ray_throughput * material_light.emission;
@@ -192,7 +192,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			return;
 		}
 
-		if (settings.enable_multiple_importance_sampling) {		
+		if (settings.enable_multiple_importance_sampling) {
 			float3 to_light = light_point - ray_origin;;
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
@@ -226,14 +226,14 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
 		// This deteriorates Russian Roulette performance, so albedo is included here
 		float3 throughput_with_albedo = ray_throughput * make_float3(frame_buffer_albedo[ray_pixel_index]);
-		
+
 		float survival_probability  = saturate(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
 		float rand_russian_roulette = random<SampleDimension::RUSSIAN_ROULETTE>(ray_pixel_index, bounce, sample_index).x;
 
 		if (rand_russian_roulette > survival_probability) {
 			return;
 		}
-		
+
 		ray_throughput /= survival_probability;
 	}
 
@@ -247,7 +247,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			if (bounce > 0) ray_buffer_shade_diffuse.cone[index_out] = ray_buffer_trace.cone[index];
 #endif
 			ray_buffer_shade_diffuse.hits.set(index_out, hit);
-			
+
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_pixel_index;
 			if (bounce > 0) ray_buffer_shade_diffuse.throughput.set(index_out, ray_throughput);
 
@@ -302,7 +302,7 @@ __device__ inline float3 sample_albedo(
 	const float3            & ray_direction,
 	const float2            * cone_buffer,
 	int                       cone_buffer_index,
-	float                   & cone_angle, 
+	float                   & cone_angle,
 	float                   & cone_width
 ) {
 	float3 albedo;
@@ -415,7 +415,7 @@ __device__ inline void nee_sample(
 		float brdf = brdf_evaluator(to_light, brdf_pdf);
 
 		float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
-		
+
 		float pdf;
 		if (settings.enable_multiple_importance_sampling) {
 			pdf = brdf_pdf + light_pdf;
@@ -503,7 +503,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 #endif
 
 	float3 throughput = ray_throughput;
-	
+
 	if (bounce > 0) {
 		throughput *= albedo;
 	} else if (settings.modulate_albedo || settings.enable_svgf) {
@@ -538,7 +538,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_world);
-	
+
 #if ENABLE_MIPMAPPING
 	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
 #endif
@@ -594,14 +594,14 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 	float eta_2;
 
 	float dir_dot_normal = dot(ray_direction, hit_normal);
-	if (dir_dot_normal < 0.0f) { 
-		// Entering material		
+	if (dir_dot_normal < 0.0f) {
+		// Entering material
 		eta_1 = 1.0f;
 		eta_2 = material.index_of_refraction;
 
 		normal    =  hit_normal;
 		cos_theta = -dir_dot_normal;
-	} else { 
+	} else {
 		// Leaving material
 		eta_1 = material.index_of_refraction;
 		eta_2 = 1.0f;
@@ -648,7 +648,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 	float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
 	float  cone_angle = cone.x;
 	float  cone_width = cone.y + cone_angle * hit.t;
-	
+
 	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
 	float curvature = triangle_get_curvature(
@@ -657,7 +657,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 		hit_triangle.normal_edge_1,
 		hit_triangle.normal_edge_2
 	) / mesh_scale;
-	
+
 	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 
 	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
@@ -678,7 +678,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 
 	int ray_pixel_index = ray_buffer_shade_dielectric_and_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
-	int y = ray_pixel_index / screen_pitch; 
+	int y = ray_pixel_index / screen_pitch;
 
 	float3 ray_throughput;
 	if (bounce == 0) {
@@ -739,7 +739,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	} else if (settings.modulate_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
-	
+
 	if (bounce == 0 && settings.enable_svgf) {
 		float3 hit_point_prev = hit_point_local;
 
@@ -752,7 +752,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
 	float alpha = material.roughness; // (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
 	float alpha2 = alpha * alpha;
-	
+
 	// Construct orthonormal basis
 	float3 hit_tangent, hit_binormal;
 	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
@@ -771,7 +771,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	// Importance sample distribution of normals
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 
-	float3 micro_normal_local = ggx_sample_distribution_of_normals(omega_i, alpha, alpha, rand_brdf.x, rand_brdf.y);	
+	float3 micro_normal_local = ggx_sample_distribution_of_normals(omega_i, alpha, alpha, rand_brdf.x, rand_brdf.y);
     float3 omega_o = reflect(-omega_i, micro_normal_local);
 
 	float3 half_vector = normalize(omega_o + omega_i);
@@ -824,7 +824,7 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 
 	if (settings.modulate_albedo) {
 		colour *= frame_buffer_albedo[pixel_index];
-	}	
+	}
 
 	if (frames_accumulated > 0.0f) {
 		float4 colour_prev = accumulator.get(x, y);

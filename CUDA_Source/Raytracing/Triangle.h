@@ -111,7 +111,7 @@ __device__ inline float triangle_get_lod(
 	float t_a = fabsf(
 		tex_coord_edge_1.x * tex_coord_edge_2.y -
 		tex_coord_edge_2.x * tex_coord_edge_1.y
-	); 
+	);
 
 	return t_a * triangle_area_inv / (mesh_scale * mesh_scale);
 }
