@@ -772,7 +772,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 
 	float3 micro_normal_local = ggx_sample_distribution_of_normals(omega_i, alpha, alpha, rand_brdf.x, rand_brdf.y);
-    float3 omega_o = reflect(-omega_i, micro_normal_local);
+	float3 omega_o = reflect(-omega_i, micro_normal_local);
 
 	float3 half_vector = normalize(omega_o + omega_i);
 	float mu = fmaxf(0.0, dot(omega_o, half_vector));
