@@ -27,7 +27,6 @@ enum struct ReconstructionFilter {
 struct Settings {
 	int num_bounces = 5;
 
-	bool enable_rasterization                = false;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_scene_update                 = false;
