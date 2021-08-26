@@ -193,14 +193,14 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		}
 
 		if (settings.enable_multiple_importance_sampling) {
-			float3 to_light = light_point - ray_origin;;
+			float3 to_light = light_point - ray_origin;
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
 
 			to_light /= distance_to_light; // Normalize
 
-			float cos_o = fabsf(dot(to_light, light_normal));
-			// if (cos_o <= 0.0f) return;
+			float cos_o = dot(to_light, light_normal);
+			if (cos_o <= 0.0f) return;
 
 			float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
 
@@ -749,10 +749,9 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
-	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = material.roughness; // (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
-	float alpha2 = alpha * alpha;
-
+	float alpha = material.roughness;
+	float ior   = material.index_of_refraction;
+	
 	// Construct orthonormal basis
 	float3 hit_tangent, hit_binormal;
 	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
@@ -762,7 +761,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
 		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
 			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
-			return ggx_eval(omega_o, omega_i, material.index_of_refraction, alpha, alpha, pdf);
+			return ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf);
 		});
 	}
 
@@ -774,19 +773,9 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	float3 micro_normal_local = sample_ggx_distribution_of_normals(omega_i, alpha, alpha, rand_brdf.x, rand_brdf.y);
 	float3 omega_o = reflect(-omega_i, micro_normal_local);
 
-	float3 half_vector = normalize(omega_o + omega_i);
-	float mu = fmaxf(0.0, dot(omega_o, half_vector));
-
-	float F = fresnel_schlick(material.index_of_refraction, 1.0f, mu);
-	float D = ggx_D(half_vector, alpha, alpha);
-
-	// Masking/shadowing using two monodirectional Smith terms
-	float G1_o = ggx_G1(omega_o, alpha2, alpha2);
-	float G1_i = ggx_G1(omega_i, alpha2, alpha2);
-	float G2 = G1_o * G1_i;
-
-	float pdf = G1_o * D * mu / (4.0f * omega_i.z * omega_o.z);
-	throughput *= F * G2 / (G1_o * mu);
+	float pdf;
+	throughput *= ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf);
+	throughput /= pdf;
 
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
 
