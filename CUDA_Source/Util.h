@@ -69,6 +69,65 @@ __device__ inline float3 ycocg_to_rgb(const float3 & colour) {
 	);
 }
 
+__device__ inline unsigned wang_hash(unsigned seed) {
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+
+    return seed;
+}
+
+// Based on: https://github.com/blender/blender/blob/master/intern/cycles/kernel/kernel_jitter.h#L122
+__device__ inline unsigned hash_with(unsigned i, unsigned p) {
+	i = (i ^ 61) ^ p;
+	i += i << 3;
+	i ^= i >> 4;
+	i *= 0x27d4eb2d;
+	return i;
+}
+
+__device__ inline unsigned hash_combine(unsigned a, unsigned b) {
+	return a ^ (b + 0x9e3779b9 + (a << 6) + (a >> 2));
+}
+
+// Based on: https://github.com/mmp/pbrt-v4/blob/master/src/pbrt/util/math.h
+__device__ inline unsigned permutation_elem(unsigned index, unsigned length, unsigned seed) {
+	unsigned mask = length - 1; // NOTE: Assumes length is a power of two
+
+	do {
+		index ^= seed;
+		index *= 0xe170893d;
+		index ^= seed >> 16;
+		index ^= (index & mask) >> 4;
+		index ^= seed >> 8;
+		index *= 0x0929eb3f;
+		index ^= seed >> 23;
+		index ^= (index & mask) >> 1;
+		index *= 1 | seed >> 27;
+		index *= 0x6935fa69;
+		index ^= (index & mask) >> 11;
+		index *= 0x74dcb303;
+		index ^= (index & mask) >> 2;
+		index *= 0x9e501cc3;
+		index ^= (index & mask) >> 2;
+		index *= 0xc860a3df;
+		index &= mask;
+		index ^= index >> 5;
+	} while (index >= length);
+
+	return (index + seed) % length;
+}
+
+__device__ inline constexpr bool is_power_of_two(unsigned x) {
+	if (x) {
+		return (x & (x - 1)) == 0;
+	} else {
+		return false;
+	}
+}
+
 template<typename T>
 __device__ T lerp(T const & a, T const & b, float t) {
 	return (1.0f - t) * a + t * b;

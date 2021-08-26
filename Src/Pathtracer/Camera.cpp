@@ -5,8 +5,6 @@
 
 #include "Input.h"
 
-#include "Util/Random.h"
-
 void Camera::resize(int width, int height) {
 	screen_width  = float(width);
 	screen_height = float(height);

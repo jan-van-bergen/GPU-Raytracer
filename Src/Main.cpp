@@ -10,7 +10,6 @@
 #include "Window.h"
 
 #include "Util/Util.h"
-#include "Util/Random.h"
 #include "Util/PerfTest.h"
 #include "Util/ScopeTimer.h"
 
@@ -43,7 +42,7 @@ struct Timing {
 	double max;
 	double history[FRAMETIME_HISTORY_LENGTH];
 
-	int frame_index ;
+	int frame_index;
 } static timing;
 
 static void capture_screen(const Window & window, const char * file_name) {
@@ -104,7 +103,6 @@ int main(int argument_count, char ** arguments) {
 		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
 
 		perf_test.init(&pathtracer, false, scene_filename);
-		Random::init(1337);
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());

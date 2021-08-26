@@ -65,6 +65,11 @@ struct Settings {
 #define MAX_BOUNCES 20
 
 
+// PMJ
+#define PMJ_NUM_SEQUENCES 64
+#define PMJ_NUM_SAMPLES_PER_SEQUENCE 4096
+
+
 // SVGF
 #define MAX_ATROUS_ITERATIONS 10
 
