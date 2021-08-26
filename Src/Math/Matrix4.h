@@ -186,7 +186,7 @@ struct alignas(16) Matrix4 {
 			if (Math::approx_equal(scale_x, scale_y) && Math::approx_equal(scale_y, scale_z)) {
 				*scale = scale_x;
 			} else {
-				*scale = cbrt(scale_x * scale_y * scale_z);
+				*scale = cbrtf(scale_x * scale_y * scale_z);
 			}
 		}
 	}
