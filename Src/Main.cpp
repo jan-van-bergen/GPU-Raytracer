@@ -117,13 +117,13 @@ int main(int argument_count, char ** arguments) {
 
 		window.render_framebuffer();
 
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || timing.frame_index == capture_frame_index) {
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == capture_frame_index) {
 			char screenshot_name[32];
-			sprintf_s(screenshot_name, "screenshot_%i.ppm", timing.frame_index);
+			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
 
 			capture_screen(window, screenshot_name);
 
-			if (timing.frame_index == capture_frame_index && exit_after_capture) break;
+			if (pathtracer.frames_accumulated == capture_frame_index && exit_after_capture) break;
 		}
 
 		calc_timing();
@@ -195,7 +195,7 @@ static void draw_gui() {
 
 	if (ImGui::Begin("Pathtracer")) {
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Frame: %i - Index: %i", timing.frame_index, pathtracer.frames_accumulated);
+			ImGui::Text("Frame: %i", pathtracer.frames_accumulated);
 			ImGui::Text("Delta: %.2f ms", 1000.0f * timing.delta_time);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * timing.avg);
 			ImGui::Text("Min:   %.2f ms", 1000.0f * timing.min);
