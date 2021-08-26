@@ -80,7 +80,7 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 	float y_jittered = float(y) + jitter.y;
 
 	float3 focal_point = camera.focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
-	float2 lens_point  = camera.aperture_radius * sample_point_in_regular_n_gon<5>(rand_aperture.x, rand_aperture.y);
+	float2 lens_point  = camera.aperture_radius * sample_disk(rand_aperture.x, rand_aperture.y);
 
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);

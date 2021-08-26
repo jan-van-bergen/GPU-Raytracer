@@ -94,28 +94,27 @@ __device__ inline unsigned hash_combine(unsigned a, unsigned b) {
 
 // Based on: https://github.com/mmp/pbrt-v4/blob/master/src/pbrt/util/math.h
 __device__ inline unsigned permute(unsigned index, unsigned length, unsigned seed) {
-	unsigned mask = length - 1; // NOTE: Assumes length is a power of two
+	// NOTE: Assumes length is a power of two
+	unsigned mask = length - 1;
 
-	do {
-		index ^= seed;
-		index *= 0xe170893d;
-		index ^= seed >> 16;
-		index ^= (index & mask) >> 4;
-		index ^= seed >> 8;
-		index *= 0x0929eb3f;
-		index ^= seed >> 23;
-		index ^= (index & mask) >> 1;
-		index *= 1 | seed >> 27;
-		index *= 0x6935fa69;
-		index ^= (index & mask) >> 11;
-		index *= 0x74dcb303;
-		index ^= (index & mask) >> 2;
-		index *= 0x9e501cc3;
-		index ^= (index & mask) >> 2;
-		index *= 0xc860a3df;
-		index &= mask;
-		index ^= index >> 5;
-	} while (index >= length);
+	index ^= seed;
+	index *= 0xe170893d;
+	index ^= seed >> 16;
+	index ^= (index & mask) >> 4;
+	index ^= seed >> 8;
+	index *= 0x0929eb3f;
+	index ^= seed >> 23;
+	index ^= (index & mask) >> 1;
+	index *= 1 | seed >> 27;
+	index *= 0x6935fa69;
+	index ^= (index & mask) >> 11;
+	index *= 0x74dcb303;
+	index ^= (index & mask) >> 2;
+	index *= 0x9e501cc3;
+	index ^= (index & mask) >> 2;
+	index *= 0xc860a3df;
+	index &= mask;
+	index ^= index >> 5;
 
 	return (index + seed) & mask;
 }

@@ -44,7 +44,7 @@ __device__ float2 box_muller(float u1, float u2) {
 	return make_float2(f * cos_a, f * sin_a);
 }
 
-// Based on Heitz - A Low-Distortion Map Between Triangle and Square 
+// Based on: Heitz - A Low-Distortion Map Between Triangle and Square 
 __device__ float2 sample_triangle(float u1, float u2) {
 	float2 uv = make_float2(0.5f * u1, 0.5f * u2);
 	float offset = uv.y - uv.x;
@@ -56,50 +56,29 @@ __device__ float2 sample_triangle(float u1, float u2) {
 	return uv;
 }
 
-__device__ float2 sample_point_in_disk(float u1, float u2) {
-	float r     = sqrt(u1);
-	float theta = TWO_PI * u2;
+// Based on: http://psgraphics.blogspot.com/2011/01/improved-code-for-concentric-map.html
+__device__ float2 sample_disk(float u1, float u2) {
+	float a = 2.0f * u1 - 1.0f;
+	float b = 2.0f * u2 - 1.0f;
 
-	float sin_theta, cos_theta;
-	__sincosf(theta, &sin_theta, &cos_theta);
+	float phi, r;
+	if (a*a > b*b) {
+		r = a;
+		phi = (0.25f * PI) * (b/a);
+	} else {
+		r = b;
+		phi = (0.25f * PI) * (a/b) + (0.5f * PI);
+	}
 
-	return r * make_float2(cos_theta, sin_theta);
-}
+	float sin_phi, cos_phi;
+	__sincosf(phi, &sin_phi, &cos_phi);
 
-template<int N>
-__device__ float2 sample_point_in_regular_n_gon(float u1, float u2) {
-	static_assert(N >= 3, "Regular n-gon must at least be a triangle!");
-
-	constexpr float n = (float)N;
-	constexpr float theta = TWO_PI / n;
-
-	// Picks point in regular n-gon by first picking a random triangle,
-	// remapping u1 to compensate, and then pick a random point within the triangle
-	float t = floor(u1 * n);
-
-	float sin_t_theta,   cos_t_theta;
-	float sin_t_theta_1, cos_t_theta_1;
-	__sincosf((t)        * theta, &sin_t_theta,   &cos_t_theta);
-	__sincosf((t + 1.0f) * theta, &sin_t_theta_1, &cos_t_theta_1);
-
-	u1 = (u1 - t/n) * n; // Remap u1
-
-	float2 uv = sample_triangle(u1, u2);
-
-	return 
-		uv.x * make_float2(cos_t_theta,   sin_t_theta) +
-		uv.y * make_float2(cos_t_theta_1, sin_t_theta_1);
+	return make_float2(r * cos_phi, r * sin_phi);
 }
 
 __device__ float3 sample_cosine_weighted_direction(float u1, float u2) {
-	float sin_theta, cos_theta;
-	sincos(TWO_PI * u1, &sin_theta, &cos_theta);
-
-	float r = sqrtf(u2);
-	float xf = r * cos_theta;
-	float yf = r * sin_theta;
-	
-	return normalize(make_float3(xf, yf, sqrtf(1.0f - u2)));
+	float2 d = sample_disk(u1, u2);
+	return make_float3(d.x, d.y, sqrtf(1.0f - dot(d, d)));
 }
 
 __device__ int sample_light(float u1, float u2, int & transform_id) {
