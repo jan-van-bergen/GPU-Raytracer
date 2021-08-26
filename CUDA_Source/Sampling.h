@@ -27,7 +27,7 @@ __device__ float2 random(unsigned pixel_index, unsigned bounce, unsigned sample_
 		return make_float2(x, y);
 	}
 
-	unsigned index = permutation_elem(sample_index, PMJ_NUM_SAMPLES_PER_SEQUENCE, hash);
+	unsigned index = permute(sample_index, PMJ_NUM_SAMPLES_PER_SEQUENCE, hash);
 	unsigned dim = unsigned(Dim) + unsigned(SampleDimension::NUM_BOUNCE) * bounce;
 
 	const float2 * pmj_sequence = pmj_samples + (dim % PMJ_NUM_SEQUENCES) * PMJ_NUM_SAMPLES_PER_SEQUENCE;

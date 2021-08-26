@@ -93,7 +93,7 @@ __device__ inline unsigned hash_combine(unsigned a, unsigned b) {
 }
 
 // Based on: https://github.com/mmp/pbrt-v4/blob/master/src/pbrt/util/math.h
-__device__ inline unsigned permutation_elem(unsigned index, unsigned length, unsigned seed) {
+__device__ inline unsigned permute(unsigned index, unsigned length, unsigned seed) {
 	unsigned mask = length - 1; // NOTE: Assumes length is a power of two
 
 	do {
@@ -117,7 +117,7 @@ __device__ inline unsigned permutation_elem(unsigned index, unsigned length, uns
 		index ^= index >> 5;
 	} while (index >= length);
 
-	return (index + seed) % length;
+	return (index + seed) & mask;
 }
 
 __device__ inline constexpr bool is_power_of_two(unsigned x) {
