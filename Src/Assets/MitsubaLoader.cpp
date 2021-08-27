@@ -483,21 +483,21 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
 		material.linear_roughness    = 0.0f;
-		material.index_of_refraction = bsdf->get_optional_child_value("eta", 1.0f);
+		material.index_of_refraction = inner_bsdf->get_optional_child_value("eta", 1.0f);
 	} else if (inner_bsdf_type->value == "roughconductor" || inner_bsdf_type->value == "roughdiffuse") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		material.linear_roughness    = bsdf->get_optional_child_value("alpha", 0.5f);
-		material.index_of_refraction = bsdf->get_optional_child_value("eta",   1.0f);
+		material.linear_roughness    = inner_bsdf->get_optional_child_value("alpha", 0.5f);
+		material.index_of_refraction = inner_bsdf->get_optional_child_value("eta",   1.0f);
 	} else if (inner_bsdf_type->value == "plastic" || inner_bsdf_type->value == "roughplastic") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		material.linear_roughness    = bsdf->get_optional_child_value("alpha",  0.5f);
-		material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.0f);
+		material.linear_roughness    = inner_bsdf->get_optional_child_value("alpha",  0.5f);
+		material.index_of_refraction = inner_bsdf->get_optional_child_value("intIOR", 1.0f);
 
 		const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
 		if (nonlinear && nonlinear->find_attribute("value")->get_value<bool>()) {
@@ -506,7 +506,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	} else if (inner_bsdf_type->value == "thindielectric" || inner_bsdf_type->value == "dielectric" || inner_bsdf_type->value == "roughdielectric") {
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance = Vector3(1.0f);
-		material.index_of_refraction = bsdf->get_optional_child_value("intIOR", 1.333f);
+		material.index_of_refraction = inner_bsdf->get_optional_child_value("intIOR", 1.333f);
 	} else if (inner_bsdf_type->value == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
 
