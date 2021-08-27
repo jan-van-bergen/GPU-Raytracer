@@ -46,14 +46,14 @@ __device__ float2 box_muller(float u1, float u2) {
 
 // Based on: Heitz - A Low-Distortion Map Between Triangle and Square
 __device__ float2 sample_triangle(float u1, float u2) {
-	float2 uv = make_float2(0.5f * u1, 0.5f * u2);
-	float offset = uv.y - uv.x;
-	if (offset > 0.0f) {
-		uv.y += offset;
+	if (u2 > u1) {
+		u1 *= 0.5f;
+		u2 -= u1;
 	} else {
-		uv.x -= offset;
+		u2 *= 0.5f;
+		u1 -= u2;
 	}
-	return uv;
+	return make_float2(u1, u2);
 }
 
 // Based on: http://psgraphics.blogspot.com/2011/01/improved-code-for-concentric-map.html
