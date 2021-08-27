@@ -199,8 +199,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			to_light /= distance_to_light; // Normalize
 
-			float cos_o = dot(to_light, light_normal);
-			if (cos_o <= 0.0f) return;
+			float cos_o = fabsf(dot(to_light, light_normal));
 
 			float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
 
