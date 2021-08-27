@@ -11,7 +11,7 @@ struct Matrix4x4 {
 };
 
 __device__ inline void matrix4x4_transform(const Matrix4x4 & matrix, float4 & position) {
-	position = make_float4( 
+	position = make_float4(
 		matrix.row_0.x * position.x + matrix.row_0.y * position.y + matrix.row_0.z * position.z + matrix.row_0.w * position.w,
 		matrix.row_1.x * position.x + matrix.row_1.y * position.y + matrix.row_1.z * position.z + matrix.row_1.w * position.w,
 		matrix.row_2.x * position.x + matrix.row_2.y * position.y + matrix.row_2.z * position.z + matrix.row_2.w * position.w,
@@ -80,7 +80,7 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 }
 
 __device__ inline float2 edge_stopping_weights(
-	int delta_x, 
+	int delta_x,
 	int delta_y,
 	const float2 & center_depth_gradient,
 	float center_depth,
@@ -95,9 +95,9 @@ __device__ inline float2 edge_stopping_weights(
 	float luminance_denom_indirect
 ) {
 	// ∇z(p)·(p−q) (Actually the negative of this but we take its absolute value)
-	float d = 
-		center_depth_gradient.x * float(delta_x) + 
-		center_depth_gradient.y * float(delta_y); 
+	float d =
+		center_depth_gradient.x * float(delta_x) +
+		center_depth_gradient.y * float(delta_y);
 
 	float ln_w_z = fabsf(center_depth - depth) / (settings.sigma_z * fabsf(d) + epsilon);
 
@@ -148,7 +148,7 @@ extern "C" __global__ void kernel_svgf_reproject(int sample_index) {
 
 	float s_prev = u_prev * float(screen_width) ;
 	float t_prev = v_prev * float(screen_height);
-	
+
 	int x_prev = int(s_prev - 0.5f);
 	int y_prev = int(t_prev - 0.5f);
 
@@ -243,11 +243,11 @@ extern "C" __global__ void kernel_svgf_reproject(int sample_index) {
 		direct   = lerp(prev_direct,   direct,   alpha_colour);
 		indirect = lerp(prev_indirect, indirect, alpha_colour);
 		moment   = lerp(prev_moment,   moment,   alpha_moment);
-		
+
 		if (history >= 4 || !settings.enable_spatial_variance) {
 			float variance_direct   = fmaxf(0.0f, moment.z - moment.x * moment.x);
 			float variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
-			
+
 			// Store the Variance in the alpha channels
 			direct  .w = variance_direct;
 			indirect.w = variance_indirect;
@@ -373,10 +373,10 @@ extern "C" __global__ void kernel_svgf_variance(
 
 	sum_weight_direct   = fmaxf(sum_weight_direct,   1e-6f);
 	sum_weight_indirect = fmaxf(sum_weight_indirect, 1e-6f);
-	
+
 	sum_colour_direct   /= sum_weight_direct;
 	sum_colour_indirect /= sum_weight_indirect;
-	
+
 	sum_moment /= make_float4(sum_weight_direct, sum_weight_indirect, sum_weight_direct, sum_weight_indirect);
 
 	float variance_direct   = fmaxf(0.0f, sum_moment.z - sum_moment.x * sum_moment.x);
@@ -388,7 +388,7 @@ extern "C" __global__ void kernel_svgf_variance(
 
 	sum_colour_direct  .w = variance_direct;
 	sum_colour_indirect.w = variance_indirect;
-		
+
 	// Store the Variance in the alpha channel
 	colour_direct_out  [pixel_index] = sum_colour_direct;
 	colour_indirect_out[pixel_index] = sum_colour_indirect;
@@ -423,7 +423,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 	// Filter Variance using a 3x3 Gaussian Blur
 	for (int j = -1; j <= 1; j++) {
 		int tap_y = clamp(y + j, 0, screen_height - 1);
-		
+
 		for (int i = -1; i <= 1; i++) {
 			int tap_x = clamp(x + i, 0, screen_width - 1);
 
@@ -477,9 +477,9 @@ extern "C" __global__ void kernel_svgf_atrous(
 
 		for (int i = -radius; i <= radius; i++) {
 			int tap_x = x + i * step_size;
-			
+
 			if (tap_x < 0 || tap_x >= screen_width) continue;
-			
+
 			if (i == 0 && j == 0) continue; // Center pixel is treated separately
 
 			float4 colour_direct   = colour_direct_in  [tap_x + tap_y * screen_pitch];
@@ -494,7 +494,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 			float depth = normal_and_depth.z;
 
 			float2 w = edge_stopping_weights(
-				i * step_size, 
+				i * step_size,
 				j * step_size,
 				center_depth_gradient,
 				center_depth, depth,
@@ -527,7 +527,7 @@ extern "C" __global__ void kernel_svgf_atrous(
 	sum_colour_indirect *= inv_sum_weight_indirect;
 
 	// Alpha channel contains Variance, and needs to be divided by the square of the weights
-	sum_colour_direct  .w *= inv_sum_weight_direct; 
+	sum_colour_direct  .w *= inv_sum_weight_direct;
 	sum_colour_indirect.w *= inv_sum_weight_indirect;
 
 	colour_direct_out  [pixel_index] = sum_colour_direct;

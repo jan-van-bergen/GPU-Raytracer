@@ -44,7 +44,7 @@ struct AABB {
 
 		float t_near = vmin_max(t0.x, t1.x, vmin_max(t0.y, t1.y, vmin_max(t0.z, t1.z, EPSILON)));
 		float t_far  = vmax_min(t0.x, t1.x, vmax_min(t0.y, t1.y, vmax_min(t0.z, t1.z, max_distance)));
-	
+
 		return t_near < t_far;
 	}
 };
@@ -176,7 +176,7 @@ __device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) 
 
 	int ray_index;
 	Ray ray;
-	
+
 	float max_distance;
 
 	int tlas_stack_size;
@@ -322,7 +322,7 @@ __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray 
 		vmin_max(tx0.y, tx1.y, vmin_max(ty0.y, ty1.y, vmin_max(tz0.y, tz1.y, EPSILON))),
 		vmin_max(tx0.z, tx1.z, vmin_max(ty0.z, ty1.z, vmin_max(tz0.z, tz1.z, EPSILON))),
 		vmin_max(tx0.w, tx1.w, vmin_max(ty0.w, ty1.w, vmin_max(tz0.w, tz1.w, EPSILON)))
-	); 
+	);
 	float4 t_far = make_float4(
 		vmax_min(tx0.x, tx1.x, vmax_min(ty0.x, ty1.x, vmax_min(tz0.x, tz1.x, max_distance))),
 		vmax_min(tx0.y, tx1.y, vmax_min(ty0.y, ty1.y, vmax_min(tz0.y, tz1.y, max_distance))),
@@ -350,9 +350,9 @@ __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray 
 				// int temp             = result.t_near_i[j  ];
 				// result.t_near_i[j  ] = result.t_near_i[j+1];
 				// result.t_near_i[j+1] = temp;
-				result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
-				result.t_near_i[j + 1] ^= result.t_near_i[j    ];	
-				result.t_near_i[j    ] ^= result.t_near_i[j + 1];	
+				result.t_near_i[j    ] ^= result.t_near_i[j + 1];
+				result.t_near_i[j + 1] ^= result.t_near_i[j    ];
+				result.t_near_i[j    ] ^= result.t_near_i[j + 1];
 			}
 		}
 	}
@@ -453,11 +453,11 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				int child = index;
 
 				AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, ray_hit.t);
-				
+
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
 					int id = aabb_hits.t_near_i[i] & 0b11;
-					
+
 					if (aabb_hits.hit[id]) {
 						stack_push(shared_stack, stack, stack_size, pack_qbvh_node(child, id));
 					}
@@ -481,7 +481,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 
 	int ray_index;
 	Ray ray;
-	
+
 	float max_distance;
 
 	int tlas_stack_size;
@@ -566,11 +566,11 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				int child = index;
 
 				AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, max_distance);
-				
+
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
 					int id = aabb_hits.t_near_i[i] & 0b11;
-					
+
 					if (aabb_hits.hit[id]) {
 						stack_push(shared_stack, stack, stack_size, pack_qbvh_node(child, id));
 					}
@@ -619,7 +619,7 @@ __device__ inline unsigned cwbvh_node_intersect(
 	byte e_x = extract_byte(e_imask, 0);
 	byte e_y = extract_byte(e_imask, 1);
 	byte e_z = extract_byte(e_imask, 2);
-	
+
 	float3 adjusted_ray_direction_inv = make_float3(
 		uint_as_float(e_x << 23) * ray.direction_inv.x,
 		uint_as_float(e_y << 23) * ray.direction_inv.y,
@@ -699,7 +699,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 	Ray ray;
 
 	unsigned oct_inv4;
-	
+
 	RayHit ray_hit;
 
 	int  tlas_stack_size;
@@ -718,7 +718,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 			ray.calc_direction_inv();
 
 			// Ray octant, encoded in 3 bits
-			unsigned oct = 
+			unsigned oct =
 				(ray.direction.x < 0.0f ? 0b100 : 0) |
 				(ray.direction.y < 0.0f ? 0b010 : 0) |
 				(ray.direction.z < 0.0f ? 0b001 : 0);
@@ -768,7 +768,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
 
 				byte imask = extract_byte(float_as_uint(node_0.w), 3);
-				
+
 				current_group .x = float_as_uint(node_1.x); // Child    base offset
 				triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
 
@@ -799,7 +799,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 					tlas_stack_size = stack_size;
 
 					int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
-					
+
 					mesh_has_identity_transform = root_index >> 31; // MSB stores whether the Mesh has an identity transform
 					root_index &= 0x7fffffff;
 
@@ -812,7 +812,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
-						unsigned oct = 
+						unsigned oct =
 							(ray.direction.x < 0.0f ? 0b100 : 0) |
 							(ray.direction.y < 0.0f ? 0b010 : 0) |
 							(ray.direction.z < 0.0f ? 0b001 : 0);
@@ -858,7 +858,7 @@ __device__ inline void bvh_trace(int ray_count, int * rays_retired) {
 						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
-						unsigned oct = 
+						unsigned oct =
 							(ray.direction.x < 0.0f ? 0b100 : 0) |
 							(ray.direction.y < 0.0f ? 0b010 : 0) |
 							(ray.direction.z < 0.0f ? 0b001 : 0);
@@ -906,7 +906,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 			ray.calc_direction_inv();
 
 			// Ray octant, encoded in 3 bits
-			unsigned oct = 
+			unsigned oct =
 				(ray.direction.x < 0.0f ? 0b100 : 0) |
 				(ray.direction.y < 0.0f ? 0b010 : 0) |
 				(ray.direction.z < 0.0f ? 0b001 : 0);
@@ -955,7 +955,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, max_distance, node_0, node_1, node_2, node_3, node_4);
 
 				byte imask = extract_byte(float_as_uint(node_0.w), 3);
-				
+
 				current_group .x = float_as_uint(node_1.x); // Child    base offset
 				triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
 
@@ -988,7 +988,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 					tlas_stack_size = stack_size;
 
 					int root_index = __ldg(&mesh_bvh_root_indices[mesh_id]);
-					
+
 					mesh_has_identity_transform = root_index >> 31; // MSB stores whether the Mesh has an identity transform
 					root_index &= 0x7fffffff;
 
@@ -1001,7 +1001,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
-						unsigned oct = 
+						unsigned oct =
 							(ray.direction.x < 0.0f ? 0b100 : 0) |
 							(ray.direction.y < 0.0f ? 0b010 : 0) |
 							(ray.direction.z < 0.0f ? 0b001 : 0);
@@ -1067,7 +1067,7 @@ __device__ inline void bvh_trace_shadow(int ray_count, int * rays_retired, int b
 						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
-						unsigned oct = 
+						unsigned oct =
 							(ray.direction.x < 0.0f ? 0b100 : 0) |
 							(ray.direction.y < 0.0f ? 0b010 : 0) |
 							(ray.direction.z < 0.0f ? 0b001 : 0);

@@ -10,13 +10,12 @@
 
 #include "Math/Vector4.h"
 
-#include "Util/Random.h"
-#include "Util/BlueNoise.h"
-
 #include "Util/Util.h"
 #include "Util/ScopeTimer.h"
 
 void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle) {
+	pmj.init();
+
 	scene.init(scene_name, sky_name);
 
 	cuda_init(frame_buffer_handle, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -295,14 +294,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("sky_height").set_value(scene.sky.height);
 	cuda_module.get_global("sky_data")  .set_value(ptr_sky_data);
 
-	// Set Blue Noise Sampler globals
-	ptr_sobol_256spp_256d = CUDAMemory::malloc(sobol_256spp_256d);
-	ptr_scrambling_tile   = CUDAMemory::malloc(scrambling_tile);
-	ptr_ranking_tile      = CUDAMemory::malloc(ranking_tile);
-
-	cuda_module.get_global("sobol_256spp_256d").set_value(ptr_sobol_256spp_256d);
-	cuda_module.get_global("scrambling_tile")  .set_value(ptr_scrambling_tile);
-	cuda_module.get_global("ranking_tile")     .set_value(ptr_ranking_tile);
+	ptr_pmj_samples = CUDAMemory::malloc<Vector2>(PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
+	CUDAMemory::memcpy(ptr_pmj_samples, pmj.samples, PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
+	cuda_module.get_global("pmj_samples").set_value(ptr_pmj_samples);
 
 	ray_buffer_trace.init(batch_size);
 	cuda_module.get_global("ray_buffer_trace").set_value(ray_buffer_trace);
@@ -415,9 +409,7 @@ void Pathtracer::cuda_free() {
 
 	CUDAMemory::free(ptr_sky_data);
 
-	CUDAMemory::free(ptr_sobol_256spp_256d);
-	CUDAMemory::free(ptr_scrambling_tile);
-	CUDAMemory::free(ptr_ranking_tile);
+	CUDAMemory::free(ptr_pmj_samples);
 
 	if (scene.has_lights) {
 		CUDAMemory::free(ptr_light_indices);
@@ -1004,12 +996,7 @@ void Pathtracer::render() {
 		event_pool.record(event_desc_primary);
 
 		// Generate primary Rays from the current Camera orientation
-		kernel_generate.execute(
-			Random::get_value(),
-			frames_accumulated,
-			pixel_offset,
-			pixel_count
-		);
+		kernel_generate.execute(frames_accumulated, pixel_offset, pixel_count);
 
 		for (int bounce = 0; bounce < settings.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
@@ -1017,22 +1004,22 @@ void Pathtracer::render() {
 			kernel_trace.execute(bounce);
 
 			event_pool.record(event_desc_sort[bounce]);
-			kernel_sort.execute(Random::get_value(), bounce);
+			kernel_sort.execute(bounce, frames_accumulated);
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
 				event_pool.record(event_desc_shade_diffuse[bounce]);
-				kernel_shade_diffuse.execute(Random::get_value(), bounce, frames_accumulated);
+				kernel_shade_diffuse.execute(bounce, frames_accumulated);
 			}
 
 			if (scene.has_dielectric) {
 				event_pool.record(event_desc_shade_dielectric[bounce]);
-				kernel_shade_dielectric.execute(Random::get_value(), bounce);
+				kernel_shade_dielectric.execute(bounce, frames_accumulated);
 			}
 
 			if (scene.has_glossy) {
 				event_pool.record(event_desc_shade_glossy[bounce]);
-				kernel_shade_glossy.execute(Random::get_value(), bounce, frames_accumulated);
+				kernel_shade_glossy.execute(bounce, frames_accumulated);
 			}
 
 			// Trace shadow Rays

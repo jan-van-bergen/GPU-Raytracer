@@ -67,9 +67,6 @@
     <ClCompile Include="Src\Util\PerfTest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Util\Random.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Util\Util.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -117,6 +114,9 @@
     </ClCompile>
     <ClCompile Include="Src\Assets\PBRTLoader.cpp">
       <Filter>Assets</Filter>
+	</ClCompile>
+    <ClCompile Include="Src\Util\PMJ.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -260,13 +260,7 @@
     <ClInclude Include="Src\Util\BitArray.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\BlueNoise.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\PerfTest.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Random.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Util\ScopeTimer.h">
@@ -327,6 +321,9 @@
     </ClInclude>
     <ClInclude Include="Src\Assets\PBRTLoader.h">
       <Filter>Assets</Filter>
+	</ClInclude>
+    <ClInclude Include="Src\Util\PMJ.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

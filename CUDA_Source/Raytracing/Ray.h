@@ -15,8 +15,8 @@ struct Ray {
 
 	__device__ inline void calc_direction_inv() {
 		direction_inv = make_float3(
-			1.0f / direction.x, 
-			1.0f / direction.y, 
+			1.0f / direction.x,
+			1.0f / direction.y,
 			1.0f / direction.z
 		);
 	}

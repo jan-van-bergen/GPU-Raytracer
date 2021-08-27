@@ -1,7 +1,7 @@
 #pragma once
 
 // Glossy materials with roughness below the cutoff don't use direct Light sampling
-#define ROUGHNESS_CUTOFF (0.1f * 0.1f)
+#define ROUGHNESS_CUTOFF (0.001f)
 
 __device__ const Texture<float4> * textures;
 
@@ -63,7 +63,7 @@ struct MaterialGlossy {
 	float3 diffuse;
 	int    texture_id;
 	float  index_of_refraction;
-	float  roughness; 
+	float  roughness;
 };
 
 __device__ inline MaterialLight material_as_light(int material_id) {
@@ -164,63 +164,41 @@ __device__ inline float ggx_D(const float3 & micro_normal, float alpha_x, float 
 	return 1.0f / (sl * sl * PI * alpha_x * alpha_y * cos_theta_4);
 }
 
-// Monodirectional Smith shadowing/masking term G1 for the GGX microfacet model
-__device__ inline float ggx_G1(const float3 & omega, float alpha_x2, float alpha_y2) {
-	float cos_o2 = omega.z * omega.z;
-	float tan_theta_o2 = (1.0f - cos_o2) / cos_o2;
-	float cos_phi_o2 = omega.x * omega.x;
-	float sin_phi_o2 = omega.y * omega.y;
-
-	float alpha_o2 = (cos_phi_o2 * alpha_x2 + sin_phi_o2 * alpha_y2) / (cos_phi_o2 + sin_phi_o2);
-
-	return 2.0f / (1.0f + sqrtf(fmaxf(0.0f, 1.0f + alpha_o2 * tan_theta_o2)));
+__device__ inline float ggx_lambda(const float3 & omega, float alpha_x2, float alpha_y2) {
+	return (sqrtf(1.0f + (alpha_x2 * omega.x * omega.x + alpha_y2 * omega.y * omega.y) / (omega.z * omega.z)) - 1.0f) * 0.5f;
 }
 
-// Based on: Sampling the GGX Distribution of Visible Normals - Heitz 2018
-__device__ inline float3 ggx_sample_distribution_of_normals(const float3 & omega, float alpha_x, float alpha_y, float u1, float u2){
-	// Transform the view direction to the hemisphere configuration
-	float3 v = normalize(make_float3(alpha_x * omega.x, alpha_y * omega.y, omega.z));
-	
-	// Orthonormal basis (with special case if cross product is zero)
-	float length_squared = v.x*v.x + v.y*v.y;
-	float3 axis_1 = length_squared > 0.0f ? make_float3(-v.y, v.x, 0.0f) / sqrt(length_squared) : make_float3(1.0f, 0.0f, 0.0f);
-	float3 axis_2 = cross(v, axis_1);
-	
-	// Parameterization of the projected area
-	float r = sqrt(u1);
-	float phi = TWO_PI * u2;
+// Monodirectional Smith shadowing/masking term
+__device__ inline float ggx_G1(const float3 & omega, float alpha_x2, float alpha_y2) {
+	return 1.0f / (1.0f + ggx_lambda(omega, alpha_x2, alpha_y2));
+}
 
-	float sin_phi;
-	float cos_phi;
-	__sincosf(phi, &sin_phi, &cos_phi);
+// Height correlated shadowing and masking term
+__device__ inline float ggx_G2(const float3 & omega_o, const float3 & omega_i, const float3 & omega_m, float alpha_x2, float alpha_y2) {
+	float o_dot_m = dot(omega_o, omega_m);
+	float i_dot_m = dot(omega_i, omega_m);
 
-	float t1 = r * cos_phi;
-	float t2 = r * sin_phi;
-
-	float s = 0.5f * (1.0f + v.z);
-	t2 = (1.0f - s) * sqrtf(1.0 - t1*t1) + s*t2;
-	
-	// Reproject onto hemisphere
-	float3 n_h = t1*axis_1 + t2*axis_2 + sqrtf(fmaxf(0.0f, 1.0f - t1*t1 - t2*t2)) * v;
-	
-	// Transform the normal back to the ellipsoid configuration
-	return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, fmaxf(0.0f, n_h.z)));
+	if (o_dot_m <= 0.0f || i_dot_m <= 0.0f) {
+		return 0.0f;
+	} else {
+		return 1.0f / (1.0f + ggx_lambda(omega_o, alpha_x2, alpha_y2) + ggx_lambda(omega_i, alpha_x2, alpha_y2));
+	}
 }
 
 __device__ inline float ggx_eval(const float3 & omega_o, const float3 & omega_i, float ior, float alpha_x, float alpha_y, float & pdf) {
+	float alpha_x2 = alpha_x * alpha_x;
+	float alpha_y2 = alpha_y * alpha_y;
+
 	float3 half_vector = normalize(omega_o + omega_i);
 	float mu = fmaxf(0.0, dot(omega_o, half_vector));
 
-	float F = fresnel_schlick(ior, 1.0f, mu);
-	float D = ggx_D(half_vector, alpha_x, alpha_y);
+	float F  = fresnel_schlick(ior, 1.0f, mu);
+	float D  = ggx_D(half_vector, alpha_x, alpha_y);
+	float G1 = ggx_G1(omega_o, alpha_x2, alpha_y2);
+	float G2 = ggx_G2(omega_o, omega_i, half_vector, alpha_x2, alpha_y2);
 
-	// Masking/shadowing using two monodirectional Smith terms
-	float G1_o = ggx_G1(omega_o, alpha_x * alpha_x, alpha_y * alpha_y);
-	float G1_i = ggx_G1(omega_i, alpha_x * alpha_x, alpha_y * alpha_y);
-	float G2 = G1_o * G1_i;
+	float denom_inv = 1.0f / (4.0f * omega_i.z * omega_o.z);
 
-	float denom = 4.0f * omega_i.z * omega_o.z;
-
-	pdf = G1_o * D * mu / denom;
-	return F * D * G2 / denom;
+	pdf = G1 * D * mu * denom_inv;
+	return F * D * G2 * denom_inv;
 }

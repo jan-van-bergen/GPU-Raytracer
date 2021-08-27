@@ -27,7 +27,6 @@ enum struct ReconstructionFilter {
 struct Settings {
 	int num_bounces = 5;
 
-	bool enable_rasterization                = false;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_scene_update                 = false;
@@ -64,6 +63,11 @@ struct Settings {
 #define EPSILON 0.001f
 
 #define MAX_BOUNCES 20
+
+
+// PMJ
+#define PMJ_NUM_SEQUENCES 64
+#define PMJ_NUM_SAMPLES_PER_SEQUENCE 4096
 
 
 // SVGF

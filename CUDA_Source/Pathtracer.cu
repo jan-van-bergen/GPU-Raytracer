@@ -9,13 +9,13 @@ __device__ __constant__ int screen_width;
 __device__ __constant__ int screen_pitch;
 __device__ __constant__ int screen_height;
 
+__device__ __constant__ Settings settings;
+
 #include "Util.h"
 #include "Material.h"
 #include "Sky.h"
-#include "Random.h"
+#include "Sampling.h"
 #include "RayCone.h"
-
-__device__ __constant__ Settings settings;
 
 // Frame Buffers
 __device__ __constant__ float4 * frame_buffer_albedo;
@@ -23,7 +23,7 @@ __device__ __constant__ float4 * frame_buffer_direct;
 __device__ __constant__ float4 * frame_buffer_indirect;
 
 // Final Frame Buffer, shared with OpenGL
-__device__ __constant__ Surface<float4> accumulator; 
+__device__ __constant__ Surface<float4> accumulator;
 
 #include "Raytracing/BVH.h"
 
@@ -42,12 +42,7 @@ struct Camera {
 
 __device__ PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
-extern "C" __global__ void kernel_generate(
-	int rand_seed,
-	int sample_index,
-	int pixel_offset,
-	int pixel_count
-) {
+extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, int pixel_count) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= pixel_count) return;
 
@@ -55,15 +50,11 @@ extern "C" __global__ void kernel_generate(
 	int x = index_offset % screen_width;
 	int y = index_offset / screen_width;
 
-	unsigned seed = wang_hash(index_offset ^ rand_seed);
-
 	int pixel_index = x + y * screen_pitch;
 	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
 
-	float u0 = random_float_xorshift(seed);
-	float u1 = random_float_xorshift(seed);
-	float u2 = random_float_heitz(x, y, sample_index, 0, 0, seed);
-	float u3 = random_float_heitz(x, y, sample_index, 0, 1, seed);
+	float2 rand_filter   = random<SampleDimension::FILTER>  (pixel_index, 0, sample_index);
+	float2 rand_aperture = random<SampleDimension::APERTURE>(pixel_index, 0, sample_index);
 
 	float2 jitter;
 
@@ -73,18 +64,13 @@ extern "C" __global__ void kernel_generate(
 	} else {
 		switch (settings.reconstruction_filter) {
 			case ReconstructionFilter::BOX: {
-				jitter.x = u1;
-				jitter.y = u2;
-
+				jitter = rand_filter;
 				break;
 			}
-
 			case ReconstructionFilter::GAUSSIAN: {
-				float2 gaussians = box_muller(u1, u2);
-
+				float2 gaussians = box_muller(rand_filter.x, rand_filter.y);
 				jitter.x = 0.5f + 0.5f * gaussians.x;
 				jitter.y = 0.5f + 0.5f * gaussians.y;
-			
 				break;
 			}
 		}
@@ -94,7 +80,7 @@ extern "C" __global__ void kernel_generate(
 	float y_jittered = float(y) + jitter.y;
 
 	float3 focal_point = camera.focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
-	float2 lens_point  = camera.aperture_radius * random_point_in_regular_n_gon<5>(u2, u3);
+	float2 lens_point  = camera.aperture_radius * sample_disk(rand_aperture.x, rand_aperture.y);
 
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);
@@ -110,7 +96,7 @@ extern "C" __global__ void kernel_trace(int bounce) {
 	bvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
-extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
+extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.trace[bounce]) return;
 
@@ -162,32 +148,32 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		pixel_query.material_id = material_id;
 	}
 
-	if (material_type == MaterialType::LIGHT) {	
+	if (material_type == MaterialType::LIGHT) {
 		// Obtain the Light's position and normal
 		TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
-		
+
 		float3 light_point;
 		float3 light_normal;
 		triangle_barycentric(light, hit.u, hit.v, light_point, light_normal);
-		
+
 		float3 light_point_prev = light_point;
-		
+
 		// Transform into world space
 		Matrix3x4 world = mesh_get_transform(hit.mesh_id);
 		matrix3x4_transform_position (world, light_point);
 		matrix3x4_transform_direction(world, light_normal);
-		
+
 		light_normal = normalize(light_normal);
-		
+
 		if (bounce == 0 && settings.enable_svgf) {
 			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 			matrix3x4_transform_position(world_prev, light_point_prev);
-			
+
 			svgf_set_gbuffers(x, y, hit, light_point, light_normal, light_point_prev);
 		}
 
 		MaterialLight material_light = material_as_light(material_id);
-		
+
 		bool should_count_light_contribution = settings.enable_next_event_estimation ? !mis_eligable : true;
 		if (should_count_light_contribution) {
 			float3 illumination = ray_throughput * material_light.emission;
@@ -206,15 +192,14 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			return;
 		}
 
-		if (settings.enable_multiple_importance_sampling) {		
-			float3 to_light = light_point - ray_origin;;
+		if (settings.enable_multiple_importance_sampling) {
+			float3 to_light = light_point - ray_origin;
 			float distance_to_light_squared = dot(to_light, to_light);
 			float distance_to_light         = sqrtf(distance_to_light_squared);
 
 			to_light /= distance_to_light; // Normalize
 
 			float cos_o = fabsf(dot(to_light, light_normal));
-			// if (cos_o <= 0.0f) return;
 
 			float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
 
@@ -235,19 +220,19 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 		return;
 	}
 
-	unsigned seed = wang_hash(index ^ rand_seed);
-
 	// Russian Roulette
 	if (bounce > 0) {
 		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
 		// This deteriorates Russian Roulette performance, so albedo is included here
 		float3 throughput_with_albedo = ray_throughput * make_float3(frame_buffer_albedo[ray_pixel_index]);
-		
-		float survival_probability = saturate(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
-		if (random_float_xorshift(seed) > survival_probability) {
+
+		float survival_probability  = saturate(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
+		float rand_russian_roulette = random<SampleDimension::RUSSIAN_ROULETTE>(ray_pixel_index, bounce, sample_index).x;
+
+		if (rand_russian_roulette > survival_probability) {
 			return;
 		}
-		
+
 		ray_throughput /= survival_probability;
 	}
 
@@ -261,7 +246,7 @@ extern "C" __global__ void kernel_sort(int rand_seed, int bounce) {
 			if (bounce > 0) ray_buffer_shade_diffuse.cone[index_out] = ray_buffer_trace.cone[index];
 #endif
 			ray_buffer_shade_diffuse.hits.set(index_out, hit);
-			
+
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_pixel_index;
 			if (bounce > 0) ray_buffer_shade_diffuse.throughput.set(index_out, ray_throughput);
 
@@ -316,7 +301,7 @@ __device__ inline float3 sample_albedo(
 	const float3            & ray_direction,
 	const float2            * cone_buffer,
 	int                       cone_buffer_index,
-	float                   & cone_angle, 
+	float                   & cone_angle,
 	float                   & cone_width
 ) {
 	float3 albedo;
@@ -376,26 +361,30 @@ __device__ inline float3 sample_albedo(
 
 template<typename BRDFEvaluator>
 __device__ inline void nee_sample(
-	int x, int y,
+	int pixel_index,
 	int bounce,
 	int sample_index,
-	unsigned & seed,
 	const float3 & hit_point,
 	const float3 & hit_normal,
 	const float3 & throughput,
 	BRDFEvaluator brdf_evaluator
 ) {
-	// Pick random point on random Light
-	float light_u, light_v;
-	int   light_mesh_id;
-	int   light_id = random_point_on_random_light(x, y, sample_index, bounce, seed, light_u, light_v, light_mesh_id);
+	float2 rand_light    = random<SampleDimension::NEE_LIGHT>   (pixel_index, bounce, sample_index);
+	float2 rand_triangle = random<SampleDimension::NEE_TRIANGLE>(pixel_index, bounce, sample_index);
+
+	// Pick random Light
+	int light_mesh_id;
+	int light_triangle_id = sample_light(rand_light.x, rand_light.y, light_mesh_id);
+
+	// Pick random point on the Light
+	float2 light_uv = sample_triangle(rand_triangle.x, rand_triangle.y);
 
 	// Obtain the Light's position and normal
-	TrianglePosNor light = triangle_get_positions_and_normals(light_id);
+	TrianglePosNor light = triangle_get_positions_and_normals(light_triangle_id);
 
 	float3 light_point;
 	float3 light_normal;
-	triangle_barycentric(light, light_u, light_v, light_point, light_normal);
+	triangle_barycentric(light, light_uv.x, light_uv.y, light_point, light_normal);
 
 	// Transform into world space
 	Matrix3x4 light_world = mesh_get_transform(light_mesh_id);
@@ -425,7 +414,7 @@ __device__ inline void nee_sample(
 		float brdf = brdf_evaluator(to_light, brdf_pdf);
 
 		float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
-		
+
 		float pdf;
 		if (settings.enable_multiple_importance_sampling) {
 			pdf = brdf_pdf + light_pdf;
@@ -446,12 +435,12 @@ __device__ inline void nee_sample(
 			illumination.x,
 			illumination.y,
 			illumination.z,
-			__int_as_float(x + y * screen_pitch)
+			__int_as_float(pixel_index)
 		);
 	}
 }
 
-extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int sample_index) {
+extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.diffuse[bounce]) return;
 
@@ -468,8 +457,6 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	} else {
 		ray_throughput = ray_buffer_shade_diffuse.throughput.get(index);
 	}
-
-	unsigned seed = wang_hash(index ^ rand_seed);
 
 	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialDiffuse material = material_as_diffuse(material_id);
@@ -515,7 +502,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 #endif
 
 	float3 throughput = ray_throughput;
-	
+
 	if (bounce > 0) {
 		throughput *= albedo;
 	} else if (settings.modulate_albedo || settings.enable_svgf) {
@@ -532,7 +519,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	}
 
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f) {
-		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
+		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
 			pdf = dot(to_light, hit_normal) * ONE_OVER_PI;
 			return ONE_OVER_PI;
 		});
@@ -544,12 +531,13 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 
 	float3 tangent, binormal; orthonormal_basis(hit_normal, tangent, binormal);
 
-	float3 direction_local = random_cosine_weighted_direction(x, y, sample_index, bounce, seed);
+	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
+	float3 direction_local = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 	float3 direction_world = local_to_world(direction_local, tangent, binormal, hit_normal);
 
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_world);
-	
+
 #if ENABLE_MIPMAPPING
 	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
 #endif
@@ -560,7 +548,7 @@ extern "C" __global__ void kernel_shade_diffuse(int rand_seed, int bounce, int s
 	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction_world, hit_normal)) * ONE_OVER_PI;
 }
 
-extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
+extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.dielectric[bounce] || bounce == settings.num_bounces - 1) return;
 
@@ -577,8 +565,6 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	}
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
-
-	unsigned seed = wang_hash(index ^ rand_seed);
 
 	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialDielectric material = material_as_dielectric(material_id);
@@ -607,14 +593,14 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float eta_2;
 
 	float dir_dot_normal = dot(ray_direction, hit_normal);
-	if (dir_dot_normal < 0.0f) { 
-		// Entering material		
+	if (dir_dot_normal < 0.0f) {
+		// Entering material
 		eta_1 = 1.0f;
 		eta_2 = material.index_of_refraction;
 
 		normal    =  hit_normal;
 		cos_theta = -dir_dot_normal;
-	} else { 
+	} else {
 		// Leaving material
 		eta_1 = material.index_of_refraction;
 		eta_2 = 1.0f;
@@ -641,8 +627,9 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		float3 ray_direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
 
 		float f = fresnel(eta_1, eta_2, cos_theta, -dot(ray_direction_refracted, normal));
+		float rand_fresnel = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index).x;
 
-		if (random_float_xorshift(seed) < f) {
+		if (rand_fresnel < f) {
 			direction_out = ray_direction_reflected;
 		} else {
 			direction_out = ray_direction_refracted;
@@ -660,7 +647,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
 	float  cone_angle = cone.x;
 	float  cone_width = cone.y + cone_angle * hit.t;
-	
+
 	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
 	float curvature = triangle_get_curvature(
@@ -669,7 +656,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 		hit_triangle.normal_edge_1,
 		hit_triangle.normal_edge_2
 	) / mesh_scale;
-	
+
 	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 
 	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
@@ -678,7 +665,7 @@ extern "C" __global__ void kernel_shade_dielectric(int rand_seed, int bounce) {
 	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, ray_throughput);
 }
 
-extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sample_index) {
+extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.glossy[bounce]) return;
 
@@ -690,7 +677,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 
 	int ray_pixel_index = ray_buffer_shade_dielectric_and_glossy.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
-	int y = ray_pixel_index / screen_pitch; 
+	int y = ray_pixel_index / screen_pitch;
 
 	float3 ray_throughput;
 	if (bounce == 0) {
@@ -700,8 +687,6 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	}
 
 	ASSERT(hit.triangle_id != -1, "Ray must have hit something for this Kernel to be invoked!");
-
-	unsigned seed = wang_hash(index ^ rand_seed);
 
 	int material_id = mesh_get_material_id(hit.mesh_id);
 	MaterialGlossy material = material_as_glossy(material_id);
@@ -753,7 +738,7 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	} else if (settings.modulate_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
-	
+
 	if (bounce == 0 && settings.enable_svgf) {
 		float3 hit_point_prev = hit_point_local;
 
@@ -763,9 +748,8 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
-	// Slightly widen the distribution to prevent the weights from becoming too large (see Walter et al. 2007)
-	float alpha = material.roughness; // (1.2f - 0.2f * sqrtf(-dot(ray_direction, hit_normal))) * material.roughness;
-	float alpha2 = alpha * alpha;
+	float alpha = material.roughness;
+	float ior   = material.index_of_refraction;
 	
 	// Construct orthonormal basis
 	float3 hit_tangent, hit_binormal;
@@ -774,34 +758,23 @@ extern "C" __global__ void kernel_shade_glossy(int rand_seed, int bounce, int sa
 	float3 omega_i = world_to_local(-ray_direction, hit_tangent, hit_binormal, hit_normal);
 
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
-		nee_sample(x, y, bounce, sample_index, seed, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
+		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
 			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
-			return ggx_eval(omega_o, omega_i, material.index_of_refraction, alpha, alpha, pdf);
+			return ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf);
 		});
 	}
 
 	if (bounce == settings.num_bounces - 1) return;
 
 	// Importance sample distribution of normals
-	float u1 = random_float_heitz(x, y, sample_index, bounce, 2, seed);
-	float u2 = random_float_heitz(x, y, sample_index, bounce, 3, seed);
+	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 
-	float3 micro_normal_local = ggx_sample_distribution_of_normals(omega_i, alpha, alpha, u1, u2);	
-    float3 omega_o = reflect(-omega_i, micro_normal_local);
+	float3 micro_normal_local = sample_ggx_distribution_of_normals(omega_i, alpha, alpha, rand_brdf.x, rand_brdf.y);
+	float3 omega_o = reflect(-omega_i, micro_normal_local);
 
-	float3 half_vector = normalize(omega_o + omega_i);
-	float mu = fmaxf(0.0, dot(omega_o, half_vector));
-
-	float F = fresnel_schlick(material.index_of_refraction, 1.0f, mu);
-	float D = ggx_D(half_vector, alpha, alpha);
-
-	// Masking/shadowing using two monodirectional Smith terms
-	float G1_o = ggx_G1(omega_o, alpha2, alpha2);
-	float G1_i = ggx_G1(omega_i, alpha2, alpha2);
-	float G2 = G1_o * G1_i;
-
-	float pdf = G1_o * D * mu / (4.0f * omega_i.z * omega_o.z);
-	throughput *= F * G2 / (G1_o * mu);
+	float pdf;
+	throughput *= ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf);
+	throughput /= pdf;
 
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
 
@@ -839,7 +812,7 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 
 	if (settings.modulate_albedo) {
 		colour *= frame_buffer_albedo[pixel_index];
-	}	
+	}
 
 	if (frames_accumulated > 0.0f) {
 		float4 colour_prev = accumulator.get(x, y);

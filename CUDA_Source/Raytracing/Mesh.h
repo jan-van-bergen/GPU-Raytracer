@@ -8,7 +8,7 @@ struct Matrix3x4 {
 
 // Transform vector as position (w = 1)
 __device__ inline void matrix3x4_transform_position(const Matrix3x4 & matrix, float3 & position) {
-	position = make_float3( 
+	position = make_float3(
 		matrix.row_0.x * position.x + matrix.row_0.y * position.y + matrix.row_0.z * position.z + matrix.row_0.w,
 		matrix.row_1.x * position.x + matrix.row_1.y * position.y + matrix.row_1.z * position.z + matrix.row_1.w,
 		matrix.row_2.x * position.x + matrix.row_2.y * position.y + matrix.row_2.z * position.z + matrix.row_2.w

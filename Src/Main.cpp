@@ -10,7 +10,6 @@
 #include "Window.h"
 
 #include "Util/Util.h"
-#include "Util/Random.h"
 #include "Util/PerfTest.h"
 #include "Util/ScopeTimer.h"
 
@@ -43,7 +42,7 @@ struct Timing {
 	double max;
 	double history[FRAMETIME_HISTORY_LENGTH];
 
-	int frame_index ;
+	int frame_index;
 } static timing;
 
 static void capture_screen(const Window & window, const char * file_name) {
@@ -104,7 +103,6 @@ int main(int argument_count, char ** arguments) {
 		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
 
 		perf_test.init(&pathtracer, false, scene_filename);
-		Random::init(1337);
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
@@ -119,13 +117,13 @@ int main(int argument_count, char ** arguments) {
 
 		window.render_framebuffer();
 
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || timing.frame_index == capture_frame_index) {
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == capture_frame_index) {
 			char screenshot_name[32];
-			sprintf_s(screenshot_name, "screenshot_%i.ppm", timing.frame_index);
+			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
 
 			capture_screen(window, screenshot_name);
 
-			if (timing.frame_index == capture_frame_index && exit_after_capture) break;
+			if (pathtracer.frames_accumulated == capture_frame_index && exit_after_capture) break;
 		}
 
 		calc_timing();
@@ -197,7 +195,7 @@ static void draw_gui() {
 
 	if (ImGui::Begin("Pathtracer")) {
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Frame: %i - Index: %i", timing.frame_index, pathtracer.frames_accumulated);
+			ImGui::Text("Frame: %i", pathtracer.frames_accumulated);
 			ImGui::Text("Delta: %.2f ms", 1000.0f * timing.delta_time);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * timing.avg);
 			ImGui::Text("Min:   %.2f ms", 1000.0f * timing.min);
