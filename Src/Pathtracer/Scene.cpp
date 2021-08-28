@@ -19,7 +19,7 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
 	asset_manager.add_material(default_material);
 
-	const char * file_extension = Util::file_get_extension(scene_name);
+	const char * file_extension = Util::find_last(scene_name, ".");
 
 	if (strcmp(file_extension, "obj") == 0 || strcmp(file_extension, "ply") == 0) {
 		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name));

@@ -30,7 +30,7 @@ namespace Util {
 
 	char * file_read(const char * filename, int & file_length);
 
-	const char * file_get_extension(const char * filename);
+	const char * find_last(const char * haystack, const char * needles);
 
 	template<typename T>
 	void swap(T & a, T & b) {

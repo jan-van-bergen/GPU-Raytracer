@@ -501,6 +501,12 @@ static void draw_gui() {
 					material_changed = true;
 				}
 
+				const char * texture_name = "None";
+				if (material.texture_id.handle != INVALID) {
+					const Texture & texture = pathtracer.scene.asset_manager.get_texture(material.texture_id);
+					texture_name = texture.name;
+				}
+
 				switch (material.type) {
 					case Material::Type::LIGHT: {
 						material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
@@ -508,7 +514,7 @@ static void draw_gui() {
 					}
 					case Material::Type::DIFFUSE: {
 						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
+						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
@@ -518,7 +524,7 @@ static void draw_gui() {
 					}
 					case Material::Type::GLOSSY: {
 						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;

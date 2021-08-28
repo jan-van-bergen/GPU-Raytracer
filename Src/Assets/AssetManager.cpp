@@ -57,7 +57,7 @@ MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	bool bvh_loaded = BVHLoader::try_to_load(filename, mesh_data, bvh);
 	if (!bvh_loaded) {
 		// Unable to load disk cached BVH, load model from source and construct BVH
-		const char * extension = Util::file_get_extension(filename);
+		const char * extension = Util::find_last(filename, ".");
 
 		if (strcmp(extension, "obj") == 0) {
 			OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
@@ -116,10 +116,17 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 	}
 
 	thread_pool.submit([this, filename = _strdup(filename), texture_id]() {
+		const char * name = Util::find_last(filename, "/\\");
+		if (!name) {
+			name = "Texture";
+		}
+
 		Texture texture = { };
+		texture.name = name;
+
 		bool success = false;
 
-		const char * file_extension = Util::file_get_extension(filename);
+		const char * file_extension = Util::find_last(filename, ".");
 		if (file_extension) {
 			if (strcmp(file_extension, "dds") == 0) {
 				success = TextureLoader::load_dds(filename, texture); // DDS is loaded using custom code
@@ -147,8 +154,6 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 			std::lock_guard<std::mutex> lock(textures_mutex);
 			textures[texture_id.handle] = texture;
 		}
-
-		free(filename);
 	});
 
 	return texture_id;
