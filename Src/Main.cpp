@@ -303,6 +303,8 @@ static void draw_gui() {
 			invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
 			invalidated_settings |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
 
+			invalidated_settings |= ImGui::Checkbox("Russian Roulete", &pathtracer.settings.enable_russian_roulette);
+
 			invalidated_settings |= ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update);
 
 			if (ImGui::Checkbox("SVGF", &pathtracer.settings.enable_svgf)) {

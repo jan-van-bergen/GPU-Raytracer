@@ -221,7 +221,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	}
 
 	// Russian Roulette
-	if (bounce > 0) {
+	if (settings.enable_russian_roulette && bounce > 0) {
 		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
 		// This deteriorates Russian Roulette performance, so albedo is included here
 		float3 throughput_with_albedo = ray_throughput * make_float3(frame_buffer_albedo[ray_pixel_index]);

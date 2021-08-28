@@ -29,6 +29,7 @@ struct Settings {
 
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
+	bool enable_russian_roulette             = true;
 	bool enable_scene_update                 = false;
 	bool enable_svgf                         = false;
 	bool enable_spatial_variance             = true;
