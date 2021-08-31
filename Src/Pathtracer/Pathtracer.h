@@ -318,7 +318,8 @@ private:
 			struct {
 				Vector3 alignas(float4) diffuse;
 				int                     texture_id;
-				float   alignas(float2) index_of_refraction;
+				Vector3 alignas(float4) eta;
+				Vector3                 k;
 				float                   roughness;
 			} glossy;
 		};

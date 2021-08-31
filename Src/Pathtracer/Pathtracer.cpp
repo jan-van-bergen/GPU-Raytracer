@@ -812,10 +812,11 @@ void Pathtracer::update(float delta) {
 					break;
 				}
 				case Material::Type::GLOSSY: {
-					cuda_materials[i].glossy.diffuse             = material.diffuse;
-					cuda_materials[i].glossy.texture_id          = material.texture_id.handle;
-					cuda_materials[i].glossy.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
-					cuda_materials[i].glossy.roughness           = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].glossy.diffuse    = material.diffuse;
+					cuda_materials[i].glossy.texture_id = material.texture_id.handle;
+					cuda_materials[i].glossy.eta        = Vector3::max(material.eta, Vector3(1.0001f));
+					cuda_materials[i].glossy.k          = material.k;
+					cuda_materials[i].glossy.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}
 				default: abort();

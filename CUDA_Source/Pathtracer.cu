@@ -410,8 +410,8 @@ __device__ inline void nee_sample(
 
 	float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
 
-	float brdf_pdf;
-	float brdf = brdf_evaluator(to_light, brdf_pdf);
+	float  brdf_pdf;
+	float3 brdf = brdf_evaluator(to_light, brdf_pdf);
 
 	float light_pdf = power * distance_to_light_squared / (cos_theta_light * lights_total_power);
 
@@ -520,7 +520,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f) {
 		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
 			pdf = dot(to_light, hit_normal) * ONE_OVER_PI;
-			return ONE_OVER_PI;
+			return make_float3(ONE_OVER_PI);
 		});
 	}
 
@@ -625,10 +625,10 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 	} else {
 		float3 ray_direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
 
-		float f = fresnel(eta_1, eta_2, cos_theta, -dot(ray_direction_refracted, normal));
+		float fresnel      = fresnel_dielectric(cos_theta, -dot(ray_direction_refracted, normal), eta);
 		float rand_fresnel = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index).x;
 
-		if (rand_fresnel < f) {
+		if (rand_fresnel < fresnel) {
 			direction_out = ray_direction_reflected;
 		} else {
 			direction_out = ray_direction_refracted;
@@ -747,9 +747,6 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
-	float alpha = material.roughness;
-	float ior   = material.index_of_refraction;
-	
 	// Construct orthonormal basis
 	float3 hit_tangent, hit_binormal;
 	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
@@ -759,7 +756,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	if (settings.enable_next_event_estimation && lights_total_power > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
 		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
 			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
-			return ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf);
+			return ggx_eval(material, omega_o, omega_i, pdf);
 		});
 	}
 
@@ -768,11 +765,11 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	// Importance sample distribution of normals
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 
-	float3 micro_normal_local = sample_ggx_distribution_of_normals(omega_i, alpha, alpha, rand_brdf.x, rand_brdf.y);
+	float3 micro_normal_local = sample_ggx_distribution_of_normals(omega_i, material.roughness, material.roughness, rand_brdf.x, rand_brdf.y);
 	float3 omega_o = reflect(-omega_i, micro_normal_local);
 
 	float pdf;
-	throughput *= ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf) * omega_o.z;
+	throughput *= ggx_eval(material, omega_o, omega_i, pdf) * omega_o.z;
 	throughput /= pdf;
 
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
