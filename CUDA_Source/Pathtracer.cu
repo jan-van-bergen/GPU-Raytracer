@@ -114,7 +114,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	bool mis_eligable = ray_pixel_index_and_mis_eligable >> 31;
 
 	float3 ray_throughput;
-	if (bounce <= 1) {
+	if (bounce == 0) {
 		ray_throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
 	} else {
 		ray_throughput = ray_buffer_trace.throughput.get(index);
@@ -199,17 +199,17 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			to_light /= distance_to_light; // Normalize
 
-			float cos_o = fabsf(dot(to_light, light_normal));
+			float cos_theta_light = fabsf(dot(to_light, light_normal));
 
 			float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
 
 			float brdf_pdf  = ray_buffer_trace.last_pdf[index];
-			float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
+			float light_pdf = power * distance_to_light_squared / (cos_theta_light * lights_total_power);
 
-			float mis_pdf = brdf_pdf + light_pdf;
+			float weight = power_heuristic(brdf_pdf, light_pdf);
+			float3 illumination = ray_throughput * material_light.emission * weight;// / brdf_pdf;
 
-			float3 illumination = ray_throughput * material_light.emission * brdf_pdf / mis_pdf;
-
+			assert(bounce != 0);
 			if (bounce == 1) {
 				frame_buffer_direct[ray_pixel_index] += make_float4(illumination);
 			} else {
@@ -400,44 +400,43 @@ __device__ inline void nee_sample(
 	// Normalize the vector to the light
 	to_light /= distance_to_light;
 
-	float cos_o = -dot(to_light, light_normal);
-	float cos_i =  dot(to_light,   hit_normal);
+	float cos_theta_light = fabsf(dot(to_light, light_normal));
+	float cos_theta_hit   = dot(to_light, hit_normal);
 
-	// Only trace Shadow Ray if light transport is possible given the normals
-	if (cos_o > 0.0f && cos_i > 0.0f) {
-		int light_material_id = mesh_get_material_id(light_mesh_id);
-		MaterialLight material_light = material_as_light(light_material_id);
+	if (cos_theta_hit <= 0.0f) return; // No light transport possible
 
-		float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
+	int light_material_id = mesh_get_material_id(light_mesh_id);
+	MaterialLight material_light = material_as_light(light_material_id);
 
-		float brdf_pdf;
-		float brdf = brdf_evaluator(to_light, brdf_pdf);
+	float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
 
-		float light_pdf = power * distance_to_light_squared / (cos_o * lights_total_power);
+	float brdf_pdf;
+	float brdf = brdf_evaluator(to_light, brdf_pdf);
 
-		float pdf;
-		if (settings.enable_multiple_importance_sampling) {
-			pdf = brdf_pdf + light_pdf;
-		} else {
-			pdf = light_pdf;
-		}
+	float light_pdf = power * distance_to_light_squared / (cos_theta_light * lights_total_power);
 
-		float3 illumination = throughput * brdf * material_light.emission * cos_i / pdf;
-
-		int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
-
-		ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
-		ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
-
-		ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
-
-		ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
-			illumination.x,
-			illumination.y,
-			illumination.z,
-			__int_as_float(pixel_index)
-		);
+	float weight;
+	if (settings.enable_multiple_importance_sampling) {
+		weight = power_heuristic(light_pdf, brdf_pdf);
+	} else {
+		weight = 1.0f;
 	}
+
+	float3 illumination = throughput * brdf * material_light.emission * cos_theta_hit * weight / light_pdf;
+
+	int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
+
+	ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
+	ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
+
+	ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+
+	ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
+		illumination.x,
+		illumination.y,
+		illumination.z,
+		__int_as_float(pixel_index)
+	);
 }
 
 extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
@@ -543,7 +542,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 #endif
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (true << 31);
-	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);
+	ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction_world, hit_normal)) * ONE_OVER_PI;
 }
@@ -662,7 +661,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
 #endif
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (false << 31);
-	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, ray_throughput);
+	ray_buffer_trace.throughput.set(index_out, ray_throughput);
 }
 
 extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
@@ -773,7 +772,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	float3 omega_o = reflect(-omega_i, micro_normal_local);
 
 	float pdf;
-	throughput *= ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf);
+	throughput *= ggx_eval(omega_o, omega_i, ior, alpha, alpha, pdf) * omega_o.z;
 	throughput /= pdf;
 
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
@@ -788,7 +787,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 #endif
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness >= ROUGHNESS_CUTOFF) << 31);
-	if (bounce > 0) ray_buffer_trace.throughput.set(index_out, throughput);
+	ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = pdf;
 }

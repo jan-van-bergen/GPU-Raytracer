@@ -237,6 +237,14 @@ __device__ inline int binary_search(const float cumulative_array[], int index_fi
 	}
 }
 
+__device__ inline float balance_heuristic(float pdf_f, float pdf_g) {
+	return pdf_f / (pdf_f + pdf_g);
+}
+
+__device__ inline float power_heuristic(float pdf_f, float pdf_g) {
+	return (pdf_f * pdf_f) / (pdf_f * pdf_f + pdf_g * pdf_g); // Power of 2 hardcoded, best empirical results according to Veach
+}
+
 // Create byte mask from sign bit
 __device__ unsigned sign_extend_s8x4(unsigned x) {
 	unsigned result;
