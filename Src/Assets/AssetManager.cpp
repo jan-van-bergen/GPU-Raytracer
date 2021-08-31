@@ -58,6 +58,10 @@ MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
 	if (!bvh_loaded) {
 		// Unable to load disk cached BVH, load model from source and construct BVH
 		const char * extension = Util::find_last(filename, ".");
+		if (!extension) {
+			printf("ERROR: File '%s' has no file extension, cannot deduce format!\n", filename);
+			abort();
+		}
 
 		if (strcmp(extension, "obj") == 0) {
 			OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
