@@ -45,6 +45,9 @@ struct Timing {
 	int frame_index;
 } static timing;
 
+static int last_pixel_query_x;
+static int last_pixel_query_y;
+
 static void capture_screen(const Window & window, const char * file_name) {
 	ScopeTimer timer("Screenshot");
 
@@ -126,15 +129,22 @@ int main(int argument_count, char ** arguments) {
 			if (pathtracer.frames_accumulated == capture_frame_index && exit_after_capture) break;
 		}
 
-		calc_timing();
-		draw_gui();
+		if (ImGui::IsMouseClicked(1)) {
+			// Deselect current object
+			pathtracer.pixel_query.pixel_index = INVALID;
+			pathtracer.pixel_query.mesh_id     = INVALID;
+			pathtracer.pixel_query.triangle_id = INVALID;
+			pathtracer.pixel_query.material_id = INVALID;
+		}
 
 		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
-			int mouse_x, mouse_y;
-			Input::mouse_position(&mouse_x, &mouse_y);
+			Input::mouse_position(&last_pixel_query_x, &last_pixel_query_y);
 
-			pathtracer.set_pixel_query(mouse_x, mouse_y);
+			pathtracer.set_pixel_query(last_pixel_query_x, last_pixel_query_y);
 		}
+
+		calc_timing();
+		draw_gui();
 
 		if (Input::is_key_released(SDL_SCANCODE_F5)) {
 			ScopeTimer timer("Hot Reload");
@@ -340,14 +350,6 @@ static void draw_gui() {
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
 		}
 
-		if (ImGui::IsMouseClicked(1)) {
-			// Deselect current object
-			pathtracer.pixel_query.pixel_index = INVALID;
-			pathtracer.pixel_query.mesh_id     = INVALID;
-			pathtracer.pixel_query.triangle_id = INVALID;
-			pathtracer.pixel_query.material_id = INVALID;
-		}
-
 		if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::BeginChild("Meshes", ImVec2(0, 200), true);
 
@@ -399,91 +401,6 @@ static void draw_gui() {
 				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
 
 				if (mesh_changed) pathtracer.invalidated_scene = true;
-			}
-
-			ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
-
-			Vector4 aabb_corners[8] = {
-				Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
-				Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
-				Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f),
-				Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f)
-			};
-
-			// Transform from world space to homogeneous clip space
-			for (int i = 0; i < 8; i++) {
-				aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
-			}
-
-			auto draw_line_clipped = [draw_list](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
-				if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
-
-				// Clip against near plane only
-				if (a.z < pathtracer.scene.camera.near) a = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
-				if (b.z < pathtracer.scene.camera.near) b = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
-
-				// Clip space to NDC to Window coordinates
-				ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };
-				ImVec2 b_window = { (0.5f + 0.5f * b.x / b.w) * window.width, (0.5f - 0.5f * b.y / b.w) * window.height };
-
-				draw_list->AddLine(a_window, b_window, colour, thickness);
-			};
-
-			ImColor aabb_colour = ImColor(0.2f, 0.8f, 0.2f);
-
-			draw_line_clipped(aabb_corners[0], aabb_corners[1], aabb_colour);
-			draw_line_clipped(aabb_corners[1], aabb_corners[2], aabb_colour);
-			draw_line_clipped(aabb_corners[2], aabb_corners[3], aabb_colour);
-			draw_line_clipped(aabb_corners[3], aabb_corners[0], aabb_colour);
-			draw_line_clipped(aabb_corners[4], aabb_corners[5], aabb_colour);
-			draw_line_clipped(aabb_corners[5], aabb_corners[6], aabb_colour);
-			draw_line_clipped(aabb_corners[6], aabb_corners[7], aabb_colour);
-			draw_line_clipped(aabb_corners[7], aabb_corners[4], aabb_colour);
-			draw_line_clipped(aabb_corners[0], aabb_corners[4], aabb_colour);
-			draw_line_clipped(aabb_corners[1], aabb_corners[5], aabb_colour);
-			draw_line_clipped(aabb_corners[2], aabb_corners[6], aabb_colour);
-			draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
-
-			if (pathtracer.pixel_query.triangle_id != INVALID) {
-				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
-
-				int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
-				const Triangle & triangle = mesh_data.triangles[index];
-
-				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
-
-				Vector4 triangle_positions[3] = {
-					Vector4(triangle.position_0.x, triangle.position_0.y, triangle.position_0.z, 1.0f),
-					Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
-					Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
-				};
-
-				Vector4 triangle_normals[3] = {
-					Vector4(triangle.normal_0.x, triangle.normal_0.y, triangle.normal_0.z, 0.0f),
-					Vector4(triangle.normal_1.x, triangle.normal_1.y, triangle.normal_1.z, 0.0f),
-					Vector4(triangle.normal_2.x, triangle.normal_2.y, triangle.normal_2.z, 0.0f)
-				};
-
-				for (int i = 0; i < 3; i++) {
-					triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
-					triangle_normals  [i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
-				}
-
-				ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);
-
-				draw_line_clipped(triangle_positions[0], triangle_positions[1], triangle_colour);
-				draw_line_clipped(triangle_positions[1], triangle_positions[2], triangle_colour);
-				draw_line_clipped(triangle_positions[2], triangle_positions[0], triangle_colour);
-
-				ImColor normal_colour = ImColor(0.2f, 0.5f, 0.8f);
-
-				draw_line_clipped(triangle_positions[0], triangle_positions[0] + 0.1f * triangle_normals[0], normal_colour);
-				draw_line_clipped(triangle_positions[1], triangle_positions[1] + 0.1f * triangle_normals[1], normal_colour);
-				draw_line_clipped(triangle_positions[2], triangle_positions[2] + 0.1f * triangle_normals[2], normal_colour);
 			}
 		}
 
@@ -539,6 +456,101 @@ static void draw_gui() {
 		}
 	}
 	ImGui::End();
+
+	if (pathtracer.pixel_query.mesh_id != INVALID) {
+		Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
+		ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
+
+		Vector4 aabb_corners[8] = {
+			Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
+			Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
+			Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f),
+			Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f)
+		};
+
+		// Transform from world space to homogeneous clip space
+		for (int i = 0; i < 8; i++) {
+			aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
+		}
+
+		auto draw_line_clipped = [draw_list](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
+			if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
+
+			// Clip against near plane only
+			if (a.z < pathtracer.scene.camera.near) a = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
+			if (b.z < pathtracer.scene.camera.near) b = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
+
+			// Clip space to NDC to Window coordinates
+			ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };
+			ImVec2 b_window = { (0.5f + 0.5f * b.x / b.w) * window.width, (0.5f - 0.5f * b.y / b.w) * window.height };
+
+			draw_list->AddLine(a_window, b_window, colour, thickness);
+		};
+
+		ImColor aabb_colour = ImColor(0.2f, 0.8f, 0.2f);
+
+		draw_line_clipped(aabb_corners[0], aabb_corners[1], aabb_colour);
+		draw_line_clipped(aabb_corners[1], aabb_corners[2], aabb_colour);
+		draw_line_clipped(aabb_corners[2], aabb_corners[3], aabb_colour);
+		draw_line_clipped(aabb_corners[3], aabb_corners[0], aabb_colour);
+		draw_line_clipped(aabb_corners[4], aabb_corners[5], aabb_colour);
+		draw_line_clipped(aabb_corners[5], aabb_corners[6], aabb_colour);
+		draw_line_clipped(aabb_corners[6], aabb_corners[7], aabb_colour);
+		draw_line_clipped(aabb_corners[7], aabb_corners[4], aabb_colour);
+		draw_line_clipped(aabb_corners[0], aabb_corners[4], aabb_colour);
+		draw_line_clipped(aabb_corners[1], aabb_corners[5], aabb_colour);
+		draw_line_clipped(aabb_corners[2], aabb_corners[6], aabb_colour);
+		draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
+
+		if (pathtracer.pixel_query.triangle_id != INVALID) {
+			const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
+
+			int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
+			const Triangle & triangle = mesh_data.triangles[index];
+
+			int mouse_x, mouse_y;
+			Input::mouse_position(&mouse_x, &mouse_y);
+
+			if (Vector2::length(Vector2(mouse_x, mouse_y) - Vector2(last_pixel_query_x, last_pixel_query_y)) < 50.0f) {
+				ImGui::BeginTooltip();
+				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
+				ImGui::EndTooltip();
+			}
+
+			Vector4 triangle_positions[3] = {
+				Vector4(triangle.position_0.x, triangle.position_0.y, triangle.position_0.z, 1.0f),
+				Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
+				Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
+			};
+
+			Vector4 triangle_normals[3] = {
+				Vector4(triangle.normal_0.x, triangle.normal_0.y, triangle.normal_0.z, 0.0f),
+				Vector4(triangle.normal_1.x, triangle.normal_1.y, triangle.normal_1.z, 0.0f),
+				Vector4(triangle.normal_2.x, triangle.normal_2.y, triangle.normal_2.z, 0.0f)
+			};
+
+			for (int i = 0; i < 3; i++) {
+				triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
+				triangle_normals  [i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
+			}
+
+			ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);
+
+			draw_line_clipped(triangle_positions[0], triangle_positions[1], triangle_colour);
+			draw_line_clipped(triangle_positions[1], triangle_positions[2], triangle_colour);
+			draw_line_clipped(triangle_positions[2], triangle_positions[0], triangle_colour);
+
+			ImColor normal_colour = ImColor(0.2f, 0.5f, 0.8f);
+
+			draw_line_clipped(triangle_positions[0], triangle_positions[0] + 0.1f * triangle_normals[0], normal_colour);
+			draw_line_clipped(triangle_positions[1], triangle_positions[1] + 0.1f * triangle_normals[1], normal_colour);
+			draw_line_clipped(triangle_positions[2], triangle_positions[2] + 0.1f * triangle_normals[2], normal_colour);
+		}
+	}
 
 	window.gui_end();
 }
