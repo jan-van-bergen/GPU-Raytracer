@@ -3,8 +3,6 @@
 
 #include "BVH/BVH.h"
 
-#include "../CUDA_Source/Common.h"
-
 struct MeshData {
 	int        triangle_count;
 	Triangle * triangles;

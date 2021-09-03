@@ -2,7 +2,6 @@
 #include <stdlib.h>
 
 #include "Config.h"
-#include "../CUDA_Source/Common.h"
 
 #include "Pathtracer/Triangle.h"
 

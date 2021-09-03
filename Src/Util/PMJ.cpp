@@ -11,20 +11,6 @@
 void PMJ::init() {
 	samples = new Vector2[PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE];
 
-	//std::random_device rd;
-	//std::mt19937 engine(rd());
-	//std::uniform_real_distribution<float> dist(0, 1);
-
-	//for (int seq = 0; seq < PMJ_NUM_SEQUENCES; seq++) {
-	//	Vector2 * current_sequence = samples + seq * PMJ_NUM_SAMPLES_PER_SEQUENCE;
-	//	for (int i = 0; i < PMJ_NUM_SAMPLES_PER_SEQUENCE; i++) {
-	//		current_sequence[i].x = dist(engine);
-	//		current_sequence[i].y = dist(engine);
-	//	}
-	//}
-
-	//return;
-
 	for (int seq = 0; seq < PMJ_NUM_SEQUENCES; seq++) {
 		Vector2 * current_sequence = samples + seq * PMJ_NUM_SAMPLES_PER_SEQUENCE;
 

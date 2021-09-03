@@ -4,8 +4,6 @@
 #include "Math/Quaternion.h"
 #include "Math/Matrix4.h"
 
-#include "../CUDA_Source/Common.h"
-
 struct Camera {
 	Vector3    position;
 	Quaternion rotation;

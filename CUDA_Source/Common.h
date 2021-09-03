@@ -94,7 +94,6 @@ struct Config {
 	int bvh_optimizer_max_num_batches = 1000;
 };
 
-
 // Rendering is performance in batches of BATCH_SIZE pixels
 // Larger batches are more efficient, but also require more GPU memory
 #define BATCH_SIZE (1080 * 720)

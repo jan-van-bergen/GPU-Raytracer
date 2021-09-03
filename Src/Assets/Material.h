@@ -3,8 +3,6 @@
 
 #include "Texture.h"
 
-#include "../CUDA_Source/Common.h"
-
 struct Material {
 	const char * name;
 

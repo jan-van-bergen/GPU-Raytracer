@@ -1,6 +1,4 @@
 #pragma once
-#include "../CUDA_Source/Common.h"
-
 #include "MeshData.h"
 #include "Material.h"
 #include "Texture.h"
