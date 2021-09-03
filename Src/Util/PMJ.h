@@ -3,9 +3,6 @@
 
 #include "Array.h"
 
-struct PMJ {
-	Vector2 * samples;
-
-	void init();
-	void free();
-};
+namespace PMJ {
+	extern unsigned samples[];
+}

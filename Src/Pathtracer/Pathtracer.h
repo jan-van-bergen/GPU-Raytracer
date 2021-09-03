@@ -13,8 +13,6 @@
 
 #include "Scene.h"
 
-#include "Util/PMJ.h"
-
 // Mirror CUDA vector types
 struct alignas(8)  float2 { float x, y; };
 struct             float3 { float x, y, z; };
@@ -195,8 +193,6 @@ private:
 
 	int pixel_count;
 
-	PMJ pmj;
-
 	BVH        tlas_raw;
 	BVH        tlas;
 	BVHBuilder tlas_bvh_builder;
@@ -364,7 +360,7 @@ private:
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
 
-	CUDAMemory::Ptr<Vector2> ptr_pmj_samples;
+	CUDAMemory::Ptr<unsigned> ptr_pmj_samples;
 
 	// Timing Events
 	CUDAEvent::Desc event_desc_primary;

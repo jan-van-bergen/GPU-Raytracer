@@ -12,12 +12,11 @@
 
 #include "Math/Vector4.h"
 
+#include "Util/PMJ.h"
 #include "Util/Util.h"
 #include "Util/ScopeTimer.h"
 
 void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle, int width, int height) {
-	pmj.init();
-
 	scene.init(scene_name, sky_name);
 
 	cuda_init(frame_buffer_handle, width, height);
@@ -288,8 +287,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("sky_height").set_value(scene.sky.height);
 	cuda_module.get_global("sky_data")  .set_value(ptr_sky_data);
 
-	ptr_pmj_samples = CUDAMemory::malloc<Vector2>(PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
-	CUDAMemory::memcpy(ptr_pmj_samples, pmj.samples, PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
+	ptr_pmj_samples = CUDAMemory::malloc<unsigned>(PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE * 2);
+	CUDAMemory::memcpy(ptr_pmj_samples, PMJ::samples, PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE * 2);
 	cuda_module.get_global("pmj_samples").set_value(ptr_pmj_samples);
 
 	ray_buffer_trace.init(BATCH_SIZE);
