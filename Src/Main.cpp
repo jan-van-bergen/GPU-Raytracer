@@ -148,12 +148,12 @@ static void parse_args(int arg_count, char ** args) {
 	};
 
 	Option options[] = {
-		Option { "w", "width",   1, [](int arg_count, char ** args, int i) { config.initial_width        = atoi(args[i + 1]); } },
-		Option { "h", "height",  1, [](int arg_count, char ** args, int i) { config.initial_height       = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  1, [](int arg_count, char ** args, int i) { config.settings.num_bounces = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", 1, [](int arg_count, char ** args, int i) { config.capture_frame_index  = atoi(args[i + 1]); } },
-		Option { "s", "scene",   1, [](int arg_count, char ** args, int i) { config.scene                = args[i + 1]; } },
-		Option { "S", "sky",     1, [](int arg_count, char ** args, int i) { config.sky                  = args[i + 1]; } },
+		Option { "w", "width",   1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
+		Option { "h", "height",  1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", 1, [](int arg_count, char ** args, int i) { config.capture_frame_index = atoi(args[i + 1]); } },
+		Option { "s", "scene",   1, [](int arg_count, char ** args, int i) { config.scene               = args[i + 1]; } },
+		Option { "S", "sky",     1, [](int arg_count, char ** args, int i) { config.sky                 = args[i + 1]; } },
 		Option { "b", "bvh",     1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
 				config.bvh_type = BVHType::BVH;
@@ -174,7 +174,7 @@ static void parse_args(int arg_count, char ** args) {
 		Option { nullptr, "sah-node",    1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
 		Option { nullptr, "sah-leaf",    1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
 		Option { nullptr, "sbvh-alpha",  1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
-		Option { nullptr, "mipmap",      1, [](int arg_count, char ** args, int i) { config.settings.enable_mipmapping    = atob(args[i + 1]); } },
+		Option { nullptr, "mipmap",      1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
 		Option { nullptr, "mip-filter",  1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "box") == 0) {
 				config.mipmap_filter = Config::MipmapFilter::BOX;
@@ -395,7 +395,7 @@ static void draw_gui() {
 				case BVHType::CWBVH: ImGui::TextUnformatted("BVH: CWBVH"); break;
 			}
 
-			bool invalidated_settings = ImGui::SliderInt("Num Bounces", &config.settings.num_bounces, 0, MAX_BOUNCES);
+			bool invalidated_config = ImGui::SliderInt("Num Bounces", &config.num_bounces, 0, MAX_BOUNCES);
 
 			float fov = Math::rad_to_deg(pathtracer.scene.camera.fov);
 			if (ImGui::SliderFloat("FOV", &fov, 0.0f, 179.0f)) {
@@ -406,34 +406,34 @@ static void draw_gui() {
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius, 0.0f, 1.0f);
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
-			invalidated_settings |= ImGui::Checkbox("NEE", &config.settings.enable_next_event_estimation);
-			invalidated_settings |= ImGui::Checkbox("MIS", &config.settings.enable_multiple_importance_sampling);
+			invalidated_config |= ImGui::Checkbox("NEE", &config.enable_next_event_estimation);
+			invalidated_config |= ImGui::Checkbox("MIS", &config.enable_multiple_importance_sampling);
 
-			invalidated_settings |= ImGui::Checkbox("Russian Roulete", &config.settings.enable_russian_roulette);
+			invalidated_config |= ImGui::Checkbox("Russian Roulete", &config.enable_russian_roulette);
 
-			invalidated_settings |= ImGui::Checkbox("Update Scene", &config.settings.enable_scene_update);
+			invalidated_config |= ImGui::Checkbox("Update Scene", &config.enable_scene_update);
 
-			if (ImGui::Checkbox("SVGF", &config.settings.enable_svgf)) {
-				if (config.settings.enable_svgf) {
+			if (ImGui::Checkbox("SVGF", &config.enable_svgf)) {
+				if (config.enable_svgf) {
 					pathtracer.svgf_init();
 				} else {
 					pathtracer.svgf_free();
 				}
-				invalidated_settings = true;
+				invalidated_config = true;
 			}
 
-			invalidated_settings |= ImGui::Checkbox("Spatial Variance",  &config.settings.enable_spatial_variance);
-			invalidated_settings |= ImGui::Checkbox("TAA",               &config.settings.enable_taa);
-			invalidated_settings |= ImGui::Checkbox("Modulate Albedo",   &config.settings.enable_albedo);
+			invalidated_config |= ImGui::Checkbox("Spatial Variance",  &config.enable_spatial_variance);
+			invalidated_config |= ImGui::Checkbox("TAA",               &config.enable_taa);
+			invalidated_config |= ImGui::Checkbox("Modulate Albedo",   &config.enable_albedo);
 
-			invalidated_settings |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.settings.reconstruction_filter), "Box\0Gaussian\0");
+			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.reconstruction_filter), "Box\0Gaussian\0");
 
-			invalidated_settings |= ImGui::SliderInt("A Trous iterations", &config.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+			invalidated_config |= ImGui::SliderInt("A Trous iterations", &config.num_atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 
-			invalidated_settings |= ImGui::SliderFloat("Alpha colour", &config.settings.alpha_colour, 0.0f, 1.0f);
-			invalidated_settings |= ImGui::SliderFloat("Alpha moment", &config.settings.alpha_moment, 0.0f, 1.0f);
+			invalidated_config |= ImGui::SliderFloat("Alpha colour", &config.alpha_colour, 0.0f, 1.0f);
+			invalidated_config |= ImGui::SliderFloat("Alpha moment", &config.alpha_moment, 0.0f, 1.0f);
 
-			pathtracer.invalidated_settings = invalidated_settings;
+			pathtracer.invalidated_config = invalidated_config;
 		}
 	}
 	ImGui::End();

@@ -300,7 +300,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_ray_buffer_shadow                      = cuda_module.get_global("ray_buffer_shadow");
 
 	global_camera      = cuda_module.get_global("camera");
-	global_settings    = cuda_module.get_global("settings");
+	global_config      = cuda_module.get_global("config");
 	global_svgf_data   = cuda_module.get_global("svgf_data");
 	global_pixel_query = cuda_module.get_global("pixel_query");
 
@@ -362,7 +362,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	invalidated_scene     = true;
 	invalidated_materials = true;
-	invalidated_settings  = true;
+	invalidated_config    = true;
 
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
@@ -490,7 +490,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 
 	frames_accumulated = 0;
 
-	if (config.settings.enable_svgf) svgf_init();
+	if (config.enable_svgf) svgf_init();
 }
 
 void Pathtracer::resize_free() {
@@ -504,7 +504,7 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free(ptr_frame_buffer_direct);
 	CUDAMemory::free(ptr_frame_buffer_indirect);
 
-	if (config.settings.enable_svgf) svgf_free();
+	if (config.enable_svgf) svgf_free();
 }
 
 void Pathtracer::svgf_init() {
@@ -772,7 +772,7 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
-	if (invalidated_settings && config.settings.enable_svgf && scene.camera.aperture_radius > 0.0f) {
+	if (invalidated_config && config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
 		puts("WARNING: SVGF and DoF cannot simultaneously be enabled!");
 		scene.camera.aperture_radius = 0.0f;
 	}
@@ -888,10 +888,10 @@ void Pathtracer::update(float delta) {
 		invalidated_materials = false;
 	}
 
-	if (config.settings.enable_scene_update) {
+	if (config.enable_scene_update) {
 		scene.update(delta);
 		invalidated_scene = true;
-	} else if (config.settings.enable_svgf || invalidated_scene) {
+	} else if (config.enable_svgf || invalidated_scene) {
 		scene.camera.update(0.0f);
 		scene.update(0.0f);
 	}
@@ -901,7 +901,7 @@ void Pathtracer::update(float delta) {
 
 		// If SVGF is enabled we can handle Scene updates using reprojection,
 		// otherwise 'frames_accumulated' needs to be reset in order to avoid ghosting
-		if (!config.settings.enable_svgf) {
+		if (!config.enable_svgf) {
 			frames_accumulated = 0;
 		}
 
@@ -932,7 +932,7 @@ void Pathtracer::update(float delta) {
 
 		global_camera.set_value(cuda_camera);
 
-		if (!config.settings.enable_svgf) {
+		if (!config.enable_svgf) {
 			frames_accumulated = 0;
 		}
 
@@ -953,7 +953,7 @@ void Pathtracer::update(float delta) {
 		pixel_query_status = PixelQueryStatus::INACTIVE;
 	}
 
-	if (config.settings.enable_svgf) {
+	if (config.enable_svgf) {
 		struct SVGFData {
 			alignas(16) Matrix4 view_projection;
 			alignas(16) Matrix4 view_projection_prev;
@@ -965,11 +965,11 @@ void Pathtracer::update(float delta) {
 		global_svgf_data.set_value(svgf_data);
 	}
 
-	if (invalidated_settings) {
+	if (invalidated_config) {
 		frames_accumulated = 0;
 
-		global_settings.set_value(config.settings);
-	} else if (config.settings.enable_svgf) {
+		global_config.set_value(config);
+	} else if (config.enable_svgf) {
 		frames_accumulated = (frames_accumulated + 1) & 255;
 	} else if (scene.camera.moved) {
 		frames_accumulated = 0;
@@ -996,7 +996,7 @@ void Pathtracer::render() {
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(frames_accumulated, pixel_offset, pixel_count);
 
-		for (int bounce = 0; bounce < config.settings.num_bounces; bounce++) {
+		for (int bounce = 0; bounce < config.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
 			event_pool.record(event_desc_trace[bounce]);
 			kernel_trace->execute(bounce);
@@ -1021,7 +1021,7 @@ void Pathtracer::render() {
 			}
 
 			// Trace shadow Rays
-			if (scene.has_lights && config.settings.enable_next_event_estimation) {
+			if (scene.has_lights && config.enable_next_event_estimation) {
 				event_pool.record(event_desc_shadow_trace[bounce]);
 				kernel_trace_shadow->execute(bounce);
 			}
@@ -1036,7 +1036,7 @@ void Pathtracer::render() {
 		}
 	}
 
-	if (config.settings.enable_svgf) {
+	if (config.enable_svgf) {
 		// Temporal reprojection + integration
 		event_pool.record(event_desc_svgf_reproject);
 		kernel_svgf_reproject.execute(frames_accumulated);
@@ -1046,7 +1046,7 @@ void Pathtracer::render() {
 		CUdeviceptr indirect_in  = ptr_frame_buffer_indirect    .ptr;
 		CUdeviceptr indirect_out = ptr_frame_buffer_indirect_alt.ptr;
 
-		if (config.settings.enable_spatial_variance) {
+		if (config.enable_spatial_variance) {
 			// Estimate Variance spatially
 			event_pool.record(event_desc_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
@@ -1056,7 +1056,7 @@ void Pathtracer::render() {
 		}
 
 		// À-Trous Filter
-		for (int i = 0; i < config.settings.atrous_iterations; i++) {
+		for (int i = 0; i < config.num_atrous_iterations; i++) {
 			int step_size = 1 << i;
 
 			event_pool.record(event_desc_svgf_atrous[i]);
@@ -1070,7 +1070,7 @@ void Pathtracer::render() {
 		event_pool.record(event_desc_svgf_finalize);
 		kernel_svgf_finalize.execute(direct_in, indirect_in);
 
-		if (config.settings.enable_taa) {
+		if (config.enable_taa) {
 			event_pool.record(event_desc_taa);
 
 			kernel_taa         .execute(frames_accumulated);
@@ -1087,7 +1087,7 @@ void Pathtracer::render() {
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	if (config.settings.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, stream_memset);
+	if (config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, stream_memset);
 	CUDAMemory::memset_async(ptr_frame_buffer_direct,   0, screen_pitch * screen_height, stream_memset);
 	CUDAMemory::memset_async(ptr_frame_buffer_indirect, 0, screen_pitch * screen_height, stream_memset);
 

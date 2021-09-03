@@ -98,7 +98,7 @@ exit:
 }
 
 static void mip_count(int width, int height, int & mip_levels, int & pixel_count) {
-	if (config.settings.enable_mipmapping) {
+	if (config.enable_mipmapping) {
 		mip_levels  = 0;
 		pixel_count = 0;
 
@@ -143,7 +143,7 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 	stbi_image_free(data);
 
-	if (config.settings.enable_mipmapping) {
+	if (config.enable_mipmapping) {
 		int * mip_offsets = new int[texture.mip_levels];
 		mip_offsets[0] = 0;
 

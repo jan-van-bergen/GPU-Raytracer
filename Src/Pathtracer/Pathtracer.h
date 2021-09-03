@@ -153,7 +153,7 @@ struct Pathtracer {
 	bool invalidated_scene     = true;
 	bool invalidated_materials = true;
 	bool invalidated_camera    = true;
-	bool invalidated_settings  = true;
+	bool invalidated_config    = true;
 
 	enum struct PixelQueryStatus {
 		INACTIVE,
@@ -249,7 +249,7 @@ private:
 
 	CUDAModule::Global global_camera;
 	CUDAModule::Global global_buffer_sizes;
-	CUDAModule::Global global_settings;
+	CUDAModule::Global global_config;
 	CUDAModule::Global global_svgf_data;
 
 	CUDAModule::Global global_pixel_query;
