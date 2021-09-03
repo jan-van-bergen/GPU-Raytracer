@@ -42,7 +42,7 @@ struct Camera {
 
 	void set_fov(float fov);
 
-	void update(float delta, const Settings & settings);
+	void update(float delta);
 
 private:
 	void recalibrate();

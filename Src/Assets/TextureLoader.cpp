@@ -8,6 +8,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include "Config.h"
+
 #include "Math/Mipmap.h"
 
 bool TextureLoader::load_dds(const char * filename, Texture & texture) {
@@ -96,23 +98,23 @@ exit:
 }
 
 static void mip_count(int width, int height, int & mip_levels, int & pixel_count) {
-#if ENABLE_MIPMAPPING
-	mip_levels  = 0;
-	pixel_count = 0;
+	if (config.settings.enable_mipmapping) {
+		mip_levels  = 0;
+		pixel_count = 0;
 
-	while (true) {
-		mip_levels++;
-		pixel_count += width * height;
+		while (true) {
+			mip_levels++;
+			pixel_count += width * height;
 
-		if (width == 1 && height == 1) break;
+			if (width == 1 && height == 1) break;
 
-		if (width  > 1) width  /= 2;
-		if (height > 1) height /= 2;
+			if (width  > 1) width  /= 2;
+			if (height > 1) height /= 2;
+		}
+	} else {
+		mip_levels  = 1;
+		pixel_count = width * height;
 	}
-#else
-	mip_levels  = 1;
-	pixel_count = width * height;
-#endif
 }
 
 bool TextureLoader::load_stb(const char * filename, Texture & texture) {
@@ -141,50 +143,49 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 	stbi_image_free(data);
 
-#if ENABLE_MIPMAPPING
-	int * mip_offsets = new int[texture.mip_levels];
-	mip_offsets[0] = 0;
+	if (config.settings.enable_mipmapping) {
+		int * mip_offsets = new int[texture.mip_levels];
+		mip_offsets[0] = 0;
 
-	int offset      = texture.width * texture.height;
-	int offset_prev = 0;
+		int offset      = texture.width * texture.height;
+		int offset_prev = 0;
 
-	int level_width  = texture.width  / 2;
-	int level_height = texture.height / 2;
+		int level_width  = texture.width  / 2;
+		int level_height = texture.height / 2;
 
-	int level = 1;
+		int level = 1;
 
-	Vector4 * temp = new Vector4[(texture.width / 2) * texture.height]; // Intermediate storage used when performing seperable filtering
+		Vector4 * temp = new Vector4[(texture.width / 2) * texture.height]; // Intermediate storage used when performing seperable filtering
 
-	while (true) {
-#if MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
-		// Box filter can downsample the previous Mip level
-		Mipmap::downsample(level_width * 2, level_height * 2, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
-#else
-		// Other filters downsample the original Texture for better quality
-		Mipmap::downsample(texture.width, texture.height, level_width, level_height, data_rgba, data_rgba + offset, temp);
-#endif
+		while (true) {
+			if (config.mipmap_filter == Config::MipmapFilter::BOX) {
+				// Box filter can downsample the previous Mip level
+				Mipmap::downsample(level_width * 2, level_height * 2, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
+			} else {
+				// Other filters downsample the original Texture for better quality
+				Mipmap::downsample(texture.width, texture.height, level_width, level_height, data_rgba, data_rgba + offset, temp);
+			}
 
-		mip_offsets[level++] = offset * sizeof(unsigned);
+			mip_offsets[level++] = offset * sizeof(unsigned);
 
-		if (level_width == 1 && level_height == 1) break;
+			if (level_width == 1 && level_height == 1) break;
 
-		offset_prev = offset;
-		offset += level_width * level_height;
+			offset_prev = offset;
+			offset += level_width * level_height;
 
-		if (level_width  > 1) level_width  /= 2;
-		if (level_height > 1) level_height /= 2;
+			if (level_width  > 1) level_width  /= 2;
+			if (level_height > 1) level_height /= 2;
+		}
+
+		delete [] temp;
+
+		assert(level == texture.mip_levels);
+
+		texture.mip_offsets = mip_offsets;
+	} else {
+		texture.mip_levels  = 1;
+		texture.mip_offsets = new int(0);
 	}
-
-	delete [] temp;
-
-	assert(level == texture.mip_levels);
-
-	texture.mip_offsets = mip_offsets;
-#else
-	static constexpr int OFFSET_ZERO = 0;
-	texture.mip_levels  = 1;
-	texture.mip_offsets = &OFFSET_ZERO;
-#endif
 
 	// Convert floating point pixels to unsigned bytes
 	unsigned * data_rgba_u8 = new unsigned[pixel_count];
@@ -197,75 +198,74 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 	}
 	delete [] data_rgba;
 
-#if ENABLE_BLOCK_COMPRESSION
-	// Block Compression
-	int new_width  = Math::divide_round_up(texture.width,  4);
-	int new_height = Math::divide_round_up(texture.height, 4);
+	if (config.enable_block_compression) {
+		// Block Compression
+		int new_width  = Math::divide_round_up(texture.width,  4);
+		int new_height = Math::divide_round_up(texture.height, 4);
 
-	int new_mip_levels  = 0;
-	int new_pixel_count = 0;
-	mip_count(new_width, new_height, new_mip_levels, new_pixel_count);
+		int new_mip_levels  = 0;
+		int new_pixel_count = 0;
+		mip_count(new_width, new_height, new_mip_levels, new_pixel_count);
 
-	int * new_mip_offsets = new int[new_mip_levels];
+		int * new_mip_offsets = new int[new_mip_levels];
 
-	unsigned * compressed_data = new unsigned[new_pixel_count * 2];
-	int        compressed_data_offset = 0;
+		unsigned * compressed_data = new unsigned[new_pixel_count * 2];
+		int        compressed_data_offset = 0;
 
-	for (int l = 0; l < new_mip_levels; l++) {
-		new_mip_offsets[l] = compressed_data_offset * sizeof(unsigned);
+		for (int l = 0; l < new_mip_levels; l++) {
+			new_mip_offsets[l] = compressed_data_offset * sizeof(unsigned);
 
-		unsigned * level_data = data_rgba_u8 + texture.mip_offsets[l] / sizeof(unsigned);
+			unsigned * level_data = data_rgba_u8 + texture.mip_offsets[l] / sizeof(unsigned);
 
-		int level_width  = Math::max(texture.width  >> l, 1);
-		int level_height = Math::max(texture.height >> l, 1);
+			int level_width  = Math::max(texture.width  >> l, 1);
+			int level_height = Math::max(texture.height >> l, 1);
 
-		int new_level_width  = Math::max(new_width  >> l, 1);
-		int new_level_height = Math::max(new_height >> l, 1);
+			int new_level_width  = Math::max(new_width  >> l, 1);
+			int new_level_height = Math::max(new_height >> l, 1);
 
-		for (int y = 0; y < new_level_height; y++) {
-			for (int x = 0; x < new_level_width; x++) {
-				unsigned block[4 * 4] = { };
+			for (int y = 0; y < new_level_height; y++) {
+				for (int x = 0; x < new_level_width; x++) {
+					unsigned block[4 * 4] = { };
 
-				for (int j = 0; j < 4; j++) {
-					int pixel_y = 4*y + j;
-					if (pixel_y < level_height) {
-						for (int i = 0; i < 4; i++) {
-							int pixel_x = 4*x + i;
-							if (pixel_x < level_width) {
-								block[i + j * 4] = level_data[pixel_x + pixel_y * level_width];
+					for (int j = 0; j < 4; j++) {
+						int pixel_y = 4*y + j;
+						if (pixel_y < level_height) {
+							for (int i = 0; i < 4; i++) {
+								int pixel_x = 4*x + i;
+								if (pixel_x < level_width) {
+									block[i + j * 4] = level_data[pixel_x + pixel_y * level_width];
+								}
 							}
 						}
 					}
-				}
 
-				unsigned compressed[2] = { };
-				stb_compress_dxt_block(
-					reinterpret_cast<      unsigned char *>(compressed),
-					reinterpret_cast<const unsigned char *>(block),
-					false, STB_DXT_HIGHQUAL
-				);
-				compressed_data[compressed_data_offset++] = compressed[0];
-				compressed_data[compressed_data_offset++] = compressed[1];
+					unsigned compressed[2] = { };
+					stb_compress_dxt_block(
+						reinterpret_cast<      unsigned char *>(compressed),
+						reinterpret_cast<const unsigned char *>(block),
+						false, STB_DXT_HIGHQUAL
+					);
+					compressed_data[compressed_data_offset++] = compressed[0];
+					compressed_data[compressed_data_offset++] = compressed[1];
+				}
 			}
 		}
+
+		assert(compressed_data_offset == new_pixel_count * 2);
+
+		delete [] data_rgba_u8;
+		data_rgba_u8 = compressed_data;
+
+		texture.format   = Texture::Format::BC1;
+		texture.channels = 2;
+		texture.width    = new_width;
+		texture.height   = new_height;
+
+		delete [] texture.mip_offsets;
+
+		texture.mip_levels  = new_mip_levels;
+		texture.mip_offsets = new_mip_offsets;
 	}
-
-	assert(compressed_data_offset == new_pixel_count * 2);
-
-	delete [] data_rgba_u8;
-	data_rgba_u8 = compressed_data;
-
-	texture.format   = Texture::Format::BC1;
-	texture.channels = 2;
-	texture.width    = new_width;
-	texture.height   = new_height;
-
-#if ENABLE_MIPMAPPING
-	delete [] texture.mip_offsets;
-#endif
-	texture.mip_levels  = new_mip_levels;
-	texture.mip_offsets = new_mip_offsets;
-#endif
 
 	texture.data = reinterpret_cast<const unsigned char *>(data_rgba_u8);
 

@@ -14,7 +14,6 @@
 
 // CUDA
 #define WARP_SIZE 32
-
 #define MAX_REGISTERS 64
 
 
@@ -27,6 +26,8 @@ enum struct ReconstructionFilter {
 struct Settings {
 	int num_bounces = 5;
 
+	bool enable_albedo                       = true;
+	bool enable_mipmapping                   = false;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_russian_roulette             = true;
@@ -34,8 +35,6 @@ struct Settings {
 	bool enable_svgf                         = false;
 	bool enable_spatial_variance             = true;
 	bool enable_taa                          = true;
-
-	bool modulate_albedo = true;
 
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::GAUSSIAN;
 
@@ -51,19 +50,14 @@ struct Settings {
 };
 
 
-// Screen size at startup
-#define SCREEN_WIDTH  900
-#define SCREEN_HEIGHT 600
-
-
 // Rendering is performance in batches of BATCH_SIZE pixels
 // Larger batches are more efficient, but also require more GPU memory
-#define BATCH_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT)
+#define BATCH_SIZE (1080 * 720)
+
 
 // Raytracing
 #define EPSILON 0.001f
-
-#define MAX_BOUNCES 20
+#define MAX_BOUNCES 128
 
 
 // PMJ
@@ -75,36 +69,7 @@ struct Settings {
 #define MAX_ATROUS_ITERATIONS 10
 
 
-// Textures
-#define ENABLE_BLOCK_COMPRESSION true
-
-#define MIPMAP_DOWNSAMPLE_FILTER_BOX     0
-#define MIPMAP_DOWNSAMPLE_FILTER_LANCZOS 1
-#define MIPMAP_DOWNSAMPLE_FILTER_KAISER  2
-
-#define MIPMAP_DOWNSAMPLE_FILTER MIPMAP_DOWNSAMPLE_FILTER_KAISER
-
-#define ENABLE_MIPMAPPING true
-
-
-// BVH related
-#define SAH_COST_NODE 4.0f
-#define SAH_COST_LEAF 1.0f
-
-#define BVH_BVH   0 // Binary SAH-based BVH
-#define BVH_SBVH  1 // Binary SAH-based Spatial BVH
-#define BVH_QBVH  2 // Quaternary BVH,              constructed by collapsing the binary BVH
-#define BVH_CWBVH 3 // Compressed Wide BVH (8 way), constructed by collapsing the binary BVH
-
-#define BVH_TYPE BVH_CWBVH
-
-#define SBVH_ALPHA 10e-5f // Alpha parameter for SBVH construction, alpha == 1 means regular BVH, alpha == 0 means full SBVH
-
-#define BVH_ENABLE_OPTIMIZATION true
-
-#define BVH_OPTIMIZER_MAX_TIME -1 // Time limit in milliseconds
-#define BVH_OPTIMIZER_MAX_NUM_BATCHES 1000
-
+// BVH
 
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to
@@ -116,12 +81,6 @@ struct Settings {
 // Portion of the Stack that resides in Shared Memory
 #define SHARED_STACK_SIZE 8
 static_assert(SHARED_STACK_SIZE < BVH_STACK_SIZE, "Shared Stack size must be strictly smaller than total Stack size");
-
-
-#define BVH_AXIS_X_BITS (0b01 << 30)
-#define BVH_AXIS_Y_BITS (0b10 << 30)
-#define BVH_AXIS_Z_BITS (0b11 << 30)
-#define BVH_AXIS_MASK   (0b11 << 30)
 
 
 // Used to perform mouse interaction with objects in the scene

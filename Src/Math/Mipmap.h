@@ -48,13 +48,5 @@ namespace Mipmap {
 		}
 	};
 
-#if MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_BOX
-	typedef FilterBox Filter;
-#elif MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_LANCZOS
-	typedef FilterLanczos Filter;
-#elif MIPMAP_DOWNSAMPLE_FILTER == MIPMAP_DOWNSAMPLE_FILTER_KAISER
-	typedef FilterKaiser Filter;
-#endif
-
 	void downsample(int width_src, int height_src, int width_dst, int height_dst, const Vector4 texture_src[], Vector4 texture_dst[], Vector4 temp[]);
 }

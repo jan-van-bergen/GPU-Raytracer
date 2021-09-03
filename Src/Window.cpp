@@ -13,7 +13,7 @@ static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id
 	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", type, severity, message);
 }
 
-void Window::init(const char * title) {
+void Window::init(const char * title, int width, int height) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
@@ -25,7 +25,10 @@ void Window::init(const char * title) {
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+	this->width  = width;
+	this->height = height;
+
+	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
 	context = SDL_GL_CreateContext(window);
 
 	SDL_SetWindowResizable(window, SDL_TRUE);
@@ -55,9 +58,6 @@ void Window::init(const char * title) {
 	//glEnable(GL_CULL_FACE);
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
-	width  = SCREEN_WIDTH;
-	height = SCREEN_HEIGHT;
-
 	glGenTextures(1, &frame_buffer_handle);
 
 	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
@@ -84,6 +84,23 @@ void Window::free() {
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+}
+
+void Window::resize(int new_width, int new_height) {
+	width  = new_width;
+	height = new_height;
+
+	glDeleteTextures(1, &frame_buffer_handle);
+	glGenTextures   (1, &frame_buffer_handle);
+
+	glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+
+	glViewport(0, 0, width, height);
+
+	if (resize_handler) resize_handler(frame_buffer_handle, width, height);
 }
 
 void Window::render_framebuffer() const {
@@ -121,20 +138,7 @@ void Window::swap() {
 		switch (event.type) {
 			case SDL_WINDOWEVENT: {
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-					width  = event.window.data1;
-					height = event.window.data2;
-
-					glDeleteTextures(1, &frame_buffer_handle);
-					glGenTextures   (1, &frame_buffer_handle);
-
-					glBindTexture(GL_TEXTURE_2D, frame_buffer_handle);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
-
-					glViewport(0, 0, width, height);
-
-					if (resize_handler) resize_handler(frame_buffer_handle, width, height);
+					resize(event.window.data1, event.window.data2);
 				}
 
 				break;

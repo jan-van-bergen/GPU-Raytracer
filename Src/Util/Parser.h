@@ -7,7 +7,11 @@
 #define TAB_WIDTH 4
 
 #define WARNING(loc, msg, ...) \
-	printf("%s:%i:%i: " msg, loc.file, loc.line, loc.col, __VA_ARGS__);
+	if (loc.file) { \
+		printf("%s:%i:%i: " msg, loc.file, loc.line, loc.col, __VA_ARGS__); \
+	} else { \
+		printf(msg, __VA_ARGS__); \
+	}
 
 #define ERROR(loc, msg, ...) \
 	WARNING(loc, msg, __VA_ARGS__); \
@@ -47,6 +51,14 @@ struct Parser {
 	const char * end;
 
 	SourceLocation location;
+
+	void init(const char * cur, const char * end, const char * filename = nullptr) {
+		this->cur = cur;
+		this->end = end;
+		location.file = filename;
+		location.line = 1;
+		location.col  = 0;
+	}
 
 	void init(const char * cur, const char * end, SourceLocation location) {
 		this->cur = cur;

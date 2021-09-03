@@ -34,13 +34,8 @@ void PMJ::init() {
 		int          file_length = 0;
 		const char * file = Util::file_read(filename, file_length);
 
-		SourceLocation location = { };
-		location.file = filename;
-		location.line = 1;
-		location.col  = 0;
-
 		Parser parser;
-		parser.init(file, file + file_length, location);
+		parser.init(file, file + file_length, filename);
 
 		for (int i = 0; i < PMJ_NUM_SAMPLES_PER_SEQUENCE; i++) {
 			parser.expect('(');

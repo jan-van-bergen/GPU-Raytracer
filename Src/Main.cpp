@@ -6,18 +6,17 @@
 
 #include "Pathtracer/Pathtracer.h"
 
+#include "Config.h"
+
 #include "Input.h"
 #include "Window.h"
 
 #include "Util/Util.h"
+#include "Util/Parser.h"
 #include "Util/PerfTest.h"
 #include "Util/ScopeTimer.h"
 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used
-
-// Index of frame to take screen capture on
-static constexpr int capture_frame_index = -1;
-static constexpr bool exit_after_capture = true;
 
 static Window window;
 
@@ -48,64 +47,25 @@ struct Timing {
 static int last_pixel_query_x;
 static int last_pixel_query_y;
 
-static void capture_screen(const Window & window, const char * file_name) {
-	ScopeTimer timer("Screenshot");
-
-	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
-	int window_pitch = Math::divide_round_up(window.width * 3, pack_alignment) * pack_alignment;
-
-	unsigned char * data = new unsigned char[window_pitch * window.height];
-	unsigned char * temp = new unsigned char[window_pitch];
-
-	window.read_frame_buffer(data);
-
-	// Flip image vertically
-	for (int j = 0; j < window.height / 2; j++) {
-		unsigned char * row_top    = data +                  j      * window_pitch;
-		unsigned char * row_bottom = data + (window.height - j - 1) * window_pitch;
-
-		memcpy(temp,       row_top,    window_pitch);
-		memcpy(row_top,    row_bottom, window_pitch);
-		memcpy(row_bottom, temp,       window_pitch);
-	}
-
-	// Remove pack alignment
-	for (int j = 1; j < window.height; j++) {
-		memmove(data + j * window.width * 3, data + j * window_pitch, window.width * 3);
-	}
-
-	Util::export_ppm(file_name, window.width, window.height, data);
-
-	delete [] temp;
-	delete [] data;
-}
-
-static void window_resize(unsigned frame_buffer_handle, int width, int height) {
-	pathtracer.resize_free();
-	pathtracer.resize_init(frame_buffer_handle, width, height);
-};
-
+static void parse_args(int arg_count, char ** args);
+static void capture_screen(const Window & window, const char * file_name);
+static void window_resize(unsigned frame_buffer_handle, int width, int height);
 static void calc_timing();
 static void draw_gui();
 
-int main(int argument_count, char ** arguments) {
-	const char * scene_filename = "C:/Dev/Git/Advanced_Graphics/Models/Staircase2/scene.xml"; // DATA_PATH("Sponza/scene.xml");
-	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
-
-	if (argument_count > 1) {
-		scene_filename = arguments[1];
-	}
+int main(int arg_count, char ** args) {
+	parse_args(arg_count, args);
 
 	{
 		ScopeTimer timer("Initialization");
 
-		window.init("Pathtracer");
+		window.init("Pathtracer", config.initial_width, config.initial_height);
 		window.resize_handler = &window_resize;
 
 		CUDAContext::init();
-		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
+		pathtracer.init(config.scene, config.sky, window.frame_buffer_handle, config.initial_width, config.initial_height);
 
-		perf_test.init(&pathtracer, false, scene_filename);
+		perf_test.init(&pathtracer, false, config.scene);
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
@@ -120,13 +80,13 @@ int main(int argument_count, char ** arguments) {
 
 		window.render_framebuffer();
 
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == capture_frame_index) {
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == config.capture_frame_index) {
 			char screenshot_name[32];
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
 
 			capture_screen(window, screenshot_name);
 
-			if (pathtracer.frames_accumulated == capture_frame_index && exit_after_capture) break;
+			if (pathtracer.frames_accumulated == config.capture_frame_index) break;
 		}
 
 		if (ImGui::IsMouseClicked(1)) {
@@ -165,6 +125,137 @@ int main(int argument_count, char ** arguments) {
 
 	return EXIT_SUCCESS;
 }
+
+static bool atob(const char * str) {
+	if (strcmp(str, "true") == 0) {
+		return true;
+	} else if (strcmp(str, "false") == 0) {
+		return false;
+	} else {
+		printf("Invalid boolean argument '%s'!\n", str);
+		abort();
+	}
+};
+
+static void parse_args(int arg_count, char ** args) {
+	struct Option {
+		const char * name_short;
+		const char * name_full;
+
+		int num_args;
+
+		void (* action)(int arg_count, char ** args, int i);
+	};
+
+	Option options[] = {
+		Option { "w", "width",   1, [](int arg_count, char ** args, int i) { config.initial_width        = atoi(args[i + 1]); } },
+		Option { "h", "height",  1, [](int arg_count, char ** args, int i) { config.initial_height       = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  1, [](int arg_count, char ** args, int i) { config.settings.num_bounces = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", 1, [](int arg_count, char ** args, int i) { config.capture_frame_index  = atoi(args[i + 1]); } },
+		Option { "s", "scene",   1, [](int arg_count, char ** args, int i) { config.scene                = args[i + 1]; } },
+		Option { "S", "sky",     1, [](int arg_count, char ** args, int i) { config.sky                  = args[i + 1]; } },
+		Option { "b", "bvh",     1, [](int arg_count, char ** args, int i) {
+			if (strcmp(args[i + 1], "bvh") == 0) {
+				config.bvh_type = BVHType::BVH;
+			} else if (strcmp(args[i + 1], "sbvh") == 0) {
+				config.bvh_type = BVHType::SBVH;
+			} else if (strcmp(args[i + 1], "qbvh") == 0) {
+				config.bvh_type = BVHType::QBVH;
+			} else if (strcmp(args[i + 1], "cwbvh") == 0) {
+				config.bvh_type = BVHType::CWBVH;
+			} else {
+				printf("'%s' is not a recognized BVH type!\n", args[i + 1]);
+				abort();
+			}
+		} },
+		Option { "O",     "optimize",    1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
+		Option { nullptr, "opt-time",    1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
+		Option { nullptr, "opt-batches", 1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+		Option { nullptr, "sah-node",    1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
+		Option { nullptr, "sah-leaf",    1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
+		Option { nullptr, "sbvh-alpha",  1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
+		Option { nullptr, "mipmap",      1, [](int arg_count, char ** args, int i) { config.settings.enable_mipmapping    = atob(args[i + 1]); } },
+		Option { nullptr, "mip-filter",  1, [](int arg_count, char ** args, int i) {
+			if (strcmp(args[i + 1], "box") == 0) {
+				config.mipmap_filter = Config::MipmapFilter::BOX;
+			} else if (strcmp(args[i + 1], "lanczos") == 0) {
+				config.mipmap_filter = Config::MipmapFilter::LANCZOS;
+			} else if (strcmp(args[i + 1], "kaiser") == 0) {
+				config.mipmap_filter = Config::MipmapFilter::KAISER;
+			} else {
+				printf("'%s' is not a recognized Mipmap Filter!\n", args[i + 1]);
+				abort();
+			}
+		} },
+		Option { "c", "compress", 1, [](int arg_count, char ** args, int i) { config.enable_block_compression = atob(args[i + 1]); } },
+	};
+
+	for (int i = 1; i < arg_count; i++) {
+		const char * arg     = args[i];
+		int          arg_len = strlen(arg);
+
+		Parser parser = { };
+		parser.init(arg, arg + arg_len);
+
+		parser.expect('-');
+		bool use_full_name = parser.match('-');
+
+		for (int o = 0; o < Util::array_element_count(options); o++) {
+			const Option & option = options[o];
+
+			bool match =
+				( use_full_name &&                      strcmp(parser.cur, option.name_full)  == 0) ||
+				(!use_full_name && option.name_short && strcmp(parser.cur, option.name_short) == 0);
+
+			if (match) {
+				if (i + option.num_args >= arg_count) {
+					printf("Not enough arguments provided to option %s!\n", option.name_full);
+					abort();
+				}
+				option.action(arg_count, args, i);
+				i += option.num_args;
+				break;
+			}
+		}
+	}
+}
+
+static void capture_screen(const Window & window, const char * file_name) {
+	ScopeTimer timer("Screenshot");
+
+	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+	int window_pitch = Math::divide_round_up(window.width * 3, pack_alignment) * pack_alignment;
+
+	unsigned char * data = new unsigned char[window_pitch * window.height];
+	unsigned char * temp = new unsigned char[window_pitch];
+
+	window.read_frame_buffer(data);
+
+	// Flip image vertically
+	for (int j = 0; j < window.height / 2; j++) {
+		unsigned char * row_top    = data +                  j      * window_pitch;
+		unsigned char * row_bottom = data + (window.height - j - 1) * window_pitch;
+
+		memcpy(temp,       row_top,    window_pitch);
+		memcpy(row_top,    row_bottom, window_pitch);
+		memcpy(row_bottom, temp,       window_pitch);
+	}
+
+	// Remove pack alignment
+	for (int j = 1; j < window.height; j++) {
+		memmove(data + j * window.width * 3, data + j * window_pitch, window.width * 3);
+	}
+
+	Util::export_ppm(file_name, window.width, window.height, data);
+
+	delete [] temp;
+	delete [] data;
+}
+
+static void window_resize(unsigned frame_buffer_handle, int width, int height) {
+	pathtracer.resize_free();
+	pathtracer.resize_init(frame_buffer_handle, width, height);
+};
 
 static void calc_timing() {
 	// Calculate delta time
@@ -297,9 +388,14 @@ static void draw_gui() {
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-			bool invalidated_settings = false;
+			switch (config.bvh_type) {
+				case BVHType::BVH:	 ImGui::TextUnformatted("BVH: BVH"); break;
+				case BVHType::SBVH:	 ImGui::TextUnformatted("BVH: SBVH"); break;
+				case BVHType::QBVH:	 ImGui::TextUnformatted("BVH: QBVH"); break;
+				case BVHType::CWBVH: ImGui::TextUnformatted("BVH: CWBVH"); break;
+			}
 
-			invalidated_settings |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
+			bool invalidated_settings = ImGui::SliderInt("Num Bounces", &config.settings.num_bounces, 0, MAX_BOUNCES);
 
 			float fov = Math::rad_to_deg(pathtracer.scene.camera.fov);
 			if (ImGui::SliderFloat("FOV", &fov, 0.0f, 179.0f)) {
@@ -310,15 +406,15 @@ static void draw_gui() {
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius, 0.0f, 1.0f);
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
-			invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
-			invalidated_settings |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
+			invalidated_settings |= ImGui::Checkbox("NEE", &config.settings.enable_next_event_estimation);
+			invalidated_settings |= ImGui::Checkbox("MIS", &config.settings.enable_multiple_importance_sampling);
 
-			invalidated_settings |= ImGui::Checkbox("Russian Roulete", &pathtracer.settings.enable_russian_roulette);
+			invalidated_settings |= ImGui::Checkbox("Russian Roulete", &config.settings.enable_russian_roulette);
 
-			invalidated_settings |= ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update);
+			invalidated_settings |= ImGui::Checkbox("Update Scene", &config.settings.enable_scene_update);
 
-			if (ImGui::Checkbox("SVGF", &pathtracer.settings.enable_svgf)) {
-				if (pathtracer.settings.enable_svgf) {
+			if (ImGui::Checkbox("SVGF", &config.settings.enable_svgf)) {
+				if (config.settings.enable_svgf) {
 					pathtracer.svgf_init();
 				} else {
 					pathtracer.svgf_free();
@@ -326,16 +422,16 @@ static void draw_gui() {
 				invalidated_settings = true;
 			}
 
-			invalidated_settings |= ImGui::Checkbox("Spatial Variance",  &pathtracer.settings.enable_spatial_variance);
-			invalidated_settings |= ImGui::Checkbox("TAA",               &pathtracer.settings.enable_taa);
-			invalidated_settings |= ImGui::Checkbox("Modulate Albedo",   &pathtracer.settings.modulate_albedo);
+			invalidated_settings |= ImGui::Checkbox("Spatial Variance",  &config.settings.enable_spatial_variance);
+			invalidated_settings |= ImGui::Checkbox("TAA",               &config.settings.enable_taa);
+			invalidated_settings |= ImGui::Checkbox("Modulate Albedo",   &config.settings.enable_albedo);
 
-			invalidated_settings |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
+			invalidated_settings |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.settings.reconstruction_filter), "Box\0Gaussian\0");
 
-			invalidated_settings |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+			invalidated_settings |= ImGui::SliderInt("A Trous iterations", &config.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 
-			invalidated_settings |= ImGui::SliderFloat("Alpha colour", &pathtracer.settings.alpha_colour, 0.0f, 1.0f);
-			invalidated_settings |= ImGui::SliderFloat("Alpha moment", &pathtracer.settings.alpha_moment, 0.0f, 1.0f);
+			invalidated_settings |= ImGui::SliderFloat("Alpha colour", &config.settings.alpha_colour, 0.0f, 1.0f);
+			invalidated_settings |= ImGui::SliderFloat("Alpha moment", &config.settings.alpha_moment, 0.0f, 1.0f);
 
 			pathtracer.invalidated_settings = invalidated_settings;
 		}

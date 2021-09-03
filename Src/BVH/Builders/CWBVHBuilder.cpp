@@ -2,14 +2,17 @@
 
 #include <cstdlib>
 
-int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
-	const BVHNode & node = nodes[node_index];
+int CWBVHBuilder::calculate_cost(int node_index, const BVHNode2 nodes[]) {
+	const BVHNode2 & node = nodes[node_index];
 
 	int num_primitives;
 
 	if (node.is_leaf()) {
-		num_primitives = node.get_count();
-		assert(num_primitives == 1);
+		num_primitives = node.count;
+		if (num_primitives != 1) {
+			puts("ERROR: CWBVH Builder expects BVH with leaf Nodes containing only 1 primitive!");
+			abort();
+		}
 
 		// SAH cost
 		float cost_leaf = node.aabb.surface_area() * float(num_primitives);
@@ -96,8 +99,8 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode nodes[]) {
 	return num_primitives;
 }
 
-void CWBVHBuilder::get_children(int node_index, const BVHNode nodes[], int i, int & child_count, int children[8]) {
-	const BVHNode & node = nodes[node_index];
+void CWBVHBuilder::get_children(int node_index, const BVHNode2 nodes[], int i, int & child_count, int children[8]) {
+	const BVHNode2 & node = nodes[node_index];
 
 	if (node.is_leaf()) {
 		children[child_count++] = node_index;
@@ -130,18 +133,17 @@ void CWBVHBuilder::get_children(int node_index, const BVHNode nodes[], int i, in
 
 // Recursively count triangles in subtree of the given Node
 // Simultaneously fills the indices buffer of the CWBVH
-int CWBVHBuilder::count_primitives(int node_index, const BVHNode nodes[], const int indices[]) {
-	const BVHNode & node = nodes[node_index];
+int CWBVHBuilder::count_primitives(int node_index, const BVHNode2 nodes[], const int indices[]) {
+	const BVHNode2 & node = nodes[node_index];
 
 	if (node.is_leaf()) {
-		int primitive_count = node.get_count();
-		assert(primitive_count == 1);
+		assert(node.count == 1);
 
-		for (int i = 0; i < primitive_count; i++) {
+		for (int i = 0; i < node.count; i++) {
 			cwbvh->indices[cwbvh->index_count++] = indices[node.first + i];
 		}
 
-		return primitive_count;
+		return node.count;
 	}
 
 	return
@@ -149,7 +151,7 @@ int CWBVHBuilder::count_primitives(int node_index, const BVHNode nodes[], const 
 		count_primitives(node.left + 1, nodes, indices);
 }
 
-void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int children[8], int child_count) {
+void CWBVHBuilder::order_children(int node_index, const BVHNode2 nodes[], int children[8], int child_count) {
 	Vector3 p = nodes[node_index].aabb.get_center();
 
 	float cost[8][8] = { };
@@ -212,9 +214,9 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode nodes[], int chi
 	}
 }
 
-void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[], int node_index_cwbvh, int node_index_sbvh) {
-	CWBVHNode  & node = cwbvh->nodes[node_index_cwbvh];
-	const AABB & aabb = nodes_sbvh[node_index_sbvh].aabb;
+void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[], int node_index_cwbvh, int node_index_bvh) {
+	BVHNode8 & node = cwbvh->nodes_8[node_index_cwbvh];
+	const AABB & aabb = nodes_bvh[node_index_bvh].aabb;
 
 	node.p = aabb.min;
 
@@ -247,11 +249,11 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 
 	int child_count = 0;
 	int children[8] = { INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID };
-	get_children(node_index_sbvh, nodes_sbvh, 0, child_count, children);
+	get_children(node_index_bvh, nodes_bvh, 0, child_count, children);
 
 	assert(child_count <= 8);
 
-	order_children(node_index_sbvh, nodes_sbvh, children, child_count);
+	order_children(node_index_bvh, nodes_bvh, children, child_count);
 
 	node.imask = 0;
 
@@ -265,7 +267,7 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 		int child_index = children[i];
 		if (child_index == INVALID) continue; // Empty slot
 
-		const AABB & child_aabb = nodes_sbvh[child_index].aabb;
+		const AABB & child_aabb = nodes_bvh[child_index].aabb;
 
 		node.quantized_min_x[i] = byte(floorf((child_aabb.min.x - node.p.x) * one_over_e.x));
 		node.quantized_min_y[i] = byte(floorf((child_aabb.min.y - node.p.y) * one_over_e.y));
@@ -277,7 +279,7 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 
 		switch (decisions[child_index * 7].type) {
 			case Decision::Type::LEAF: {
-				int triangle_count = count_primitives(child_index, nodes_sbvh, indices_sbvh);
+				int triangle_count = count_primitives(child_index, nodes_bvh, indices_bvh);
 				assert(triangle_count > 0 && triangle_count <= 3);
 
 				// Three highest bits contain unary representation of triangle count
@@ -317,27 +319,19 @@ void CWBVHBuilder::collapse(const BVHNode nodes_sbvh[], const int indices_sbvh[]
 		if (child_index == INVALID) continue;
 
 		if (decisions[child_index * 7].type == Decision::Type::INTERNAL) {
-			collapse(nodes_sbvh, indices_sbvh, node.base_index_child + (node.meta[i] & 31) - 24, child_index);
+			collapse(nodes_bvh, indices_bvh, node.base_index_child + (node.meta[i] & 31) - 24, child_index);
 		}
 	}
 }
 
 void CWBVHBuilder::build(const BVH & bvh) {
-	//ScopeTimer timer("Compressed Wide BVH Collapse");
-
 	cwbvh->index_count = 0;
-	cwbvh->indices     = new int[bvh.index_count];
-
-	cwbvh->node_count = 1;
-	cwbvh->nodes      = new CWBVHNode[bvh.node_count];
+	cwbvh->node_count  = 1;
 
 	// Fill cost table using dynamic programming (bottom up)
-	calculate_cost(0, bvh.nodes);
+	calculate_cost(0, bvh.nodes_2);
 
 	// Collapse SBVH into 8-way tree (top down)
-	collapse(bvh.nodes, bvh.indices, 0, 0);
-
+	collapse(bvh.nodes_2, bvh.indices, 0, 0);
 	assert(cwbvh->index_count == bvh.index_count);
-
-	//printf("CWBVH Node Collapse: %i -> %i\n", bvh.node_count, cwbvh->node_count);
 }

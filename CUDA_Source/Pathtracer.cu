@@ -26,6 +26,8 @@ __device__ __constant__ float4 * frame_buffer_indirect;
 __device__ __constant__ Surface<float4> accumulator;
 
 #include "Raytracing/BVH.h"
+#include "Raytracing/QBVH.h"
+#include "Raytracing/CWBVH.h"
 
 #include "SVGF/SVGF.h"
 #include "SVGF/TAA.h"
@@ -92,8 +94,28 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 	ray_buffer_trace.pixel_index_and_mis_eligable[index] = pixel_index | (false << 31);
 }
 
-extern "C" __global__ void kernel_trace(int bounce) {
+extern "C" __global__ void kernel_trace_bvh(int bounce) {
 	bvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+}
+
+extern "C" __global__ void kernel_trace_qbvh(int bounce) {
+	qbvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+}
+
+extern "C" __global__ void kernel_trace_cwbvh(int bounce) {
+	cwbvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+}
+
+extern "C" __global__ void kernel_trace_shadow_bvh(int bounce) {
+	bvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
+}
+
+extern "C" __global__ void kernel_trace_shadow_qbvh(int bounce) {
+	qbvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
+}
+
+extern "C" __global__ void kernel_trace_shadow_cwbvh(int bounce) {
+	cwbvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
 }
 
 extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
@@ -125,7 +147,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		float3 illumination = ray_throughput * sample_sky(ray_direction);
 
 		if (bounce == 0) {
-			if (settings.modulate_albedo || settings.enable_svgf) {
+			if (settings.enable_albedo || settings.enable_svgf) {
 				frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 			}
 			frame_buffer_direct[ray_pixel_index] = make_float4(illumination);
@@ -179,7 +201,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			float3 illumination = ray_throughput * material_light.emission;
 
 			if (bounce == 0) {
-				if (settings.modulate_albedo || settings.enable_svgf) {
+				if (settings.enable_albedo || settings.enable_svgf) {
 					frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 				}
 				frame_buffer_direct[ray_pixel_index] = make_float4(material_light.emission);
@@ -242,9 +264,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			ray_buffer_shade_diffuse.direction.set(index_out, ray_direction);
 
-#if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_diffuse.cone[index_out] = ray_buffer_trace.cone[index];
-#endif
+			if (bounce > 0 && settings.enable_mipmapping) ray_buffer_shade_diffuse.cone[index_out] = ray_buffer_trace.cone[index];
+
 			ray_buffer_shade_diffuse.hits.set(index_out, hit);
 
 			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_pixel_index;
@@ -258,9 +279,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			ray_buffer_shade_dielectric_and_glossy.direction.set(index_out, ray_direction);
 
-#if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_dielectric_and_glossy.cone[index_out] = ray_buffer_trace.cone[index];
-#endif
+			if (bounce > 0 && settings.enable_mipmapping) ray_buffer_shade_dielectric_and_glossy.cone[index_out] = ray_buffer_trace.cone[index];
+
 			ray_buffer_shade_dielectric_and_glossy.hits.set(index_out, hit);
 
 			ray_buffer_shade_dielectric_and_glossy.pixel_index[index_out] = ray_pixel_index;
@@ -275,9 +295,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			ray_buffer_shade_dielectric_and_glossy.direction.set(index_out, ray_direction);
 
-#if ENABLE_MIPMAPPING
-			if (bounce > 0) ray_buffer_shade_dielectric_and_glossy.cone[index_out] = ray_buffer_trace.cone[index];
-#endif
+			if (bounce > 0 && settings.enable_mipmapping) ray_buffer_shade_dielectric_and_glossy.cone[index_out] = ray_buffer_trace.cone[index];
+
 			ray_buffer_shade_dielectric_and_glossy.hits.set(index_out, hit);
 
 			ray_buffer_shade_dielectric_and_glossy.pixel_index[index_out] = ray_pixel_index;
@@ -288,7 +307,6 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	}
 }
 
-#if ENABLE_MIPMAPPING
 __device__ inline float3 sample_albedo(
 	int                       bounce,
 	const float3            & material_diffuse,
@@ -357,7 +375,6 @@ __device__ inline float3 sample_albedo(
 
 	return albedo;
 }
-#endif
 
 template<typename BRDFEvaluator>
 __device__ inline void nee_sample(
@@ -479,32 +496,33 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	// Sample albedo
-#if ENABLE_MIPMAPPING
 	float cone_angle;
 	float cone_width;
-	float3 albedo = sample_albedo(
-		bounce,
-		material.diffuse,
-		material.texture_id,
-		hit,
-		hit_triangle,
-		hit_point_local,
-		hit_normal,
-		hit_tex_coord,
-		ray_direction,
-		ray_buffer_shade_diffuse.cone,
-		index,
-		cone_angle, cone_width
-	);
-#else
-	float3 albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
-#endif
+	float3 albedo;
+	if (settings.enable_mipmapping) {
+		albedo = sample_albedo(
+			bounce,
+			material.diffuse,
+			material.texture_id,
+			hit,
+			hit_triangle,
+			hit_point_local,
+			hit_normal,
+			hit_tex_coord,
+			ray_direction,
+			ray_buffer_shade_diffuse.cone,
+			index,
+			cone_angle, cone_width
+		);
+	} else {
+		albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
+	}
 
 	float3 throughput = ray_throughput;
 
 	if (bounce > 0) {
 		throughput *= albedo;
-	} else if (settings.modulate_albedo || settings.enable_svgf) {
+	} else if (settings.enable_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
@@ -537,10 +555,10 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_world);
 
-#if ENABLE_MIPMAPPING
-	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
-#endif
-
+	if (settings.enable_mipmapping) {
+		ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
+	}
+	
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (true << 31);
 	ray_buffer_trace.throughput.set(index_out, throughput);
 
@@ -635,31 +653,32 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 		}
 	}
 
-	if (bounce == 0 && (settings.modulate_albedo || settings.enable_svgf)) {
+	if (bounce == 0 && (settings.enable_albedo || settings.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
-#if ENABLE_MIPMAPPING
-	float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
-	float  cone_angle = cone.x;
-	float  cone_width = cone.y + cone_angle * hit.t;
+	if (settings.enable_mipmapping) {
+		float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
+		float  cone_angle = cone.x;
+		float  cone_width = cone.y + cone_angle * hit.t;
 
-	float mesh_scale = mesh_get_scale(hit.mesh_id);
+		float mesh_scale = mesh_get_scale(hit.mesh_id);
 
-	float curvature = triangle_get_curvature(
-		hit_triangle.position_edge_1,
-		hit_triangle.position_edge_2,
-		hit_triangle.normal_edge_1,
-		hit_triangle.normal_edge_2
-	) / mesh_scale;
+		float curvature = triangle_get_curvature(
+			hit_triangle.position_edge_1,
+			hit_triangle.position_edge_2,
+			hit_triangle.normal_edge_1,
+			hit_triangle.normal_edge_2
+		) / mesh_scale;
 
-	cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
+		cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 
-	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
-#endif
+		ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
+	}
+	
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (false << 31);
 	ray_buffer_trace.throughput.set(index_out, ray_throughput);
 }
@@ -709,32 +728,33 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
 
 	// Sample albedo
-#if ENABLE_MIPMAPPING
 	float cone_angle;
 	float cone_width;
-	float3 albedo = sample_albedo(
-		bounce,
-		material.diffuse,
-		material.texture_id,
-		hit,
-		hit_triangle,
-		hit_point_local,
-		hit_normal,
-		hit_tex_coord,
-		ray_direction,
-		ray_buffer_shade_dielectric_and_glossy.cone,
-		index,
-		cone_angle, cone_width
-	);
-#else
-	float3 albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
-#endif
+	float3 albedo;
+	if (settings.enable_mipmapping) {
+		albedo = sample_albedo(
+			bounce,
+			material.diffuse,
+			material.texture_id,
+			hit,
+			hit_triangle,
+			hit_point_local,
+			hit_normal,
+			hit_tex_coord,
+			ray_direction,
+			ray_buffer_shade_dielectric_and_glossy.cone,
+			index,
+			cone_angle, cone_width
+		);
+	} else {
+		albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
+	}
 
 	float3 throughput = ray_throughput;
 
 	if (bounce > 0) {
 		throughput *= albedo;
-	} else if (settings.modulate_albedo || settings.enable_svgf) {
+	} else if (settings.enable_albedo || settings.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
 
@@ -779,18 +799,14 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	ray_buffer_trace.origin   .set(index_out, hit_point);
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
-#if ENABLE_MIPMAPPING
-	ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
-#endif
-
+	if (settings.enable_mipmapping) {
+		ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
+	}
+	
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness >= ROUGHNESS_CUTOFF) << 31);
 	ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = pdf;
-}
-
-extern "C" __global__ void kernel_trace_shadow(int bounce) {
-	bvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
 }
 
 extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
@@ -806,7 +822,7 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 
 	float4 colour = direct + indirect;
 
-	if (settings.modulate_albedo) {
+	if (settings.enable_albedo) {
 		colour *= frame_buffer_albedo[pixel_index];
 	}
 

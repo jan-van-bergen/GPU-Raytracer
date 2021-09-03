@@ -115,6 +115,9 @@
     <ClCompile Include="Src\Util\PMJ.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Src\BVH\BVH.cpp">
+      <Filter>BVH</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -319,5 +322,6 @@
     <ClInclude Include="Src\Util\PMJ.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Config.h" />
   </ItemGroup>
 </Project>

@@ -20,23 +20,21 @@ enum struct MaterialType : char {
 	GLOSSY     = 3
 };
 
-struct Material {
-	union {
-		struct {
-			float4 emission;
-		} light;
-		struct {
-			float4 diffuse_and_texture_id;
-		} diffuse;
-		struct {
-			float4 negative_absorption_and_ior;
-		} dielectric;
-		struct {
-			float4 diffuse_and_texture_id;
-			float4 eta_and_k;       // eta xyz and k x
-			float4 k_and_roughness; // k yz and roughness;
-		} glossy;
-	};
+union Material {
+	struct {
+		float4 emission;
+	} light;
+	struct {
+		float4 diffuse_and_texture_id;
+	} diffuse;
+	struct {
+		float4 negative_absorption_and_ior;
+	} dielectric;
+	struct {
+		float4 diffuse_and_texture_id;
+		float4 eta_and_k;       // eta xyz and k x
+		float4 k_and_roughness; // k yz and roughness;
+	} glossy;
 };
 
 __device__ __constant__ const MaterialType * material_types;

@@ -54,11 +54,11 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	if (header.filetype_version != BVH_FILETYPE_VERSION) goto exit;
 
 	// Check if the settings used to create the BVH file are the same as the current settings
-	if (header.underlying_bvh_type    != UNDERLYING_BVH_TYPE ||
-		header.bvh_is_optimized       != BVH_ENABLE_OPTIMIZATION ||
-		header.max_primitives_in_leaf != MAX_PRIMITIVES_IN_LEAF ||
-		header.sah_cost_node != SAH_COST_NODE ||
-		header.sah_cost_leaf != SAH_COST_LEAF
+	if (header.underlying_bvh_type    != char(BVH::underlying_bvh_type()) ||
+		header.bvh_is_optimized       != config.enable_bvh_optimization ||
+		header.max_primitives_in_leaf != BVH::max_primitives_in_leaf() ||
+		header.sah_cost_node          != config.sah_cost_node ||
+		header.sah_cost_leaf          != config.sah_cost_leaf
 	) {
 		printf("BVH file '%s' was created with different settings, rebuiling BVH from scratch.\n", bvh_filename);
 		goto exit;
@@ -69,11 +69,11 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	bvh.index_count          = header.num_indices;
 
 	mesh_data.triangles = new Triangle[mesh_data.triangle_count];
-	bvh.nodes           = new BVHNode[bvh.node_count];
-	bvh.indices         = new int    [bvh.index_count];
+	bvh.nodes_2         = new BVHNode2[bvh.node_count];
+	bvh.indices         = new int     [bvh.index_count];
 
 	fread(reinterpret_cast<char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
-	fread(reinterpret_cast<char *>(bvh.nodes),           sizeof(BVHNode),  bvh.node_count,           file);
+	fread(reinterpret_cast<char *>(bvh.nodes_2),         sizeof(BVHNode2), bvh.node_count,           file);
 	fread(reinterpret_cast<char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
 
 	printf("Loaded BVH %s from disk\n", bvh_filename);
@@ -112,11 +112,11 @@ bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	header.filetype_identifier[3] = '\0';
 	header.filetype_version = BVH_FILETYPE_VERSION;
 
-	header.underlying_bvh_type    = UNDERLYING_BVH_TYPE;
-	header.bvh_is_optimized       = BVH_ENABLE_OPTIMIZATION;
-	header.max_primitives_in_leaf = MAX_PRIMITIVES_IN_LEAF;
-	header.sah_cost_node = SAH_COST_NODE;
-	header.sah_cost_leaf = SAH_COST_LEAF;
+	header.underlying_bvh_type    = char(BVH::underlying_bvh_type());
+	header.bvh_is_optimized       = config.enable_bvh_optimization;
+	header.max_primitives_in_leaf = BVH::max_primitives_in_leaf();
+	header.sah_cost_node          = config.sah_cost_node;
+	header.sah_cost_leaf          = config.sah_cost_leaf;
 
 	header.num_triangles = mesh_data.triangle_count;
 	header.num_nodes     = bvh.node_count;
@@ -125,7 +125,7 @@ bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	fwrite(reinterpret_cast<const char *>(&header), sizeof(header), 1, file);
 
 	fwrite(reinterpret_cast<const char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
-	fwrite(reinterpret_cast<const char *>(bvh.nodes),           sizeof(BVHNode),  bvh.node_count,           file);
+	fwrite(reinterpret_cast<const char *>(bvh.nodes_2),         sizeof(BVHNode2), bvh.node_count,           file);
 	fwrite(reinterpret_cast<const char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
 
 	fclose(file);

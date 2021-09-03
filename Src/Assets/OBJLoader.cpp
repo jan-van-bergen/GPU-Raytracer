@@ -93,13 +93,8 @@ static OBJFile parse_obj(const char * filename) {
 
 	OBJFile obj = { };
 
-	SourceLocation location = { };
-	location.file = filename;
-	location.line = 1;
-	location.col  = 0;
-
 	Parser parser = { };
-	parser.init(file, file + file_length, location);
+	parser.init(file, file + file_length, filename);
 
 	while (!parser.reached_end()) {
 		if (parser.match('#') || parser.match("o ")) {

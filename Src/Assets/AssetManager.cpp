@@ -13,31 +13,34 @@
 
 static BVH build_bvh(const Triangle * triangles, int triangle_count) {
 	printf("Constructing BVH...\r");
-
 	BVH bvh;
-#if BVH_TYPE == BVH_SBVH
-	{
+
+	int max_primitives_in_leaf = BVH::max_primitives_in_leaf();
+	if (config.enable_bvh_optimization) {
+		max_primitives_in_leaf = 1;
+	}
+
+	// Only the SBVH uses SBVH as its starting point,
+	// all other BVH types use the standard BVH as their starting point
+	if (config.bvh_type == BVHType::SBVH) {
 		ScopeTimer timer("SBVH Construction");
 
-		SBVHBuilder sbvh_builder;
-		sbvh_builder.init(&bvh, triangle_count, BVHLoader::MAX_PRIMITIVES_IN_LEAF);
+		SBVHBuilder sbvh_builder = { };
+		sbvh_builder.init(&bvh, triangle_count, max_primitives_in_leaf);
 		sbvh_builder.build(triangles, triangle_count);
 		sbvh_builder.free();
-	}
-#else // All other BVH types use standard BVH as a starting point
-	{
+	} else  {
 		ScopeTimer timer("BVH Construction");
 
-		BVHBuilder bvh_builder;
-		bvh_builder.init(&bvh, triangle_count, BVHLoader::MAX_PRIMITIVES_IN_LEAF);
+		BVHBuilder bvh_builder = { };
+		bvh_builder.init(&bvh, triangle_count, max_primitives_in_leaf);
 		bvh_builder.build(triangles, triangle_count);
 		bvh_builder.free();
 	}
-#endif
 
-#if BVH_ENABLE_OPTIMIZATION
-	BVHOptimizer::optimize(bvh);
-#endif
+	if (config.enable_bvh_optimization) {
+		BVHOptimizer::optimize(bvh);
+	}
 
 	return bvh;
 }

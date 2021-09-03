@@ -41,6 +41,7 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 Mesh & Scene::add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
 	Mesh & mesh = meshes.emplace_back();
 	mesh.init(name, mesh_data_handle, material_handle, *this);
+
 	return mesh;
 }
 

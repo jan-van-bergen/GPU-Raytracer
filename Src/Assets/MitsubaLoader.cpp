@@ -897,13 +897,8 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	int          source_length;
 	const char * source = Util::file_read(filename, source_length);
 
-	SourceLocation location = { };
-	location.file = filename;
-	location.line = 1;
-	location.col  = 0;
-
 	Parser parser = { };
-	parser.init(source, source + source_length, location);
+	parser.init(source, source + source_length, filename);
 
 	XMLNode root = parse_xml(parser);
 

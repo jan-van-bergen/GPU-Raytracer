@@ -44,6 +44,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -51,6 +52,7 @@
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -211,6 +213,7 @@
     <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp" />
     <ClCompile Include="Src\BVH\Builders\QBVHBuilder.cpp" />
     <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp" />
+    <ClCompile Include="Src\BVH\BVH.cpp" />
     <ClCompile Include="Src\BVH\BVHOptimizer.cpp" />
     <ClCompile Include="Src\CUDA\CUDAContext.cpp" />
     <ClCompile Include="Src\CUDA\CUDAMemory.cpp" />
@@ -259,6 +262,7 @@
     <ClInclude Include="Src\BVH\Builders\SBVHBuilder.h" />
     <ClInclude Include="Src\BVH\BVH.h" />
     <ClInclude Include="Src\BVH\BVHOptimizer.h" />
+    <ClInclude Include="Src\Config.h" />
     <ClInclude Include="Src\CUDA\CUDACall.h" />
     <ClInclude Include="Src\CUDA\CUDAContext.h" />
     <ClInclude Include="Src\CUDA\CUDAEvent.h" />

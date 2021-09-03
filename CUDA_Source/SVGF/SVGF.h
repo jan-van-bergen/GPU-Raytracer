@@ -558,7 +558,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 colour = direct + indirect;
 
-	if (settings.modulate_albedo) {
+	if (settings.enable_albedo) {
 		colour *= frame_buffer_albedo[pixel_index];
 	}
 
