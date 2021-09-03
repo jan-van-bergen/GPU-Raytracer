@@ -444,7 +444,7 @@ void Pathtracer::cuda_free() {
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {
 	screen_width  = width;
 	screen_height = height;
-	screen_pitch  = Math::divide_round_up(width, WARP_SIZE) * WARP_SIZE;
+	screen_pitch  = Math::round_up(width, WARP_SIZE);
 
 	pixel_count = width * height;
 

@@ -224,7 +224,7 @@ static void capture_screen(const Window & window, const char * file_name) {
 	ScopeTimer timer("Screenshot");
 
 	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
-	int window_pitch = Math::divide_round_up(window.width * 3, pack_alignment) * pack_alignment;
+	int window_pitch = Math::round_up(window.width * 3, pack_alignment);
 
 	unsigned char * data = new unsigned char[window_pitch * window.height];
 	unsigned char * temp = new unsigned char[window_pitch];

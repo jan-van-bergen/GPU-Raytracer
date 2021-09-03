@@ -31,6 +31,16 @@ namespace Math {
 		return (numerator + denominator - 1) / denominator;
 	}
 
+	template<typename T>
+	inline constexpr T round_up(T x, T n) {
+		T remainder = x % n;
+		if (remainder == 0) {
+			return x;
+		} else {
+			return x + (n - remainder);
+		}
+	}
+
 	template<typename T> inline constexpr T min(T a, T b) { return a < b ? a : b;}
 	template<typename T> inline constexpr T max(T a, T b) { return a > b ? a : b;}
 
