@@ -446,7 +446,7 @@ static void draw_gui() {
 			invalidated_config |= ImGui::Checkbox("TAA",               &config.enable_taa);
 			invalidated_config |= ImGui::Checkbox("Modulate Albedo",   &config.enable_albedo);
 
-			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.reconstruction_filter), "Box\0Gaussian\0");
+			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.reconstruction_filter), "Box\0Tent\0Gaussian\0");
 
 			invalidated_config |= ImGui::SliderInt("A Trous iterations", &config.num_atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 

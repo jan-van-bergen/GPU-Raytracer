@@ -69,8 +69,13 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 				jitter = rand_filter;
 				break;
 			}
+			case ReconstructionFilter::TENT: {
+				jitter.x = sample_tent(rand_filter.x);
+				jitter.y = sample_tent(rand_filter.y);
+				break;
+			}
 			case ReconstructionFilter::GAUSSIAN: {
-				float2 gaussians = box_muller(rand_filter.x, rand_filter.y);
+				float2 gaussians = sample_gaussian(rand_filter.x, rand_filter.y);
 				jitter.x = 0.5f + 0.5f * gaussians.x;
 				jitter.y = 0.5f + 0.5f * gaussians.y;
 				break;

@@ -20,6 +20,7 @@
 // Settings
 enum struct ReconstructionFilter {
 	BOX,
+	TENT,
 	GAUSSIAN
 };
 

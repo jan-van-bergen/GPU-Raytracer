@@ -34,7 +34,16 @@ __device__ float2 random(unsigned pixel_index, unsigned bounce, unsigned sample_
 	return pmj_sequence[index];
 }
 
-__device__ float2 box_muller(float u1, float u2) {
+__device__ float sample_tent(float u) {
+	if (u < 0.5f) {
+		return sqrtf(2.0f * u) - 1.0f;
+	} else {
+		return 1.0f - sqrtf(2.0f - 2.0f * u);
+	}
+}
+
+// Box-Muller transform
+__device__ float2 sample_gaussian(float u1, float u2) {
 	float f = sqrt(-2.0f * logf(u1));
 	float a = TWO_PI * u2;
 
