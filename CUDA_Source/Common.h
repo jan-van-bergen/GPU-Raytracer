@@ -39,8 +39,8 @@ struct Config {
 
 
 	// Scene
-	const char * scene = "Data/sponza/scene.xml";
-	const char * sky   = "Data/Sky_Probes/sky_15.hdr";
+	const char * scene = "Data/cornellbox/scene.xml";
+	const char * sky   = "Data/Skies/sky_15.hdr";
 
 
 	// Pathtracing
