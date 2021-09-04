@@ -142,7 +142,7 @@ struct Parser {
 			int digit = 0;
 			while (is_digit(*cur)) {
 				double p;
-				if (digit < Util::array_element_count(DIGIT_LUT)) {
+				if (digit < Util::array_count(DIGIT_LUT)) {
 					p = DIGIT_LUT[digit];
 				} else {
 					p = pow(0.1, digit);

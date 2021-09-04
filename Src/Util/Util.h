@@ -66,7 +66,7 @@ namespace Util {
 	}
 
 	template<typename T, int N>
-	constexpr int array_element_count(const T (& array)[N]) {
+	constexpr int array_count(const T (& array)[N]) {
 		return N;
 	}
 

@@ -209,7 +209,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 
 				BVHPartitions::triangle_intersect_plane(vertices, spatial_split.dimension, spatial_split.plane_distance, intersections, &intersection_count);
 
-				assert(intersection_count < Util::array_element_count(intersections));
+				assert(intersection_count < Util::array_count(intersections));
 
 				// All intersection points should be included both AABBs
 				AABB aabb_intersections = AABB::from_points(intersections, intersection_count);

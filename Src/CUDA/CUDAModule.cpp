@@ -182,7 +182,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 			};
 
 			// Compile to PTX
-			nvrtcResult result = nvrtcCompileProgram(program, Util::array_element_count(options), options);
+			nvrtcResult result = nvrtcCompileProgram(program, Util::array_count(options), options);
 
 			size_t log_size;
 			NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
@@ -249,7 +249,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	};
 
 	CUlinkState link_state;
-	CUDACALL(cuLinkCreate(Util::array_element_count(options), options, values, &link_state));
+	CUDACALL(cuLinkCreate(Util::array_count(options), options, values, &link_state));
 	CUDACALL(cuLinkAddFile(link_state, CU_JIT_INPUT_PTX, ptx_filename, 0, nullptr, nullptr));
 
 	void * cubin;
