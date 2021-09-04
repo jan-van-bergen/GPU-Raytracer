@@ -142,19 +142,21 @@ static void parse_args(int arg_count, char ** args) {
 		const char * name_short;
 		const char * name_full;
 
+		const char * help_text;
+
 		int num_args;
 
 		void (* action)(int arg_count, char ** args, int i);
 	};
 
-	Option options[] = {
-		Option { "w", "width",   1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
-		Option { "h", "height",  1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", 1, [](int arg_count, char ** args, int i) { config.capture_frame_index = atoi(args[i + 1]); } },
-		Option { "s", "scene",   1, [](int arg_count, char ** args, int i) { config.scene               = args[i + 1]; } },
-		Option { "S", "sky",     1, [](int arg_count, char ** args, int i) { config.sky                 = args[i + 1]; } },
-		Option { "b", "bvh",     1, [](int arg_count, char ** args, int i) {
+	static Array<Option> options = {
+		Option { "w", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
+		Option { "h", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.capture_frame_index = atoi(args[i + 1]); } },
+		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene               = args[i + 1]; } },
+		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                 = args[i + 1]; } },
+		Option { "b", "bvh",     "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh",      1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
 				config.bvh_type = BVHType::BVH;
 			} else if (strcmp(args[i + 1], "sbvh") == 0) {
@@ -168,14 +170,14 @@ static void parse_args(int arg_count, char ** args) {
 				abort();
 			}
 		} },
-		Option { "O",     "optimize",    1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
-		Option { nullptr, "opt-time",    1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
-		Option { nullptr, "opt-batches", 1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
-		Option { nullptr, "sah-node",    1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
-		Option { nullptr, "sah-leaf",    1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
-		Option { nullptr, "sbvh-alpha",  1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
-		Option { nullptr, "mipmap",      1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
-		Option { nullptr, "mip-filter",  1, [](int arg_count, char ** args, int i) {
+		Option { "O",     "optimize",    "Enables or disables BVH optimzation post-processing step",                                              1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
+		Option { "Ot",    "opt-time",    "Sets time limit (in seconds) for BVH optimization",                                                     1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
+		Option { "Ob",    "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization",                                1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
+		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
+		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
+		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                                1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
+		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser",            1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "box") == 0) {
 				config.mipmap_filter = Config::MipmapFilter::BOX;
 			} else if (strcmp(args[i + 1], "lanczos") == 0) {
@@ -187,8 +189,20 @@ static void parse_args(int arg_count, char ** args) {
 				abort();
 			}
 		} },
-		Option { "c", "compress", 1, [](int arg_count, char ** args, int i) { config.enable_block_compression = atob(args[i + 1]); } },
+		Option { "c", "compress", "Enables or disables texture block compression", 1, [](int arg_count, char ** args, int i) { config.enable_block_compression = atob(args[i + 1]); } },
 	};
+
+	options.emplace_back("h", "help", "Displays this message", 0, [](int arg_count, char ** args, int i) {
+		for (int o = 0; o < options.size(); o++) {
+			const Option & option = options[o];
+
+			if (option.name_short) {
+				printf("-%s,\t--%-16s%s\n", option.name_short, option.name_full, option.help_text);
+			} else {
+				printf("\t--%-16s%s\n", option.name_full, option.help_text);
+			}
+		}
+	});
 
 	for (int i = 1; i < arg_count; i++) {
 		const char * arg     = args[i];
@@ -200,10 +214,12 @@ static void parse_args(int arg_count, char ** args) {
 		parser.expect('-');
 		bool use_full_name = parser.match('-');
 
-		for (int o = 0; o < Util::array_element_count(options); o++) {
+		bool match = false;
+
+		for (int o = 0; o < options.size(); o++) {
 			const Option & option = options[o];
 
-			bool match =
+			match =
 				( use_full_name &&                      strcmp(parser.cur, option.name_full)  == 0) ||
 				(!use_full_name && option.name_short && strcmp(parser.cur, option.name_short) == 0);
 
@@ -216,6 +232,10 @@ static void parse_args(int arg_count, char ** args) {
 				i += option.num_args;
 				break;
 			}
+		}
+
+		if (!match) {
+			printf("Unrecognized command line option '%s'\n", parser.cur);
 		}
 	}
 }
