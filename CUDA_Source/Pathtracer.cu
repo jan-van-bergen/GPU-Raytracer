@@ -448,7 +448,7 @@ __device__ inline void nee_sample(
 
 	int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
-	ray_buffer_shadow.ray_origin   .set(shadow_ray_index, hit_point);
+	ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, hit_normal));
 	ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
 
 	ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
@@ -557,7 +557,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	float3 direction_local = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 	float3 direction_world = local_to_world(direction_local, tangent, binormal, hit_normal);
 
-	ray_buffer_trace.origin   .set(index_out, hit_point);
+	ray_buffer_trace.origin   .set(index_out, ray_origin_epsilon_offset(hit_point, hit_normal));
 	ray_buffer_trace.direction.set(index_out, direction_world);
 
 	if (config.enable_mipmapping) {
@@ -662,7 +662,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
-	ray_buffer_trace.origin   .set(index_out, hit_point);
+	ray_buffer_trace.origin   .set(index_out, ray_origin_epsilon_offset(hit_point, normal));
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
 	if (config.enable_mipmapping) {
@@ -798,10 +798,10 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	throughput /= pdf;
 
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
-
+	
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
-	ray_buffer_trace.origin   .set(index_out, hit_point);
+	ray_buffer_trace.origin   .set(index_out, ray_origin_epsilon_offset(hit_point, hit_normal));
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
 	if (config.enable_mipmapping) {

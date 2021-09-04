@@ -160,7 +160,7 @@ __device__ inline void triangle_intersect(int mesh_id, int triangle_id, const Ra
 		if (v >= 0.0f && u + v <= 1.0f) {
 			float t = f * dot(triangle.position_edge_2, q);
 
-			if (t > EPSILON && t < ray_hit.t) {
+			if (t > 0.0f && t < ray_hit.t) {
 				ray_hit.t = t;
 				ray_hit.u = u;
 				ray_hit.v = v;
@@ -188,7 +188,7 @@ __device__ inline bool triangle_intersect_shadow(int triangle_id, const Ray & ra
 		if (v >= 0.0f && u + v <= 1.0f) {
 			float t = f * dot(triangle.position_edge_2, q);
 
-			if (t > EPSILON && t < max_distance) return true;
+			if (t > 0.0f && t < max_distance) return true;
 		}
 	}
 

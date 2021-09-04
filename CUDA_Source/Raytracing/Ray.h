@@ -21,3 +21,7 @@ struct Ray {
 		);
 	}
 };
+
+__device__ float3 ray_origin_epsilon_offset(const float3 & origin, const float3 & normal) {
+	return origin + EPSILON * normal;
+}
