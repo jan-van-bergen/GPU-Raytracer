@@ -130,7 +130,7 @@ namespace BVHPartitions {
 	};
 
 	// Evaluates SAH for every object for every dimension to determine splitting candidate
-	inline ObjectSplit partition_object(const Triangle * primitives, PrimitiveRef * indices[3], int first_index, int index_count, AABB * bounds, float * sah) {
+	inline ObjectSplit partition_object(PrimitiveRef * indices[3], int first_index, int index_count, AABB * bounds, float * sah) {
 		ObjectSplit split = { };
 		split.cost = INFINITY;
 		split.index     = -1;

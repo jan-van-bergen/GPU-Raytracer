@@ -17,8 +17,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 	}
 
 	// Object Split information
-	BVHPartitions::ObjectSplit object_split = BVHPartitions::partition_object(triangles, indices, first_index, index_count, bounds, sah);
-	assert(object_split.index != -1);
+	BVHPartitions::ObjectSplit object_split = BVHPartitions::partition_object(indices, first_index, index_count, bounds, sah);
+	assert(object_split.index != INVALID);
 
 	// Calculate the overlap between the child bounding boxes resulting from the Object Split
 	AABB overlap = AABB::overlap(object_split.aabb_left, object_split.aabb_right);
@@ -26,7 +26,6 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 
 	// Divide by the surface area of the bounding box of the root Node
 	float ratio = lamba * inv_root_surface_area;
-
 	assert(ratio >= 0.0f && ratio <= 1.0f);
 
 	BVHPartitions::SpatialSplit spatial_split;
@@ -172,21 +171,21 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 				float spatial_split_aabb_right_surface_area = spatial_split.aabb_right.surface_area();
 
 				// Calculate SAH cost for the 3 different cases
-				float c_split = spatial_split_aabb_left_surface_area   *  n_1       + spatial_split_aabb_right_surface_area   *  n_2;
-				float c_1     =              delta_left.surface_area() *  n_1       + spatial_split_aabb_right_surface_area   * (n_2-1.0f);
-				float c_2     = spatial_split_aabb_left_surface_area   * (n_1-1.0f) +              delta_right.surface_area() *  n_2;
+				float cost_split = spatial_split_aabb_left_surface_area   *  n_1       + spatial_split_aabb_right_surface_area   *  n_2;
+				float cost_left  =              delta_left.surface_area() *  n_1       + spatial_split_aabb_right_surface_area   * (n_2-1.0f);
+				float cost_right = spatial_split_aabb_left_surface_area   * (n_1-1.0f) +              delta_right.surface_area() *  n_2;
 
-				// If C_1 resp. C_2 is cheapest, let the triangle go left resp. right
+				// If cost_left resp. cost_right is cheapest, let the triangle go left resp. right
 				// Otherwise, do nothing and let the triangle go both left and right
-				if (c_1 < c_split) {
-					if (c_2 < c_1) { // C_2 is cheapest, remove from left
+				if (cost_left < cost_split) {
+					if (cost_right < cost_left) { // cost_right is cheapest, remove from left
 						goes_left = false;
 						rejected_left++;
 
 						n_1 -= 1.0f;
 
 						spatial_split.aabb_right.expand(triangle_aabb);
-					} else { // C_1 is cheapest, remove from right
+					} else { // cost_left is cheapest, remove from right
 						goes_right = false;
 						rejected_right++;
 
@@ -194,7 +193,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 
 						spatial_split.aabb_left.expand(triangle_aabb);
 					}
-				} else if (c_2 < c_split) { // C_2 is cheapest, remove from left
+				} else if (cost_right < cost_split) { // cost_right is cheapest, remove from left
 					goes_left = false;
 					rejected_left++;
 
