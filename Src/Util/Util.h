@@ -65,6 +65,48 @@ namespace Util {
 		quick_sort(first, last, [](const T & a, const T & b) { return a < b; });
 	}
 
+	// Merge sort
+	template<typename T, typename Cmp>
+	constexpr void stable_sort(T * first, T * last, T * tmp, Cmp cmp) {
+		if (last - first <= 1) return;
+
+		T * middle = first + (last - first) / 2;
+		stable_sort(first, middle, tmp, cmp);
+		stable_sort(middle, last,  tmp, cmp);
+
+		// Merge into tmp buffer
+		T * head_left  = first;
+		T * head_right = middle;
+		size_t index = 0;
+
+		while (head_left != middle && head_right != last) {
+			if (cmp(*head_right, *head_left)) {
+				tmp[index++] = std::move(*head_right++);
+			} else {
+				tmp[index++] = std::move(*head_left++);
+			}
+		}
+		while (head_left  != middle) tmp[index++] = std::move(*head_left++);
+		while (head_right != last)   tmp[index++] = std::move(*head_right++);
+
+		size_t count = last - first;
+		for (size_t i = 0; i < count; i++) {
+			first[i] = std::move(tmp[i]);
+		}
+	}
+
+	template<typename T, typename Cmp>
+	constexpr void stable_sort(T * first, T * last, Cmp cmp) {
+		T * tmp = new T[last - first];
+		stable_sort(first, last, tmp, cmp);
+		delete [] tmp;
+	}
+
+	template<typename T>
+	constexpr void stable_sort(T * first, T * last) {
+		stable_sort(first, last, [](const T & a, const T & b) { return a < b; });
+	}
+
 	template<typename T, int N>
 	constexpr int array_count(const T (& array)[N]) {
 		return N;

@@ -341,7 +341,7 @@ static void draw_gui() {
 				);
 			}
 
-			std::stable_sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
+			Util::stable_sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
 				if (a.desc.display_order == b.desc.display_order) {
 					return strcmp(a.desc.category, b.desc.category) < 0;
 				}
