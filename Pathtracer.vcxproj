@@ -228,6 +228,7 @@
     <ClCompile Include="Src\Pathtracer\Scene.cpp" />
     <ClCompile Include="Src\Pathtracer\Sky.cpp" />
     <ClCompile Include="Src\Util\BitArray.cpp" />
+    <ClCompile Include="Src\Util\BlueNoise.cpp" />
     <ClCompile Include="Src\Util\Geometry.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />
     <ClCompile Include="Src\Util\PMJ.cpp" />
@@ -286,6 +287,7 @@
     <ClInclude Include="Src\Pathtracer\Triangle.h" />
     <ClInclude Include="Src\Util\Array.h" />
     <ClInclude Include="Src\Util\BitArray.h" />
+    <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\Geometry.h" />
     <ClInclude Include="Src\Util\HashMap.h" />
     <ClInclude Include="Src\Util\Parser.h" />

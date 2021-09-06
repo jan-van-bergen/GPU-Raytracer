@@ -2,6 +2,7 @@
 #include "Util.h"
 
 __device__ __constant__ float2 * pmj_samples;
+__device__ __constant__ uchar2 * blue_noise_textures;
 
 enum struct SampleDimension {
 	FILTER,
@@ -27,11 +28,32 @@ __device__ float2 random(unsigned pixel_index, unsigned bounce, unsigned sample_
 		return make_float2(x, y);
 	}
 
-	unsigned index = permute(sample_index, PMJ_NUM_SAMPLES_PER_SEQUENCE, hash);
 	unsigned dim = unsigned(Dim) + unsigned(SampleDimension::NUM_BOUNCE) * bounce;
 
+	// If we run out of unique PMJ sequences, reuse a previous one but permute the index
+	if (dim >= PMJ_NUM_SEQUENCES) {
+		sample_index = permute(sample_index, PMJ_NUM_SAMPLES_PER_SEQUENCE, hash);
+	}
+
 	const float2 * pmj_sequence = pmj_samples + (dim % PMJ_NUM_SEQUENCES) * PMJ_NUM_SAMPLES_PER_SEQUENCE;
-	return pmj_sequence[index];
+	float2 sample = pmj_sequence[sample_index];
+
+	// Apply Cranley-Patterson rotation
+	uchar2 * blue_noise_texture = blue_noise_textures + (dim % BLUE_NOISE_NUM_TEXTURES) * (BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
+
+	int x = (pixel_index % screen_pitch) % BLUE_NOISE_TEXTURE_DIM;
+	int y = (pixel_index / screen_pitch) % BLUE_NOISE_TEXTURE_DIM;
+
+	uchar2 blue_noise = blue_noise_texture[x + y * BLUE_NOISE_TEXTURE_DIM];
+	sample += make_float2(
+		blue_noise.x * (1.0f / 255.0f),
+		blue_noise.y * (1.0f / 255.0f)
+	);
+
+	if (sample.x >= 1.0f) sample.x -= 1.0f;
+	if (sample.y >= 1.0f) sample.y -= 1.0f;
+
+	return sample;
 }
 
 __device__ float sample_tent(float u) {

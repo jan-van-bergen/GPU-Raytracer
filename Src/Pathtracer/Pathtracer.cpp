@@ -12,7 +12,8 @@
 
 #include "Math/Vector4.h"
 
-#include "Util/PMJ.h"
+#include "Util/BlueNoise.h"
+
 #include "Util/Util.h"
 #include "Util/ScopeTimer.h"
 
@@ -287,9 +288,17 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("sky_height").set_value(scene.sky.height);
 	cuda_module.get_global("sky_data")  .set_value(ptr_sky_data);
 
-	ptr_pmj_samples = CUDAMemory::malloc<unsigned>(PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE * 2);
-	CUDAMemory::memcpy(ptr_pmj_samples, PMJ::samples, PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE * 2);
+	for (int i = 1; i < PMJ_NUM_SEQUENCES; i++) {
+		PMJ::shuffle(i);
+	}
+
+	ptr_pmj_samples = CUDAMemory::malloc<PMJ::Point>(PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
+	CUDAMemory::memcpy(ptr_pmj_samples, PMJ::samples, PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
 	cuda_module.get_global("pmj_samples").set_value(ptr_pmj_samples);
+
+	ptr_blue_noise_textures = CUDAMemory::malloc<unsigned short>(BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
+	CUDAMemory::memcpy(ptr_blue_noise_textures, reinterpret_cast<unsigned short *>(BlueNoise::textures), BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
+	cuda_module.get_global("blue_noise_textures").set_value(ptr_blue_noise_textures);
 
 	ray_buffer_trace.init(BATCH_SIZE);
 	cuda_module.get_global("ray_buffer_trace").set_value(ray_buffer_trace);

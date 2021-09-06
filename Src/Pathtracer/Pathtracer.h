@@ -13,6 +13,8 @@
 
 #include "Scene.h"
 
+#include "Util/PMJ.h"
+
 // Mirror CUDA vector types
 struct alignas(8)  float2 { float x, y; };
 struct             float3 { float x, y, z; };
@@ -360,7 +362,8 @@ private:
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
 
-	CUDAMemory::Ptr<unsigned> ptr_pmj_samples;
+	CUDAMemory::Ptr<PMJ::Point>     ptr_pmj_samples;
+	CUDAMemory::Ptr<unsigned short> ptr_blue_noise_textures;
 
 	// Timing Events
 	CUDAEvent::Desc event_desc_primary;
