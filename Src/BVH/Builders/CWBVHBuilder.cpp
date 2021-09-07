@@ -218,6 +218,8 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 	BVHNode8 & node = cwbvh->nodes_8[node_index_cwbvh];
 	const AABB & aabb = nodes_bvh[node_index_bvh].aabb;
 
+	memset(&node, 0, sizeof(BVHNode8));
+
 	node.p = aabb.min;
 
 	constexpr int Nq = 8;
