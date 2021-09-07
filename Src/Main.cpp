@@ -464,6 +464,27 @@ static void draw_gui() {
 			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
 			ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
+
+			int triangle_count       = 0;
+			int light_mesh_count     = 0;
+			int light_triangle_count = 0;
+
+			for (int i = 0; i < pathtracer.scene.meshes.size(); i++) {
+				const Mesh     & mesh      = pathtracer.scene.meshes[i];
+				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
+
+				triangle_count += mesh_data.triangle_count;
+
+				if (mesh.light_index != INVALID) {
+					light_mesh_count++;
+					light_triangle_count += mesh_data.triangle_count;
+				}
+			}
+
+			ImGui::Text("Meshes:          %i", int(pathtracer.scene.meshes.size()));
+			ImGui::Text("Triangles:       %i", triangle_count);
+			ImGui::Text("Light Meshes:    %i", light_mesh_count);
+			ImGui::Text("Light Triangles: %i", light_triangle_count);
 		}
 
 		if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {
