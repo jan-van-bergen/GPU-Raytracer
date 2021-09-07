@@ -76,6 +76,7 @@ void QBVHBuilder::build(const BVH & bvh) {
 		if (i == 1) {
 			qbvh->nodes_4[i].get_index(0) = 0;
 			qbvh->nodes_4[i].get_count(0) = 0;
+			continue;
 		}
 
 		if (!bvh.nodes_2[i].is_leaf()) {
