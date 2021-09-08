@@ -516,6 +516,18 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance       = Vector3(1.0f);
 		material.index_of_refraction = int_ior / ext_ior;
+
+		const XMLNode * medium = node->find_child("medium");
+		if (medium) {
+			Vector3 sigma_a = medium->find_child_by_name("sigmaS")->find_attribute("value")->get_value<Vector3>();
+			Vector3 sigma_s = medium->find_child_by_name("sigmaA")->find_attribute("value")->get_value<Vector3>();
+
+			material.transmittance = Vector3(
+				expf(-(sigma_a.x + sigma_s.x)),
+				expf(-(sigma_a.y + sigma_s.y)),
+				expf(-(sigma_a.z + sigma_s.z))
+			);
+		}
 	} else if (inner_bsdf_type->value == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
 

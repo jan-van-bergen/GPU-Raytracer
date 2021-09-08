@@ -808,9 +808,9 @@ void Pathtracer::update(float delta) {
 				}
 				case Material::Type::DIELECTRIC: {
 					cuda_materials[i].dielectric.negative_absorption = Vector3( // Absorption = -log(Transmittance), so -A = log(T)
-						log2f(material.transmittance.x),
-						log2f(material.transmittance.y),
-						log2f(material.transmittance.z)
+						logf(material.transmittance.x),
+						logf(material.transmittance.y),
+						logf(material.transmittance.z)
 					);
 					cuda_materials[i].dielectric.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
 					break;
