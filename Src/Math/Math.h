@@ -78,6 +78,10 @@ namespace Math {
 		}
 	}
 
+	inline constexpr float luminance(float r, float g, float b) {
+		return 0.299f * r + 0.587f * g + 0.114f * b;
+	}
+
 	inline constexpr float rad_to_deg(float rad) { return rad * ONE_OVER_PI * 180.0f; }
 	inline constexpr float deg_to_rad(float deg) { return deg / 180.0f * PI; }
 

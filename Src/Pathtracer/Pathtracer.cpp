@@ -621,7 +621,7 @@ void Pathtracer::calc_light_power() {
 					triangle.position_1 - triangle.position_0,
 					triangle.position_2 - triangle.position_0
 				));
-				float power = material.emission.x + material.emission.y + material.emission.z;
+				float power = Math::luminance(material.emission.x, material.emission.y, material.emission.z);
 
 				light_triangles.push_back({ reverse_indices[mesh_data_triangle_offsets[mesh.mesh_data_handle.handle] + t], power * area });
 			}

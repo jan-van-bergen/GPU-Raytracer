@@ -228,13 +228,13 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			float cos_theta_light = fabsf(dot(to_light, light_normal));
 
-			float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
-
-			float brdf_pdf  = ray_buffer_trace.last_pdf[index];
-			float light_pdf = power * distance_to_light_squared / (cos_theta_light * lights_total_power);
+			float brdf_pdf = ray_buffer_trace.last_pdf[index];
+			
+			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_power);
 
 			float weight = power_heuristic(brdf_pdf, light_pdf);
-			float3 illumination = ray_throughput * material_light.emission * weight;// / brdf_pdf;
+			float3 illumination = ray_throughput * material_light.emission * weight;
 
 			assert(bounce != 0);
 			if (bounce == 1) {
@@ -430,12 +430,11 @@ __device__ inline void nee_sample(
 	int light_material_id = mesh_get_material_id(light_mesh_id);
 	MaterialLight material_light = material_as_light(light_material_id);
 
-	float power = material_light.emission.x + material_light.emission.y + material_light.emission.z;
-
 	float  brdf_pdf;
 	float3 brdf = brdf_evaluator(to_light, brdf_pdf);
-
-	float light_pdf = power * distance_to_light_squared / (cos_theta_light * lights_total_power);
+	
+	float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+	float light_pdf = light_power * distance_to_light_squared / (cos_theta_light * lights_total_power);
 
 	float weight;
 	if (config.enable_multiple_importance_sampling) {
