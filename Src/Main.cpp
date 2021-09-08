@@ -496,7 +496,7 @@ static void draw_gui() {
 				bool is_selected = pathtracer.pixel_query.mesh_id == m;
 
 				ImGui::PushID(m);
-				if (ImGui::Selectable(mesh.name, &is_selected)) {
+				if (ImGui::Selectable(mesh.name ? mesh.name : "(null)", &is_selected)) {
 					pathtracer.pixel_query.mesh_id     = m;
 					pathtracer.pixel_query.triangle_id = INVALID;
 					pathtracer.pixel_query.material_id = mesh.material_handle.handle;

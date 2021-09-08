@@ -579,21 +579,11 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			}
 		}
 
-		char const * cur = deserialized;
-
-		// Helper function to copy over n bytes from the stream
-		auto read_n = [&cur, deserialized, deserialized_length, node](void * dst, size_t num_bytes) {
-			size_t offset = cur - deserialized;
-			if (offset + num_bytes > deserialized_length) {
-				ERROR(node->location, "ERROR: Buffer overflow!");
-			}
-
-			memcpy(dst, cur, num_bytes);
-			cur += num_bytes;
-		};
+		Parser parser = { };
+		parser.init(deserialized, deserialized + deserialized_length, filename);
 
 		// Read flags field
-		uint32_t flags; read_n(&flags, sizeof(uint32_t));
+		uint32_t flags = parser.parse_binary<uint32_t>();
 		bool flag_has_normals      = flags & 0x0001;
 		bool flag_has_tex_coords   = flags & 0x0002;
 		bool flag_has_colours      = flags & 0x0008;
@@ -602,17 +592,11 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 		bool flag_double_precision = flags & 0x2000;
 
 		// Read null terminated name
-		const char * name_start = cur;
-		cur += strlen(cur) + 1;
+		mesh_names[i] = parser.parse_c_str().c_str();
 
-		size_t name_length = cur - name_start;
-		char * mesh_name = new char[name_length];
-		memcpy(mesh_name, name_start, name_length);
-		mesh_names[i] = mesh_name;
-
-		// Read number of vertices and triangles
-		uint64_t num_vertices;  read_n(&num_vertices,  sizeof(uint64_t));
-		uint64_t num_triangles;	read_n(&num_triangles, sizeof(uint64_t));
+		// Read number of vertices and triangles1
+		uint64_t num_vertices  = parser.parse_binary<uint64_t>();
+		uint64_t num_triangles = parser.parse_binary<uint64_t>();
 
 		if (num_vertices == 0 || num_triangles == 0) {
 			mesh_data_handles[i] = MeshDataHandle { INVALID };
@@ -635,19 +619,25 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			ERROR(node->location, "ERROR: Neither single nor double precision specified!\n");
 		}
 
-		const char * vertex_positions = cur;
-		cur += num_vertices * 3 * element_size;
+		const char * vertex_positions = parser.cur;
+		parser.advance(num_vertices * 3 * element_size);
 
-		const char * vertex_normals = cur;
-		if (flag_has_normals) cur += num_vertices * 3 * element_size;
+		const char * vertex_normals = parser.cur;
+		if (flag_has_normals) {
+			parser.advance(num_vertices * 3 * element_size);
+		}
 
-		const char * vertex_tex_coords = cur;
-		if (flag_has_tex_coords) cur += num_vertices * 2 * element_size;
+		const char * vertex_tex_coords = parser.cur;
+		if (flag_has_tex_coords) {
+			parser.advance(num_vertices * 2 * element_size);
+		}
 
 		// Vertex colours, not used
-		if (flag_has_colours) cur += num_vertices * 3 * element_size;
+		if (flag_has_colours) {
+			parser.advance(num_vertices * 3 * element_size);
+		}
 
-		const char * indices = cur;
+		const char * indices = parser.cur;
 
 		// Reads a Vector3 from a buffer with the appropriate precision
 		auto read_vector3 = [flag_single_precision](const char * buffer, uint64_t index) {
@@ -737,6 +727,93 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 	return result;
 }
 
+static void parse_hair(const XMLNode * node, const char * filename, Triangle *& triangles, int & triangle_count, const Matrix4 & transform, float radius) {
+	int          file_length;
+	const char * file = Util::file_read(filename, file_length);
+
+	Parser parser = { };
+	parser.init(file, file + file_length, filename);
+
+	Array<Array<Vector3>> hairs;
+	Array<Vector3>        strand;
+
+	triangle_count = 0;
+
+	if (parser.match("BINARY_HAIR")) { // Binary format
+		unsigned num_vertices = parser.parse_binary<unsigned>();
+
+		while (parser.cur < parser.end) {
+			float x = parser.parse_binary<float>();
+			if (isinf(x)) { // +INF marks beginning of new hair strand
+				triangle_count += strand.size() - 1;
+				hairs.push_back(strand);
+				strand.clear();
+			} else {
+				float y = parser.parse_binary<float>();
+				float z = parser.parse_binary<float>();
+				strand.emplace_back(x, y, z);
+			}
+		}
+	} else { // ASCII format
+		while (parser.cur < parser.end) {
+			if (is_newline(*parser.cur)) { // Empty line marks beginning of new hair strand
+				triangle_count += strand.size() - 1;
+				hairs.push_back(strand);
+				strand.clear();
+			} else {
+				float x = parser.parse_float();
+				float y = parser.parse_float();
+				float z = parser.parse_float();
+				strand.emplace_back(x, y, z);
+			}
+			parser.parse_newline();
+		}
+	}
+
+	if (strand.size() > 0) {
+		triangle_count += strand.size() - 1;
+		hairs.push_back(strand);
+	}
+
+	delete [] file;
+
+	auto orthogonal = [](const Vector3 & v) {
+		float s = copysignf(1.0f, v.z);
+		float a = -1.0f / (s + v.z);
+		float b = v.x * v.y * a;
+
+		return Vector3(1.0f + s * v.x * v.x * a, s * b, -s * v.x);
+	};
+
+	triangles = new Triangle[triangle_count];
+	int current_triangle = 0;
+
+	for (int h = 0; h < hairs.size(); h++) {
+		Array<Vector3> & strand = hairs[h];
+
+		for (int s = 0; s < strand.size(); s++) {
+			strand[s] = Matrix4::transform_position(transform, strand[s]);
+		}
+
+		for (int s = 0; s < strand.size() - 1; s++) {
+			Vector3 direction = Vector3::normalize(strand[s+1] - strand[s]);
+
+			triangles[current_triangle].position_0  = strand[s] - radius * orthogonal(direction);
+			triangles[current_triangle].position_1  = strand[s] + radius * orthogonal(direction);
+			triangles[current_triangle].position_2  = strand[s+1];
+			triangles[current_triangle].normal_0    = Vector3(0.0f);
+			triangles[current_triangle].normal_1    = Vector3(0.0f);
+			triangles[current_triangle].normal_2    = Vector3(0.0f);
+			triangles[current_triangle].tex_coord_0 = Vector2(0.0f, 0.0f);
+			triangles[current_triangle].tex_coord_1 = Vector2(1.0f, 0.0f);
+			triangles[current_triangle].tex_coord_2 = Vector2(0.0f, 1.0f);
+			triangles[current_triangle].init();
+
+			current_triangle++;
+		}
+	}
+}
+
 static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
 	const XMLAttribute * type = node->find_attribute("type");
 	if (type->value == "obj" || type->value == "ply") {
@@ -749,7 +826,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		name = filename_rel.c_str();
 
 		return mesh_data_handle;
-	} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere") {
+	} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere" || type->value == "hair") {
 		Matrix4 world = parse_transform_matrix(node);
 
 		Triangle * triangles = nullptr;
@@ -777,6 +854,15 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
 			Geometry::sphere(triangles, triangle_count, world);
+		} else if (type->value == "hair") {
+			const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+
+			float radius = node->get_optional_child_value("radius", 0.0025f);
+
+			parse_hair(node, filename_abs, triangles, triangle_count, world, radius);
+		} else {
+			abort(); // Unreachable
 		}
 
 		name = type->value.c_str();
@@ -829,20 +915,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		delete [] filename_abs;
 	} else if (node->tag == "shape") {
 		const XMLAttribute * type = node->find_attribute("type");
-		if (type->value == "obj" || type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere" || type->value == "serialized") {
-			char const * name = nullptr;
-			MeshDataHandle mesh_data_handle = parse_shape(node, scene, serialized_map, path, name);
-			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
-
-			if (mesh_data_handle.handle != INVALID) {
-				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
-
-				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
-				if (type->value == "obj" || type->value == "serialized") {
-					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
-				}
-			}
-		} else if (type->value == "shapegroup") {
+		if (type->value == "shapegroup") {
 			const XMLNode * shape = node->find_child("shape");
 
 			const char * name = nullptr;
@@ -861,7 +934,18 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 			}
 		} else {
-			WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
+			char const * name = nullptr;
+			MeshDataHandle mesh_data_handle = parse_shape(node, scene, serialized_map, path, name);
+			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
+
+			if (mesh_data_handle.handle != INVALID) {
+				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
+
+				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
+				if (type->value == "obj" || type->value == "serialized") {
+					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
+				}
+			}
 		}
 	} else if (node->tag == "sensor") {
 		const StringView & camera_type = node->find_attribute("type")->value;

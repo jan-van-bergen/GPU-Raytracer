@@ -70,9 +70,14 @@ struct Parser {
 		return cur >= end;
 	}
 
-	void advance() {
-		location.advance(*cur);
-		cur++;
+	void advance(int n = 1) {
+		if (cur + n > end) {
+			ERROR(location, "End of File!\n");
+		}
+		for (int i = 0; i < n; i++) {
+			location.advance(*cur);
+			cur++;
+		}
 	}
 
 	void skip_whitespace() {
@@ -190,5 +195,24 @@ struct Parser {
 	void parse_newline() {
 		match('\r');
 		expect('\n');
+	}
+
+	StringView parse_c_str() {
+		const char * start = cur;
+		while (*cur) {
+			advance();
+		}
+		advance();
+		return { start, cur - 1 };
+	}
+
+	template<typename T>
+	T parse_binary() {
+		const char * start = cur;
+		advance(sizeof(T));
+
+		T result;
+		memcpy(&result, start, sizeof(T));
+		return result;
 	}
 };

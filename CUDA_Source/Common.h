@@ -91,7 +91,7 @@ struct Config {
 
 	bool enable_bvh_optimization = true;
 
-	int bvh_optimizer_max_time        = -1; // Time limit in milliseconds
+	int bvh_optimizer_max_time        = 60'000; // Time limit in milliseconds
 	int bvh_optimizer_max_num_batches = 1000;
 };
 
