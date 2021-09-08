@@ -641,6 +641,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 
 	float3 ray_direction_reflected = reflect(ray_direction, hit_normal);
 	float3 direction_out;
+	float3 origin_out;
 
 	if (k < 0.0f) { // Total Internal Reflection
 		direction_out = ray_direction_reflected;
@@ -652,8 +653,10 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 
 		if (rand_fresnel < fresnel) {
 			direction_out = ray_direction_reflected;
+			origin_out    = ray_origin_epsilon_offset(hit_point, normal);
 		} else {
 			direction_out = ray_direction_refracted;
+			origin_out    = ray_origin_epsilon_offset(hit_point, -normal);
 		}
 	}
 
@@ -661,7 +664,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
 
-	ray_buffer_trace.origin   .set(index_out, ray_origin_epsilon_offset(hit_point, normal));
+	ray_buffer_trace.origin   .set(index_out, origin_out);
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
 	if (config.enable_mipmapping) {
