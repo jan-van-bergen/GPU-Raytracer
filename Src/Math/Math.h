@@ -54,6 +54,14 @@ namespace Math {
 		return (value - min) / (max - min);
 	}
 
+	inline Vector3 orthogonal(const Vector3 & v) {
+		float s = copysignf(1.0f, v.z);
+		float a = -1.0f / (s + v.z);
+		float b = v.x * v.y * a;
+
+		return Vector3(1.0f + s * v.x * v.x * a, s * b, -s * v.x);
+	};
+
 	inline constexpr float linear_to_gamma(float x) {
 		if (x <= 0.0f) {
 			return 0.0f;

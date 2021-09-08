@@ -777,14 +777,6 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 
 	delete [] file;
 
-	auto orthogonal = [](const Vector3 & v) {
-		float s = copysignf(1.0f, v.z);
-		float a = -1.0f / (s + v.z);
-		float b = v.x * v.y * a;
-
-		return Vector3(1.0f + s * v.x * v.x * a, s * b, -s * v.x);
-	};
-
 	triangles = new Triangle[triangle_count];
 	int current_triangle = 0;
 
@@ -798,8 +790,8 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 		for (int s = 0; s < strand.size() - 1; s++) {
 			Vector3 direction = Vector3::normalize(strand[s+1] - strand[s]);
 
-			triangles[current_triangle].position_0  = strand[s] - radius * orthogonal(direction);
-			triangles[current_triangle].position_1  = strand[s] + radius * orthogonal(direction);
+			triangles[current_triangle].position_0  = strand[s] - radius * Math::orthogonal(direction);
+			triangles[current_triangle].position_1  = strand[s] + radius * Math::orthogonal(direction);
 			triangles[current_triangle].position_2  = strand[s+1];
 			triangles[current_triangle].normal_0    = Vector3(0.0f);
 			triangles[current_triangle].normal_1    = Vector3(0.0f);
@@ -826,7 +818,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		name = filename_rel.c_str();
 
 		return mesh_data_handle;
-	} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere" || type->value == "hair") {
+	} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "cylinder" || type->value == "sphere" || type->value == "hair") {
 		Matrix4 world = parse_transform_matrix(node);
 
 		Triangle * triangles = nullptr;
@@ -838,6 +830,12 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			Geometry::cube(triangles, triangle_count, world);
 		} else if (type->value == "disk") {
 			Geometry::disk(triangles, triangle_count, world);
+		} else if (type->value == "cylinder") {
+			Vector3 p0     = node->get_optional_child_value("p0", Vector3(0.0f, 0.0f, 0.0f));
+			Vector3 p1     = node->get_optional_child_value("p1", Vector3(0.0f, 0.0f, 1.0f));
+			float   radius = node->get_optional_child_value("radius", 1.0f);
+
+			Geometry::cylinder(triangles, triangle_count, world, p0, p1, radius);
 		} else if (type->value == "sphere") {
 			float   radius = node->get_optional_child_value("radius", 1.0f);
 			Vector3 center = Vector3(0.0f);

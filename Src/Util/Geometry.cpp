@@ -151,6 +151,68 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 	}
 }
 
+void Geometry::cylinder(Triangle *& triangles, int & triangle_count, const Matrix4 & transform, const Vector3 & p0, const Vector3 & p1, float radius, int num_segments) {
+	triangle_count = 2 * num_segments;
+	triangles = new Triangle[triangle_count];
+
+	Vector3 p0_world = Matrix4::transform_position(transform, p0);
+	Vector3 p1_world = Matrix4::transform_position(transform, p1);
+
+	Vector3 axis  = Vector3::normalize(p1_world - p0_world);
+	Vector3 ortho_0 = Math::orthogonal(axis);
+	Vector3 ortho_1 = Vector3::cross(axis, ortho_0);
+	ortho_0 *= radius;
+	ortho_1 *= radius;
+
+	Vector3 vertex_prev_bottom = Matrix4::transform_position(transform, p0_world + ortho_0);
+	Vector3 vertex_prev_top    = Matrix4::transform_position(transform, p1_world + ortho_0);
+
+	Vector3 normal_prev        = Vector3::normalize(ortho_0);
+	Vector3 vertex_offset_prev = ortho_0;
+
+	float u_prev = 0.0f;
+
+	float angle = TWO_PI / float(num_segments);
+	float theta = 0.0f;
+
+	for (int i = 0; i < num_segments; i++) {
+		theta += angle;
+
+		float cos_theta = cosf(theta);
+		float sin_theta = sinf(theta);
+
+		Vector3 vertex_offset_curr = cos_theta * ortho_0 + sin_theta * ortho_1;
+		Vector3 normal_curr = Vector3::normalize(vertex_offset_curr);
+		float u_curr = float(i+1) / float(num_segments);
+
+		triangles[2*i].position_0 = p0_world + vertex_offset_prev;
+		triangles[2*i].position_1 = p0_world + vertex_offset_curr;
+		triangles[2*i].position_2 = p1_world + vertex_offset_prev;
+		triangles[2*i].normal_0 = normal_prev;
+		triangles[2*i].normal_1 = normal_curr;
+		triangles[2*i].normal_2 = normal_prev;
+		triangles[2*i].tex_coord_0 = Vector2(u_prev, 0.0f);
+		triangles[2*i].tex_coord_0 = Vector2(u_curr, 0.0f);
+		triangles[2*i].tex_coord_0 = Vector2(u_prev, 1.0f);
+		triangles[2*i].init();
+
+		triangles[2*i + 1].position_0 = p0_world + vertex_offset_curr;
+		triangles[2*i + 1].position_1 = p1_world + vertex_offset_curr;
+		triangles[2*i + 1].position_2 = p1_world + vertex_offset_prev;
+		triangles[2*i + 1].normal_0 = normal_curr;
+		triangles[2*i + 1].normal_1 = normal_curr;
+		triangles[2*i + 1].normal_2 = normal_prev;
+		triangles[2*i + 1].tex_coord_0 = Vector2(u_curr, 0.0f);
+		triangles[2*i + 1].tex_coord_0 = Vector2(u_curr, 1.0f);
+		triangles[2*i + 1].tex_coord_0 = Vector2(u_prev, 1.0f);
+		triangles[2*i + 1].init();
+
+		vertex_offset_prev = vertex_offset_curr;
+		normal_prev        = normal_curr;
+		u_prev             = u_curr;
+	}
+}
+
 void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4 & transform, int num_subdivisions) {
 	constexpr float x = 0.525731112119133606f;
 	constexpr float z = 0.850650808352039932f;
