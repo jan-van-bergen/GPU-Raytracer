@@ -72,7 +72,7 @@ struct Parser {
 
 	void advance(int n = 1) {
 		if (cur + n > end) {
-			ERROR(location, "End of File!\n");
+			ERROR(location, "Unexpected end of file!\n");
 		}
 		for (int i = 0; i < n; i++) {
 			location.advance(*cur);
@@ -109,7 +109,7 @@ struct Parser {
 
 	void expect(char expected) {
 		if (reached_end()) {
-			ERROR(location, "End of File!\n");
+			ERROR(location, "Unexpected end of file, expected '%c'!\n", expected);
 		}
 		if (*cur != expected) {
 			ERROR(location, "Unexpected char '%c', expected '%c'!\n", *cur, expected)

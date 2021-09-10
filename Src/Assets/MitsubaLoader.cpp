@@ -159,24 +159,21 @@ struct XMLNode {
 	}
 };
 
+static void parser_skip(Parser & parser) {
+	parser.skip_whitespace_or_newline();
+
+	while (parser.match("<!--")) {
+		while (!parser.reached_end() && !parser.match("-->")) {
+			parser.advance();
+		}
+		parser.skip_whitespace_or_newline();
+	}
+}
+
 static XMLNode parse_tag(Parser & parser) {
 	if (parser.reached_end()) return { };
 
 	parser.expect('<');
-
-	// Parse Comment
-	while (parser.match('!')) {
-		parser.expect('-');
-		parser.expect('-');
-
-		while (!parser.reached_end()) {
-			if (parser.match('-') && parser.match('-') && parser.match('>')) break;
-			parser.advance();
-		}
-
-		parser.skip_whitespace_or_newline();
-		parser.expect('<');
-	}
 
 	XMLNode node = { };
 	node.location         = parser.location;
@@ -184,10 +181,16 @@ static XMLNode parse_tag(Parser & parser) {
 
 	// Parse node tag
 	node.tag.start = parser.cur;
-	while (!parser.reached_end() && !is_whitespace(*parser.cur)) parser.advance();
+	while (!parser.reached_end() && !is_whitespace(*parser.cur) && *parser.cur != '>') parser.advance();
 	node.tag.end = parser.cur;
 
-	parser.skip_whitespace_or_newline();
+	if (node.tag.length() == 0) {
+		ERROR(parser.location, "Empty open tag!\n");
+	} else if (node.tag.start[0] == '/') {
+		ERROR(parser.location, "Unexpected closing tag '%.*s', expected open tag!\n", unsigned(node.tag.length()), node.tag.start);
+	}
+
+	parser_skip(parser);
 
 	// Parse attributes
 	while (!parser.reached_end() && !parser.match('>')) {
@@ -217,7 +220,7 @@ static XMLNode parse_tag(Parser & parser) {
 		attribute.value.end = parser.cur;
 
 		parser.expect(quote_type);
-		parser.skip_whitespace_or_newline();
+		parser_skip(parser);
 
 		node.attributes.push_back(attribute);
 
@@ -228,16 +231,13 @@ static XMLNode parse_tag(Parser & parser) {
 		}
 	}
 
-	parser.skip_whitespace_or_newline();
+	parser_skip(parser);
 
 	// Parse children
-	do {
+	while (!parser.match("</")) {
 		node.children.push_back(parse_tag(parser));
-		parser.skip_whitespace_or_newline();
-	} while (!(parser.cur + 1 < parser.end && parser.cur[0] == '<' && parser.cur[1] == '/'));
-
-	parser.expect('<');
-	parser.expect('/');
+		parser_skip(parser);
+	}
 
 	int i = 0;
 	while (!parser.reached_end() && !parser.match('>')) {
@@ -254,7 +254,7 @@ static XMLNode parse_xml(Parser & parser) {
 	XMLNode node;
 
 	do {
-		parser.skip_whitespace_or_newline();
+		parser_skip(parser);
 		node = parse_tag(parser);
 	} while (node.is_question_mark);
 
