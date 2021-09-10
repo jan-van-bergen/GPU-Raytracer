@@ -604,39 +604,29 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 
 	hit_normal = normalize(hit_normal);
 
-	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
-
-	// Calculate proper facing normal and determine indices of refraction
-	float3 normal;
-	float  cos_theta;
-
-	float eta_1;
-	float eta_2;
-
-	float dir_dot_normal = dot(ray_direction, hit_normal);
-	if (dir_dot_normal < 0.0f) {
+	// Calculate proper facing normal and determine index of refraction
+	float cos_theta = dot(ray_direction, hit_normal);
+	float eta;
+	if (cos_theta < 0.0f) {
 		// Entering material
-		eta_1 = 1.0f;
-		eta_2 = material.index_of_refraction;
+		eta = 1.0f / material.index_of_refraction;
 
-		normal    =  hit_normal;
-		cos_theta = -dir_dot_normal;
+		hit_normal =  hit_normal;
+		cos_theta  = -cos_theta;
 	} else {
 		// Leaving material
-		eta_1 = material.index_of_refraction;
-		eta_2 = 1.0f;
+		eta = material.index_of_refraction;
 
-		normal    = -hit_normal;
-		cos_theta =  dir_dot_normal;
+		hit_normal = -hit_normal;
+		cos_theta  =  cos_theta;
 
 		// Lambert-Beer Law
-		// NOTE: does not take into account nested dielectrics!
+		// NOTE: does not take into account e.g. nested dielectrics or diffuse inside dielectric!
 		ray_throughput.x *= expf(material.negative_absorption.x * hit.t);
 		ray_throughput.y *= expf(material.negative_absorption.y * hit.t);
 		ray_throughput.z *= expf(material.negative_absorption.z * hit.t);
 	}
 
-	float eta = eta_1 / eta_2;
 	float k = 1.0f - eta*eta * (1.0f - cos_theta*cos_theta);
 
 	float3 ray_direction_reflected = reflect(ray_direction, hit_normal);
@@ -648,21 +638,23 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 	} else {
 		float3 ray_direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
 
-		float fresnel      = fresnel_dielectric(cos_theta, -dot(ray_direction_refracted, normal), eta);
+		float fresnel      = fresnel_dielectric(cos_theta, -dot(ray_direction_refracted, hit_normal), eta);
 		float rand_fresnel = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index).x;
 
 		if (rand_fresnel < fresnel) {
 			direction_out = ray_direction_reflected;
-			origin_out    = ray_origin_epsilon_offset(hit_point, normal);
+			origin_out    = ray_origin_epsilon_offset(hit_point, hit_normal);
 		} else {
 			direction_out = ray_direction_refracted;
-			origin_out    = ray_origin_epsilon_offset(hit_point, -normal);
+			origin_out    = ray_origin_epsilon_offset(hit_point, -hit_normal);
 		}
 	}
 
 	if (bounce == 0 && (config.enable_albedo || config.enable_svgf)) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
 	}
+
+	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
 	ray_buffer_trace.origin   .set(index_out, origin_out);
 	ray_buffer_trace.direction.set(index_out, direction_out);
