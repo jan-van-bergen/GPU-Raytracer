@@ -536,6 +536,14 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (nonlinear && nonlinear->get_attribute_value<bool>("value")) {
 			material.linear_roughness = sqrtf(material.linear_roughness);
 		}
+	} else if (inner_bsdf_type == "phong") {
+		material.type = Material::Type::GLOSSY;
+
+		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
+
+		float exponent = inner_bsdf->get_child_value_optional("exponent", 1.0f);
+		material.linear_roughness = sqrtf(0.5f * exponent + 1.0f));
+
 	} else if (inner_bsdf_type == "thindielectric" || inner_bsdf_type == "dielectric" || inner_bsdf_type == "roughdielectric") {
 		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
 		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
