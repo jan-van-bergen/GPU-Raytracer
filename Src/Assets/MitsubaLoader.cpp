@@ -15,6 +15,7 @@
 
 #include "Util/Util.h"
 #include "Util/Array.h"
+#include "Util/HashMap.h"
 #include "Util/Parser.h"
 #include "Util/Geometry.h"
 #include "Util/StringView.h"
@@ -26,6 +27,11 @@ struct XMLAttribute {
 	SourceLocation location_of_value;
 
 	template<typename T> T get_value() const;
+
+	template<>
+	StringView get_value() const {
+		return value;
+	}
 
 	template<>
 	int get_value() const {
@@ -148,8 +154,29 @@ struct XMLNode {
 			return attr->value == name;
 		});
 	}
+
 	template<typename T>
-	T get_optional_child_value(const char * name, T default_value) const {
+	T get_attribute_value(const char * name) const {
+		const XMLAttribute * attribute = find_attribute(name);
+		if (attribute) {
+			return attribute->get_value<T>();
+		} else {
+			ERROR(location, "Node '%.*s' does not have an attribute with name '%s'!\n", unsigned(tag.length()), tag.start, name);
+		}
+	}
+
+	template<typename T>
+	T get_child_value(const char * child_name, const char * attribute_name = "value") const {
+		const XMLNode * child = find_child_by_name(child_name);
+		if (child) {
+			return child->get_attribute_value<T>(attribute_name);
+		} else {
+			ERROR(location, "Node '%.*s' does not have a child with name '%s'!\n", unsigned(tag.length()), tag.start, child_name);
+		}
+	}
+
+	template<typename T>
+	T get_child_value_optional(const char * name, T default_value) const {
 		const XMLNode * child = find_child_by_name(name);
 		if (child) {
 			return child->get_optional_attribute("value", default_value);
@@ -300,7 +327,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			rgb.z = Math::gamma_to_linear(rgb.z);
 			return;
 		} else if (reflectance->tag == "texture") {
-			const StringView & filename_rel = reflectance->find_child_by_name("filename")->find_attribute("value")->value;
+			const StringView & filename_rel = reflectance->get_child_value<StringView>("filename");
 			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 			texture = scene.asset_manager.add_texture(filename_abs);
@@ -313,7 +340,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			delete [] filename_abs;
 			return;
 		} else if (reflectance->tag == "ref") {
-			const StringView & texture_name = reflectance->find_attribute("id")->value;
+			const StringView & texture_name = reflectance->get_child_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture);
 			if (!found) {
 				WARNING(reflectance->location, "Invalid texture ref '%.*s'!", unsigned(texture_name.length()), texture_name.start);
@@ -328,7 +355,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 	if (transform) {
 		const XMLNode * matrix = transform->find_child("matrix");
 		if (matrix) {
-			Matrix4 world = matrix->find_attribute("value")->get_value<Matrix4>();
+			Matrix4 world = matrix->get_attribute_value<Matrix4>("value");
 			Matrix4::decompose(world, position, rotation, scale, forward);
 			return;
 		}
@@ -393,7 +420,7 @@ static Matrix4 parse_transform_matrix(const XMLNode * node) {
 	if (transform) {
 		const XMLNode * matrix = transform->find_child("matrix");
 		if (matrix) {
-			return matrix->find_attribute("value")->get_value<Matrix4>();
+			return matrix->get_attribute_value<Matrix4>("value");
 		}
 	}
 
@@ -416,7 +443,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (emitter) {
 			material.type = Material::Type::LIGHT;
 			material.name = "emitter";
-			material.emission = emitter->find_child_by_name("radiance")->find_attribute("value")->get_value<Vector3>();
+			material.emission = emitter->get_child_value<Vector3>("radiance");
 
 			return scene.asset_manager.add_material(material);
 		}
@@ -424,7 +451,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		// Check if an existing Material is referenced
 		const XMLNode * ref = node->find_child("ref");
 		if (ref) {
-			const StringView & material_name = ref->find_attribute("id")->value;
+			const StringView & material_name = ref->get_attribute_value<StringView>("id");
 
 			MaterialHandle material_id;
 			bool found = material_map.try_get(material_name, material_id);
@@ -449,18 +476,18 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 	const XMLAttribute * name = bsdf->find_attribute("id");
 
-	const XMLNode      * inner_bsdf = bsdf;
-	const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
+	const XMLNode * inner_bsdf = bsdf;
+	StringView inner_bsdf_type = inner_bsdf->get_attribute_value<StringView>("type");
 
 	// Keep peeling back nested BSDFs, we only care about the innermost one
 	while (
-		inner_bsdf_type->value == "twosided" ||
-		inner_bsdf_type->value == "mask" ||
-		inner_bsdf_type->value == "bumpmap" ||
-		inner_bsdf_type->value == "coating"
+		inner_bsdf_type == "twosided" ||
+		inner_bsdf_type == "mask" ||
+		inner_bsdf_type == "bumpmap" ||
+		inner_bsdf_type == "coating"
 	) {
 		inner_bsdf      = inner_bsdf->find_child("bsdf");
-		inner_bsdf_type = inner_bsdf->find_attribute("type");
+		inner_bsdf_type = inner_bsdf->get_attribute_value<StringView>("type");
 
 		if (name == nullptr) {
 			name = inner_bsdf->find_attribute("id");
@@ -473,45 +500,45 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.name = "Material";
 	}
 
-	if (inner_bsdf_type->value == "diffuse") {
+	if (inner_bsdf_type == "diffuse") {
 		material.type = Material::Type::DIFFUSE;
 
 		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, material.diffuse, material.texture_id);
-	} else if (inner_bsdf_type->value == "conductor") {
+	} else if (inner_bsdf_type == "conductor") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
 		material.linear_roughness = 0.0f;
-		material.eta              = inner_bsdf->get_optional_child_value("eta", Vector3(1.33f));
-		material.k                = inner_bsdf->get_optional_child_value("k",   Vector3(1.0f));
-	} else if (inner_bsdf_type->value == "roughconductor" || inner_bsdf_type->value == "roughdiffuse") {
+		material.eta              = inner_bsdf->get_child_value_optional("eta", Vector3(1.33f));
+		material.k                = inner_bsdf->get_child_value_optional("k",   Vector3(1.0f));
+	} else if (inner_bsdf_type == "roughconductor" || inner_bsdf_type == "roughdiffuse") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		material.linear_roughness = inner_bsdf->get_optional_child_value("alpha", 0.5f);
-		material.eta              = inner_bsdf->get_optional_child_value("eta",   Vector3(1.33f));
-		material.k                = inner_bsdf->get_optional_child_value("k",     Vector3(1.0f));
-	} else if (inner_bsdf_type->value == "plastic" || inner_bsdf_type->value == "roughplastic") {
+		material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
+		material.eta              = inner_bsdf->get_child_value_optional("eta",   Vector3(1.33f));
+		material.k                = inner_bsdf->get_child_value_optional("k",     Vector3(1.0f));
+	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		float int_ior = inner_bsdf->get_optional_child_value("intIOR", 1.33f);
-		float ext_ior = inner_bsdf->get_optional_child_value("extIOR", 1.0f);
+		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
+		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
 
-		material.linear_roughness = inner_bsdf->get_optional_child_value("alpha", 0.5f);
+		material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
 		material.eta              = Vector3(int_ior / ext_ior);
 		material.k                = Vector3(5.0f);
 
 		const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
-		if (nonlinear && nonlinear->find_attribute("value")->get_value<bool>()) {
+		if (nonlinear && nonlinear->get_attribute_value<bool>("value")) {
 			material.linear_roughness = sqrtf(material.linear_roughness);
 		}
-	} else if (inner_bsdf_type->value == "thindielectric" || inner_bsdf_type->value == "dielectric" || inner_bsdf_type->value == "roughdielectric") {
-		float int_ior = inner_bsdf->get_optional_child_value("intIOR", 1.33f);
-		float ext_ior = inner_bsdf->get_optional_child_value("extIOR", 1.0f);
+	} else if (inner_bsdf_type == "thindielectric" || inner_bsdf_type == "dielectric" || inner_bsdf_type == "roughdielectric") {
+		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
+		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
 
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance       = Vector3(1.0f);
@@ -519,8 +546,8 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 		const XMLNode * medium = node->find_child("medium");
 		if (medium) {
-			Vector3 sigma_a = medium->find_child_by_name("sigmaS")->find_attribute("value")->get_value<Vector3>();
-			Vector3 sigma_s = medium->find_child_by_name("sigmaA")->find_attribute("value")->get_value<Vector3>();
+			Vector3 sigma_s = medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
+			Vector3 sigma_a = medium->get_child_value<Vector3>("sigmaA");
 
 			material.transmittance = Vector3(
 				expf(-(sigma_a.x + sigma_s.x)),
@@ -528,12 +555,12 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 				expf(-(sigma_a.z + sigma_s.z))
 			);
 		}
-	} else if (inner_bsdf_type->value == "difftrans") {
+	} else if (inner_bsdf_type == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
 
 		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else {
-		WARNING(inner_bsdf_type->location_of_value, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.length()), inner_bsdf_type->value.start);
+		WARNING(inner_bsdf->location, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type.length()), inner_bsdf_type.start);
 
 		return MaterialHandle::get_default();
 	}
@@ -819,9 +846,10 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 }
 
 static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
-	const XMLAttribute * type = node->find_attribute("type");
-	if (type->value == "obj" || type->value == "ply") {
-		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+	StringView type = node->get_attribute_value<StringView>("type");
+
+	if (type == "obj" || type == "ply") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs);
@@ -830,26 +858,27 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		name = filename_rel.c_str();
 
 		return mesh_data_handle;
-	} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "cylinder" || type->value == "sphere" || type->value == "hair") {
+
+	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere" || type == "hair") {
 		Matrix4 world = parse_transform_matrix(node);
 
 		Triangle * triangles = nullptr;
 		int        triangle_count = 0;
 
-		if (type->value == "rectangle") {
+		if (type == "rectangle") {
 			Geometry::rectangle(triangles, triangle_count, world);
-		} else if (type->value == "cube") {
+		} else if (type == "cube") {
 			Geometry::cube(triangles, triangle_count, world);
-		} else if (type->value == "disk") {
+		} else if (type == "disk") {
 			Geometry::disk(triangles, triangle_count, world);
-		} else if (type->value == "cylinder") {
-			Vector3 p0     = node->get_optional_child_value("p0", Vector3(0.0f, 0.0f, 0.0f));
-			Vector3 p1     = node->get_optional_child_value("p1", Vector3(0.0f, 0.0f, 1.0f));
-			float   radius = node->get_optional_child_value("radius", 1.0f);
+		} else if (type == "cylinder") {
+			Vector3 p0     = node->get_child_value_optional("p0", Vector3(0.0f, 0.0f, 0.0f));
+			Vector3 p1     = node->get_child_value_optional("p1", Vector3(0.0f, 0.0f, 1.0f));
+			float   radius = node->get_child_value_optional("radius", 1.0f);
 
 			Geometry::cylinder(triangles, triangle_count, world, p0, p1, radius);
-		} else if (type->value == "sphere") {
-			float   radius = node->get_optional_child_value("radius", 1.0f);
+		} else if (type == "sphere") {
+			float   radius = node->get_child_value_optional("radius", 1.0f);
 			Vector3 center = Vector3(0.0f);
 
 			const XMLNode * xml_center = node->find_child_by_name("center");
@@ -864,22 +893,22 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
 			Geometry::sphere(triangles, triangle_count, world);
-		} else if (type->value == "hair") {
-			const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+		} else if (type == "hair") {
+			const StringView & filename_rel = node->get_child_value<StringView>("filename");
 			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-			float radius = node->get_optional_child_value("radius", 0.0025f);
+			float radius = node->get_child_value_optional("radius", 0.0025f);
 
 			parse_hair(node, filename_abs, triangles, triangle_count, world, radius);
 		} else {
 			abort(); // Unreachable
 		}
 
-		name = type->value.c_str();
+		name = type.c_str();
 
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
-	} else if (type->value == "serialized") {
-		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+	} else if (type == "serialized") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 
 		Serialized serialized;
 		bool found = serialized_map.try_get(filename_rel, serialized);
@@ -892,12 +921,12 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			delete [] filename_abs;
 		}
 
-		int shape_index = node->get_optional_child_value("shapeIndex", 0);
+		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
 		name = serialized.mesh_names[shape_index];
 		return serialized.mesh_data_handles[shape_index];
 	} else {
-		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
+		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type.length()), type.start);
 		return MeshDataHandle { INVALID };
 	}
 }
@@ -905,12 +934,12 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, const char * path) {
 	if (node->tag == "bsdf") {
 		MaterialHandle   material_handle = parse_material(node, scene, material_map, texture_map, path);
-		const Material & material = scene.asset_manager.get_material(material_handle);
+		const Material & material = scene.get_material(material_handle);
 
 		StringView str = { material.name, material.name + strlen(material.name) };
 		material_map[str] = material_handle;
 	} else if (node->tag == "texture") {
-		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 		StringView texture_id = { };
@@ -924,23 +953,22 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 		delete [] filename_abs;
 	} else if (node->tag == "shape") {
-		const XMLAttribute * type = node->find_attribute("type");
-		if (type->value == "shapegroup") {
+		StringView type = node->get_attribute_value<StringView>("type");
+		if (type == "shapegroup") {
 			const XMLNode * shape = node->find_child("shape");
 
 			const char * name = nullptr;
 			MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
 			MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
 
-			const StringView & id = node->find_attribute("id")->value;
+			const StringView & id = node->get_attribute_value<StringView>("id");
 			shape_group_map[id] = { mesh_data_handle, material_handle };
-		} else if (type->value == "instance") {
-			const XMLNode      * ref = node->find_child("ref");
-			const XMLAttribute * id  = ref->find_attribute("id");
+		} else if (type == "instance") {
+			StringView id = node->get_child_value<StringView>("ref", "id");
 
 			ShapeGroup shape_group;
-			if (shape_group_map.try_get(id->value, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
-				Mesh & mesh = scene.add_mesh(id->value.c_str(), shape_group.mesh_data_handle, shape_group.material_handle);
+			if (shape_group_map.try_get(id, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
+				Mesh & mesh = scene.add_mesh(id.c_str(), shape_group.mesh_data_handle, shape_group.material_handle);
 				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 			}
 		} else {
@@ -952,19 +980,19 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
 
 				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
-				if (type->value == "obj" || type->value == "serialized") {
+				if (type == "obj" || type == "serialized") {
 					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 				}
 			}
 		}
 	} else if (node->tag == "sensor") {
-		const StringView & camera_type = node->find_attribute("type")->value;
+		const StringView & camera_type = node->get_attribute_value<StringView>("type");
 
 		if (camera_type == "perspective" || camera_type == "perspective_rdist" || camera_type == "thinlens") {
-			float fov = node->get_optional_child_value("fov", 110.0f);
+			float fov = node->get_child_value_optional("fov", 110.0f);
 			scene.camera.set_fov(Math::deg_to_rad(fov));
-			scene.camera.aperture_radius = node->get_optional_child_value("aperatureRadius", 0.05f);
-			scene.camera.focal_distance  = node->get_optional_child_value("focusDistance", 10.0f);
+			scene.camera.aperture_radius = node->get_child_value_optional("aperatureRadius", 0.05f);
+			scene.camera.focal_distance  = node->get_child_value_optional("focusDistance", 10.0f);
 
 			float scale = 1.0f;
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
@@ -976,7 +1004,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
 		}
 	} else if (node->tag == "include") {
-		const StringView & filename_rel = node->find_attribute("filename")->value;
+		const StringView & filename_rel = node->get_attribute_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 		MitsubaLoader::load(filename_abs, scene);
