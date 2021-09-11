@@ -330,7 +330,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			const StringView & filename_rel = reflectance->get_child_value<StringView>("filename");
 			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-			texture = scene.asset_manager.add_texture(filename_abs);
+			texture = scene.load_texture(filename_abs);
 
 			const XMLNode * scale = reflectance->find_child_by_name("scale");
 			if (scale) {
@@ -445,7 +445,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			material.name = "emitter";
 			material.emission = emitter->get_child_value<Vector3>("radiance");
 
-			return scene.asset_manager.add_material(material);
+			return scene.load_material(material);
 		}
 
 		// Check if an existing Material is referenced
@@ -565,7 +565,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		return MaterialHandle::get_default();
 	}
 
-	return scene.asset_manager.add_material(material);
+	return scene.load_material(material);
 }
 
 static Serialized parse_serialized(const XMLNode * node, const char * filename, Scene & scene) {
@@ -750,7 +750,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			triangles[t].init();
 		}
 
-		mesh_data_handles[i] = scene.asset_manager.add_mesh_data(triangles, num_triangles);
+		mesh_data_handles[i] = scene.load_mesh_data(triangles, num_triangles);
 
 		delete [] deserialized;
 	}
@@ -852,7 +852,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs);
+		MeshDataHandle mesh_data_handle = scene.load_mesh_data(filename_abs);
 		delete [] filename_abs;
 
 		name = filename_rel.c_str();
@@ -949,7 +949,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		} else {
 			texture_id = filename_rel;
 		}
-		texture_map[texture_id] = scene.asset_manager.add_texture(filename_abs);
+		texture_map[texture_id] = scene.load_texture(filename_abs);
 
 		delete [] filename_abs;
 	} else if (node->tag == "shape") {
