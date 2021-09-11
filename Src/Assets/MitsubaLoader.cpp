@@ -340,7 +340,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			delete [] filename_abs;
 			return;
 		} else if (reflectance->tag == "ref") {
-			const StringView & texture_name = reflectance->get_child_value<StringView>("id");
+			const StringView & texture_name = reflectance->get_attribute_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture);
 			if (!found) {
 				WARNING(reflectance->location, "Invalid texture ref '%.*s'!", unsigned(texture_name.length()), texture_name.start);
@@ -581,12 +581,26 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 	// Read the End-of-File Dictionary
 	uint32_t num_meshes; memcpy(&num_meshes, serialized + serialized_length - sizeof(uint32_t), sizeof(uint32_t));
-
-	uint64_t eof_dictionary_offset = serialized_length - sizeof(uint32_t) - (num_meshes - 1) * sizeof(uint64_t) - 8;
+	uint64_t eof_dictionary_offset;
 
 	uint64_t * mesh_offsets = new uint64_t[num_meshes + 1];
-	memcpy(mesh_offsets, serialized + eof_dictionary_offset, num_meshes * sizeof(uint64_t));
-	mesh_offsets[num_meshes] = serialized_length - sizeof(uint32_t);
+
+	if (file_version <= 3) {
+		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
+
+		// Version 0.3.0 and earlier use 32 bit mesh offsets
+		for (int i = 0; i < num_meshes; i++) {
+			mesh_offsets[i] = 0;
+			memcpy(mesh_offsets + i, serialized + eof_dictionary_offset + i * sizeof(uint32_t), sizeof(uint32_t));
+		}
+	} else {
+		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
+
+		// Version 0.4.0 and later use 64 bit mesh offsets
+		memcpy(mesh_offsets, serialized + eof_dictionary_offset, num_meshes * sizeof(uint64_t));
+	}
+
+	mesh_offsets[num_meshes] = eof_dictionary_offset;
 	assert(mesh_offsets[0] == 0);
 
 	const char    ** mesh_names        = new const char * [num_meshes];
@@ -630,8 +644,13 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 		bool flag_single_precision = flags & 0x1000;
 		bool flag_double_precision = flags & 0x2000;
 
-		// Read null terminated name
-		mesh_names[i] = parser.parse_c_str().c_str();
+		if (file_version <= 3) {
+			flag_single_precision = true;
+			mesh_names[i] = "Serialized Mesh";
+		} else {
+			// Read null terminated name
+			mesh_names[i] = parser.parse_c_str().c_str();
+		}
 
 		// Read number of vertices and triangles1
 		uint64_t num_vertices  = parser.parse_binary<uint64_t>();
@@ -955,16 +974,26 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 	} else if (node->tag == "shape") {
 		StringView type = node->get_attribute_value<StringView>("type");
 		if (type == "shapegroup") {
-			const XMLNode * shape = node->find_child("shape");
+			if (node->children.size() > 0) {
+				const XMLNode * shape = node->find_child("shape");
+				if (!shape) {
+					ERROR(node->location, "Shapegroup needs a <shape> child!\n");
+				}
 
-			const char * name = nullptr;
-			MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
-			MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
+				const char * name = nullptr;
+				MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
+				MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
 
-			const StringView & id = node->get_attribute_value<StringView>("id");
-			shape_group_map[id] = { mesh_data_handle, material_handle };
+				const StringView & id = node->get_attribute_value<StringView>("id");
+				shape_group_map[id] = { mesh_data_handle, material_handle };
+			}
 		} else if (type == "instance") {
-			StringView id = node->get_child_value<StringView>("ref", "id");
+			const XMLNode * ref = node->find_child("ref");
+			if (!ref) {
+				WARNING(node->location, "Instance without ref!\n");
+				return;
+			}
+			StringView id = ref->get_attribute_value<StringView>("id");
 
 			ShapeGroup shape_group;
 			if (shape_group_map.try_get(id, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
@@ -998,7 +1027,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
 
 			if (scale < 0.0f) {
-				scene.camera.rotation = Quaternion::conjugate(scene.camera.rotation);
+//				scene.camera.rotation = Quaternion::conjugate(scene.camera.rotation);
 			}
 		} else {
 			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
