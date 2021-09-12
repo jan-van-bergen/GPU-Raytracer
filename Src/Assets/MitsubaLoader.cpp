@@ -542,7 +542,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
 		float exponent = inner_bsdf->get_child_value_optional("exponent", 1.0f);
-		material.linear_roughness = sqrtf(0.5f * exponent + 1.0f));
+		material.linear_roughness = sqrtf(0.5f * exponent + 1.0f);
 
 	} else if (inner_bsdf_type == "thindielectric" || inner_bsdf_type == "dielectric" || inner_bsdf_type == "roughdielectric") {
 		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
@@ -827,9 +827,9 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 				hairs.push_back(strand);
 				strand.clear();
 			} else {
-				float x = parser.parse_float();
-				float y = parser.parse_float();
-				float z = parser.parse_float();
+				float x = parser.parse_float(); parser.skip_whitespace();
+				float y = parser.parse_float(); parser.skip_whitespace();
+				float z = parser.parse_float(); parser.skip_whitespace();
 				strand.emplace_back(x, y, z);
 			}
 			parser.parse_newline();

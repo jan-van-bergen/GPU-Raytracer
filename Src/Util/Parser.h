@@ -98,7 +98,7 @@ struct Parser {
 
 	template<int N>
 	bool match(const char (& target)[N]) {
-		if (cur + N - 1 < end && strncmp(cur, target, N - 1) == 0) {
+		if (cur + N - 1 <= end && strncmp(cur, target, N - 1) == 0) {
 			for (int i = 0; i < N - 1; i++) {
 				advance();
 			}
