@@ -887,9 +887,9 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		MeshDataHandle mesh_data_handle;
 		if (type == "obj") {
-			scene.asset_manager.add_mesh_data(filename_abs, OBJLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, OBJLoader::load);
 		} else {
-			scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
 		}
 		delete [] filename_abs;
 
