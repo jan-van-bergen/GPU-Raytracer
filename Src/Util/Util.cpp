@@ -62,12 +62,12 @@ char * Util::file_read(const char * filename, int & file_length) {
 	return data;
 }
 
-const char * Util::file_get_extension(const char * filename) {
+const char * Util::find_last(const char * haystack, const char * needles) {
 	const char * ptr_prev = nullptr;
-	const char * ptr_curr = filename;
+	const char * ptr_curr = haystack;
 
 	while (true) {
-		ptr_curr = strchr(ptr_curr, '.');
+		ptr_curr = strpbrk(ptr_curr, needles);
 
 		if (ptr_curr == nullptr) return ptr_prev;
 

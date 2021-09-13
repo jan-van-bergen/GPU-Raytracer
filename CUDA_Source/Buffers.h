@@ -71,9 +71,7 @@ struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
 
-#if ENABLE_MIPMAPPING
 	float2 * cone;
-#endif
 
 	HitBuffer hits;
 
@@ -87,9 +85,7 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	Vector3_SoA direction;
 
-#if ENABLE_MIPMAPPING
 	float2 * cone;
-#endif
 
 	HitBuffer hits;
 

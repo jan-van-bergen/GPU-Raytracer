@@ -32,7 +32,7 @@ private:
 
 	int max_primitives_in_leaf;
 
-	int build_sbvh(BVHNode & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area);
+	int build_sbvh(BVHNode2 & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area);
 
 public:
 	void init(BVH * sbvh, int triangle_count, int max_primitives_in_leaf);

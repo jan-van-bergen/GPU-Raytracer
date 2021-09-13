@@ -2,6 +2,16 @@
 
 #include "Util/Util.h"
 
+const char * BVHLoader::get_bvh_filename(const char * filename) {
+	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
+	char * bvh_filename      = new char[bvh_filename_size];
+
+	strcpy_s(bvh_filename, bvh_filename_size, filename);
+	strcat_s(bvh_filename, bvh_filename_size, BVH_FILE_EXTENSION);
+
+	return bvh_filename;
+}
+
 struct BVHFileHeader {
 	char filetype_identifier[4];
 	char filetype_version;
@@ -18,19 +28,9 @@ struct BVHFileHeader {
 	int num_indices;
 };
 
-bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & bvh) {
-	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
-	char * bvh_filename      = MALLOCA(char, bvh_filename_size);
-
-	if (!bvh_filename) return false;
-
-	strcpy_s(bvh_filename, bvh_filename_size, filename);
-	strcat_s(bvh_filename, bvh_filename_size, BVH_FILE_EXTENSION);
-
+bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, MeshData & mesh_data, BVH & bvh) {
 	// If the BVH file doesn't exist or is outdated return false
 	if (!Util::file_exists(bvh_filename) || !Util::file_is_newer(filename, bvh_filename)) {
-		FREEA(bvh_filename);
-
 		return false;
 	}
 
@@ -41,7 +41,7 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 
 	if (!file) {
 		printf("WARNING: Unable to open BVH file '%s'!\n", bvh_filename);
-		goto exit;
+		return false;
 	}
 
 	fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
@@ -54,11 +54,11 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	if (header.filetype_version != BVH_FILETYPE_VERSION) goto exit;
 
 	// Check if the settings used to create the BVH file are the same as the current settings
-	if (header.underlying_bvh_type    != UNDERLYING_BVH_TYPE ||
-		header.bvh_is_optimized       != BVH_ENABLE_OPTIMIZATION ||
-		header.max_primitives_in_leaf != MAX_PRIMITIVES_IN_LEAF ||
-		header.sah_cost_node != SAH_COST_NODE ||
-		header.sah_cost_leaf != SAH_COST_LEAF
+	if (header.underlying_bvh_type    != char(BVH::underlying_bvh_type()) ||
+		header.bvh_is_optimized       != config.enable_bvh_optimization ||
+		header.max_primitives_in_leaf != BVH::max_primitives_in_leaf() ||
+		header.sah_cost_node          != config.sah_cost_node ||
+		header.sah_cost_leaf          != config.sah_cost_leaf
 	) {
 		printf("BVH file '%s' was created with different settings, rebuiling BVH from scratch.\n", bvh_filename);
 		goto exit;
@@ -69,11 +69,11 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	bvh.index_count          = header.num_indices;
 
 	mesh_data.triangles = new Triangle[mesh_data.triangle_count];
-	bvh.nodes           = new BVHNode[bvh.node_count];
-	bvh.indices         = new int    [bvh.index_count];
+	bvh.nodes_2         = new BVHNode2[bvh.node_count];
+	bvh.indices         = new int     [bvh.index_count];
 
 	fread(reinterpret_cast<char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
-	fread(reinterpret_cast<char *>(bvh.nodes),           sizeof(BVHNode),  bvh.node_count,           file);
+	fread(reinterpret_cast<char *>(bvh.nodes_2),         sizeof(BVHNode2), bvh.node_count,           file);
 	fread(reinterpret_cast<char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
 
 	printf("Loaded BVH %s from disk\n", bvh_filename);
@@ -81,27 +81,15 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	success = true;
 
 exit:
-	if (file) fclose(file);
-
-	FREEA(bvh_filename);
+	fclose(file);
 	return success;
 }
 
-bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
-	int    bvh_filename_length = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
-	char * bvh_filename        = MALLOCA(char, bvh_filename_length);
-
-	if (!bvh_filename) return false;
-
-	strcpy_s(bvh_filename, bvh_filename_length, filename);
-	strcat_s(bvh_filename, bvh_filename_length, BVH_FILE_EXTENSION);
-
+bool BVHLoader::save(const char * bvh_filename, const MeshData & mesh_data, const BVH & bvh) {
 	FILE * file; fopen_s(&file, bvh_filename, "wb");
 
 	if (!file) {
 		printf("WARNING: Unable to save BVH to file %s!\n", bvh_filename);
-
-		FREEA(bvh_filename);
 		return false;
 	}
 
@@ -112,11 +100,11 @@ bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	header.filetype_identifier[3] = '\0';
 	header.filetype_version = BVH_FILETYPE_VERSION;
 
-	header.underlying_bvh_type    = UNDERLYING_BVH_TYPE;
-	header.bvh_is_optimized       = BVH_ENABLE_OPTIMIZATION;
-	header.max_primitives_in_leaf = MAX_PRIMITIVES_IN_LEAF;
-	header.sah_cost_node = SAH_COST_NODE;
-	header.sah_cost_leaf = SAH_COST_LEAF;
+	header.underlying_bvh_type    = char(BVH::underlying_bvh_type());
+	header.bvh_is_optimized       = config.enable_bvh_optimization;
+	header.max_primitives_in_leaf = BVH::max_primitives_in_leaf();
+	header.sah_cost_node          = config.sah_cost_node;
+	header.sah_cost_leaf          = config.sah_cost_leaf;
 
 	header.num_triangles = mesh_data.triangle_count;
 	header.num_nodes     = bvh.node_count;
@@ -125,11 +113,9 @@ bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	fwrite(reinterpret_cast<const char *>(&header), sizeof(header), 1, file);
 
 	fwrite(reinterpret_cast<const char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
-	fwrite(reinterpret_cast<const char *>(bvh.nodes),           sizeof(BVHNode),  bvh.node_count,           file);
+	fwrite(reinterpret_cast<const char *>(bvh.nodes_2),         sizeof(BVHNode2), bvh.node_count,           file);
 	fwrite(reinterpret_cast<const char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
 
 	fclose(file);
-
-	FREEA(bvh_filename);
 	return true;
 }

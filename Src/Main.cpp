@@ -6,18 +6,17 @@
 
 #include "Pathtracer/Pathtracer.h"
 
+#include "Config.h"
+
 #include "Input.h"
 #include "Window.h"
 
 #include "Util/Util.h"
+#include "Util/Parser.h"
 #include "Util/PerfTest.h"
 #include "Util/ScopeTimer.h"
 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used
-
-// Index of frame to take screen capture on
-static constexpr int capture_frame_index = -1;
-static constexpr bool exit_after_capture = true;
 
 static Window window;
 
@@ -45,11 +44,211 @@ struct Timing {
 	int frame_index;
 } static timing;
 
+static int last_pixel_query_x;
+static int last_pixel_query_y;
+
+static void parse_args(int arg_count, char ** args);
+static void capture_screen(const Window & window, const char * file_name);
+static void window_resize(unsigned frame_buffer_handle, int width, int height);
+static void calc_timing();
+static void draw_gui();
+
+int main(int arg_count, char ** args) {
+	parse_args(arg_count, args);
+
+	{
+		ScopeTimer timer("Initialization");
+
+		window.init("Pathtracer", config.initial_width, config.initial_height);
+		window.resize_handler = &window_resize;
+
+		CUDAContext::init();
+		pathtracer.init(config.scene, config.sky, window.frame_buffer_handle, config.initial_width, config.initial_height);
+
+		perf_test.init(&pathtracer, false, config.scene);
+	}
+
+	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
+	timing.last = SDL_GetPerformanceCounter();
+
+	// Game loop
+	while (!window.is_closed) {
+		perf_test.frame_begin();
+
+		pathtracer.update((float)timing.delta_time);
+		pathtracer.render();
+
+		window.render_framebuffer();
+
+		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == config.capture_frame_index) {
+			char screenshot_name[32];
+			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
+
+			capture_screen(window, screenshot_name);
+
+			if (pathtracer.frames_accumulated == config.capture_frame_index) break;
+		}
+
+		if (ImGui::IsMouseClicked(1)) {
+			// Deselect current object
+			pathtracer.pixel_query.pixel_index = INVALID;
+			pathtracer.pixel_query.mesh_id     = INVALID;
+			pathtracer.pixel_query.triangle_id = INVALID;
+			pathtracer.pixel_query.material_id = INVALID;
+		}
+
+		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
+			Input::mouse_position(&last_pixel_query_x, &last_pixel_query_y);
+
+			pathtracer.set_pixel_query(last_pixel_query_x, last_pixel_query_y);
+		}
+
+		calc_timing();
+		draw_gui();
+
+		if (Input::is_key_released(SDL_SCANCODE_F5)) {
+			ScopeTimer timer("Hot Reload");
+
+			pathtracer.cuda_free();
+			pathtracer.cuda_init(window.frame_buffer_handle, window.width, window.height);
+		}
+
+		if (perf_test.frame_end((float)timing.delta_time)) break;
+
+		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
+
+		window.swap();
+	}
+
+	CUDAContext::free();
+	window.free();
+
+	return EXIT_SUCCESS;
+}
+
+static bool atob(const char * str) {
+	if (strcmp(str, "true") == 0) {
+		return true;
+	} else if (strcmp(str, "false") == 0) {
+		return false;
+	} else {
+		printf("Invalid boolean argument '%s'!\n", str);
+		abort();
+	}
+};
+
+static void parse_args(int arg_count, char ** args) {
+	struct Option {
+		const char * name_short;
+		const char * name_full;
+
+		const char * help_text;
+
+		int num_args;
+
+		void (* action)(int arg_count, char ** args, int i);
+	};
+
+	static Array<Option> options = {
+		Option { "w", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
+		Option { "h", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.capture_frame_index = atoi(args[i + 1]); } },
+		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene               = args[i + 1]; } },
+		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                 = args[i + 1]; } },
+		Option { "b", "bvh",     "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh",      1, [](int arg_count, char ** args, int i) {
+			if (strcmp(args[i + 1], "bvh") == 0) {
+				config.bvh_type = BVHType::BVH;
+			} else if (strcmp(args[i + 1], "sbvh") == 0) {
+				config.bvh_type = BVHType::SBVH;
+			} else if (strcmp(args[i + 1], "qbvh") == 0) {
+				config.bvh_type = BVHType::QBVH;
+			} else if (strcmp(args[i + 1], "cwbvh") == 0) {
+				config.bvh_type = BVHType::CWBVH;
+			} else {
+				printf("'%s' is not a recognized BVH type!\n", args[i + 1]);
+				abort();
+			}
+		} },
+		Option { "O",     "optimize",    "Enables or disables BVH optimzation post-processing step",                                              1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
+		Option { "Ot",    "opt-time",    "Sets time limit (in seconds) for BVH optimization",                                                     1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
+		Option { "Ob",    "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization",                                1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
+		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
+		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
+		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                                1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
+		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser",            1, [](int arg_count, char ** args, int i) {
+			if (strcmp(args[i + 1], "box") == 0) {
+				config.mipmap_filter = Config::MipmapFilter::BOX;
+			} else if (strcmp(args[i + 1], "lanczos") == 0) {
+				config.mipmap_filter = Config::MipmapFilter::LANCZOS;
+			} else if (strcmp(args[i + 1], "kaiser") == 0) {
+				config.mipmap_filter = Config::MipmapFilter::KAISER;
+			} else {
+				printf("'%s' is not a recognized Mipmap Filter!\n", args[i + 1]);
+				abort();
+			}
+		} },
+		Option { "c", "compress", "Enables or disables texture block compression", 1, [](int arg_count, char ** args, int i) { config.enable_block_compression = atob(args[i + 1]); } },
+	};
+
+	options.emplace_back("h", "help", "Displays this message", 0, [](int arg_count, char ** args, int i) {
+		for (int o = 0; o < options.size(); o++) {
+			const Option & option = options[o];
+
+			if (option.name_short) {
+				printf("-%s,\t--%-16s%s\n", option.name_short, option.name_full, option.help_text);
+			} else {
+				printf("\t--%-16s%s\n", option.name_full, option.help_text);
+			}
+		}
+	});
+
+	char arg_name[32] = { };
+
+	for (int i = 1; i < arg_count; i++) {
+		const char * arg     = args[i];
+		int          arg_len = strlen(arg);
+
+		sprintf_s(arg_name, "Arg %i", i);
+
+		Parser parser = { };
+		parser.init(arg, arg + arg_len, arg_name);
+
+		parser.expect('-');
+		bool use_full_name = parser.match('-');
+
+		bool match = false;
+
+		for (int o = 0; o < options.size(); o++) {
+			const Option & option = options[o];
+
+			match =
+				( use_full_name &&                      strcmp(parser.cur, option.name_full)  == 0) ||
+				(!use_full_name && option.name_short && strcmp(parser.cur, option.name_short) == 0);
+
+			if (match) {
+				if (i + option.num_args >= arg_count) {
+					printf("Not enough arguments provided to option %s!\n", option.name_full);
+					abort();
+				}
+				option.action(arg_count, args, i);
+				i += option.num_args;
+				break;
+			}
+		}
+
+		if (!match) {
+			printf("Unrecognized command line option '%s'\n", parser.cur);
+		}
+	}
+}
+
 static void capture_screen(const Window & window, const char * file_name) {
 	ScopeTimer timer("Screenshot");
 
 	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
-	int window_pitch = Math::divide_round_up(window.width * 3, pack_alignment) * pack_alignment;
+	int window_pitch = Math::round_up(window.width * 3, pack_alignment);
 
 	unsigned char * data = new unsigned char[window_pitch * window.height];
 	unsigned char * temp = new unsigned char[window_pitch];
@@ -81,80 +280,6 @@ static void window_resize(unsigned frame_buffer_handle, int width, int height) {
 	pathtracer.resize_free();
 	pathtracer.resize_init(frame_buffer_handle, width, height);
 };
-
-static void calc_timing();
-static void draw_gui();
-
-int main(int argument_count, char ** arguments) {
-	const char * scene_filename = DATA_PATH("Sponza/scene.xml");
-	const char * sky_filename = DATA_PATH("Sky_Probes/sky_15.hdr");
-
-	if (argument_count > 1) {
-		scene_filename = arguments[1];
-	}
-
-	{
-		ScopeTimer timer("Initialization");
-
-		window.init("Pathtracer");
-		window.resize_handler = &window_resize;
-
-		CUDAContext::init();
-		pathtracer.init(scene_filename, sky_filename, window.frame_buffer_handle);
-
-		perf_test.init(&pathtracer, false, scene_filename);
-	}
-
-	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
-	timing.last = SDL_GetPerformanceCounter();
-
-	// Game loop
-	while (!window.is_closed) {
-		perf_test.frame_begin();
-
-		pathtracer.update((float)timing.delta_time);
-		pathtracer.render();
-
-		window.render_framebuffer();
-
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == capture_frame_index) {
-			char screenshot_name[32];
-			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
-
-			capture_screen(window, screenshot_name);
-
-			if (pathtracer.frames_accumulated == capture_frame_index && exit_after_capture) break;
-		}
-
-		calc_timing();
-		draw_gui();
-
-		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
-			int mouse_x, mouse_y;
-			Input::mouse_position(&mouse_x, &mouse_y);
-
-			pathtracer.set_pixel_query(mouse_x, mouse_y);
-		}
-
-		if (Input::is_key_released(SDL_SCANCODE_F5)) {
-			ScopeTimer timer("Hot Reload");
-
-			pathtracer.cuda_free();
-			pathtracer.cuda_init(window.frame_buffer_handle, window.width, window.height);
-		}
-
-		if (perf_test.frame_end((float)timing.delta_time)) break;
-
-		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
-
-		window.swap();
-	}
-
-	CUDAContext::free();
-	window.free();
-
-	return EXIT_SUCCESS;
-}
 
 static void calc_timing() {
 	// Calculate delta time
@@ -220,7 +345,7 @@ static void draw_gui() {
 				);
 			}
 
-			std::stable_sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
+			Util::stable_sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
 				if (a.desc.display_order == b.desc.display_order) {
 					return strcmp(a.desc.category, b.desc.category) < 0;
 				}
@@ -287,9 +412,14 @@ static void draw_gui() {
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-			bool invalidated_settings = false;
+			switch (config.bvh_type) {
+				case BVHType::BVH:	 ImGui::TextUnformatted("BVH: BVH"); break;
+				case BVHType::SBVH:	 ImGui::TextUnformatted("BVH: SBVH"); break;
+				case BVHType::QBVH:	 ImGui::TextUnformatted("BVH: QBVH"); break;
+				case BVHType::CWBVH: ImGui::TextUnformatted("BVH: CWBVH"); break;
+			}
 
-			invalidated_settings |= ImGui::SliderInt("Num Bounces", &pathtracer.settings.num_bounces, 0, MAX_BOUNCES);
+			bool invalidated_config = ImGui::SliderInt("Num Bounces", &config.num_bounces, 0, MAX_BOUNCES);
 
 			float fov = Math::rad_to_deg(pathtracer.scene.camera.fov);
 			if (ImGui::SliderFloat("FOV", &fov, 0.0f, 179.0f)) {
@@ -300,32 +430,34 @@ static void draw_gui() {
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius, 0.0f, 1.0f);
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
-			invalidated_settings |= ImGui::Checkbox("NEE", &pathtracer.settings.enable_next_event_estimation);
-			invalidated_settings |= ImGui::Checkbox("MIS", &pathtracer.settings.enable_multiple_importance_sampling);
+			invalidated_config |= ImGui::Checkbox("NEE", &config.enable_next_event_estimation);
+			invalidated_config |= ImGui::Checkbox("MIS", &config.enable_multiple_importance_sampling);
 
-			invalidated_settings |= ImGui::Checkbox("Update Scene", &pathtracer.settings.enable_scene_update);
+			invalidated_config |= ImGui::Checkbox("Russian Roulete", &config.enable_russian_roulette);
 
-			if (ImGui::Checkbox("SVGF", &pathtracer.settings.enable_svgf)) {
-				if (pathtracer.settings.enable_svgf) {
+			invalidated_config |= ImGui::Checkbox("Update Scene", &config.enable_scene_update);
+
+			if (ImGui::Checkbox("SVGF", &config.enable_svgf)) {
+				if (config.enable_svgf) {
 					pathtracer.svgf_init();
 				} else {
 					pathtracer.svgf_free();
 				}
-				invalidated_settings = true;
+				invalidated_config = true;
 			}
 
-			invalidated_settings |= ImGui::Checkbox("Spatial Variance",  &pathtracer.settings.enable_spatial_variance);
-			invalidated_settings |= ImGui::Checkbox("TAA",               &pathtracer.settings.enable_taa);
-			invalidated_settings |= ImGui::Checkbox("Modulate Albedo",   &pathtracer.settings.modulate_albedo);
+			invalidated_config |= ImGui::Checkbox("Spatial Variance",  &config.enable_spatial_variance);
+			invalidated_config |= ImGui::Checkbox("TAA",               &config.enable_taa);
+			invalidated_config |= ImGui::Checkbox("Modulate Albedo",   &config.enable_albedo);
 
-			invalidated_settings |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&pathtracer.settings.reconstruction_filter), "Box\0Gaussian\0");
+			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.reconstruction_filter), "Box\0Tent\0Gaussian\0");
 
-			invalidated_settings |= ImGui::SliderInt("A Trous iterations", &pathtracer.settings.atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+			invalidated_config |= ImGui::SliderInt("A Trous iterations", &config.num_atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 
-			invalidated_settings |= ImGui::SliderFloat("Alpha colour", &pathtracer.settings.alpha_colour, 0.0f, 1.0f);
-			invalidated_settings |= ImGui::SliderFloat("Alpha moment", &pathtracer.settings.alpha_moment, 0.0f, 1.0f);
+			invalidated_config |= ImGui::SliderFloat("Alpha colour", &config.alpha_colour, 0.0f, 1.0f);
+			invalidated_config |= ImGui::SliderFloat("Alpha moment", &config.alpha_moment, 0.0f, 1.0f);
 
-			pathtracer.invalidated_settings = invalidated_settings;
+			pathtracer.invalidated_config = invalidated_config;
 		}
 	}
 	ImGui::End();
@@ -336,15 +468,27 @@ static void draw_gui() {
 			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
 			ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
-			ImGui::Text("Num Triangles:  %i", pathtracer.scene.triangle_count);
-		}
 
-		if (ImGui::IsMouseClicked(1)) {
-			// Deselect current object
-			pathtracer.pixel_query.pixel_index = INVALID;
-			pathtracer.pixel_query.mesh_id     = INVALID;
-			pathtracer.pixel_query.triangle_id = INVALID;
-			pathtracer.pixel_query.material_id = INVALID;
+			int triangle_count       = 0;
+			int light_mesh_count     = 0;
+			int light_triangle_count = 0;
+
+			for (int i = 0; i < pathtracer.scene.meshes.size(); i++) {
+				const Mesh     & mesh      = pathtracer.scene.meshes[i];
+				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
+
+				triangle_count += mesh_data.triangle_count;
+
+				if (mesh.light_index != INVALID) {
+					light_mesh_count++;
+					light_triangle_count += mesh_data.triangle_count;
+				}
+			}
+
+			ImGui::Text("Meshes:          %i", int(pathtracer.scene.meshes.size()));
+			ImGui::Text("Triangles:       %i", triangle_count);
+			ImGui::Text("Light Meshes:    %i", light_mesh_count);
+			ImGui::Text("Light Triangles: %i", light_triangle_count);
 		}
 
 		if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -356,7 +500,7 @@ static void draw_gui() {
 				bool is_selected = pathtracer.pixel_query.mesh_id == m;
 
 				ImGui::PushID(m);
-				if (ImGui::Selectable(mesh.name, &is_selected)) {
+				if (ImGui::Selectable(mesh.name ? mesh.name : "(null)", &is_selected)) {
 					pathtracer.pixel_query.mesh_id     = m;
 					pathtracer.pixel_query.triangle_id = INVALID;
 					pathtracer.pixel_query.material_id = mesh.material_handle.handle;
@@ -399,91 +543,6 @@ static void draw_gui() {
 
 				if (mesh_changed) pathtracer.invalidated_scene = true;
 			}
-
-			ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
-
-			Vector4 aabb_corners[8] = {
-				Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
-				Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
-				Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
-				Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f),
-				Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f)
-			};
-
-			// Transform from world space to homogeneous clip space
-			for (int i = 0; i < 8; i++) {
-				aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
-			}
-
-			auto draw_line_clipped = [draw_list](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
-				if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
-
-				// Clip against near plane only
-				if (a.z < pathtracer.scene.camera.near) a = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
-				if (b.z < pathtracer.scene.camera.near) b = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
-
-				// Clip space to NDC to Window coordinates
-				ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };
-				ImVec2 b_window = { (0.5f + 0.5f * b.x / b.w) * window.width, (0.5f - 0.5f * b.y / b.w) * window.height };
-
-				draw_list->AddLine(a_window, b_window, colour, thickness);
-			};
-
-			ImColor aabb_colour = ImColor(0.2f, 0.8f, 0.2f);
-
-			draw_line_clipped(aabb_corners[0], aabb_corners[1], aabb_colour);
-			draw_line_clipped(aabb_corners[1], aabb_corners[2], aabb_colour);
-			draw_line_clipped(aabb_corners[2], aabb_corners[3], aabb_colour);
-			draw_line_clipped(aabb_corners[3], aabb_corners[0], aabb_colour);
-			draw_line_clipped(aabb_corners[4], aabb_corners[5], aabb_colour);
-			draw_line_clipped(aabb_corners[5], aabb_corners[6], aabb_colour);
-			draw_line_clipped(aabb_corners[6], aabb_corners[7], aabb_colour);
-			draw_line_clipped(aabb_corners[7], aabb_corners[4], aabb_colour);
-			draw_line_clipped(aabb_corners[0], aabb_corners[4], aabb_colour);
-			draw_line_clipped(aabb_corners[1], aabb_corners[5], aabb_colour);
-			draw_line_clipped(aabb_corners[2], aabb_corners[6], aabb_colour);
-			draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
-
-			if (pathtracer.pixel_query.triangle_id != INVALID) {
-				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
-
-				int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
-				const Triangle & triangle = mesh_data.triangles[index];
-
-				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
-
-				Vector4 triangle_positions[3] = {
-					Vector4(triangle.position_0.x, triangle.position_0.y, triangle.position_0.z, 1.0f),
-					Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
-					Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
-				};
-
-				Vector4 triangle_normals[3] = {
-					Vector4(triangle.normal_0.x, triangle.normal_0.y, triangle.normal_0.z, 0.0f),
-					Vector4(triangle.normal_1.x, triangle.normal_1.y, triangle.normal_1.z, 0.0f),
-					Vector4(triangle.normal_2.x, triangle.normal_2.y, triangle.normal_2.z, 0.0f)
-				};
-
-				for (int i = 0; i < 3; i++) {
-					triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
-					triangle_normals  [i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
-				}
-
-				ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);
-
-				draw_line_clipped(triangle_positions[0], triangle_positions[1], triangle_colour);
-				draw_line_clipped(triangle_positions[1], triangle_positions[2], triangle_colour);
-				draw_line_clipped(triangle_positions[2], triangle_positions[0], triangle_colour);
-
-				ImColor normal_colour = ImColor(0.2f, 0.5f, 0.8f);
-
-				draw_line_clipped(triangle_positions[0], triangle_positions[0] + 0.1f * triangle_normals[0], normal_colour);
-				draw_line_clipped(triangle_positions[1], triangle_positions[1] + 0.1f * triangle_normals[1], normal_colour);
-				draw_line_clipped(triangle_positions[2], triangle_positions[2] + 0.1f * triangle_normals[2], normal_colour);
-			}
 		}
 
 		if (pathtracer.pixel_query.material_id != INVALID) {
@@ -500,6 +559,12 @@ static void draw_gui() {
 					material_changed = true;
 				}
 
+				const char * texture_name = "None";
+				if (material.texture_id.handle != INVALID) {
+					const Texture & texture = pathtracer.scene.asset_manager.get_texture(material.texture_id);
+					texture_name = texture.name;
+				}
+
 				switch (material.type) {
 					case Material::Type::LIGHT: {
 						material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
@@ -507,7 +572,7 @@ static void draw_gui() {
 					}
 					case Material::Type::DIFFUSE: {
 						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
+						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
@@ -517,8 +582,9 @@ static void draw_gui() {
 					}
 					case Material::Type::GLOSSY: {
 						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1);
-						material_changed |= ImGui::SliderFloat ("IOR",       &material.index_of_refraction, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
 					}
@@ -531,6 +597,101 @@ static void draw_gui() {
 		}
 	}
 	ImGui::End();
+
+	if (pathtracer.pixel_query.mesh_id != INVALID) {
+		Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
+		ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
+
+		Vector4 aabb_corners[8] = {
+			Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
+			Vector4(mesh.aabb.min.x, mesh.aabb.min.y, mesh.aabb.max.z, 1.0f),
+			Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.min.z, 1.0f),
+			Vector4(mesh.aabb.max.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f),
+			Vector4(mesh.aabb.min.x, mesh.aabb.max.y, mesh.aabb.max.z, 1.0f)
+		};
+
+		// Transform from world space to homogeneous clip space
+		for (int i = 0; i < 8; i++) {
+			aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
+		}
+
+		auto draw_line_clipped = [draw_list](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
+			if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
+
+			// Clip against near plane only
+			if (a.z < pathtracer.scene.camera.near) a = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
+			if (b.z < pathtracer.scene.camera.near) b = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
+
+			// Clip space to NDC to Window coordinates
+			ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };
+			ImVec2 b_window = { (0.5f + 0.5f * b.x / b.w) * window.width, (0.5f - 0.5f * b.y / b.w) * window.height };
+
+			draw_list->AddLine(a_window, b_window, colour, thickness);
+		};
+
+		ImColor aabb_colour = ImColor(0.2f, 0.8f, 0.2f);
+
+		draw_line_clipped(aabb_corners[0], aabb_corners[1], aabb_colour);
+		draw_line_clipped(aabb_corners[1], aabb_corners[2], aabb_colour);
+		draw_line_clipped(aabb_corners[2], aabb_corners[3], aabb_colour);
+		draw_line_clipped(aabb_corners[3], aabb_corners[0], aabb_colour);
+		draw_line_clipped(aabb_corners[4], aabb_corners[5], aabb_colour);
+		draw_line_clipped(aabb_corners[5], aabb_corners[6], aabb_colour);
+		draw_line_clipped(aabb_corners[6], aabb_corners[7], aabb_colour);
+		draw_line_clipped(aabb_corners[7], aabb_corners[4], aabb_colour);
+		draw_line_clipped(aabb_corners[0], aabb_corners[4], aabb_colour);
+		draw_line_clipped(aabb_corners[1], aabb_corners[5], aabb_colour);
+		draw_line_clipped(aabb_corners[2], aabb_corners[6], aabb_colour);
+		draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
+
+		if (pathtracer.pixel_query.triangle_id != INVALID) {
+			const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
+
+			int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
+			const Triangle & triangle = mesh_data.triangles[index];
+
+			int mouse_x, mouse_y;
+			Input::mouse_position(&mouse_x, &mouse_y);
+
+			if (Vector2::length(Vector2(mouse_x, mouse_y) - Vector2(last_pixel_query_x, last_pixel_query_y)) < 50.0f) {
+				ImGui::BeginTooltip();
+				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
+				ImGui::EndTooltip();
+			}
+
+			Vector4 triangle_positions[3] = {
+				Vector4(triangle.position_0.x, triangle.position_0.y, triangle.position_0.z, 1.0f),
+				Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
+				Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
+			};
+
+			Vector4 triangle_normals[3] = {
+				Vector4(triangle.normal_0.x, triangle.normal_0.y, triangle.normal_0.z, 0.0f),
+				Vector4(triangle.normal_1.x, triangle.normal_1.y, triangle.normal_1.z, 0.0f),
+				Vector4(triangle.normal_2.x, triangle.normal_2.y, triangle.normal_2.z, 0.0f)
+			};
+
+			for (int i = 0; i < 3; i++) {
+				triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
+				triangle_normals  [i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
+			}
+
+			ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);
+
+			draw_line_clipped(triangle_positions[0], triangle_positions[1], triangle_colour);
+			draw_line_clipped(triangle_positions[1], triangle_positions[2], triangle_colour);
+			draw_line_clipped(triangle_positions[2], triangle_positions[0], triangle_colour);
+
+			ImColor normal_colour = ImColor(0.2f, 0.5f, 0.8f);
+
+			draw_line_clipped(triangle_positions[0], triangle_positions[0] + 0.1f * triangle_normals[0], normal_colour);
+			draw_line_clipped(triangle_positions[1], triangle_positions[1] + 0.1f * triangle_normals[1], normal_colour);
+			draw_line_clipped(triangle_positions[2], triangle_positions[2] + 0.1f * triangle_normals[2], normal_colour);
+		}
+	}
 
 	window.gui_end();
 }

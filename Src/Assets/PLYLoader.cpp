@@ -152,13 +152,8 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 	int          file_length;
 	const char * file = Util::file_read(filename, file_length);
 
-	SourceLocation location = { };
-	location.file = filename;
-	location.line = 1;
-	location.col  = 1;
-
 	Parser parser;
-	parser.init(file, file + file_length, location);
+	parser.init(file, file + file_length, filename);
 
 	parser.expect("ply");
 	parser.skip_whitespace();

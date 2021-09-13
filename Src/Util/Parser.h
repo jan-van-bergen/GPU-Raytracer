@@ -7,7 +7,11 @@
 #define TAB_WIDTH 4
 
 #define WARNING(loc, msg, ...) \
-	printf("%s:%i:%i: " msg, loc.file, loc.line, loc.col, __VA_ARGS__);
+	if (loc.file) { \
+		printf("%s:%i:%i: " msg, loc.file, loc.line, loc.col, __VA_ARGS__); \
+	} else { \
+		printf(msg, __VA_ARGS__); \
+	}
 
 #define ERROR(loc, msg, ...) \
 	WARNING(loc, msg, __VA_ARGS__); \
@@ -48,6 +52,14 @@ struct Parser {
 
 	SourceLocation location;
 
+	void init(const char * cur, const char * end, const char * filename = nullptr) {
+		this->cur = cur;
+		this->end = end;
+		location.file = filename;
+		location.line = 1;
+		location.col  = 0;
+	}
+
 	void init(const char * cur, const char * end, SourceLocation location) {
 		this->cur = cur;
 		this->end = end;
@@ -58,9 +70,14 @@ struct Parser {
 		return cur >= end;
 	}
 
-	void advance() {
-		location.advance(*cur);
-		cur++;
+	void advance(int n = 1) {
+		if (cur + n > end) {
+			ERROR(location, "Unexpected end of file!\n");
+		}
+		for (int i = 0; i < n; i++) {
+			location.advance(*cur);
+			cur++;
+		}
 	}
 
 	void skip_whitespace() {
@@ -81,7 +98,7 @@ struct Parser {
 
 	template<int N>
 	bool match(const char (& target)[N]) {
-		if (cur + N - 1 < end && strncmp(cur, target, N - 1) == 0) {
+		if (cur + N - 1 <= end && strncmp(cur, target, N - 1) == 0) {
 			for (int i = 0; i < N - 1; i++) {
 				advance();
 			}
@@ -92,7 +109,7 @@ struct Parser {
 
 	void expect(char expected) {
 		if (reached_end()) {
-			ERROR(location, "End of File!\n");
+			ERROR(location, "Unexpected end of file, expected '%c'!\n", expected);
 		}
 		if (*cur != expected) {
 			ERROR(location, "Unexpected char '%c', expected '%c'!\n", *cur, expected)
@@ -130,7 +147,7 @@ struct Parser {
 			int digit = 0;
 			while (is_digit(*cur)) {
 				double p;
-				if (digit < Util::array_element_count(DIGIT_LUT)) {
+				if (digit < Util::array_count(DIGIT_LUT)) {
 					p = DIGIT_LUT[digit];
 				} else {
 					p = pow(0.1, digit);
@@ -178,5 +195,24 @@ struct Parser {
 	void parse_newline() {
 		match('\r');
 		expect('\n');
+	}
+
+	StringView parse_c_str() {
+		const char * start = cur;
+		while (*cur) {
+			advance();
+		}
+		advance();
+		return { start, cur - 1 };
+	}
+
+	template<typename T>
+	T parse_binary() {
+		const char * start = cur;
+		advance(sizeof(T));
+
+		T result;
+		memcpy(&result, start, sizeof(T));
+		return result;
 	}
 };

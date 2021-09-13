@@ -31,6 +31,16 @@ namespace Math {
 		return (numerator + denominator - 1) / denominator;
 	}
 
+	template<typename T>
+	inline constexpr T round_up(T x, T n) {
+		T remainder = x % n;
+		if (remainder == 0) {
+			return x;
+		} else {
+			return x + (n - remainder);
+		}
+	}
+
 	template<typename T> inline constexpr T min(T a, T b) { return a < b ? a : b;}
 	template<typename T> inline constexpr T max(T a, T b) { return a > b ? a : b;}
 
@@ -43,6 +53,14 @@ namespace Math {
 	inline T inv_lerp(const T & value, const T & min, const T & max) {
 		return (value - min) / (max - min);
 	}
+
+	inline Vector3 orthogonal(const Vector3 & v) {
+		float s = copysignf(1.0f, v.z);
+		float a = -1.0f / (s + v.z);
+		float b = v.x * v.y * a;
+
+		return Vector3(1.0f + s * v.x * v.x * a, s * b, -s * v.x);
+	};
 
 	inline constexpr float linear_to_gamma(float x) {
 		if (x <= 0.0f) {
@@ -66,6 +84,10 @@ namespace Math {
 		} else {
 			return powf((x + 0.055f) / 1.055f, 2.4f);
 		}
+	}
+
+	inline constexpr float luminance(float r, float g, float b) {
+		return 0.299f * r + 0.587f * g + 0.114f * b;
 	}
 
 	inline constexpr float rad_to_deg(float rad) { return rad * ONE_OVER_PI * 180.0f; }

@@ -130,7 +130,7 @@ namespace BVHPartitions {
 	};
 
 	// Evaluates SAH for every object for every dimension to determine splitting candidate
-	inline ObjectSplit partition_object(const Triangle * primitives, PrimitiveRef * indices[3], int first_index, int index_count, AABB * bounds, float * sah) {
+	inline ObjectSplit partition_object(PrimitiveRef * indices[3], int first_index, int index_count, AABB * bounds, float * sah) {
 		ObjectSplit split = { };
 		split.cost = INFINITY;
 		split.index     = -1;
@@ -293,7 +293,7 @@ namespace BVHPartitions {
 						if (vertex_min <= bin_left_plane  && bin_left_plane  <= vertex_max) triangle_intersect_plane(vertices, dimension, bin_left_plane,  intersections, &intersection_count);
 						if (vertex_min <= bin_right_plane && bin_right_plane <= vertex_max) triangle_intersect_plane(vertices, dimension, bin_right_plane, intersections, &intersection_count);
 
-						assert(intersection_count < Util::array_element_count(intersections));
+						assert(intersection_count < Util::array_count(intersections));
 
 						if (intersection_count == 0) {
 							triangle_aabb_clipped_against_bin = triangle_aabb;

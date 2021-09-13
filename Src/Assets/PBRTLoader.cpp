@@ -1,5 +1,7 @@
 #include "PBRTLoader.h"
 
+#include "PLYLoader.h"
+
 #include "Util/Util.h"
 #include "Util/Parser.h"
 #include "Util/Geometry.h"
@@ -611,7 +613,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 				const char * filename_rel = param_filename.c_str();
 				const char * filename_abs = get_absolute_filename(path, path_length, filename_rel, param_filename.length());
 
-				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs);
+				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
 
 				if (current_object.inside) {
 					Instance instance = { };

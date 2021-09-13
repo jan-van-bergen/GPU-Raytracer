@@ -1,8 +1,6 @@
 #include "AssetManager.h"
 
 #include "BVHLoader.h"
-#include "OBJLoader.h"
-#include "PLYLoader.h"
 #include "TextureLoader.h"
 
 #include "BVH/Builders/BVHBuilder.h"
@@ -11,33 +9,36 @@
 
 #include "Util/ScopeTimer.h"
 
-static BVH build_bvh(const Triangle * triangles, int triangle_count) {
+BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
 	printf("Constructing BVH...\r");
-
 	BVH bvh;
-#if BVH_TYPE == BVH_SBVH
-	{
+
+	int max_primitives_in_leaf = BVH::max_primitives_in_leaf();
+	if (config.enable_bvh_optimization) {
+		max_primitives_in_leaf = 1;
+	}
+
+	// Only the SBVH uses SBVH as its starting point,
+	// all other BVH types use the standard BVH as their starting point
+	if (config.bvh_type == BVHType::SBVH) {
 		ScopeTimer timer("SBVH Construction");
 
-		SBVHBuilder sbvh_builder;
-		sbvh_builder.init(&bvh, triangle_count, BVHLoader::MAX_PRIMITIVES_IN_LEAF);
+		SBVHBuilder sbvh_builder = { };
+		sbvh_builder.init(&bvh, triangle_count, max_primitives_in_leaf);
 		sbvh_builder.build(triangles, triangle_count);
 		sbvh_builder.free();
-	}
-#else // All other BVH types use standard BVH as a starting point
-	{
+	} else  {
 		ScopeTimer timer("BVH Construction");
 
-		BVHBuilder bvh_builder;
-		bvh_builder.init(&bvh, triangle_count, BVHLoader::MAX_PRIMITIVES_IN_LEAF);
+		BVHBuilder bvh_builder = { };
+		bvh_builder.init(&bvh, triangle_count, max_primitives_in_leaf);
 		bvh_builder.build(triangles, triangle_count);
 		bvh_builder.free();
 	}
-#endif
 
-#if BVH_ENABLE_OPTIMIZATION
-	BVHOptimizer::optimize(bvh);
-#endif
+	if (config.enable_bvh_optimization) {
+		BVHOptimizer::optimize(bvh);
+	}
 
 	return bvh;
 }
@@ -46,38 +47,11 @@ void AssetManager::init() {
 	thread_pool.init();
 }
 
-MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
-	MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
-
-	if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
-
-	MeshData mesh_data = { };
-
-	BVH bvh;
-	bool bvh_loaded = BVHLoader::try_to_load(filename, mesh_data, bvh);
-	if (!bvh_loaded) {
-		// Unable to load disk cached BVH, load model from source and construct BVH
-		const char * extension = Util::file_get_extension(filename);
-
-		if (strcmp(extension, "obj") == 0) {
-			OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
-		} else if (strcmp(extension, "ply") == 0) {
-			PLYLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
-		} else {
-			printf("ERROR: '%s' file format is not supported!\n", extension);
-			abort();
-		}
-
-		bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
-		BVHLoader::save(filename, mesh_data, bvh);
-	}
-
-	mesh_data.init_bvh(bvh);
-
-	mesh_data_handle.handle = mesh_datas.size();
+MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
+	MeshDataHandle mesh_data_id = { mesh_datas.size() };
 	mesh_datas.push_back(mesh_data);
 
-	return mesh_data_handle;
+	return mesh_data_id;
 }
 
 MeshDataHandle AssetManager::add_mesh_data(Triangle * triangles, int triangle_count) {
@@ -88,10 +62,7 @@ MeshDataHandle AssetManager::add_mesh_data(Triangle * triangles, int triangle_co
 	mesh_data.triangle_count = triangle_count;
 	mesh_data.init_bvh(bvh);
 
-	MeshDataHandle mesh_data_id = { mesh_datas.size() };
-	mesh_datas.push_back(mesh_data);
-
-	return mesh_data_id;
+	return add_mesh_data(mesh_data);
 }
 
 MaterialHandle AssetManager::add_material(const Material & material) {
@@ -116,10 +87,17 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 	}
 
 	thread_pool.submit([this, filename = _strdup(filename), texture_id]() {
+		const char * name = Util::find_last(filename, "/\\");
+		if (!name) {
+			name = "Texture";
+		}
+
 		Texture texture = { };
+		texture.name = name;
+
 		bool success = false;
 
-		const char * file_extension = Util::file_get_extension(filename);
+		const char * file_extension = Util::find_last(filename, ".");
 		if (file_extension) {
 			if (strcmp(file_extension, "dds") == 0) {
 				success = TextureLoader::load_dds(filename, texture); // DDS is loaded using custom code
@@ -147,8 +125,6 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 			std::lock_guard<std::mutex> lock(textures_mutex);
 			textures[texture_id.handle] = texture;
 		}
-
-		free(filename);
 	});
 
 	return texture_id;

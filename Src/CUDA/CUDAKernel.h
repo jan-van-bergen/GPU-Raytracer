@@ -19,7 +19,12 @@ struct CUDAKernel {
 	unsigned shared_memory_bytes = 0;
 
 	inline void init(const CUDAModule * module, const char * kernel_name) {
-		CUDACALL(cuModuleGetFunction(&kernel, module->module, kernel_name));
+		CUresult result = cuModuleGetFunction(&kernel, module->module, kernel_name);
+		if (result == CUDA_ERROR_NOT_FOUND) {
+			printf("No Kernel with name '%s' was found in the Module!\n", kernel_name);
+			abort();
+		}
+		CUDACALL(result);
 
 		CUDACALL(cuFuncSetCacheConfig    (kernel, CU_FUNC_CACHE_PREFER_L1));
 		CUDACALL(cuFuncSetSharedMemConfig(kernel, CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE));
@@ -53,7 +58,6 @@ struct CUDAKernel {
 
 	inline void occupancy_max_block_size_1d() {
 		int grid, block;
-
 		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0));
 
 		set_block_dim(block, 1, 1);
@@ -61,7 +65,6 @@ struct CUDAKernel {
 
 	inline void occupancy_max_block_size_2d() {
 		int grid, block;
-
 		CUDACALL(cuOccupancyMaxPotentialBlockSize(&grid, &block, kernel, nullptr, 0, 0));
 
 		// Take sqrt because we want block_x x block_y to be as square as possible

@@ -1,11 +1,13 @@
 #include "SBVHBuilder.h"
 
+#include "Config.h"
+
 #include "BVHPartitions.h"
 
 #include "Util/Util.h"
 #include "Util/ScopeTimer.h"
 
-int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area) {
+int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
 		node.first = first_index;
@@ -15,8 +17,8 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	}
 
 	// Object Split information
-	BVHPartitions::ObjectSplit object_split = BVHPartitions::partition_object(triangles, indices, first_index, index_count, bounds, sah);
-	assert(object_split.index != -1);
+	BVHPartitions::ObjectSplit object_split = BVHPartitions::partition_object(indices, first_index, index_count, bounds, sah);
+	assert(object_split.index != INVALID);
 
 	// Calculate the overlap between the child bounding boxes resulting from the Object Split
 	AABB overlap = AABB::overlap(object_split.aabb_left, object_split.aabb_right);
@@ -24,13 +26,12 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 
 	// Divide by the surface area of the bounding box of the root Node
 	float ratio = lamba * inv_root_surface_area;
-
 	assert(ratio >= 0.0f && ratio <= 1.0f);
 
 	BVHPartitions::SpatialSplit spatial_split;
 
 	// If ratio between overlap area and root area is large enough, consider a Spatial Split
-	if (ratio > SBVH_ALPHA) {
+	if (ratio > config.sbvh_alpha) {
 		spatial_split = BVHPartitions::partition_spatial(triangles, indices, first_index, index_count, sah, node.aabb);
 	} else {
 		spatial_split.cost = INFINITY;
@@ -40,8 +41,8 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 
 	if (index_count <= max_primitives_in_leaf) {
 		// Check SAH termination condition
-		float leaf_cost = node.aabb.surface_area() * SAH_COST_LEAF * float(index_count);
-		float node_cost = node.aabb.surface_area() * SAH_COST_NODE + Math::min(object_split.cost, spatial_split.cost);
+		float leaf_cost = node.aabb.surface_area() * config.sah_cost_leaf * float(index_count);
+		float node_cost = node.aabb.surface_area() * config.sah_cost_node + Math::min(object_split.cost, spatial_split.cost);
 
 		if (leaf_cost < node_cost) {
 			node.first = first_index;
@@ -77,7 +78,8 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	if (object_split.cost <= spatial_split.cost) {
 		// Perform Object Split
 
-		node.count = (object_split.dimension + 1) << 30;
+		node.count = 0;
+		node.axis  = object_split.dimension;
 
 		for (int i = first_index;        i < object_split.index;        i++) indices_going_left[indices[object_split.dimension][i].index] = true;
 		for (int i = object_split.index; i < first_index + index_count; i++) indices_going_left[indices[object_split.dimension][i].index] = false;
@@ -111,7 +113,8 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	} else {
 		// Perform Spatial Split
 
-		node.count = (spatial_split.dimension + 1) << 30;
+		node.count = 0;
+		node.axis  = spatial_split.dimension;
 
 		int temp_left = 0, temp_right = 0;
 
@@ -168,21 +171,21 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 				float spatial_split_aabb_right_surface_area = spatial_split.aabb_right.surface_area();
 
 				// Calculate SAH cost for the 3 different cases
-				float c_split = spatial_split_aabb_left_surface_area   *  n_1       + spatial_split_aabb_right_surface_area   *  n_2;
-				float c_1     =              delta_left.surface_area() *  n_1       + spatial_split_aabb_right_surface_area   * (n_2-1.0f);
-				float c_2     = spatial_split_aabb_left_surface_area   * (n_1-1.0f) +              delta_right.surface_area() *  n_2;
+				float cost_split = spatial_split_aabb_left_surface_area   *  n_1       + spatial_split_aabb_right_surface_area   *  n_2;
+				float cost_left  =              delta_left.surface_area() *  n_1       + spatial_split_aabb_right_surface_area   * (n_2-1.0f);
+				float cost_right = spatial_split_aabb_left_surface_area   * (n_1-1.0f) +              delta_right.surface_area() *  n_2;
 
-				// If C_1 resp. C_2 is cheapest, let the triangle go left resp. right
+				// If cost_left resp. cost_right is cheapest, let the triangle go left resp. right
 				// Otherwise, do nothing and let the triangle go both left and right
-				if (c_1 < c_split) {
-					if (c_2 < c_1) { // C_2 is cheapest, remove from left
+				if (cost_left < cost_split) {
+					if (cost_right < cost_left) { // cost_right is cheapest, remove from left
 						goes_left = false;
 						rejected_left++;
 
 						n_1 -= 1.0f;
 
 						spatial_split.aabb_right.expand(triangle_aabb);
-					} else { // C_1 is cheapest, remove from right
+					} else { // cost_left is cheapest, remove from right
 						goes_right = false;
 						rejected_right++;
 
@@ -190,7 +193,7 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 
 						spatial_split.aabb_left.expand(triangle_aabb);
 					}
-				} else if (c_2 < c_split) { // C_2 is cheapest, remove from left
+				} else if (cost_right < cost_split) { // cost_right is cheapest, remove from left
 					goes_left = false;
 					rejected_left++;
 
@@ -206,7 +209,7 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 
 				BVHPartitions::triangle_intersect_plane(vertices, spatial_split.dimension, spatial_split.plane_distance, intersections, &intersection_count);
 
-				assert(intersection_count < Util::array_element_count(intersections));
+				assert(intersection_count < Util::array_count(intersections));
 
 				// All intersection points should be included both AABBs
 				AABB aabb_intersections = AABB::from_points(intersections, intersection_count);
@@ -221,8 +224,8 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 					}
 				}
 
-				aabb_left.min = Vector3::max(aabb_left.min, triangle_aabb.min);
-				aabb_left.max = Vector3::min(aabb_left.max, triangle_aabb.max);
+				aabb_left.min  = Vector3::max(aabb_left.min,  triangle_aabb.min);
+				aabb_left.max  = Vector3::min(aabb_left.max,  triangle_aabb.max);
 				aabb_right.min = Vector3::max(aabb_right.min, triangle_aabb.min);
 				aabb_right.max = Vector3::min(aabb_right.max, triangle_aabb.max);
 
@@ -287,13 +290,13 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 		child_aabb_right = spatial_split.aabb_right;
 	}
 
-	sbvh->nodes[node.left    ].aabb = child_aabb_left;
-	sbvh->nodes[node.left + 1].aabb = child_aabb_right;
+	sbvh->nodes_2[node.left    ].aabb = child_aabb_left;
+	sbvh->nodes_2[node.left + 1].aabb = child_aabb_right;
 
 	indices_going_right_offset += n_right;
 
 	// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
-	int num_leaves_left = build_sbvh(sbvh->nodes[node.left], triangles, indices, node_index, first_index, n_left, inv_root_surface_area);
+	int num_leaves_left = build_sbvh(sbvh->nodes_2[node.left], triangles, indices, node_index, first_index, n_left, inv_root_surface_area);
 
 	// Using the depth first offset, we can now copy over the right references
 	memcpy(indices[0] + first_index + num_leaves_left, children_right[0], n_right * sizeof(PrimitiveRef));
@@ -301,7 +304,7 @@ int SBVHBuilder::build_sbvh(BVHNode & node, const Triangle * triangles, Primitiv
 	memcpy(indices[2] + first_index + num_leaves_left, children_right[2], n_right * sizeof(PrimitiveRef));
 
 	// Now recurse on the right side
-	int num_leaves_right = build_sbvh(sbvh->nodes[node.left + 1], triangles, indices, node_index, first_index + num_leaves_left, n_right, inv_root_surface_area);
+	int num_leaves_right = build_sbvh(sbvh->nodes_2[node.left + 1], triangles, indices, node_index, first_index + num_leaves_left, n_right, inv_root_surface_area);
 
 	indices_going_right_offset -= n_right;
 
@@ -317,18 +320,18 @@ void SBVHBuilder::init(BVH * sbvh, int triangle_count, int max_primitives_in_lea
 	indices_y = indices_xyz + SBVH_OVERALLOCATION * triangle_count;
 	indices_z = indices_xyz + SBVH_OVERALLOCATION * triangle_count * 2;
 
-	PrimitiveRef * indices_going_right_xyz = new PrimitiveRef[3 * 2 * triangle_count];
+	PrimitiveRef * indices_going_right_xyz = new PrimitiveRef[3 * SBVH_OVERALLOCATION * triangle_count];
 	indices_going_right_x = indices_going_right_xyz;
-	indices_going_right_y = indices_going_right_xyz + 2 * triangle_count;
-	indices_going_right_z = indices_going_right_xyz + 2 * triangle_count * 2;
+	indices_going_right_y = indices_going_right_xyz + SBVH_OVERALLOCATION * triangle_count;
+	indices_going_right_z = indices_going_right_xyz + SBVH_OVERALLOCATION * triangle_count * 2;
 
 	sah    = new float[triangle_count];
 	bounds = new AABB [triangle_count * 2 + 1];
 	indices_going_left .init(triangle_count);
 	indices_going_right.init(triangle_count);
 
-	sbvh->indices = new int    [SBVH_OVERALLOCATION * triangle_count];
-	sbvh->nodes   = new BVHNode[SBVH_OVERALLOCATION * triangle_count];
+	sbvh->indices = new int     [SBVH_OVERALLOCATION * triangle_count];
+	sbvh->nodes_2 = new BVHNode2[SBVH_OVERALLOCATION * triangle_count];
 }
 
 void SBVHBuilder::free() {
@@ -373,10 +376,10 @@ void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 
 	PrimitiveRef * indices[3] = { indices_x, indices_y, indices_z };
 
-	sbvh->nodes[0].aabb = root_aabb;
+	sbvh->nodes_2[0].aabb = root_aabb;
 
 	int node_index = 2;
-	sbvh->index_count = build_sbvh(sbvh->nodes[0], triangles, indices, node_index, 0, triangle_count, 1.0f / root_aabb.surface_area());
+	sbvh->index_count = build_sbvh(sbvh->nodes_2[0], triangles, indices, node_index, 0, triangle_count, 1.0f / root_aabb.surface_area());
 	sbvh->node_count = node_index;
 
 	assert(node_index <= SBVH_OVERALLOCATION * triangle_count);

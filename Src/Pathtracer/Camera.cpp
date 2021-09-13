@@ -40,7 +40,7 @@ void Camera::recalibrate() {
 	pixel_spread_angle = atanf(2.0f * tan_half_fov * inv_width);
 }
 
-void Camera::update(float delta, const Settings & settings) {
+void Camera::update(float delta) {
 	// Move Camera around
 	moved = false;
 

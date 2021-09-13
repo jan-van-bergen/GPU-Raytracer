@@ -42,9 +42,7 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
-#if ENABLE_MIPMAPPING
 	CUDAMemory::Ptr<float2> cone;
-#endif
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index_and_last_material;
@@ -56,9 +54,7 @@ struct TraceBuffer {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
 
-#if ENABLE_MIPMAPPING
 		cone = CUDAMemory::malloc<float2>(buffer_size);
-#endif
 		hits = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index_and_last_material = CUDAMemory::malloc<int>(buffer_size);
@@ -71,9 +67,7 @@ struct TraceBuffer {
 		origin.free();
 		direction.free();
 
-#if ENABLE_MIPMAPPING
 		CUDAMemory::free(cone);
-#endif
 		CUDAMemory::free(hits);
 
 		CUDAMemory::free(pixel_index_and_last_material);
@@ -86,9 +80,7 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 
-#if ENABLE_MIPMAPPING
 	CUDAMemory::Ptr<float2> cone;
-#endif
 	CUDAMemory::Ptr<float4> hits;
 
 	CUDAMemory::Ptr<int> pixel_index;
@@ -97,9 +89,7 @@ struct MaterialBuffer {
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
 
-#if ENABLE_MIPMAPPING
 		cone = CUDAMemory::malloc<float2>(buffer_size);
-#endif
 		hits = CUDAMemory::malloc<float4>(buffer_size);
 
 		pixel_index = CUDAMemory::malloc<int>(buffer_size);
@@ -109,9 +99,7 @@ struct MaterialBuffer {
 	inline void free() {
 		direction.free();
 
-#if ENABLE_MIPMAPPING
 		CUDAMemory::free(cone);
-#endif
 		CUDAMemory::free(hits);
 
 		CUDAMemory::free(pixel_index);
@@ -165,7 +153,7 @@ struct Pathtracer {
 	bool invalidated_scene     = true;
 	bool invalidated_materials = true;
 	bool invalidated_camera    = true;
-	bool invalidated_settings  = true;
+	bool invalidated_config    = true;
 
 	enum struct PixelQueryStatus {
 		INACTIVE,
@@ -174,8 +162,6 @@ struct Pathtracer {
 	} pixel_query_status = PixelQueryStatus::INACTIVE;
 
 	int frames_accumulated = -1;
-
-	Settings settings;
 
 	PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
@@ -186,7 +172,7 @@ struct Pathtracer {
 
 	CUDAEventPool event_pool;
 
-	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle);
+	void init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle, int width, int height);
 
 	void cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height);
 	void cuda_free();
@@ -208,31 +194,32 @@ private:
 	int screen_pitch;
 
 	int pixel_count;
-	int batch_size;
-
-	PMJ pmj;
 
 	BVH        tlas_raw;
+	BVH        tlas;
 	BVHBuilder tlas_bvh_builder;
-	BVHType    tlas;
 
-#if BVH_TYPE == BVH_QBVH
-	QBVHBuilder tlas_converter;
-#elif BVH_TYPE == BVH_CWBVH
-	CWBVHBuilder tlas_converter;
-#endif
+	QBVHBuilder  tlas_converter_qbvh;
+	CWBVHBuilder tlas_converter_cwbvh;
 
 	CUDAModule cuda_module;
 
 	CUstream stream_memset;
 
 	CUDAKernel kernel_generate;
-	CUDAKernel kernel_trace;
+	CUDAKernel kernel_trace_bvh;
+	CUDAKernel kernel_trace_qbvh;
+	CUDAKernel kernel_trace_cwbvh;
 	CUDAKernel kernel_sort;
 	CUDAKernel kernel_shade_diffuse;
 	CUDAKernel kernel_shade_dielectric;
 	CUDAKernel kernel_shade_glossy;
-	CUDAKernel kernel_trace_shadow;
+	CUDAKernel kernel_trace_shadow_bvh;
+	CUDAKernel kernel_trace_shadow_qbvh;
+	CUDAKernel kernel_trace_shadow_cwbvh;
+
+	CUDAKernel * kernel_trace;
+	CUDAKernel * kernel_trace_shadow;
 
 	CUDAKernel kernel_svgf_reproject;
 	CUDAKernel kernel_svgf_variance;
@@ -260,7 +247,7 @@ private:
 
 	CUDAModule::Global global_camera;
 	CUDAModule::Global global_buffer_sizes;
-	CUDAModule::Global global_settings;
+	CUDAModule::Global global_config;
 	CUDAModule::Global global_svgf_data;
 
 	CUDAModule::Global global_pixel_query;
@@ -318,7 +305,8 @@ private:
 			struct {
 				Vector3 alignas(float4) diffuse;
 				int                     texture_id;
-				float   alignas(float2) index_of_refraction;
+				Vector3 alignas(float4) eta;
+				Vector3                 k;
 				float                   roughness;
 			} glossy;
 		};
@@ -353,7 +341,7 @@ private:
 
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
 
-	CUDAMemory::Ptr<BVHNodeType> ptr_bvh_nodes;
+	CUDAMemory::Ptr<char>        ptr_bvh_nodes;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
 	CUDAMemory::Ptr<int>         ptr_mesh_material_ids;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
@@ -374,7 +362,8 @@ private:
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
 
-	CUDAMemory::Ptr<Vector2> ptr_pmj_samples;
+	CUDAMemory::Ptr<PMJ::Point>     ptr_pmj_samples;
+	CUDAMemory::Ptr<unsigned short> ptr_blue_noise_textures;
 
 	// Timing Events
 	CUDAEvent::Desc event_desc_primary;

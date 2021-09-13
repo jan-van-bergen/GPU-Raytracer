@@ -4,8 +4,6 @@
 #include "Math/Quaternion.h"
 #include "Math/Matrix4.h"
 
-#include "../CUDA_Source/Common.h"
-
 struct Camera {
 	Vector3    position;
 	Quaternion rotation;
@@ -42,7 +40,7 @@ struct Camera {
 
 	void set_fov(float fov);
 
-	void update(float delta, const Settings & settings);
+	void update(float delta);
 
 private:
 	void recalibrate();

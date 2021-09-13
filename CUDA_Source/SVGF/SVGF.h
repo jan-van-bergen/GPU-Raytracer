@@ -99,9 +99,9 @@ __device__ inline float2 edge_stopping_weights(
 		center_depth_gradient.x * float(delta_x) +
 		center_depth_gradient.y * float(delta_y);
 
-	float ln_w_z = fabsf(center_depth - depth) / (settings.sigma_z * fabsf(d) + epsilon);
+	float ln_w_z = fabsf(center_depth - depth) / (config.sigma_z * fabsf(d) + epsilon);
 
-	float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), settings.sigma_n);
+	float w_n = powf(fmaxf(0.0f, dot(center_normal, normal)), config.sigma_n);
 
 	float w_l_direct   = w_n * expf(-fabsf(center_luminance_direct   - luminance_direct)   * luminance_denom_direct   - ln_w_z);
 	float w_l_indirect = w_n * expf(-fabsf(center_luminance_indirect - luminance_indirect) * luminance_denom_indirect - ln_w_z);
@@ -236,15 +236,15 @@ extern "C" __global__ void kernel_svgf_reproject(int sample_index) {
 		int history = ++history_length[pixel_index]; // Increase History Length by 1 step
 
 		float inv_history = 1.0f / float(history);
-		float alpha_colour = fmaxf(settings.alpha_colour, inv_history);
-		float alpha_moment = fmaxf(settings.alpha_moment, inv_history);
+		float alpha_colour = fmaxf(config.alpha_colour, inv_history);
+		float alpha_moment = fmaxf(config.alpha_moment, inv_history);
 
 		// Integrate using exponential moving average
 		direct   = lerp(prev_direct,   direct,   alpha_colour);
 		indirect = lerp(prev_indirect, indirect, alpha_colour);
 		moment   = lerp(prev_moment,   moment,   alpha_moment);
 
-		if (history >= 4 || !settings.enable_spatial_variance) {
+		if (history >= 4 || !config.enable_spatial_variance) {
 			float variance_direct   = fmaxf(0.0f, moment.z - moment.x * moment.x);
 			float variance_indirect = fmaxf(0.0f, moment.w - moment.y * moment.y);
 
@@ -286,7 +286,7 @@ extern "C" __global__ void kernel_svgf_variance(
 		return;
 	}
 
-	float luminance_denom = 1.0f / settings.sigma_l;
+	float luminance_denom = 1.0f / config.sigma_l;
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -440,8 +440,8 @@ extern "C" __global__ void kernel_svgf_atrous(
 	}
 
 	// Precompute denominators that are loop invariant
-	float luminance_denom_direct   = rsqrtf(settings.sigma_l * settings.sigma_l * fmaxf(0.0f, variance_blurred_direct)   + epsilon);
-	float luminance_denom_indirect = rsqrtf(settings.sigma_l * settings.sigma_l * fmaxf(0.0f, variance_blurred_indirect) + epsilon);
+	float luminance_denom_direct   = rsqrtf(config.sigma_l * config.sigma_l * fmaxf(0.0f, variance_blurred_direct)   + epsilon);
+	float luminance_denom_indirect = rsqrtf(config.sigma_l * config.sigma_l * fmaxf(0.0f, variance_blurred_indirect) + epsilon);
 
 	float4 center_colour_direct   = colour_direct_in  [pixel_index];
 	float4 center_colour_indirect = colour_indirect_in[pixel_index];
@@ -558,13 +558,13 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 colour = direct + indirect;
 
-	if (settings.modulate_albedo) {
+	if (config.enable_albedo) {
 		colour *= frame_buffer_albedo[pixel_index];
 	}
 
 	accumulator.set(x, y, colour);
 
-	if (settings.enable_taa) {
+	if (config.enable_taa) {
 		// "Pseudo" Reinhard (uses luma)
 		colour = colour / (1.0f + luminance(colour.x, colour.y, colour.z));
 
@@ -580,7 +580,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	float4 normal_and_depth = gbuffer_normal_and_depth.get(x, y);
 
-	if (settings.atrous_iterations <= feedback_iteration) {
+	if (config.num_atrous_iterations <= feedback_iteration) {
 		// Normally the à-trous filter copies the illumination history,
 		// but in case the filter was skipped we need to do this here
 		history_direct  [pixel_index] = direct;
@@ -592,7 +592,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 
 	gbuffer_normal_and_depth       .set(x, y, make_float4(0.0f));
 	gbuffer_mesh_id_and_triangle_id.set(x, y, make_int2(0));
-	if (!settings.enable_taa) {
+	if (!config.enable_taa) {
 		// TAA previous screen space positions as well, don't clear here if TAA is enabled
 		gbuffer_screen_position_prev.set(x, y, make_float2(0.0f));
 	}

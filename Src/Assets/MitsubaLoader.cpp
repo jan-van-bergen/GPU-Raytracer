@@ -7,6 +7,9 @@
 #include <miniz/miniz.h>
 
 #include "MeshData.h"
+#include "BVHLoader.h"
+#include "OBJLoader.h"
+#include "PLYLoader.h"
 
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/CWBVHBuilder.h"
@@ -15,6 +18,7 @@
 
 #include "Util/Util.h"
 #include "Util/Array.h"
+#include "Util/HashMap.h"
 #include "Util/Parser.h"
 #include "Util/Geometry.h"
 #include "Util/StringView.h"
@@ -26,6 +30,11 @@ struct XMLAttribute {
 	SourceLocation location_of_value;
 
 	template<typename T> T get_value() const;
+
+	template<>
+	StringView get_value() const {
+		return value;
+	}
 
 	template<>
 	int get_value() const {
@@ -148,8 +157,29 @@ struct XMLNode {
 			return attr->value == name;
 		});
 	}
+
 	template<typename T>
-	T get_optional_child_value(const char * name, T default_value) const {
+	T get_attribute_value(const char * name) const {
+		const XMLAttribute * attribute = find_attribute(name);
+		if (attribute) {
+			return attribute->get_value<T>();
+		} else {
+			ERROR(location, "Node '%.*s' does not have an attribute with name '%s'!\n", unsigned(tag.length()), tag.start, name);
+		}
+	}
+
+	template<typename T>
+	T get_child_value(const char * child_name, const char * attribute_name = "value") const {
+		const XMLNode * child = find_child_by_name(child_name);
+		if (child) {
+			return child->get_attribute_value<T>(attribute_name);
+		} else {
+			ERROR(location, "Node '%.*s' does not have a child with name '%s'!\n", unsigned(tag.length()), tag.start, child_name);
+		}
+	}
+
+	template<typename T>
+	T get_child_value_optional(const char * name, T default_value) const {
 		const XMLNode * child = find_child_by_name(name);
 		if (child) {
 			return child->get_optional_attribute("value", default_value);
@@ -159,24 +189,21 @@ struct XMLNode {
 	}
 };
 
+static void parser_skip(Parser & parser) {
+	parser.skip_whitespace_or_newline();
+
+	while (parser.match("<!--")) {
+		while (!parser.reached_end() && !parser.match("-->")) {
+			parser.advance();
+		}
+		parser.skip_whitespace_or_newline();
+	}
+}
+
 static XMLNode parse_tag(Parser & parser) {
 	if (parser.reached_end()) return { };
 
 	parser.expect('<');
-
-	// Parse Comment
-	while (parser.match('!')) {
-		parser.expect('-');
-		parser.expect('-');
-
-		while (!parser.reached_end()) {
-			if (parser.match('-') && parser.match('-') && parser.match('>')) break;
-			parser.advance();
-		}
-
-		parser.skip_whitespace_or_newline();
-		parser.expect('<');
-	}
 
 	XMLNode node = { };
 	node.location         = parser.location;
@@ -184,10 +211,16 @@ static XMLNode parse_tag(Parser & parser) {
 
 	// Parse node tag
 	node.tag.start = parser.cur;
-	while (!parser.reached_end() && !is_whitespace(*parser.cur)) parser.advance();
+	while (!parser.reached_end() && !is_whitespace(*parser.cur) && *parser.cur != '>') parser.advance();
 	node.tag.end = parser.cur;
 
-	parser.skip_whitespace_or_newline();
+	if (node.tag.length() == 0) {
+		ERROR(parser.location, "Empty open tag!\n");
+	} else if (node.tag.start[0] == '/') {
+		ERROR(parser.location, "Unexpected closing tag '%.*s', expected open tag!\n", unsigned(node.tag.length()), node.tag.start);
+	}
+
+	parser_skip(parser);
 
 	// Parse attributes
 	while (!parser.reached_end() && !parser.match('>')) {
@@ -217,7 +250,7 @@ static XMLNode parse_tag(Parser & parser) {
 		attribute.value.end = parser.cur;
 
 		parser.expect(quote_type);
-		parser.skip_whitespace_or_newline();
+		parser_skip(parser);
 
 		node.attributes.push_back(attribute);
 
@@ -228,16 +261,13 @@ static XMLNode parse_tag(Parser & parser) {
 		}
 	}
 
-	parser.skip_whitespace_or_newline();
+	parser_skip(parser);
 
 	// Parse children
-	do {
+	while (!parser.match("</")) {
 		node.children.push_back(parse_tag(parser));
-		parser.skip_whitespace_or_newline();
-	} while (!(parser.cur + 1 < parser.end && parser.cur[0] == '<' && parser.cur[1] == '/'));
-
-	parser.expect('<');
-	parser.expect('/');
+		parser_skip(parser);
+	}
 
 	int i = 0;
 	while (!parser.reached_end() && !parser.match('>')) {
@@ -254,7 +284,7 @@ static XMLNode parse_xml(Parser & parser) {
 	XMLNode node;
 
 	do {
-		parser.skip_whitespace_or_newline();
+		parser_skip(parser);
 		node = parse_tag(parser);
 	} while (node.is_question_mark);
 
@@ -300,7 +330,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			rgb.z = Math::gamma_to_linear(rgb.z);
 			return;
 		} else if (reflectance->tag == "texture") {
-			const StringView & filename_rel = reflectance->find_child_by_name("filename")->find_attribute("value")->value;
+			const StringView & filename_rel = reflectance->get_child_value<StringView>("filename");
 			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 			texture = scene.asset_manager.add_texture(filename_abs);
@@ -313,7 +343,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			delete [] filename_abs;
 			return;
 		} else if (reflectance->tag == "ref") {
-			const StringView & texture_name = reflectance->find_attribute("id")->value;
+			const StringView & texture_name = reflectance->get_attribute_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture);
 			if (!found) {
 				WARNING(reflectance->location, "Invalid texture ref '%.*s'!", unsigned(texture_name.length()), texture_name.start);
@@ -328,7 +358,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 	if (transform) {
 		const XMLNode * matrix = transform->find_child("matrix");
 		if (matrix) {
-			Matrix4 world = matrix->find_attribute("value")->get_value<Matrix4>();
+			Matrix4 world = matrix->get_attribute_value<Matrix4>("value");
 			Matrix4::decompose(world, position, rotation, scale, forward);
 			return;
 		}
@@ -393,7 +423,7 @@ static Matrix4 parse_transform_matrix(const XMLNode * node) {
 	if (transform) {
 		const XMLNode * matrix = transform->find_child("matrix");
 		if (matrix) {
-			return matrix->find_attribute("value")->get_value<Matrix4>();
+			return matrix->get_attribute_value<Matrix4>("value");
 		}
 	}
 
@@ -416,7 +446,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (emitter) {
 			material.type = Material::Type::LIGHT;
 			material.name = "emitter";
-			material.emission = emitter->find_child_by_name("radiance")->find_attribute("value")->get_value<Vector3>();
+			material.emission = emitter->get_child_value<Vector3>("radiance");
 
 			return scene.asset_manager.add_material(material);
 		}
@@ -424,7 +454,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		// Check if an existing Material is referenced
 		const XMLNode * ref = node->find_child("ref");
 		if (ref) {
-			const StringView & material_name = ref->find_attribute("id")->value;
+			const StringView & material_name = ref->get_attribute_value<StringView>("id");
 
 			MaterialHandle material_id;
 			bool found = material_map.try_get(material_name, material_id);
@@ -449,18 +479,18 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 	const XMLAttribute * name = bsdf->find_attribute("id");
 
-	const XMLNode      * inner_bsdf = bsdf;
-	const XMLAttribute * inner_bsdf_type = inner_bsdf->find_attribute("type");
+	const XMLNode * inner_bsdf = bsdf;
+	StringView inner_bsdf_type = inner_bsdf->get_attribute_value<StringView>("type");
 
 	// Keep peeling back nested BSDFs, we only care about the innermost one
 	while (
-		inner_bsdf_type->value == "twosided" ||
-		inner_bsdf_type->value == "mask" ||
-		inner_bsdf_type->value == "bumpmap" ||
-		inner_bsdf_type->value == "coating"
+		inner_bsdf_type == "twosided" ||
+		inner_bsdf_type == "mask" ||
+		inner_bsdf_type == "bumpmap" ||
+		inner_bsdf_type == "coating"
 	) {
 		inner_bsdf      = inner_bsdf->find_child("bsdf");
-		inner_bsdf_type = inner_bsdf->find_attribute("type");
+		inner_bsdf_type = inner_bsdf->get_attribute_value<StringView>("type");
 
 		if (name == nullptr) {
 			name = inner_bsdf->find_attribute("id");
@@ -473,46 +503,75 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.name = "Material";
 	}
 
-	if (inner_bsdf_type->value == "diffuse") {
+	if (inner_bsdf_type == "diffuse") {
 		material.type = Material::Type::DIFFUSE;
 
 		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, material.diffuse, material.texture_id);
-	} else if (inner_bsdf_type->value == "conductor") {
+	} else if (inner_bsdf_type == "conductor") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		material.linear_roughness    = 0.0f;
-		material.index_of_refraction = inner_bsdf->get_optional_child_value("eta", 1.0f);
-	} else if (inner_bsdf_type->value == "roughconductor" || inner_bsdf_type->value == "roughdiffuse") {
+		material.linear_roughness = 0.0f;
+		material.eta              = inner_bsdf->get_child_value_optional("eta", Vector3(1.33f));
+		material.k                = inner_bsdf->get_child_value_optional("k",   Vector3(1.0f));
+	} else if (inner_bsdf_type == "roughconductor" || inner_bsdf_type == "roughdiffuse") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		material.linear_roughness    = inner_bsdf->get_optional_child_value("alpha", 0.5f);
-		material.index_of_refraction = inner_bsdf->get_optional_child_value("eta",   1.0f);
-	} else if (inner_bsdf_type->value == "plastic" || inner_bsdf_type->value == "roughplastic") {
+		material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
+		material.eta              = inner_bsdf->get_child_value_optional("eta",   Vector3(1.33f));
+		material.k                = inner_bsdf->get_child_value_optional("k",     Vector3(1.0f));
+	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic") {
 		material.type = Material::Type::GLOSSY;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		material.linear_roughness    = inner_bsdf->get_optional_child_value("alpha",  0.5f);
-		material.index_of_refraction = inner_bsdf->get_optional_child_value("intIOR", 1.0f);
+		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
+		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
+
+		material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
+		material.eta              = Vector3(int_ior / ext_ior);
+		material.k                = Vector3(5.0f);
 
 		const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
-		if (nonlinear && nonlinear->find_attribute("value")->get_value<bool>()) {
+		if (nonlinear && nonlinear->get_attribute_value<bool>("value")) {
 			material.linear_roughness = sqrtf(material.linear_roughness);
 		}
-	} else if (inner_bsdf_type->value == "thindielectric" || inner_bsdf_type->value == "dielectric" || inner_bsdf_type->value == "roughdielectric") {
+	} else if (inner_bsdf_type == "phong") {
+		material.type = Material::Type::GLOSSY;
+
+		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
+
+		float exponent = inner_bsdf->get_child_value_optional("exponent", 1.0f);
+		material.linear_roughness = sqrtf(0.5f * exponent + 1.0f);
+
+	} else if (inner_bsdf_type == "thindielectric" || inner_bsdf_type == "dielectric" || inner_bsdf_type == "roughdielectric") {
+		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
+		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
+
 		material.type = Material::Type::DIELECTRIC;
-		material.transmittance = Vector3(1.0f);
-		material.index_of_refraction = inner_bsdf->get_optional_child_value("intIOR", 1.333f);
-	} else if (inner_bsdf_type->value == "difftrans") {
+		material.transmittance       = Vector3(1.0f);
+		material.index_of_refraction = int_ior / ext_ior;
+
+		const XMLNode * medium = node->find_child("medium");
+		if (medium) {
+			Vector3 sigma_s = medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
+			Vector3 sigma_a = medium->get_child_value<Vector3>("sigmaA");
+
+			material.transmittance = Vector3(
+				expf(-(sigma_a.x + sigma_s.x)),
+				expf(-(sigma_a.y + sigma_s.y)),
+				expf(-(sigma_a.z + sigma_s.z))
+			);
+		}
+	} else if (inner_bsdf_type == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
 
 		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else {
-		WARNING(inner_bsdf_type->location_of_value, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type->value.length()), inner_bsdf_type->value.start);
+		WARNING(inner_bsdf->location, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type.length()), inner_bsdf_type.start);
 
 		return MaterialHandle::get_default();
 	}
@@ -533,12 +592,26 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 	// Read the End-of-File Dictionary
 	uint32_t num_meshes; memcpy(&num_meshes, serialized + serialized_length - sizeof(uint32_t), sizeof(uint32_t));
-
-	uint64_t eof_dictionary_offset = serialized_length - sizeof(uint32_t) - (num_meshes - 1) * sizeof(uint64_t) - 8;
+	uint64_t eof_dictionary_offset;
 
 	uint64_t * mesh_offsets = new uint64_t[num_meshes + 1];
-	memcpy(mesh_offsets, serialized + eof_dictionary_offset, num_meshes * sizeof(uint64_t));
-	mesh_offsets[num_meshes] = serialized_length - sizeof(uint32_t);
+
+	if (file_version <= 3) {
+		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
+
+		// Version 0.3.0 and earlier use 32 bit mesh offsets
+		for (int i = 0; i < num_meshes; i++) {
+			mesh_offsets[i] = 0;
+			memcpy(mesh_offsets + i, serialized + eof_dictionary_offset + i * sizeof(uint32_t), sizeof(uint32_t));
+		}
+	} else {
+		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
+
+		// Version 0.4.0 and later use 64 bit mesh offsets
+		memcpy(mesh_offsets, serialized + eof_dictionary_offset, num_meshes * sizeof(uint64_t));
+	}
+
+	mesh_offsets[num_meshes] = eof_dictionary_offset;
 	assert(mesh_offsets[0] == 0);
 
 	const char    ** mesh_names        = new const char * [num_meshes];
@@ -570,21 +643,11 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			}
 		}
 
-		char const * cur = deserialized;
-
-		// Helper function to copy over n bytes from the stream
-		auto read_n = [&cur, deserialized, deserialized_length, node](void * dst, size_t num_bytes) {
-			size_t offset = cur - deserialized;
-			if (offset + num_bytes > deserialized_length) {
-				ERROR(node->location, "ERROR: Buffer overflow!");
-			}
-
-			memcpy(dst, cur, num_bytes);
-			cur += num_bytes;
-		};
+		Parser parser = { };
+		parser.init(deserialized, deserialized + deserialized_length, filename);
 
 		// Read flags field
-		uint32_t flags; read_n(&flags, sizeof(uint32_t));
+		uint32_t flags = parser.parse_binary<uint32_t>();
 		bool flag_has_normals      = flags & 0x0001;
 		bool flag_has_tex_coords   = flags & 0x0002;
 		bool flag_has_colours      = flags & 0x0008;
@@ -592,18 +655,17 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 		bool flag_single_precision = flags & 0x1000;
 		bool flag_double_precision = flags & 0x2000;
 
-		// Read null terminated name
-		const char * name_start = cur;
-		cur += strlen(cur) + 1;
+		if (file_version <= 3) {
+			flag_single_precision = true;
+			mesh_names[i] = "Serialized Mesh";
+		} else {
+			// Read null terminated name
+			mesh_names[i] = parser.parse_c_str().c_str();
+		}
 
-		size_t name_length = cur - name_start;
-		char * mesh_name = new char[name_length];
-		memcpy(mesh_name, name_start, name_length);
-		mesh_names[i] = mesh_name;
-
-		// Read number of vertices and triangles
-		uint64_t num_vertices;  read_n(&num_vertices,  sizeof(uint64_t));
-		uint64_t num_triangles;	read_n(&num_triangles, sizeof(uint64_t));
+		// Read number of vertices and triangles1
+		uint64_t num_vertices  = parser.parse_binary<uint64_t>();
+		uint64_t num_triangles = parser.parse_binary<uint64_t>();
 
 		if (num_vertices == 0 || num_triangles == 0) {
 			mesh_data_handles[i] = MeshDataHandle { INVALID };
@@ -626,19 +688,25 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			ERROR(node->location, "ERROR: Neither single nor double precision specified!\n");
 		}
 
-		const char * vertex_positions = cur;
-		cur += num_vertices * 3 * element_size;
+		const char * vertex_positions = parser.cur;
+		parser.advance(num_vertices * 3 * element_size);
 
-		const char * vertex_normals = cur;
-		if (flag_has_normals) cur += num_vertices * 3 * element_size;
+		const char * vertex_normals = parser.cur;
+		if (flag_has_normals) {
+			parser.advance(num_vertices * 3 * element_size);
+		}
 
-		const char * vertex_tex_coords = cur;
-		if (flag_has_tex_coords) cur += num_vertices * 2 * element_size;
+		const char * vertex_tex_coords = parser.cur;
+		if (flag_has_tex_coords) {
+			parser.advance(num_vertices * 2 * element_size);
+		}
 
 		// Vertex colours, not used
-		if (flag_has_colours) cur += num_vertices * 3 * element_size;
+		if (flag_has_colours) {
+			parser.advance(num_vertices * 3 * element_size);
+		}
 
-		const char * indices = cur;
+		const char * indices = parser.cur;
 
 		// Reads a Vector3 from a buffer with the appropriate precision
 		auto read_vector3 = [flag_single_precision](const char * buffer, uint64_t index) {
@@ -728,32 +796,126 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 	return result;
 }
 
+static void parse_hair(const XMLNode * node, const char * filename, Triangle *& triangles, int & triangle_count, const Matrix4 & transform, float radius) {
+	int          file_length;
+	const char * file = Util::file_read(filename, file_length);
+
+	Parser parser = { };
+	parser.init(file, file + file_length, filename);
+
+	Array<Array<Vector3>> hairs;
+	Array<Vector3>        strand;
+
+	triangle_count = 0;
+
+	if (parser.match("BINARY_HAIR")) { // Binary format
+		unsigned num_vertices = parser.parse_binary<unsigned>();
+
+		while (parser.cur < parser.end) {
+			float x = parser.parse_binary<float>();
+			if (isinf(x)) { // +INF marks beginning of new hair strand
+				triangle_count += strand.size() - 1;
+				hairs.push_back(strand);
+				strand.clear();
+			} else {
+				float y = parser.parse_binary<float>();
+				float z = parser.parse_binary<float>();
+				strand.emplace_back(x, y, z);
+			}
+		}
+	} else { // ASCII format
+		while (parser.cur < parser.end) {
+			if (is_newline(*parser.cur)) { // Empty line marks beginning of new hair strand
+				triangle_count += strand.size() - 1;
+				hairs.push_back(strand);
+				strand.clear();
+			} else {
+				float x = parser.parse_float(); parser.skip_whitespace();
+				float y = parser.parse_float(); parser.skip_whitespace();
+				float z = parser.parse_float(); parser.skip_whitespace();
+				strand.emplace_back(x, y, z);
+			}
+			parser.parse_newline();
+		}
+	}
+
+	if (strand.size() > 0) {
+		triangle_count += strand.size() - 1;
+		hairs.push_back(strand);
+	}
+
+	delete [] file;
+
+	triangles = new Triangle[triangle_count];
+	int current_triangle = 0;
+
+	for (int h = 0; h < hairs.size(); h++) {
+		Array<Vector3> & strand = hairs[h];
+
+		for (int s = 0; s < strand.size(); s++) {
+			strand[s] = Matrix4::transform_position(transform, strand[s]);
+		}
+
+		float angle = PI * float(rand()) / float(RAND_MAX);
+
+		for (int s = 0; s < strand.size() - 1; s++) {
+			Vector3 direction = Vector3::normalize(strand[s+1] - strand[s]);
+			Vector3 orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
+
+			triangles[current_triangle].position_0  = strand[s] - radius * orthogonal;
+			triangles[current_triangle].position_1  = strand[s] + radius * orthogonal;
+			triangles[current_triangle].position_2  = strand[s+1];
+			triangles[current_triangle].normal_0    = Vector3(0.0f);
+			triangles[current_triangle].normal_1    = Vector3(0.0f);
+			triangles[current_triangle].normal_2    = Vector3(0.0f);
+			triangles[current_triangle].tex_coord_0 = Vector2(0.0f, 0.0f);
+			triangles[current_triangle].tex_coord_1 = Vector2(1.0f, 0.0f);
+			triangles[current_triangle].tex_coord_2 = Vector2(0.0f, 1.0f);
+			triangles[current_triangle].init();
+
+			current_triangle++;
+		}
+	}
+}
+
 static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
-	const XMLAttribute * type = node->find_attribute("type");
-	if (type->value == "obj" || type->value == "ply") {
-		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+	StringView type = node->get_attribute_value<StringView>("type");
+
+	if (type == "obj" || type == "ply") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs);
+		MeshDataHandle mesh_data_handle;
+		if (type == "obj") {
+			scene.asset_manager.add_mesh_data(filename_abs, OBJLoader::load);
+		} else {
+			scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
+		}
 		delete [] filename_abs;
 
 		name = filename_rel.c_str();
 
 		return mesh_data_handle;
-	} else if (type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere") {
-		Matrix4 world = parse_transform_matrix(node);
+	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere") {
+		Matrix4 transform = parse_transform_matrix(node);
 
 		Triangle * triangles = nullptr;
 		int        triangle_count = 0;
 
-		if (type->value == "rectangle") {
-			Geometry::rectangle(triangles, triangle_count, world);
-		} else if (type->value == "cube") {
-			Geometry::cube(triangles, triangle_count, world);
-		} else if (type->value == "disk") {
-			Geometry::disk(triangles, triangle_count, world);
-		} else if (type->value == "sphere") {
-			float   radius = node->get_optional_child_value("radius", 1.0f);
+		if (type == "rectangle") {
+			Geometry::rectangle(triangles, triangle_count, transform);
+		} else if (type == "cube") {
+			Geometry::cube(triangles, triangle_count, transform);
+		} else if (type == "disk") {
+			Geometry::disk(triangles, triangle_count, transform);
+		} else if (type == "cylinder") {
+			Vector3 p0     = node->get_child_value_optional("p0", Vector3(0.0f, 0.0f, 0.0f));
+			Vector3 p1     = node->get_child_value_optional("p1", Vector3(0.0f, 0.0f, 1.0f));
+			float   radius = node->get_child_value_optional("radius", 1.0f);
+
+			Geometry::cylinder(triangles, triangle_count, transform, p0, p1, radius);
+		} else if (type == "sphere") {
+			float   radius = node->get_child_value_optional("radius", 1.0f);
 			Vector3 center = Vector3(0.0f);
 
 			const XMLNode * xml_center = node->find_child_by_name("center");
@@ -765,16 +927,18 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 				);
 			}
 
-			world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
+			transform = transform * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
-			Geometry::sphere(triangles, triangle_count, world);
+			Geometry::sphere(triangles, triangle_count, transform);
+		} else {
+			abort(); // Unreachable
 		}
 
-		name = type->value.c_str();
+		name = type.c_str();
 
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
-	} else if (type->value == "serialized") {
-		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+	} else if (type == "serialized") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 
 		Serialized serialized;
 		bool found = serialized_map.try_get(filename_rel, serialized);
@@ -787,12 +951,28 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			delete [] filename_abs;
 		}
 
-		int shape_index = node->get_optional_child_value("shapeIndex", 0);
+		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
 		name = serialized.mesh_names[shape_index];
 		return serialized.mesh_data_handles[shape_index];
+	} else if (type == "hair") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
+		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+
+		float radius = node->get_child_value_optional("radius", 0.0025f);
+
+		auto fallback_loader = [&](const char * filename, Triangle *& triangles, int & triangle_count) {
+			Matrix4 transform = parse_transform_matrix(node);
+			parse_hair(node, filename, triangles, triangle_count, transform, radius);
+		};
+		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
+
+		name = filename_rel.c_str();
+
+		delete [] filename_abs;
+		return mesh_data_handle;
 	} else {
-		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
+		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type.length()), type.start);
 		return MeshDataHandle { INVALID };
 	}
 }
@@ -805,7 +985,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		StringView str = { material.name, material.name + strlen(material.name) };
 		material_map[str] = material_handle;
 	} else if (node->tag == "texture") {
-		const StringView & filename_rel = node->find_child_by_name("filename")->find_attribute("value")->value;
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 		StringView texture_id = { };
@@ -819,8 +999,35 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 		delete [] filename_abs;
 	} else if (node->tag == "shape") {
-		const XMLAttribute * type = node->find_attribute("type");
-		if (type->value == "obj" || type->value == "rectangle" || type->value == "cube" || type->value == "disk" || type->value == "sphere" || type->value == "serialized") {
+		StringView type = node->get_attribute_value<StringView>("type");
+		if (type == "shapegroup") {
+			if (node->children.size() > 0) {
+				const XMLNode * shape = node->find_child("shape");
+				if (!shape) {
+					ERROR(node->location, "Shapegroup needs a <shape> child!\n");
+				}
+
+				const char * name = nullptr;
+				MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
+				MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
+
+				const StringView & id = node->get_attribute_value<StringView>("id");
+				shape_group_map[id] = { mesh_data_handle, material_handle };
+			}
+		} else if (type == "instance") {
+			const XMLNode * ref = node->find_child("ref");
+			if (!ref) {
+				WARNING(node->location, "Instance without ref!\n");
+				return;
+			}
+			StringView id = ref->get_attribute_value<StringView>("id");
+
+			ShapeGroup shape_group;
+			if (shape_group_map.try_get(id, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
+				Mesh & mesh = scene.add_mesh(id.c_str(), shape_group.mesh_data_handle, shape_group.material_handle);
+				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
+			}
+		} else {
 			char const * name = nullptr;
 			MeshDataHandle mesh_data_handle = parse_shape(node, scene, serialized_map, path, name);
 			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
@@ -829,51 +1036,31 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
 
 				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
-				if (type->value == "obj" || type->value == "serialized") {
+				if (type == "obj" || type == "ply" || type == "serialized") {
 					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 				}
 			}
-		} else if (type->value == "shapegroup") {
-			const XMLNode * shape = node->find_child("shape");
-
-			const char * name = nullptr;
-			MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
-			MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
-
-			const StringView & id = node->find_attribute("id")->value;
-			shape_group_map[id] = { mesh_data_handle, material_handle };
-		} else if (type->value == "instance") {
-			const XMLNode      * ref = node->find_child("ref");
-			const XMLAttribute * id  = ref->find_attribute("id");
-
-			ShapeGroup shape_group;
-			if (shape_group_map.try_get(id->value, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
-				Mesh & mesh = scene.add_mesh(id->value.c_str(), shape_group.mesh_data_handle, shape_group.material_handle);
-				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
-			}
-		} else {
-			WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type->value.length()), type->value.start);
 		}
 	} else if (node->tag == "sensor") {
-		const StringView & camera_type = node->find_attribute("type")->value;
+		const StringView & camera_type = node->get_attribute_value<StringView>("type");
 
 		if (camera_type == "perspective" || camera_type == "perspective_rdist" || camera_type == "thinlens") {
-			float fov = node->get_optional_child_value("fov", 110.0f);
+			float fov = node->get_child_value_optional("fov", 110.0f);
 			scene.camera.set_fov(Math::deg_to_rad(fov));
-			scene.camera.aperture_radius = node->get_optional_child_value("aperatureRadius", 0.05f);
-			scene.camera.focal_distance  = node->get_optional_child_value("focusDistance", 10.0f);
+			scene.camera.aperture_radius = node->get_child_value_optional("aperatureRadius", 0.05f);
+			scene.camera.focal_distance  = node->get_child_value_optional("focusDistance", 10.0f);
 
 			float scale = 1.0f;
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
 
 			if (scale < 0.0f) {
-				scene.camera.rotation = Quaternion::conjugate(scene.camera.rotation);
+//				scene.camera.rotation = Quaternion::conjugate(scene.camera.rotation);
 			}
 		} else {
 			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
 		}
 	} else if (node->tag == "include") {
-		const StringView & filename_rel = node->find_attribute("filename")->value;
+		const StringView & filename_rel = node->get_attribute_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 		MitsubaLoader::load(filename_abs, scene);
@@ -888,13 +1075,8 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	int          source_length;
 	const char * source = Util::file_read(filename, source_length);
 
-	SourceLocation location = { };
-	location.file = filename;
-	location.line = 1;
-	location.col  = 0;
-
 	Parser parser = { };
-	parser.init(source, source + source_length, location);
+	parser.init(source, source + source_length, filename);
 
 	XMLNode root = parse_xml(parser);
 

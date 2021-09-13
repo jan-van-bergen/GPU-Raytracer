@@ -6,16 +6,16 @@
 struct Scene;
 
 struct Texture {
+	const char * name = "Texture";
+
+	const unsigned char * data = nullptr;
+
 	enum struct Format {
 		BC1,
 		BC2,
 		BC3,
 		RGBA
-	};
-
-	const unsigned char * data = nullptr;
-
-	Format format = Format::RGBA;
+	} format = Format::RGBA;
 
 	int channels;
 	int width, height;

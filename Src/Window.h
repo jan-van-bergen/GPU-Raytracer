@@ -7,13 +7,11 @@
 typedef void (*ResizeHandler)(unsigned frame_buffer_handle, int width, int height);
 
 struct Window {
-private:
 	SDL_Window *  window;
 	SDL_GLContext context;
 
 	Shader shader;
 
-public:
 	GLuint frame_buffer_handle;
 
 	int width;
@@ -21,8 +19,10 @@ public:
 
 	bool is_closed = false;
 
-	void init(const char * title);
+	void init(const char * title, int width, int height);
 	void free();
+
+	void resize(int new_width, int new_height);
 
 	void render_framebuffer() const;
 

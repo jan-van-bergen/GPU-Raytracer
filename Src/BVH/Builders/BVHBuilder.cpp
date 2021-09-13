@@ -6,7 +6,7 @@
 #include "Pathtracer/Mesh.h"
 
 template<typename Primitive>
-static void build_bvh_recursive(BVHBuilder & builder, BVHNode & node, const Primitive * primitives, const Vector3 * centers, int * indices[3], int & node_index, int first_index, int index_count) {
+static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Primitive * primitives, const Vector3 * centers, int * indices[3], int & node_index, int first_index, int index_count) {
 	node.aabb = BVHPartitions::calculate_bounds(primitives, indices[0], first_index, first_index + index_count);
 
 	if (index_count == 1) {
@@ -21,11 +21,10 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode & node, const Prim
 	float split_cost;
 	int   split_index = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, builder.sah, split_dimension, split_cost);
 
-#if !BVH_ENABLE_OPTIMIZATION && BVH_TYPE != BVH_CWBVH // BVH Optimizer and CWBVH both expect leaves with only a single primitive
-	if (index_count <= max_primitives_in_leaf){
+	if (index_count <= builder.max_primitives_in_leaf) {
 		// Check SAH termination condition
-		float leaf_cost = node.aabb.surface_area() * SAH_COST_LEAF * float(index_count);
-		float node_cost = node.aabb.surface_area() * SAH_COST_NODE + split_cost;
+		float leaf_cost = node.aabb.surface_area() * config.sah_cost_leaf * float(index_count);
+		float node_cost = node.aabb.surface_area() * config.sah_cost_node + split_cost;
 
 		if (leaf_cost < node_cost) {
 			node.first = first_index;
@@ -34,7 +33,6 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode & node, const Prim
 			return;
 		}
 	}
-#endif
 
 	node.left = node_index;
 	node_index += 2;
@@ -42,13 +40,14 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode & node, const Prim
 	float split = centers[indices[split_dimension][split_index]][split_dimension];
 	BVHPartitions::split_indices(primitives, indices, first_index, index_count, builder.temp, split_dimension, split_index, split);
 
-	node.count = (split_dimension + 1) << 30;
+	node.count = 0;
+	node.axis  = split_dimension;
 
 	int num_left  = split_index - first_index;
 	int num_right = first_index + index_count - split_index;
 
-	build_bvh_recursive(builder, builder.bvh->nodes[node.left    ], primitives, centers, indices, node_index, first_index,            num_left);
-	build_bvh_recursive(builder, builder.bvh->nodes[node.left + 1], primitives, centers, indices, node_index, first_index + num_left, num_right);
+	build_bvh_recursive(builder, builder.bvh->nodes_2[node.left    ], primitives, centers, indices, node_index, first_index,            num_left);
+	build_bvh_recursive(builder, builder.bvh->nodes_2[node.left + 1], primitives, centers, indices, node_index, first_index + num_left, num_right);
 }
 
 template<typename Primitive>
@@ -70,7 +69,7 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 	};
 
 	int node_index = 2;
-	build_bvh_recursive(builder, builder.bvh->nodes[0], primitives, centers, indices, node_index, 0, primitive_count);
+	build_bvh_recursive(builder, builder.bvh->nodes_2[0], primitives, centers, indices, node_index, 0, primitive_count);
 
 	assert(node_index <= 2 * primitive_count);
 
@@ -98,7 +97,7 @@ void BVHBuilder::init(BVH * bvh, int primitive_count, int max_primitives_in_leaf
 	temp = new int  [primitive_count];
 
 	bvh->indices = indices_x;
-	bvh->nodes   = new BVHNode[2 * primitive_count];
+	bvh->nodes_2 = new BVHNode2[2 * primitive_count];
 }
 
 void BVHBuilder::free() {

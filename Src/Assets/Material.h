@@ -3,8 +3,6 @@
 
 #include "Texture.h"
 
-#include "../CUDA_Source/Common.h"
-
 struct Material {
 	const char * name;
 
@@ -23,7 +21,10 @@ struct Material {
 	TextureHandle texture_id;
 
 	Vector3 transmittance = Vector3(0.0f);
-	float index_of_refraction = 1.0f;
+	float   index_of_refraction = 1.33f;
+
+	Vector3 eta = Vector3(1.33f);
+	Vector3 k   = Vector3(1.0f);
 
 	float linear_roughness = 0.5f;
 };

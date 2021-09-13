@@ -1,28 +1,27 @@
 #pragma once
-#include "Pathtracer/Triangle.h"
+#include <stdlib.h>
 
-#include "../CUDA_Source/Common.h"
+#include "Config.h"
+
+#include "Pathtracer/Triangle.h"
 
 typedef unsigned char byte;
 
-struct BVHNode {
+struct BVHNode2 {
 	AABB aabb;
 	union {
 		int left;
 		int first;
 	};
-	int count; // Stores split axis in its 2 highest bits, count in its lowest 30 bits
-
-	inline int get_count() const {
-		return count & ~BVH_AXIS_MASK;
-	}
+	unsigned count : 30;
+	unsigned axis  : 2;
 
 	inline bool is_leaf() const {
-		return get_count() > 0;
+		return count > 0;
 	}
 };
 
-struct QBVHNode {
+struct BVHNode4 {
 	float aabb_min_x[4] = { 0.0f };
 	float aabb_min_y[4] = { 0.0f };
 	float aabb_min_z[4] = { 0.0f };
@@ -56,9 +55,9 @@ struct QBVHNode {
 
 };
 
-static_assert(sizeof(QBVHNode) == 128);
+static_assert(sizeof(BVHNode4) == 128);
 
-struct CWBVHNode {
+struct BVHNode8 {
 	Vector3 p;
 	byte e[3];
 	byte imask;
@@ -77,27 +76,49 @@ struct CWBVHNode {
 	}
 };
 
-static_assert(sizeof(CWBVHNode) == 80);
+static_assert(sizeof(BVHNode8) == 80);
 
-template<typename NodeType>
-struct BVHBase {
+struct BVH {
 	int   index_count;
-	int * indices = nullptr;
+	int * indices;
 
-	int        node_count;
-	NodeType * nodes = nullptr;
+	int node_count;
+	union {
+		BVHNode2 * nodes_2;
+		BVHNode4 * nodes_4;
+		BVHNode8 * nodes_8;
+		char     * nodes_raw;
+	};
+
+	// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
+	// The procedure to do this is different for each BVH type
+	void aggregate(char * aggregated_bvh_nodes, int index_offset, int bvh_offset) const;
+
+	// Helper Methods
+	static BVHType underlying_bvh_type() {
+		// All BVH use standard BVH as underlying type, only SBVH uses SBVH
+		if (config.bvh_type == BVHType::SBVH) {
+			return BVHType::SBVH;
+		} else {
+			return BVHType::BVH;
+		}
+	}
+
+	static int max_primitives_in_leaf() {
+		if (config.bvh_type == BVHType::CWBVH) {
+			return 1;
+		} else {
+			return INT_MAX;
+		}
+	}
+
+	static int node_size() {
+		switch (config.bvh_type) {
+			case BVHType::BVH:
+			case BVHType::SBVH:  return sizeof(BVHNode2);
+			case BVHType::QBVH:  return sizeof(BVHNode4);
+			case BVHType::CWBVH: return sizeof(BVHNode8);
+			default: abort();
+		}
+	}
 };
-
-#if BVH_TYPE == BVH_BVH || BVH_TYPE == BVH_SBVH
-typedef BVHNode   BVHNodeType;
-#elif BVH_TYPE == BVH_QBVH
-typedef QBVHNode  BVHNodeType;
-#elif BVH_TYPE == BVH_CWBVH
-typedef CWBVHNode BVHNodeType;
-#endif
-
-typedef BVHBase<BVHNode>   BVH;
-typedef BVHBase<QBVHNode>  QBVH;
-typedef BVHBase<CWBVHNode> CWBVH;
-
-typedef BVHBase<BVHNodeType> BVHType;

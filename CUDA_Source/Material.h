@@ -20,22 +20,21 @@ enum struct MaterialType : char {
 	GLOSSY     = 3
 };
 
-struct Material {
-	union {
-		struct {
-			float4 emission;
-		} light;
-		struct {
-			float4 diffuse_and_texture_id;
-		} diffuse;
-		struct {
-			float4 negative_absorption_and_ior;
-		} dielectric;
-		struct {
-			float4 diffuse_and_texture_id;
-			float2 ior_and_roughness;
-		} glossy;
-	};
+union Material {
+	struct {
+		float4 emission;
+	} light;
+	struct {
+		float4 diffuse_and_texture_id;
+	} diffuse;
+	struct {
+		float4 negative_absorption_and_ior;
+	} dielectric;
+	struct {
+		float4 diffuse_and_texture_id;
+		float4 eta_and_k;       // eta xyz and k x
+		float4 k_and_roughness; // k yz and roughness;
+	} glossy;
 };
 
 __device__ __constant__ const MaterialType * material_types;
@@ -62,7 +61,8 @@ struct MaterialDielectric {
 struct MaterialGlossy {
 	float3 diffuse;
 	int    texture_id;
-	float  index_of_refraction;
+	float3 eta;
+	float3 k;
 	float  roughness;
 };
 
@@ -94,13 +94,15 @@ __device__ inline MaterialDielectric material_as_dielectric(int material_id) {
 
 __device__ inline MaterialGlossy material_as_glossy(int material_id) {
 	float4 diffuse_and_texture_id = __ldg(&materials[material_id].glossy.diffuse_and_texture_id);
-	float2 ior_and_roughness      = __ldg(&materials[material_id].glossy.ior_and_roughness);
+	float4 eta_and_k              = __ldg(&materials[material_id].glossy.eta_and_k);
+	float4 k_and_roughness        = __ldg(&materials[material_id].glossy.k_and_roughness);
 
 	MaterialGlossy material;
 	material.diffuse             = make_float3(diffuse_and_texture_id);
 	material.texture_id          = __float_as_int(diffuse_and_texture_id.w);
-	material.index_of_refraction = ior_and_roughness.x;
-	material.roughness           = ior_and_roughness.y;
+	material.eta                 = make_float3(eta_and_k);
+	material.k                   = make_float3(eta_and_k.w, k_and_roughness.x, k_and_roughness.y);
+	material.roughness           = k_and_roughness.z;
 	return material;
 }
 
@@ -137,18 +139,23 @@ __device__ __constant__ const float * light_mesh_power_unscaled;
 __device__ __constant__ const int   * light_mesh_transform_indices;
 
 // Assumes no Total Internal Reflection
-__device__ inline float fresnel(float eta_1, float eta_2, float cos_theta_i, float cos_theta_t) {
-	float s = (eta_1 * cos_theta_i - eta_2 * cos_theta_t) / (eta_1 * cos_theta_i + eta_2 * cos_theta_t);
-	float p = (eta_1 * cos_theta_t - eta_2 * cos_theta_i) / (eta_1 * cos_theta_t + eta_2 * cos_theta_i);
+__device__ inline float fresnel_dielectric(float cos_theta_i, float cos_theta_o, float eta) {
+	float s = (cos_theta_i - eta * cos_theta_o) / (cos_theta_i + eta * cos_theta_o);
+	float p = (eta * cos_theta_i - cos_theta_o) / (eta * cos_theta_i + cos_theta_o);
 
-	return 0.5f * (s*s + p*p);
+	return 0.5f * (p*p + s*s);
 }
 
-__device__ inline float fresnel_schlick(float eta_1, float eta_2, float cos_theta_i) {
-	float r_0 = (eta_1 - eta_2) / (eta_1 + eta_2);
-	r_0 *= r_0;
+__device__ inline float3 fresnel_conductor(float cos_theta_i, const float3 & eta, const float3 & k) {
+	float cos_theta_i2 = cos_theta_i * cos_theta_i;
 
-	return r_0 + (1.0f - r_0) * (cos_theta_i * cos_theta_i * cos_theta_i * cos_theta_i * cos_theta_i);
+	float3 t1 = eta*eta + k*k;
+	float3 t0 = t1 * cos_theta_i;
+
+	float3 p2 = (t0 - (eta * (2.0f * cos_theta_i)) + make_float3(1.0f))         / (t0 + (eta * (2.0f * cos_theta_i)) + make_float3(1.0f));
+	float3 s2 = (t1 - (eta * (2.0f * cos_theta_i)) + make_float3(cos_theta_i2)) / (t1 + (eta * (2.0f * cos_theta_i)) + make_float3(cos_theta_i2));
+
+	return 0.5f * (p2 + s2);
 }
 
 // Distribution of Normals term D for the GGX microfacet model
@@ -185,17 +192,19 @@ __device__ inline float ggx_G2(const float3 & omega_o, const float3 & omega_i, c
 	}
 }
 
-__device__ inline float ggx_eval(const float3 & omega_o, const float3 & omega_i, float ior, float alpha_x, float alpha_y, float & pdf) {
+__device__ inline float3 ggx_eval(const MaterialGlossy & material, const float3 & omega_o, const float3 & omega_i, float & pdf) {
+	float alpha_x = material.roughness;
+	float alpha_y = material.roughness; // TODO: anisotropic
 	float alpha_x2 = alpha_x * alpha_x;
 	float alpha_y2 = alpha_y * alpha_y;
 
 	float3 half_vector = normalize(omega_o + omega_i);
 	float mu = fmaxf(0.0, dot(omega_o, half_vector));
 
-	float F  = fresnel_schlick(ior, 1.0f, mu);
-	float D  = ggx_D(half_vector, alpha_x, alpha_y);
-	float G1 = ggx_G1(omega_o, alpha_x2, alpha_y2);
-	float G2 = ggx_G2(omega_o, omega_i, half_vector, alpha_x2, alpha_y2);
+	float3 F  = fresnel_conductor(mu, material.eta, material.k);
+	float  D  = ggx_D(half_vector, alpha_x, alpha_y);
+	float  G1 = ggx_G1(omega_o,                       alpha_x2, alpha_y2);
+	float  G2 = ggx_G2(omega_o, omega_i, half_vector, alpha_x2, alpha_y2);
 
 	float denom_inv = 1.0f / (4.0f * omega_i.z * omega_o.z);
 
