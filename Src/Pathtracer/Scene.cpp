@@ -4,6 +4,7 @@
 
 #include "Assets/Material.h"
 #include "Assets/OBJLoader.h"
+#include "Assets/PLYLoader.h"
 #include "Assets/MitsubaLoader.h"
 
 #include "Util/Util.h"
@@ -21,12 +22,14 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 
 	const char * file_extension = Util::find_last(scene_name, ".");
 	if (!file_extension) {
-		printf("ERROR: File '%s' has no file extension, cannot deduce format!\n", scene_name);
+		printf("ERROR: File '%s' has no file extension, cannot deduce file format!\n", scene_name);
 		abort();
 	}
 
-	if (strcmp(file_extension, "obj") == 0 || strcmp(file_extension, "ply") == 0) {
-		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name));
+	if (strcmp(file_extension, "obj") == 0) {
+		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, OBJLoader::load));
+	} else if (strcmp(file_extension, "ply") == 0) {
+		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, PLYLoader::load));
 	} else if (strcmp(file_extension, "xml") == 0) {
 		MitsubaLoader::load(scene_name, *this);
 	} else {

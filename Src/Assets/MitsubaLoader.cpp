@@ -7,6 +7,9 @@
 #include <miniz/miniz.h>
 
 #include "MeshData.h"
+#include "BVHLoader.h"
+#include "OBJLoader.h"
+#include "PLYLoader.h"
 
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/CWBVHBuilder.h"
@@ -853,11 +856,14 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 			strand[s] = Matrix4::transform_position(transform, strand[s]);
 		}
 
+		float angle = PI * float(rand()) / float(RAND_MAX);
+
 		for (int s = 0; s < strand.size() - 1; s++) {
 			Vector3 direction = Vector3::normalize(strand[s+1] - strand[s]);
+			Vector3 orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
 
-			triangles[current_triangle].position_0  = strand[s] - radius * Math::orthogonal(direction);
-			triangles[current_triangle].position_1  = strand[s] + radius * Math::orthogonal(direction);
+			triangles[current_triangle].position_0  = strand[s] - radius * orthogonal;
+			triangles[current_triangle].position_1  = strand[s] + radius * orthogonal;
 			triangles[current_triangle].position_2  = strand[s+1];
 			triangles[current_triangle].normal_0    = Vector3(0.0f);
 			triangles[current_triangle].normal_1    = Vector3(0.0f);
@@ -879,31 +885,35 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs);
+		MeshDataHandle mesh_data_handle;
+		if (type == "obj") {
+			scene.asset_manager.add_mesh_data(filename_abs, OBJLoader::load);
+		} else {
+			scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
+		}
 		delete [] filename_abs;
 
 		name = filename_rel.c_str();
 
 		return mesh_data_handle;
-
-	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere" || type == "hair") {
-		Matrix4 world = parse_transform_matrix(node);
+	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere") {
+		Matrix4 transform = parse_transform_matrix(node);
 
 		Triangle * triangles = nullptr;
 		int        triangle_count = 0;
 
 		if (type == "rectangle") {
-			Geometry::rectangle(triangles, triangle_count, world);
+			Geometry::rectangle(triangles, triangle_count, transform);
 		} else if (type == "cube") {
-			Geometry::cube(triangles, triangle_count, world);
+			Geometry::cube(triangles, triangle_count, transform);
 		} else if (type == "disk") {
-			Geometry::disk(triangles, triangle_count, world);
+			Geometry::disk(triangles, triangle_count, transform);
 		} else if (type == "cylinder") {
 			Vector3 p0     = node->get_child_value_optional("p0", Vector3(0.0f, 0.0f, 0.0f));
 			Vector3 p1     = node->get_child_value_optional("p1", Vector3(0.0f, 0.0f, 1.0f));
 			float   radius = node->get_child_value_optional("radius", 1.0f);
 
-			Geometry::cylinder(triangles, triangle_count, world, p0, p1, radius);
+			Geometry::cylinder(triangles, triangle_count, transform, p0, p1, radius);
 		} else if (type == "sphere") {
 			float   radius = node->get_child_value_optional("radius", 1.0f);
 			Vector3 center = Vector3(0.0f);
@@ -917,16 +927,9 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 				);
 			}
 
-			world = world * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
+			transform = transform * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
-			Geometry::sphere(triangles, triangle_count, world);
-		} else if (type == "hair") {
-			const StringView & filename_rel = node->get_child_value<StringView>("filename");
-			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
-
-			float radius = node->get_child_value_optional("radius", 0.0025f);
-
-			parse_hair(node, filename_abs, triangles, triangle_count, world, radius);
+			Geometry::sphere(triangles, triangle_count, transform);
 		} else {
 			abort(); // Unreachable
 		}
@@ -952,6 +955,22 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		name = serialized.mesh_names[shape_index];
 		return serialized.mesh_data_handles[shape_index];
+	} else if (type == "hair") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
+		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+
+		float radius = node->get_child_value_optional("radius", 0.0025f);
+
+		auto fallback_loader = [&](const char * filename, Triangle *& triangles, int & triangle_count) {
+			Matrix4 transform = parse_transform_matrix(node);
+			parse_hair(node, filename, triangles, triangle_count, transform, radius);
+		};
+		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
+
+		name = filename_rel.c_str();
+
+		delete [] filename_abs;
+		return mesh_data_handle;
 	} else {
 		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type.length()), type.start);
 		return MeshDataHandle { INVALID };

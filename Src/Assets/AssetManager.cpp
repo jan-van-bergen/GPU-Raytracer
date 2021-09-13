@@ -1,8 +1,6 @@
 #include "AssetManager.h"
 
 #include "BVHLoader.h"
-#include "OBJLoader.h"
-#include "PLYLoader.h"
 #include "TextureLoader.h"
 
 #include "BVH/Builders/BVHBuilder.h"
@@ -11,7 +9,7 @@
 
 #include "Util/ScopeTimer.h"
 
-static BVH build_bvh(const Triangle * triangles, int triangle_count) {
+BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
 	printf("Constructing BVH...\r");
 	BVH bvh;
 
@@ -49,42 +47,11 @@ void AssetManager::init() {
 	thread_pool.init();
 }
 
-MeshDataHandle AssetManager::add_mesh_data(const char * filename) {
-	MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
-
-	if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
-
-	MeshData mesh_data = { };
-
-	BVH bvh;
-	bool bvh_loaded = BVHLoader::try_to_load(filename, mesh_data, bvh);
-	if (!bvh_loaded) {
-		// Unable to load disk cached BVH, load model from source and construct BVH
-		const char * extension = Util::find_last(filename, ".");
-		if (!extension) {
-			printf("ERROR: File '%s' has no file extension, cannot deduce format!\n", filename);
-			abort();
-		}
-
-		if (strcmp(extension, "obj") == 0) {
-			OBJLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
-		} else if (strcmp(extension, "ply") == 0) {
-			PLYLoader::load(filename, mesh_data.triangles, mesh_data.triangle_count);
-		} else {
-			printf("ERROR: '%s' file format is not supported!\n", extension);
-			abort();
-		}
-
-		bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
-		BVHLoader::save(filename, mesh_data, bvh);
-	}
-
-	mesh_data.init_bvh(bvh);
-
-	mesh_data_handle.handle = mesh_datas.size();
+MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
+	MeshDataHandle mesh_data_id = { mesh_datas.size() };
 	mesh_datas.push_back(mesh_data);
 
-	return mesh_data_handle;
+	return mesh_data_id;
 }
 
 MeshDataHandle AssetManager::add_mesh_data(Triangle * triangles, int triangle_count) {
@@ -95,10 +62,7 @@ MeshDataHandle AssetManager::add_mesh_data(Triangle * triangles, int triangle_co
 	mesh_data.triangle_count = triangle_count;
 	mesh_data.init_bvh(bvh);
 
-	MeshDataHandle mesh_data_id = { mesh_datas.size() };
-	mesh_datas.push_back(mesh_data);
-
-	return mesh_data_id;
+	return add_mesh_data(mesh_data);
 }
 
 MaterialHandle AssetManager::add_material(const Material & material) {

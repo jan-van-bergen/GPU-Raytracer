@@ -204,12 +204,16 @@ static void parse_args(int arg_count, char ** args) {
 		}
 	});
 
+	char arg_name[32] = { };
+
 	for (int i = 1; i < arg_count; i++) {
 		const char * arg     = args[i];
 		int          arg_len = strlen(arg);
 
+		sprintf_s(arg_name, "Arg %i", i);
+
 		Parser parser = { };
-		parser.init(arg, arg + arg_len);
+		parser.init(arg, arg + arg_len, arg_name);
 
 		parser.expect('-');
 		bool use_full_name = parser.match('-');

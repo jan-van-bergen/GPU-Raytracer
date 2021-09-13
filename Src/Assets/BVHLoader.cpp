@@ -2,6 +2,16 @@
 
 #include "Util/Util.h"
 
+const char * BVHLoader::get_bvh_filename(const char * filename) {
+	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
+	char * bvh_filename      = new char[bvh_filename_size];
+
+	strcpy_s(bvh_filename, bvh_filename_size, filename);
+	strcat_s(bvh_filename, bvh_filename_size, BVH_FILE_EXTENSION);
+
+	return bvh_filename;
+}
+
 struct BVHFileHeader {
 	char filetype_identifier[4];
 	char filetype_version;
@@ -18,19 +28,9 @@ struct BVHFileHeader {
 	int num_indices;
 };
 
-bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & bvh) {
-	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
-	char * bvh_filename      = MALLOCA(char, bvh_filename_size);
-
-	if (!bvh_filename) return false;
-
-	strcpy_s(bvh_filename, bvh_filename_size, filename);
-	strcat_s(bvh_filename, bvh_filename_size, BVH_FILE_EXTENSION);
-
+bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, MeshData & mesh_data, BVH & bvh) {
 	// If the BVH file doesn't exist or is outdated return false
 	if (!Util::file_exists(bvh_filename) || !Util::file_is_newer(filename, bvh_filename)) {
-		FREEA(bvh_filename);
-
 		return false;
 	}
 
@@ -41,7 +41,7 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 
 	if (!file) {
 		printf("WARNING: Unable to open BVH file '%s'!\n", bvh_filename);
-		goto exit;
+		return false;
 	}
 
 	fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
@@ -81,27 +81,15 @@ bool BVHLoader::try_to_load(const char * filename, MeshData & mesh_data, BVH & b
 	success = true;
 
 exit:
-	if (file) fclose(file);
-
-	FREEA(bvh_filename);
+	fclose(file);
 	return success;
 }
 
-bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
-	int    bvh_filename_length = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
-	char * bvh_filename        = MALLOCA(char, bvh_filename_length);
-
-	if (!bvh_filename) return false;
-
-	strcpy_s(bvh_filename, bvh_filename_length, filename);
-	strcat_s(bvh_filename, bvh_filename_length, BVH_FILE_EXTENSION);
-
+bool BVHLoader::save(const char * bvh_filename, const MeshData & mesh_data, const BVH & bvh) {
 	FILE * file; fopen_s(&file, bvh_filename, "wb");
 
 	if (!file) {
 		printf("WARNING: Unable to save BVH to file %s!\n", bvh_filename);
-
-		FREEA(bvh_filename);
 		return false;
 	}
 
@@ -129,7 +117,5 @@ bool BVHLoader::save(const char * filename, MeshData & mesh_data, BVH & bvh) {
 	fwrite(reinterpret_cast<const char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
 
 	fclose(file);
-
-	FREEA(bvh_filename);
 	return true;
 }
