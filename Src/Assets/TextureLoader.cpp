@@ -12,8 +12,6 @@
 
 #include "Math/Mipmap.h"
 
-#define MIN_TEXTURE_SIZE 4
-
 bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 	FILE * file; fopen_s(&file, filename, "rb");
 
@@ -108,10 +106,10 @@ static void mip_count(int width, int height, int & mip_levels, int & pixel_count
 			mip_levels++;
 			pixel_count += width * height;
 
-			if (width <= MIN_TEXTURE_SIZE && height <= MIN_TEXTURE_SIZE) break;
+			if (width == 1 && height == 1) break;
 
-			if (width  > MIN_TEXTURE_SIZE) width  /= 2;
-			if (height > MIN_TEXTURE_SIZE) height /= 2;
+			if (width  > 1) width  /= 2;
+			if (height > 1) height /= 2;
 		}
 	} else {
 		mip_levels  = 1;
@@ -170,13 +168,13 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 			mip_offsets[level++] = offset * sizeof(unsigned);
 
-			if (level_width <= MIN_TEXTURE_SIZE && level_height <= MIN_TEXTURE_SIZE) break;
+			if (level_width == 1 && level_height == 1) break;
 
 			offset_prev = offset;
 			offset += level_width * level_height;
 
-			if (level_width  > MIN_TEXTURE_SIZE) level_width  /= 2;
-			if (level_height > MIN_TEXTURE_SIZE) level_height /= 2;
+			if (level_width  > 1) level_width  /= 2;
+			if (level_height > 1) level_height /= 2;
 		}
 
 		delete [] temp;
@@ -219,11 +217,11 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 			unsigned * level_data = data_rgba_u8 + texture.mip_offsets[l] / sizeof(unsigned);
 
-			int level_width  = Math::max(texture.width  >> l, MIN_TEXTURE_SIZE);
-			int level_height = Math::max(texture.height >> l, MIN_TEXTURE_SIZE);
+			int level_width  = Math::max(texture.width  >> l, 1);
+			int level_height = Math::max(texture.height >> l, 1);
 
-			int new_level_width  = Math::max(new_width  >> l, MIN_TEXTURE_SIZE);
-			int new_level_height = Math::max(new_height >> l, MIN_TEXTURE_SIZE);
+			int new_level_width  = Math::max(new_width  >> l, 1);
+			int new_level_height = Math::max(new_height >> l, 1);
 
 			for (int y = 0; y < new_level_height; y++) {
 				for (int x = 0; x < new_level_width; x++) {

@@ -158,7 +158,7 @@ struct XMLNode {
 		});
 	}
 
-	template<typename T>
+	template<typename T = StringView>
 	T get_attribute_value(const char * name) const {
 		const XMLAttribute * attribute = find_attribute(name);
 		if (attribute) {
@@ -168,7 +168,7 @@ struct XMLNode {
 		}
 	}
 
-	template<typename T>
+	template<typename T = StringView>
 	T get_child_value(const char * child_name, const char * attribute_name = "value") const {
 		const XMLNode * child = find_child_by_name(child_name);
 		if (child) {
@@ -178,7 +178,7 @@ struct XMLNode {
 		}
 	}
 
-	template<typename T>
+	template<typename T = StringView>
 	T get_child_value_optional(const char * name, T default_value) const {
 		const XMLNode * child = find_child_by_name(name);
 		if (child) {
@@ -330,18 +330,24 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			rgb.z = Math::gamma_to_linear(rgb.z);
 			return;
 		} else if (reflectance->tag == "texture") {
-			const StringView & filename_rel = reflectance->get_child_value<StringView>("filename");
-			const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+			StringView type = reflectance->get_attribute_value("type");
 
-			texture = scene.asset_manager.add_texture(filename_abs);
+			if (type == "bitmap") {
+				const StringView & filename_rel = reflectance->get_child_value<StringView>("filename");
+				const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
-			const XMLNode * scale = reflectance->find_child_by_name("scale");
-			if (scale) {
-				rgb = scale->get_optional_attribute("value", Vector3(1.0f));
+				texture = scene.asset_manager.add_texture(filename_abs);
+
+				const XMLNode * scale = reflectance->find_child_by_name("scale");
+				if (scale) {
+					rgb = scale->get_optional_attribute("value", Vector3(1.0f));
+				}
+
+				delete [] filename_abs;
+				return;
+			} else {
+				WARNING(reflectance->location, "Only bitmap textures are supported!\n");
 			}
-
-			delete [] filename_abs;
-			return;
 		} else if (reflectance->tag == "ref") {
 			const StringView & texture_name = reflectance->get_attribute_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture);
