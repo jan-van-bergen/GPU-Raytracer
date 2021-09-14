@@ -397,6 +397,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 
 			if (x == 0.0f && y == 0.0f && z == 0.0f) {
 				WARNING(rotate->location, "WARNING: Rotation without axis specified!\n");
+				*rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
 			} else {
 				float angle = rotate->get_optional_attribute("angle", 0.0f);
 				*rotation = Quaternion::axis_angle(Vector3(x, y, z), Math::deg_to_rad(angle));
