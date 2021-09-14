@@ -853,11 +853,22 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 
 	delete [] file;
 
-	triangles = new Triangle[triangle_count];
+	triangle_count *= 2;
+	triangles       = new Triangle[triangle_count];
+
 	int current_triangle = 0;
+
+	Vector3 prev_segment[2] = { };
+	Vector3 curr_segment[2] = { };
 
 	for (int h = 0; h < hairs.size(); h++) {
 		Array<Vector3> & strand = hairs[h];
+
+		if (strand.size() < 2) {
+			WARNING(node->location, "A hair strand requires at least 2 vertices!\n");
+			triangle_count -= 2 * strand.size();
+			continue;
+		}
 
 		for (int s = 0; s < strand.size(); s++) {
 			strand[s] = Matrix4::transform_position(transform, strand[s]);
@@ -865,13 +876,23 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 
 		float angle = PI * float(rand()) / float(RAND_MAX);
 
-		for (int s = 0; s < strand.size() - 1; s++) {
-			Vector3 direction = Vector3::normalize(strand[s+1] - strand[s]);
+		Vector3 direction  = Vector3::normalize(strand[1] - strand[0]);
+		Vector3 orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
+
+		prev_segment[0] = strand[0] + radius * orthogonal;
+		prev_segment[1] = strand[0] - radius * orthogonal;
+
+		for (int s = 1; s < strand.size(); s++) {
+			Vector3 direction  = Vector3::normalize(strand[s] - strand[s-1]);
 			Vector3 orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
 
-			triangles[current_triangle].position_0  = strand[s] - radius * orthogonal;
-			triangles[current_triangle].position_1  = strand[s] + radius * orthogonal;
-			triangles[current_triangle].position_2  = strand[s+1];
+			float r = Math::lerp(radius, 0.0f, float(s) / float(strand.size() - 1));
+			curr_segment[0] = strand[s] + r * orthogonal;
+			curr_segment[1] = strand[s] - r * orthogonal;
+
+			triangles[current_triangle].position_0  = prev_segment[0];
+			triangles[current_triangle].position_1  = prev_segment[1];
+			triangles[current_triangle].position_2  = curr_segment[0];
 			triangles[current_triangle].normal_0    = Vector3(0.0f);
 			triangles[current_triangle].normal_1    = Vector3(0.0f);
 			triangles[current_triangle].normal_2    = Vector3(0.0f);
@@ -881,6 +902,21 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 			triangles[current_triangle].init();
 
 			current_triangle++;
+
+			triangles[current_triangle].position_0  = prev_segment[1];
+			triangles[current_triangle].position_1  = curr_segment[1];
+			triangles[current_triangle].position_2  = curr_segment[0];
+			triangles[current_triangle].normal_0    = Vector3(0.0f);
+			triangles[current_triangle].normal_1    = Vector3(0.0f);
+			triangles[current_triangle].normal_2    = Vector3(0.0f);
+			triangles[current_triangle].tex_coord_0 = Vector2(0.0f, 0.0f);
+			triangles[current_triangle].tex_coord_1 = Vector2(1.0f, 0.0f);
+			triangles[current_triangle].tex_coord_2 = Vector2(0.0f, 1.0f);
+			triangles[current_triangle].init();
+
+			current_triangle++;
+
+			memcpy(prev_segment, curr_segment, sizeof(prev_segment));
 		}
 	}
 }
