@@ -127,13 +127,21 @@ int main(int arg_count, char ** args) {
 }
 
 static bool atob(const char * str) {
-	if (strcmp(str, "true") == 0) {
+	if (
+		strcmp(str, "true") == 0 ||
+		strcmp(str, "True") == 0 ||
+		strcmp(str, "TRUE") == 0 ||
+		strcmp(str, "1")    == 0) {
 		return true;
-	} else if (strcmp(str, "false") == 0) {
+	} else if (
+		strcmp(str, "false") == 0 ||
+		strcmp(str, "False") == 0 ||
+		strcmp(str, "FALSE") == 0 ||
+		strcmp(str, "0")     == 0) {
 		return false;
 	} else {
 		printf("Invalid boolean argument '%s'!\n", str);
-		abort();
+		return true;
 	}
 };
 

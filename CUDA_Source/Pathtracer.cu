@@ -660,9 +660,16 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
 	if (config.enable_mipmapping) {
-		float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
-		float  cone_angle = cone.x;
-		float  cone_width = cone.y + cone_angle * hit.t;
+		float cone_angle;
+		float cone_width;
+		if (bounce == 0) {
+			cone_angle = camera.pixel_spread_angle;
+			cone_width = 0.0f;
+		} else {
+			float2 cone = ray_buffer_shade_dielectric_and_glossy.cone[index];
+			cone_angle = cone.x;
+			cone_width = cone.y;
+		}
 
 		float mesh_scale = mesh_get_scale(hit.mesh_id);
 
@@ -673,6 +680,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 			hit_triangle.normal_edge_2
 		) / mesh_scale;
 
+		cone_width += cone_angle * hit.t;
 		cone_angle += -2.0f * curvature * fabsf(cone_width) / dot(hit_normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 
 		ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
