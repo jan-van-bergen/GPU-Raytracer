@@ -11,9 +11,15 @@ struct Instance {
 	MaterialHandle material_handle;
 };
 
-using TextureMap  = HashMap<String, TextureHandle,   StringHash>;
-using MaterialMap = HashMap<String, MaterialHandle,  StringHash>;
-using ObjectMap   = HashMap<String, Array<Instance>, StringHash>;
+struct HomogeneousMedium {
+	Vector3 sigma_a;
+	Vector3 sigma_s;
+};
+
+using TextureMap  = HashMap<String, TextureHandle,     StringHash>;
+using MaterialMap = HashMap<String, MaterialHandle,    StringHash>;
+using MediumMap   = HashMap<String, HomogeneousMedium, StringHash>;
+using ObjectMap   = HashMap<String, Array<Instance>,   StringHash>;
 
 static void parser_next_line(Parser & parser) {
 	while (true) {
@@ -294,7 +300,135 @@ static Material parse_material(const char * name, const StringView & type, const
 		} else {
 			material.linear_roughness = 0.5f;
 		}
-	} else if (type == "dielectric") {
+	} else if (type == "conductor") {
+		material.type = Material::Type::GLOSSY;
+
+		const Param * param_eta = find_param_optional(params, "eta");
+		const Param * param_k   = find_param_optional(params, "k");
+
+		struct IOR {
+			const char * name;
+			Vector3      eta;
+			Vector3      k;
+		};
+
+		// Based on: https://github.com/tunabrain/tungsten/blob/master/src/core/bsdfs/ComplexIorData.hpp
+		static IOR known_iors[] = {
+			{ "a-C",    Vector3( 2.9440999183f, 2.2271502925f, 1.9681668794f), Vector3( 0.8874329109f,  0.7993216383f, 0.8152862927f) },
+			{ "Ag",     Vector3( 0.1552646489f, 0.1167232965f, 0.1383806959f), Vector3( 4.8283433224f,  3.1222459278f, 2.1469504455f) },
+			{ "Al",     Vector3( 1.6574599595f, 0.8803689579f, 0.5212287346f), Vector3( 9.2238691996f,  6.2695232477f, 4.8370012281f) },
+			{ "AlAs",   Vector3( 3.6051023902f, 3.2329365777f, 2.2175611545f), Vector3( 0.0006670247f, -0.0004999400f, 0.0074261204f) },
+			{ "AlSb",   Vector3(-0.0485225705f, 4.1427547893f, 4.6697691348f), Vector3(-0.0363741915f,  0.0937665154f, 1.3007390124f) },
+			{ "Au",     Vector3( 0.1431189557f, 0.3749570432f, 1.4424785571f), Vector3( 3.9831604247f,  2.3857207478f, 1.6032152899f) },
+			{ "Be",     Vector3( 4.1850592788f, 3.1850604423f, 2.7840913457f), Vector3( 3.8354398268f,  3.0101260162f, 2.8690088743f) },
+			{ "Cr",     Vector3( 4.3696828663f, 2.9167024892f, 1.6547005413f), Vector3( 5.2064337956f,  4.2313645277f, 3.7549467933f) },
+			{ "CsI",    Vector3( 2.1449030413f, 1.7023164587f, 1.6624194173f), Vector3( 0.0000000000f,  0.0000000000f, 0.0000000000f) },
+			{ "Cu",     Vector3( 0.2004376970f, 0.9240334304f, 1.1022119527f), Vector3( 3.9129485033f,  2.4528477015f, 2.1421879552f) },
+			{ "Cu2O",   Vector3( 3.5492833755f, 2.9520622449f, 2.7369202137f), Vector3( 0.1132179294f,  0.1946659670f, 0.6001681264f) },
+			{ "CuO",    Vector3( 3.2453822204f, 2.4496293965f, 2.1974114493f), Vector3( 0.5202739621f,  0.5707372756f, 0.7172250613f) },
+			{ "d-C",    Vector3( 2.7112524747f, 2.3185812849f, 2.2288565009f), Vector3( 0.0000000000f,  0.0000000000f, 0.0000000000f) },
+			{ "Hg",     Vector3( 2.3989314904f, 1.4400254917f, 0.9095512090f), Vector3( 6.3276269444f,  4.3719414152f, 3.4217899270f) },
+			{ "HgTe",   Vector3( 4.7795267752f, 3.2309984581f, 2.6600252401f), Vector3( 1.6319827058f,  1.5808189339f, 1.7295753852f) },
+			{ "Ir",     Vector3( 3.0864098394f, 2.0821938440f, 1.6178866805f), Vector3( 5.5921510077f,  4.0671757150f, 3.2672611269f) },
+			{ "K",      Vector3( 0.0640493070f, 0.0464100621f, 0.0381842017f), Vector3( 2.1042155920f,  1.3489364357f, 0.9132113889f) },
+			{ "Li",     Vector3( 0.2657871942f, 0.1956102432f, 0.2209198538f), Vector3( 3.5401743407f,  2.3111306542f, 1.6685930000f) },
+			{ "MgO",    Vector3( 2.0895885542f, 1.6507224525f, 1.5948759692f), Vector3( 0.0000000000f, -0.0000000000f, 0.0000000000f) },
+			{ "Mo",     Vector3( 4.4837010280f, 3.5254578255f, 2.7760769438f), Vector3( 4.1111307988f,  3.4208716252f, 3.1506031404f) },
+			{ "Na",     Vector3( 0.0602665320f, 0.0561412435f, 0.0619909494f), Vector3( 3.1792906496f,  2.1124800781f, 1.5790940266f) },
+			{ "Nb",     Vector3( 3.4201353595f, 2.7901921379f, 2.3955856658f), Vector3( 3.4413817900f,  2.7376437930f, 2.5799132708f) },
+			{ "Ni",     Vector3( 2.3672753521f, 1.6633583302f, 1.4670554172f), Vector3( 4.4988329911f,  3.0501643957f, 2.3454274399f) },
+			{ "Rh",     Vector3( 2.5857954933f, 1.8601866068f, 1.5544279524f), Vector3( 6.7822927110f,  4.7029501026f, 3.9760892461f) },
+			{ "Se-e",   Vector3( 5.7242724833f, 4.1653992967f, 4.0816099264f), Vector3( 0.8713747439f,  1.1052845009f, 1.5647788766f) },
+			{ "Se",     Vector3( 4.0592611085f, 2.8426947380f, 2.8207582835f), Vector3( 0.7543791750f,  0.6385150558f, 0.5215872029f) },
+			{ "SiC",    Vector3( 3.1723450205f, 2.5259677964f, 2.4793623897f), Vector3( 0.0000007284f, -0.0000006859f, 0.0000100150f) },
+			{ "SnTe",   Vector3( 4.5251865890f, 1.9811525984f, 1.2816819226f), Vector3( 0.0000000000f,  0.0000000000f, 0.0000000000f) },
+			{ "Ta",     Vector3( 2.0625846607f, 2.3930915569f, 2.6280684948f), Vector3( 2.4080467973f,  1.7413705864f, 1.9470377016f) },
+			{ "Te-e",   Vector3( 7.5090397678f, 4.2964603080f, 2.3698732430f), Vector3( 5.5842076830f,  4.9476231084f, 3.9975145063f) },
+			{ "Te",     Vector3( 7.3908396088f, 4.4821028985f, 2.6370708478f), Vector3( 3.2561412892f,  3.5273908133f, 3.2921683116f) },
+			{ "ThF4",   Vector3( 1.8307187117f, 1.4422274283f, 1.3876488528f), Vector3( 0.0000000000f,  0.0000000000f, 0.0000000000f) },
+			{ "TiC",    Vector3( 3.7004673762f, 2.8374356509f, 2.5823030278f), Vector3( 3.2656905818f,  2.3515586388f, 2.1727857800f) },
+			{ "TiN",    Vector3( 1.6484691607f, 1.1504482522f, 1.3797795097f), Vector3( 3.3684596226f,  1.9434888540f, 1.1020123347f) },
+			{ "TiO2-e", Vector3( 3.1065574823f, 2.5131551146f, 2.5823844157f), Vector3( 0.0000289537f, -0.0000251484f, 0.0001775555f) },
+			{ "TiO2",   Vector3( 3.4566203131f, 2.8017076558f, 2.9051485020f), Vector3( 0.0001026662f, -0.0000897534f, 0.0006356902f) },
+			{ "VC",     Vector3( 3.6575665991f, 2.7527298065f, 2.5326814570f), Vector3( 3.0683516659f,  2.1986687713f, 1.9631816252f) },
+			{ "VN",     Vector3( 2.8656011588f, 2.1191817791f, 1.9400767149f), Vector3( 3.0323264950f,  2.0561075580f, 1.6162930914f) },
+			{ "V",      Vector3( 4.2775126218f, 3.5131538236f, 2.7611257461f), Vector3( 3.4911844504f,  2.8893580874f, 3.1116965117f) },
+			{ "W",      Vector3( 4.3707029924f, 3.3002972445f, 2.9982666528f), Vector3( 3.5006778591f,  2.6048652781f, 2.2731930614f) }
+		};
+
+		if (param_eta) {
+			if (param_eta->type == Param::Type::FLOAT) {
+				material.eta = Vector3(param_eta->floats[0]);
+			} else if (param_eta->type == Param::Type::FLOAT3) {
+				material.eta = param_eta->float3s[0];
+			} else if (param_eta->type == Param::Type::STRING) {
+				StringView metal_name_full = param_eta->strings[0];
+				StringView metal_name      = { };
+
+				Parser parser = { };
+				parser.init(metal_name_full.start, metal_name_full.end);
+
+				parser.expect("metal-");
+				metal_name.start = parser.cur;
+				while (*parser.cur != '-') {
+					parser.advance();
+				}
+				metal_name.end = parser.cur;
+				parser.expect("-eta");
+
+				bool found = false;
+
+				for (int i = 0; i < Util::array_count(known_iors); i++) {
+					if (metal_name == known_iors[i].name) {
+						material.eta = known_iors[i].eta;
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					WARNING(param_eta->location, "Unknown metal eta '%.*s'!\n", unsigned(metal_name_full.length()), metal_name_full.start);
+				}
+			}
+		}
+
+		if (param_k) {
+			if (param_k->type == Param::Type::FLOAT) {
+				material.k = Vector3(param_k->floats[0]);
+			} else if (param_k->type == Param::Type::FLOAT3) {
+				material.k = param_k->float3s[0];
+			} else if (param_k->type == Param::Type::STRING) {
+				StringView metal_name_full = param_k->strings[0];
+				StringView metal_name      = { };
+
+				Parser parser = { };
+				parser.init(metal_name_full.start, metal_name_full.end);
+
+				parser.expect("metal-");
+				metal_name.start = parser.cur;
+				while (*parser.cur != '-') {
+					parser.advance();
+				}
+				metal_name.end = parser.cur;
+				parser.expect("-k");
+
+				bool found = false;
+
+				for (int i = 0; i < Util::array_count(known_iors); i++) {
+					if (metal_name == known_iors[i].name) {
+						material.k = known_iors[i].k;
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					WARNING(param_k->location, "Unknown metal k '%.*s'!\n", unsigned(metal_name_full.length()), metal_name_full.start);
+				}
+			}
+		}
+
+	} else if (type == "dielectric" || type == "thindielectric") {
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance       = Vector3(1.0f);
 		material.index_of_refraction = 1.333f;
@@ -305,7 +439,7 @@ static Material parse_material(const char * name, const StringView & type, const
 	return material;
 }
 
-static void load_include(const char * filename, const char * path, int path_length, Scene & scene, TextureMap & texture_map, MaterialMap & material_map, ObjectMap & object_map) {
+static void load_include(const char * filename, const char * path, int path_length, Scene & scene, TextureMap & texture_map, MaterialMap & material_map, MediumMap & medium_map, ObjectMap & object_map) {
 	int          file_length;
 	const char * file = Util::file_read(filename, file_length);
 
@@ -343,7 +477,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			parser_skip(parser);
 
 			const char * include_abs = get_absolute_filename(path, path_length, name.start, name.length());
-			load_include(include_abs, path, path_length, scene, texture_map, material_map, object_map);
+			load_include(include_abs, path, path_length, scene, texture_map, material_map, medium_map, object_map);
 			delete [] include_abs;
 
 		} else if (parser.match("AttributeBegin")) {
@@ -491,7 +625,6 @@ static void load_include(const char * filename, const char * path, int path_leng
 			}
 
 			Matrix4::decompose(attribute_stack.back().transform, &scene.camera.position, &scene.camera.rotation, nullptr);
-
 		} else if (parser.match("Texture")) {
 			StringView name = parse_quoted(parser);
 			StringView type = parse_quoted(parser);
@@ -567,6 +700,55 @@ static void load_include(const char * filename, const char * path, int path_leng
 			if (!material_map.try_get(name, attribute_stack.back().material)) {
 				attribute_stack.back().material = MaterialHandle::get_default();
 				WARNING(parser.location, "Used undefined NamedMaterial '%.*s'!\n", unsigned(name.length()), name.start)
+			}
+
+		} else if (parser.match("MakeNamedMedium")) {
+			StringView name = parse_quoted(parser);
+			parser_skip(parser);
+
+			Array<Param> params = parse_params(parser);
+			StringView type = find_param_string(params, "type");
+
+			if (type == "homogeneous") {
+				const Param * param_sigma_a = find_param_optional(params, "sigma_a");
+				const Param * param_sigma_s = find_param_optional(params, "sigma_s");
+
+				HomogeneousMedium medium = { };
+				if (param_sigma_a && param_sigma_a->type == Param::Type::FLOAT3) {
+					medium.sigma_a = param_sigma_a->float3s[0];
+				} else {
+					medium.sigma_a = Vector3(0.0011f, 0.0024f, 0.014f);
+				}
+				if (param_sigma_s && param_sigma_s->type == Param::Type::FLOAT3) {
+					medium.sigma_s = param_sigma_s->float3s[0];
+				} else {
+					medium.sigma_s = Vector3(2.55f, 3.21f, 3.77f);
+				}
+
+				medium_map.insert(name, medium);
+			} else {
+				WARNING(parser.location, "Only homogeneous media are supported!\n");
+			}
+
+		} else if (parser.match("MediumInterface")) {
+			StringView medium_name_from = parse_quoted(parser); parser_skip(parser);
+			StringView medium_name_to   = parse_quoted(parser); parser_skip(parser);
+
+			HomogeneousMedium medium;
+			if (medium_map.try_get(medium_name_to, medium)) {
+				MaterialHandle material_handle = attribute_stack.back().material;
+				if (material_handle.handle != INVALID) {
+					Material & material = scene.asset_manager.get_material(material_handle);
+					if (material.type == Material::Type::DIELECTRIC) {
+						material.transmittance = Vector3(
+							expf(-(medium.sigma_a.x + medium.sigma_s.x)),
+							expf(-(medium.sigma_a.y + medium.sigma_s.y)),
+							expf(-(medium.sigma_a.z + medium.sigma_s.z))
+						);
+					}
+				}
+			} else {
+				WARNING(parser.location, "Named Medium '%.*s' not found!\n", unsigned(medium_name_to.length()), medium_name_to.start);
 			}
 
 		} else if (parser.match("AreaLightSource")) {
@@ -680,7 +862,8 @@ static void load_include(const char * filename, const char * path, int path_leng
 				}
 
 				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
-				scene.add_mesh("Triangle Mesh", mesh_data_handle, attribute_stack.back().material);
+				Mesh & mesh = scene.add_mesh("Triangle Mesh", mesh_data_handle, attribute_stack.back().material);
+				Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 			} else if (type == "sphere") {
 				float radius = find_param_float(params, "radius", 1.0f);
 
@@ -727,10 +910,11 @@ static void load_include(const char * filename, const char * path, int path_leng
 void PBRTLoader::load(const char * filename, Scene & scene) {
 	TextureMap  texture_map;
 	MaterialMap material_map;
+	MediumMap   medium_map;
 	ObjectMap   object_map;
 
 	char path[512]; Util::get_path(filename, path);
 	int  path_length = strlen(path);
 
-	load_include(filename, path, path_length, scene, texture_map, material_map, object_map);
+	load_include(filename, path, path_length, scene, texture_map, material_map, medium_map, object_map);
 }
