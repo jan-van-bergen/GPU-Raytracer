@@ -560,12 +560,12 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance       = Vector3(1.0f);
-		material.index_of_refraction = int_ior / ext_ior;
+		material.index_of_refraction = ext_ior == 0.0f ? int_ior : int_ior / ext_ior;
 
 		const XMLNode * medium = node->find_child("medium");
 		if (medium) {
 			Vector3 sigma_s = medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
-			Vector3 sigma_a = medium->get_child_value<Vector3>("sigmaA");
+			Vector3 sigma_a = medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
 
 			material.transmittance = Vector3(
 				expf(-(sigma_a.x + sigma_s.x)),
