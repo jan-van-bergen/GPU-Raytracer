@@ -555,8 +555,70 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.linear_roughness = sqrtf(0.5f * exponent + 1.0f);
 
 	} else if (inner_bsdf_type == "thindielectric" || inner_bsdf_type == "dielectric" || inner_bsdf_type == "roughdielectric") {
-		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
-		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
+		float int_ior = 0.0f;
+		float ext_ior = 0.0f;
+
+		auto lookup_known_ior = [](StringView name, float & ior) {
+			// Based on: https://www.mitsuba-renderer.org/releases/0.5.0/documentation.pdf (page 58)
+			struct IOR {
+				const char * name;
+				float        ior;
+			};
+			static IOR known_iors[] = {
+				{ "vacuum",               1.0f },
+				{ "helium",               1.00004f },
+				{ "hydrogen",             1.00013f },
+				{ "air",                  1.00028f },
+				{ "carbon dioxide",       1.00045f },
+				{ "water",                1.3330f },
+				{ "acetone",              1.36f },
+				{ "ethanol",              1.361f },
+				{ "carbon tetrachloride", 1.461f },
+				{ "glycerol",             1.4729f },
+				{ "benzene",              1.501f },
+				{ "silicone oil",         1.52045f },
+				{ "bromine",              1.661f },
+				{ "water ice",            1.31f },
+				{ "fused quartz",         1.458f },
+				{ "pyrex",                1.470f },
+				{ "acrylic glass",        1.49f },
+				{ "polypropylene",        1.49f },
+				{ "bk7",                  1.5046f },
+				{ "sodium chloride",      1.544f },
+				{ "amber",                1.55f },
+				{ "pet",                  1.575f },
+				{ "diamond",              2.419f }
+			};
+
+			for (int i = 0; i < Util::array_count(known_iors); i++) {
+				if (name == known_iors[i].name) {
+					ior = known_iors[i].ior;
+					return true;
+				}
+			}
+
+			return false;
+		};
+
+		const XMLNode * child_int_ior = inner_bsdf->find_child_by_name("intIOR");
+		if (child_int_ior && child_int_ior->tag == "string") {
+			StringView int_ior_name = child_int_ior->get_attribute_value("value");
+			if (!lookup_known_ior(int_ior_name, int_ior)) {
+				ERROR(child_int_ior->location, "Index of refraction not known for '%.*s'\n", unsigned(int_ior_name.length()), int_ior_name.start);
+			}
+		} else {
+			int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
+		}
+
+		const XMLNode * child_ext_ior = inner_bsdf->find_child_by_name("extIOR");
+		if (child_ext_ior && child_ext_ior->tag == "string") {
+			StringView ext_ior_name = child_ext_ior->get_attribute_value("value");
+			if (!lookup_known_ior(ext_ior_name, ext_ior)) {
+				ERROR(child_ext_ior->location, "Index of refraction not known for '%.*s'\n", unsigned(ext_ior_name.length()), ext_ior_name.start);
+			}
+		} else {
+			ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
+		}
 
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance       = Vector3(1.0f);
