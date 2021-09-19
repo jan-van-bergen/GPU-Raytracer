@@ -190,7 +190,7 @@ __device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
 				current_group  = make_uint2(0);
 			}
 
-			int postpone_threshold = __popc(active_thread_mask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
+			int postpone_threshold = __popc(__activemask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
 
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
@@ -232,7 +232,7 @@ __device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
 
 					break;
 				} else {
-					int thread_count = __popc(active_thread_mask());
+					int thread_count = __popc(__activemask());
 					if (thread_count < postpone_threshold) {
 						// Not enough threads currently active that want to check triangle intersection, postpone by pushing on the stack
 						stack_push(shared_stack_cwbvh, stack, stack_size, triangle_group);
@@ -278,7 +278,7 @@ __device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
 				current_group = stack_pop(shared_stack_cwbvh, stack, stack_size);
 			}
 
-			iterations_lost += WARP_SIZE - __popc(active_thread_mask()) - N_d;
+			iterations_lost += WARP_SIZE - __popc(__activemask()) - N_d;
 		} while (iterations_lost < N_w);
 	}
 }
@@ -374,7 +374,7 @@ __device__ inline void cwbvh_trace_shadow(int ray_count, int * rays_retired, int
 				current_group  = make_uint2(0);
 			}
 
-			int postpone_threshold = __popc(active_thread_mask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
+			int postpone_threshold = __popc(__activemask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
 
 			bool hit = false;
 
@@ -418,7 +418,7 @@ __device__ inline void cwbvh_trace_shadow(int ray_count, int * rays_retired, int
 
 					break;
 				} else {
-					int thread_count = __popc(active_thread_mask());
+					int thread_count = __popc(__activemask());
 					if (thread_count < postpone_threshold) {
 						// Not enough threads currently active that want to check triangle intersection, postpone by pushing on the stack
 						stack_push(shared_stack_cwbvh, stack, stack_size, triangle_group);
@@ -484,7 +484,7 @@ __device__ inline void cwbvh_trace_shadow(int ray_count, int * rays_retired, int
 				current_group = stack_pop(shared_stack_cwbvh, stack, stack_size);
 			}
 
-			iterations_lost += WARP_SIZE - __popc(active_thread_mask()) - N_d;
+			iterations_lost += WARP_SIZE - __popc(__activemask()) - N_d;
 		} while (iterations_lost < N_w);
 	}
 }
