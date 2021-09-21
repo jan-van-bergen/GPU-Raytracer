@@ -69,14 +69,11 @@ __device__ inline float3 ycocg_to_rgb(const float3 & colour) {
 	);
 }
 
-__device__ inline unsigned wang_hash(unsigned seed) {
-    seed = (seed ^ 61) ^ (seed >> 16);
-    seed *= 9;
-    seed = seed ^ (seed >> 4);
-    seed *= 0x27d4eb2d;
-    seed = seed ^ (seed >> 15);
-
-    return seed;
+// Based on: https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+__device__ inline unsigned pcg_hash(unsigned seed) {
+    unsigned state = seed * 747796405u + 2891336453u;
+    unsigned word  = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
 }
 
 // Based on: https://github.com/blender/blender/blob/master/intern/cycles/kernel/kernel_jitter.h#L122

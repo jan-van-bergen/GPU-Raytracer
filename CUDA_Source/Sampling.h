@@ -18,7 +18,7 @@ enum struct SampleDimension {
 
 template<SampleDimension Dim>
 __device__ float2 random(unsigned pixel_index, unsigned bounce, unsigned sample_index) {
-	unsigned hash = wang_hash((pixel_index * unsigned(SampleDimension::NUM_DIMENSIONS) + unsigned(Dim)) * MAX_BOUNCES + bounce);
+	unsigned hash = pcg_hash((pixel_index * unsigned(SampleDimension::NUM_DIMENSIONS) + unsigned(Dim)) * MAX_BOUNCES + bounce);
 
 	// If we run out of PMJ02 samples, fall back to random
 	if (sample_index >= PMJ_NUM_SAMPLES_PER_SEQUENCE) {
