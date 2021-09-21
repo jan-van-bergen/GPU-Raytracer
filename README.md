@@ -43,7 +43,7 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ## Usage
 
 Camera can be controlled with WASD for movement and the arrow keys for orientation. Shift and space do vertical movement.
-Various configurable options are available in `Common.h`.
+Various configurable options are available as command line arguments. Use command line option `--help` to see an up to date list.
 
 ## Dependencies
 
