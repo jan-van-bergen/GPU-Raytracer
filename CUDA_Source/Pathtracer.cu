@@ -450,7 +450,7 @@ __device__ inline void nee_sample(
 	ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, hit_normal));
 	ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
 
-	ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - EPSILON;
+	ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - 2.0f * EPSILON;
 
 	ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
 		illumination.x,
