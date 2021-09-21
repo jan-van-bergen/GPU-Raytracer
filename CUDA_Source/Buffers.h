@@ -122,3 +122,18 @@ struct BufferSizes {
 	int rays_retired       [MAX_BOUNCES];
 	int rays_retired_shadow[MAX_BOUNCES];
 } __device__ buffer_sizes;
+
+__device__ __constant__ float lights_total_weight;
+
+struct alignas(float2) ProbAlias {
+	float prob;
+	int   alias;
+};
+
+__device__ __constant__ const int       * light_indices;
+__device__ __constant__ const ProbAlias * light_prob_alias;
+
+__device__ __constant__ int               light_mesh_count;
+__device__ __constant__ const ProbAlias * light_mesh_prob_alias;
+__device__ __constant__ const int2      * light_mesh_first_index_and_triangle_count;
+__device__ __constant__ const int       * light_mesh_transform_index;

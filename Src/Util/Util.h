@@ -20,6 +20,11 @@
 #define MALLOCA(type, count) reinterpret_cast<type *>(_malloca(count * sizeof(type)))
 #define FREEA(ptr) _freea(ptr)
 
+struct alignas(8) ProbAlias {
+	float prob;
+	int   alias;
+};
+
 namespace Util {
 	void get_path(const char * filename, char * path);
 
@@ -31,6 +36,8 @@ namespace Util {
 	char * file_read(const char * filename, int & file_length);
 
 	const char * find_last(const char * haystack, const char * needles);
+
+	void init_alias_method(int n, double p[], ProbAlias distribution[]);
 
 	template<typename T>
 	void swap(T & a, T & b) {

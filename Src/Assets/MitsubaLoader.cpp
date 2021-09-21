@@ -391,7 +391,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 				float y = scale_node->get_optional_attribute("y", 1.0f);
 				float z = scale_node->get_optional_attribute("z", 1.0f);
 
-				*scale = x * y * z;
+				*scale = cbrtf(x * y * z);
 			}
 		}
 

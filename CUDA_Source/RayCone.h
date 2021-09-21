@@ -1,3 +1,5 @@
+#pragma once
+
 __device__ inline void ray_cone_get_ellipse_axes(
 	const float3 & ray_direction,
 	const float3 & geometric_normal,

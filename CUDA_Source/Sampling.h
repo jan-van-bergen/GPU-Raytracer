@@ -4,6 +4,14 @@
 __device__ __constant__ float2 * pmj_samples;
 __device__ __constant__ uchar2 * blue_noise_textures;
 
+__device__ inline float balance_heuristic(float pdf_f, float pdf_g) {
+	return pdf_f / (pdf_f + pdf_g);
+}
+
+__device__ inline float power_heuristic(float pdf_f, float pdf_g) {
+	return (pdf_f * pdf_f) / (pdf_f * pdf_f + pdf_g * pdf_g); // Power of 2 hardcoded, best empirical results according to Veach
+}
+
 enum struct SampleDimension {
 	FILTER,
 	APERTURE,
@@ -137,26 +145,35 @@ __device__ float3 sample_ggx_distribution_of_normals(const float3 & omega, float
 	return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, fmaxf(0.0f, n_h.z)));
 }
 
-__device__ int sample_light(float u1, float u2, int & transform_id) {
-	// Pick random light emitting Mesh based on power
-	float r1 = u1 * lights_total_power;
+// Draw sample from arbitrary distribution in O(1) time using the alias method
+// Based on: in Vose - A Linear Algorithm for Generating Random Numbers with a Given Distribution (1991)
+__device__ int sample_alias_method(float u, const ProbAlias * distribution, int n) {
+	assert(u < 1.0f);
+	u *= float(n);
 
-	int   light_mesh_id = 0;
-	float light_power = light_mesh_power_scaled[0];
+	float u_fract = u - floorf(u);
+	int   j       = __float2int_rd(u);
 
-	while (r1 > light_power) {
-		light_power += light_mesh_power_scaled[++light_mesh_id];
+	ProbAlias prob_alias = distribution[j];
+
+	// Choose j according to probability prob using the fractional part of u, otherwise choose the alias index
+	if (u_fract <= prob_alias.prob) {
+		return j;
+	} else {
+		return prob_alias.alias;
 	}
+}
 
-	transform_id = light_mesh_transform_indices[light_mesh_id];
+__device__ int sample_light(float u1, float u2, int & transform_id) {
+	// Pick random light emitting Mesh
+	int light_mesh_id = sample_alias_method(u1, light_mesh_prob_alias, light_mesh_count);
+	transform_id = light_mesh_transform_index[light_mesh_id];
 
-	// Pick random light emitting Triangle on the Mesh based on power
-	int triangle_first_index = light_mesh_triangle_first_index[light_mesh_id];
-	int triangle_count       = light_mesh_triangle_count      [light_mesh_id];
+	// Pick random light emitting Triangle on the Mesh
+	int2 first_index_and_triangle_count = light_mesh_first_index_and_triangle_count[light_mesh_id];
+	int  first_index    = first_index_and_triangle_count.x;
+	int  triangle_count = first_index_and_triangle_count.y;
 
-	int index_first = triangle_first_index;
-	int index_last  = triangle_first_index + triangle_count - 1;
-
-	float r2 = u2 * light_mesh_power_unscaled[light_mesh_id];
-	return light_indices[binary_search(light_power_cumulative, index_first, index_last, r2)];
+	int light_triangle_id = first_index + sample_alias_method(u2, light_prob_alias + first_index, triangle_count);
+	return light_indices[light_triangle_id];
 }

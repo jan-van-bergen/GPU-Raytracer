@@ -24,8 +24,8 @@ struct Mesh {
 	Matrix4 transform_inv;
 	Matrix4 transform_prev;
 
-	int   light_index = -1;
-	float light_power = 0.0f;
+	int   light_index  = INVALID;
+	float light_weight = 0.0f;
 
 	void init(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene);
 

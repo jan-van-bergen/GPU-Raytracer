@@ -14,7 +14,6 @@ __device__ __constant__ Config config;
 #include "Util.h"
 #include "Material.h"
 #include "Sky.h"
-#include "Sampling.h"
 #include "RayCone.h"
 
 // Frame Buffers
@@ -28,6 +27,8 @@ __device__ __constant__ Surface<float4> accumulator;
 #include "Raytracing/BVH.h"
 #include "Raytracing/QBVH.h"
 #include "Raytracing/CWBVH.h"
+
+#include "Sampling.h"
 
 #include "SVGF/SVGF.h"
 #include "SVGF/TAA.h"
@@ -127,7 +128,6 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.trace[bounce]) return;
 
-	float3 ray_origin    = ray_buffer_trace.origin   .get(index);
 	float3 ray_direction = ray_buffer_trace.direction.get(index);
 
 	RayHit hit = ray_buffer_trace.hits.get(index);
@@ -220,21 +220,18 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		}
 
 		if (config.enable_multiple_importance_sampling) {
-			float3 to_light = light_point - ray_origin;
-			float distance_to_light_squared = dot(to_light, to_light);
-			float distance_to_light         = sqrtf(distance_to_light_squared);
-
-			to_light /= distance_to_light; // Normalize
-
-			float cos_theta_light = fabsf(dot(to_light, light_normal));
+			float cos_theta_light = fabsf(dot(ray_direction, light_normal));
+			float distance_to_light_squared = hit.t * hit.t;
 
 			float brdf_pdf = ray_buffer_trace.last_pdf[index];
 			
-			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
-			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_power);
+			float mesh_scale = mesh_get_scale(hit.mesh_id);
 
-			float weight = power_heuristic(brdf_pdf, light_pdf);
-			float3 illumination = ray_throughput * material_light.emission * weight;
+			float light_power = mesh_scale * mesh_scale * luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
+
+			float mis_weight = power_heuristic(brdf_pdf, light_pdf);
+			float3 illumination = ray_throughput * material_light.emission * mis_weight;
 
 			assert(bounce != 0);
 			if (bounce == 1) {
@@ -423,7 +420,7 @@ __device__ inline void nee_sample(
 	to_light /= distance_to_light;
 
 	float cos_theta_light = fabsf(dot(to_light, light_normal));
-	float cos_theta_hit   = dot(to_light, hit_normal);
+	float cos_theta_hit = dot(to_light, hit_normal);
 
 	if (cos_theta_hit <= 0.0f) return; // No light transport possible
 
@@ -432,18 +429,20 @@ __device__ inline void nee_sample(
 
 	float  brdf_pdf;
 	float3 brdf = brdf_evaluator(to_light, brdf_pdf);
-	
-	float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
-	float light_pdf = light_power * distance_to_light_squared / (cos_theta_light * lights_total_power);
 
-	float weight;
+	float mesh_scale = mesh_get_scale(light_mesh_id);
+
+	float light_power = mesh_scale * mesh_scale * luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+	float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
+
+	float mis_weight;
 	if (config.enable_multiple_importance_sampling) {
-		weight = power_heuristic(light_pdf, brdf_pdf);
+		mis_weight = power_heuristic(light_pdf, brdf_pdf);
 	} else {
-		weight = 1.0f;
+		mis_weight = 1.0f;
 	}
 
-	float3 illumination = throughput * brdf * material_light.emission * cos_theta_hit * weight / light_pdf;
+	float3 illumination = throughput * brdf * material_light.emission * cos_theta_hit * mis_weight / light_pdf;
 
 	int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
 
@@ -539,7 +538,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
 	}
 
-	if (config.enable_next_event_estimation && lights_total_power > 0.0f) {
+	if (config.enable_next_event_estimation && lights_total_weight > 0.0f) {
 		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
 			pdf = dot(to_light, hit_normal) * ONE_OVER_PI;
 			return make_float3(ONE_OVER_PI);
@@ -780,7 +779,7 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 
 	float3 omega_i = world_to_local(-ray_direction, hit_tangent, hit_binormal, hit_normal);
 
-	if (config.enable_next_event_estimation && lights_total_power > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
+	if (config.enable_next_event_estimation && lights_total_weight > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
 		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float & pdf) {
 			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
 			return ggx_eval(material, omega_o, omega_i, pdf);
