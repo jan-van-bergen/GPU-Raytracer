@@ -158,8 +158,8 @@ static void parse_args(int arg_count, char ** args) {
 	};
 
 	static Array<Option> options = {
-		Option { "w", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
-		Option { "h", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
+		Option { "W", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
+		Option { "H", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
 		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
 		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.capture_frame_index = atoi(args[i + 1]); } },
 		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene               = args[i + 1]; } },
