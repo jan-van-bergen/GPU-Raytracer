@@ -30,8 +30,10 @@ __device__ float2 random(unsigned pixel_index, unsigned bounce, unsigned sample_
 
 	// If we run out of PMJ02 samples, fall back to random
 	if (sample_index >= PMJ_NUM_SAMPLES_PER_SEQUENCE) {
-		float x = hash_with(sample_index,              hash) * (1.0f / float(0xffffffff));
-		float y = hash_with(sample_index + 0xdeadbeef, hash) * (1.0f / float(0xffffffff));
+		const float one_over_max_unsigned = __uint_as_float(0x2f7fffff); // Constant such that 0xffffffff will map to a float strictly less than 1.0f
+
+		float x = hash_with(sample_index,              hash) * one_over_max_unsigned;
+		float y = hash_with(sample_index + 0xdeadbeef, hash) * one_over_max_unsigned;
 
 		return make_float2(x, y);
 	}
