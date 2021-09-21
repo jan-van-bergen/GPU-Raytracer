@@ -80,13 +80,15 @@ int main(int arg_count, char ** args) {
 
 		window.render_framebuffer();
 
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == config.capture_frame_index) {
-			char screenshot_name[32];
+		if (pathtracer.frames_accumulated == config.output_frame_index) {
+			capture_screen(window, config.output_name);
+			break; // Exit game loop and terimate
+		}
+		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
+			char screenshot_name[32] = { };
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
 
 			capture_screen(window, screenshot_name);
-
-			if (pathtracer.frames_accumulated == config.capture_frame_index) break;
 		}
 
 		if (ImGui::IsMouseClicked(1)) {
@@ -158,12 +160,13 @@ static void parse_args(int arg_count, char ** args) {
 	};
 
 	static Array<Option> options = {
-		Option { "W", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
-		Option { "H", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.capture_frame_index = atoi(args[i + 1]); } },
-		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene               = args[i + 1]; } },
-		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                 = args[i + 1]; } },
+		Option { "W", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width      = atoi(args[i + 1]); } },
+		Option { "H", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height     = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces        = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.output_frame_index = atoi(args[i + 1]); } },
+		Option { "o", "output",  "Sets path to output file. Supported formats: ppm",                      1, [](int arg_count, char ** args, int i) { config.output_name        = args[i + 1]; } },
+		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene              = args[i + 1]; } },
+		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                = args[i + 1]; } },
 		Option { "b", "bvh",     "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh",      1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
 				config.bvh_type = BVHType::BVH;
@@ -238,7 +241,7 @@ static void parse_args(int arg_count, char ** args) {
 			if (match) {
 				if (i + option.num_args >= arg_count) {
 					printf("Not enough arguments provided to option %s!\n", option.name_full);
-					abort();
+					return;
 				}
 				option.action(arg_count, args, i);
 				i += option.num_args;
@@ -247,7 +250,7 @@ static void parse_args(int arg_count, char ** args) {
 		}
 
 		if (!match) {
-			printf("Unrecognized command line option '%s'\n", parser.cur);
+			printf("Unrecognized command line option '%s'\nUse --help for a list of valid options\n", parser.cur);
 		}
 	}
 }
