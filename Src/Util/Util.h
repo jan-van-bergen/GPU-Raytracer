@@ -48,23 +48,31 @@ namespace Util {
 
 	template<typename T, typename Cmp>
 	constexpr void quick_sort(T * first, T * last, Cmp cmp) {
-		if (first >= last) return;
+		if (first >= last - 1) return;
 
-		// Partition
-		const T & pivot = *(last - 1);
-		T * p = first;
+		T pivot = first[(last - first) / 2];
 
-		for (T * ptr = first; ptr != last; ptr++) {
-			if (cmp(*ptr, pivot)) {
-				Util::swap(*p, *ptr);
-				p++;
+		T * i = first;
+		T * j = first;
+		T * k = last;
+
+		// Dutch National Flag algorithm
+		while (j < k) {
+			if (cmp(*j, pivot)) { // *j < pivot
+				swap(*i, *j);
+				i++;
+				j++;
+			} else if (cmp(pivot, *j)) { // *j > pivot
+				k--;
+				swap(*j, *k);
+			} else { // *j == pivot
+				j++;
 			}
 		}
-		Util::swap(*p, *(last - 1));
 
 		// Recurse
-		quick_sort(first, p,    cmp);
-		quick_sort(p + 1, last, cmp);
+		quick_sort(first, i,    cmp);
+		quick_sort(j,     last, cmp);
 	}
 
 	template<typename T>
