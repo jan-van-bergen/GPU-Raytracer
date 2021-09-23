@@ -15,6 +15,7 @@
 #include "Util/BlueNoise.h"
 
 #include "Util/Util.h"
+#include "Util/HashMap.h"
 #include "Util/ScopeTimer.h"
 
 void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle, int width, int height) {
@@ -235,13 +236,14 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	FREEA(mesh_data_index_offsets);
 
-	pinned_mesh_bvh_root_indices        = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
-	pinned_mesh_material_ids            = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
-	pinned_mesh_transforms              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_mesh_transforms_inv          = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_mesh_transforms_prev         = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_light_mesh_prob_alias        = CUDAMemory::malloc_pinned<ProbAlias>(scene.meshes.size());
-	pinned_light_mesh_transform_index   = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_bvh_root_indices                     = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_material_ids                         = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_transforms                           = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_inv                       = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_prev                      = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_light_mesh_prob_alias                     = CUDAMemory::malloc_pinned<ProbAlias>(scene.meshes.size());
+	pinned_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc_pinned<int2>     (scene.meshes.size());
+	pinned_light_mesh_transform_index                = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 
 	light_mesh_probabilites = new double[scene.meshes.size()];
 
@@ -583,50 +585,73 @@ void Pathtracer::svgf_free() {
 }
 
 void Pathtracer::calc_light_power() {
+	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights;
+
+	int light_mesh_count = 0;
+
+	// For every Mesh, check whether it is a Light based on its Material
+	// If so, mark the MeshData it is using as being a Light
+	for (int m = 0; m < scene.meshes.size(); m++) {
+		Mesh & mesh = scene.meshes[m];
+		const Material & material = scene.asset_manager.get_material(mesh.material_handle);
+
+		if (material.type == Material::Type::LIGHT) {
+			mesh_data_used_as_lights[mesh.mesh_data_handle.handle].push_back(&mesh);
+			light_mesh_count++;
+		} else {
+			mesh.light.weight = INVALID;
+		}
+	}
+
 	struct LightTriangle {
 		int    index;
 		double area;
 	};
 	Array<LightTriangle> light_triangles;
 
-	struct LightMesh {
+	struct LightMeshData {
 		int first_triangle_index;
 		int triangle_count;
 
 		double total_area;
 	};
-	Array<LightMesh> light_meshes;
+	Array<LightMeshData> light_mesh_datas;
 
-	// For every Mesh, check whether it is a Light based on its Material
-	for (int m = 0; m < scene.meshes.size(); m++) {
-		Mesh & mesh = scene.meshes[m];
+	using It = decltype(mesh_data_used_as_lights)::Iterator;
 
-		const Material & material  = scene.asset_manager.get_material (mesh.material_handle);
-		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
+	for (auto it = mesh_data_used_as_lights.begin(); it != mesh_data_used_as_lights.end(); ++it) {
+		MeshDataHandle  mesh_data_handle = MeshDataHandle { it.get_key() };
+		Array<Mesh *> & meshes           = it.get_value();
 
-		if (material.type == Material::Type::LIGHT) {
-			mesh.light_index = light_meshes.size();
+		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
 
-			LightMesh & light_mesh = light_meshes.emplace_back();
-			light_mesh.first_triangle_index = light_triangles.size();
-			light_mesh.triangle_count = mesh_data.triangle_count;
-			light_mesh.total_area = 0.0f;
+		int light_index = light_mesh_datas.size();
 
-			for (int t = 0; t < mesh_data.triangle_count; t++) {
-				const Triangle & triangle = mesh_data.triangles[t];
+		LightMeshData & light_mesh_data = light_mesh_datas.emplace_back();
+		light_mesh_data.first_triangle_index = light_triangles.size();
+		light_mesh_data.triangle_count = mesh_data.triangle_count;
+		light_mesh_data.total_area = 0.0f;
 
-				float area = 0.5f * Vector3::length(Vector3::cross(
-					triangle.position_1 - triangle.position_0,
-					triangle.position_2 - triangle.position_0
-				));
-				light_triangles.emplace_back(reverse_indices[mesh_data_triangle_offsets[mesh.mesh_data_handle.handle] + t], area);
-				light_mesh.total_area += area;
-			}
+		for (int t = 0; t < mesh_data.triangle_count; t++) {
+			const Triangle & triangle = mesh_data.triangles[t];
 
+			float area = 0.5f * Vector3::length(Vector3::cross(
+				triangle.position_1 - triangle.position_0,
+				triangle.position_2 - triangle.position_0
+			));
+			light_triangles.emplace_back(reverse_indices[mesh_data_triangle_offsets[mesh_data_handle.handle] + t], area);
+			light_mesh_data.total_area += area;
+		}
+
+		for (int m = 0; m < meshes.size(); m++) {
+			Mesh * mesh = meshes[m];
+
+			const Material & material = scene.asset_manager.get_material(mesh->material_handle);
 			float power = Math::luminance(material.emission.x, material.emission.y, material.emission.z);
-			mesh.light_weight = power * light_mesh.total_area;
-		} else {
-			mesh.light_index = INVALID;
+
+			mesh->light.weight               = power * light_mesh_data.total_area;
+			mesh->light.first_triangle_index = light_mesh_data.first_triangle_index;
+			mesh->light.triangle_count       = light_mesh_data.triangle_count;
 		}
 	}
 
@@ -635,24 +660,19 @@ void Pathtracer::calc_light_power() {
 		double    * light_probabilities = new double   [light_triangles.size()];
 		ProbAlias * light_prob_alias    = new ProbAlias[light_triangles.size()];
 
-		int2 * light_mesh_first_index_and_triangle_count = MALLOCA(int2, scene.meshes.size());
+		for (int m = 0; m < light_mesh_datas.size(); m++) {
+			const LightMeshData & light_mesh_data = light_mesh_datas[m];
 
-		for (int m = 0; m < light_meshes.size(); m++) {
-			const LightMesh & light_mesh = light_meshes[m];
-
-			for (int i = light_mesh.first_triangle_index; i < light_mesh.first_triangle_index + light_mesh.triangle_count; i++) {
+			for (int i = light_mesh_data.first_triangle_index; i < light_mesh_data.first_triangle_index + light_mesh_data.triangle_count; i++) {
 				light_indices      [i] = light_triangles[i].index;
-				light_probabilities[i] = light_triangles[i].area / light_mesh.total_area;
+				light_probabilities[i] = light_triangles[i].area / light_mesh_data.total_area;
 			}
 
 			Util::init_alias_method(
-				light_mesh.triangle_count,
-				light_probabilities + light_mesh.first_triangle_index,
-				light_prob_alias    + light_mesh.first_triangle_index
+				light_mesh_data.triangle_count,
+				light_probabilities + light_mesh_data.first_triangle_index,
+				light_prob_alias    + light_mesh_data.first_triangle_index
 			);
-
-			light_mesh_first_index_and_triangle_count[m].x = light_mesh.first_triangle_index;
-			light_mesh_first_index_and_triangle_count[m].y = light_mesh.triangle_count;
 		}
 
 		ptr_light_indices    = CUDAMemory::malloc(light_indices,    light_triangles.size());
@@ -665,28 +685,23 @@ void Pathtracer::calc_light_power() {
 		delete [] light_probabilities;
 		delete [] light_prob_alias;
 
+		cuda_module.get_global("light_mesh_count").set_value(light_mesh_count);
+
 		if (ptr_light_mesh_prob_alias                    .ptr != NULL) CUDAMemory::free(ptr_light_mesh_prob_alias);
 		if (ptr_light_mesh_first_index_and_triangle_count.ptr != NULL) CUDAMemory::free(ptr_light_mesh_first_index_and_triangle_count);
 		if (ptr_light_mesh_transform_index               .ptr != NULL) CUDAMemory::free(ptr_light_mesh_transform_index);
 
-		int light_mesh_count = light_meshes.size();
-
-		ptr_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc(light_mesh_first_index_and_triangle_count, light_mesh_count);
-
-		cuda_module.get_global("light_mesh_count")                         .set_value(light_mesh_count);
-		cuda_module.get_global("light_mesh_first_index_and_triangle_count").set_value(ptr_light_mesh_first_index_and_triangle_count);
-
-		// These pointers are only filled in and copied to the GPU once the TLAS is constructed,
+		// The Device pointers below are only filled in and copied to the GPU once the TLAS is constructed,
 		// therefore the scene_invalidated flag is required to be set.
-		ptr_light_mesh_prob_alias      = CUDAMemory::malloc<ProbAlias>(light_mesh_count);
-		ptr_light_mesh_transform_index = CUDAMemory::malloc<int>      (light_mesh_count);
-
-		cuda_module.get_global("light_mesh_prob_alias")     .set_value(ptr_light_mesh_prob_alias);
-		cuda_module.get_global("light_mesh_transform_index").set_value(ptr_light_mesh_transform_index);
-
 		invalidated_scene = true;
 
-		FREEA(light_mesh_first_index_and_triangle_count);
+		ptr_light_mesh_prob_alias                     = CUDAMemory::malloc<ProbAlias>(light_mesh_count);
+		ptr_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc<int2>     (light_mesh_count);
+		ptr_light_mesh_transform_index                = CUDAMemory::malloc<int>      (light_mesh_count);
+
+		cuda_module.get_global("light_mesh_prob_alias")                    .set_value(ptr_light_mesh_prob_alias);
+		cuda_module.get_global("light_mesh_first_index_and_triangle_count").set_value(ptr_light_mesh_first_index_and_triangle_count);
+		cuda_module.get_global("light_mesh_transform_index")               .set_value(ptr_light_mesh_transform_index);
 	}
 }
 
@@ -721,17 +736,17 @@ void Pathtracer::build_tlas() {
 		memcpy(pinned_mesh_transforms_inv [i].cells, mesh.transform_inv .cells, sizeof(Matrix3x4));
 		memcpy(pinned_mesh_transforms_prev[i].cells, mesh.transform_prev.cells, sizeof(Matrix3x4));
 
-		bool mesh_is_light = mesh.light_index != INVALID;
+		bool mesh_is_light = mesh.light.weight != INVALID;
 		if (mesh_is_light) {
-			light_mesh_count++;
+			int light_index = light_mesh_count++;
 
-			assert(mesh.light_index < scene.meshes.size());
-
-			double light_weight_scaled = mesh.light_weight * mesh.scale * mesh.scale;
+			double light_weight_scaled = mesh.light.weight * mesh.scale * mesh.scale;
 			lights_total_weight += light_weight_scaled;
 
-			light_mesh_probabilites          [mesh.light_index] = light_weight_scaled;
-			pinned_light_mesh_transform_index[mesh.light_index] = i;
+			light_mesh_probabilites                         [light_index]   = light_weight_scaled;
+			pinned_light_mesh_first_index_and_triangle_count[light_index].x = mesh.light.first_triangle_index;
+			pinned_light_mesh_first_index_and_triangle_count[light_index].y = mesh.light.triangle_count;
+			pinned_light_mesh_transform_index               [light_index]   = i;
 		}
 	}
 
@@ -747,8 +762,9 @@ void Pathtracer::build_tlas() {
 		}
 		Util::init_alias_method(light_mesh_count, light_mesh_probabilites, pinned_light_mesh_prob_alias);
 
-		CUDAMemory::memcpy(ptr_light_mesh_prob_alias,      pinned_light_mesh_prob_alias,      light_mesh_count);
-		CUDAMemory::memcpy(ptr_light_mesh_transform_index, pinned_light_mesh_transform_index, light_mesh_count);
+		CUDAMemory::memcpy(ptr_light_mesh_prob_alias,                     pinned_light_mesh_prob_alias,                     light_mesh_count);
+		CUDAMemory::memcpy(ptr_light_mesh_first_index_and_triangle_count, pinned_light_mesh_first_index_and_triangle_count, light_mesh_count);
+		CUDAMemory::memcpy(ptr_light_mesh_transform_index,                pinned_light_mesh_transform_index,                light_mesh_count);
 	}
 
 	global_lights_total_weight.set_value(float(lights_total_weight));
@@ -855,7 +871,7 @@ void Pathtracer::update(float delta) {
 				global_lights_total_weight.set_value(0.0f);
 
 				for (int i = 0; i < scene.meshes.size(); i++) {
-					scene.meshes[i].light_index = INVALID;
+					scene.meshes[i].light.weight = INVALID;
 				}
 			}
 

@@ -1739,12 +1739,18 @@
 	</shape>
 	<shape type="obj">
 		<string name="filename" value="models/Icosphere.obj"/>
+		<transform>
+			<translate x="-34" y="52"/>
+		</transform>
 		<emitter type="area">
 			<rgb name="radiance" value="12, 12, 12"/>
 		</emitter>
 	</shape>
 	<shape type="obj">
-		<string name="filename" value="models/Icosphere.001.obj"/>
+		<string name="filename" value="models/Icosphere.obj"/>
+		<transform>
+			<translate x="70" y="48"/>
+		</transform>
 		<emitter type="area">
 			<rgb name="radiance" value="12, 12, 12"/>
 		</emitter>

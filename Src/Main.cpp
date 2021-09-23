@@ -490,7 +490,7 @@ static void draw_gui() {
 
 				triangle_count += mesh_data.triangle_count;
 
-				if (mesh.light_index != INVALID) {
+				if (mesh.light.weight != INVALID) {
 					light_mesh_count++;
 					light_triangle_count += mesh_data.triangle_count;
 				}

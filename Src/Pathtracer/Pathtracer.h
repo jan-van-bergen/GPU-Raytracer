@@ -291,6 +291,7 @@ private:
 	Matrix3x4 * pinned_mesh_transforms_inv;
 	Matrix3x4 * pinned_mesh_transforms_prev;
 	ProbAlias * pinned_light_mesh_prob_alias;
+	int2      * pinned_light_mesh_first_index_and_triangle_count;
 	int       * pinned_light_mesh_transform_index;
 
 	double * light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
