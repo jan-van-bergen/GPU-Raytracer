@@ -599,7 +599,7 @@ void Pathtracer::calc_light_power() {
 			mesh_data_used_as_lights[mesh.mesh_data_handle.handle].push_back(&mesh);
 			light_mesh_count++;
 		} else {
-			mesh.light.weight = INVALID;
+			mesh.light.weight = 0.0f;
 		}
 	}
 
@@ -736,7 +736,7 @@ void Pathtracer::build_tlas() {
 		memcpy(pinned_mesh_transforms_inv [i].cells, mesh.transform_inv .cells, sizeof(Matrix3x4));
 		memcpy(pinned_mesh_transforms_prev[i].cells, mesh.transform_prev.cells, sizeof(Matrix3x4));
 
-		bool mesh_is_light = mesh.light.weight != INVALID;
+		bool mesh_is_light = mesh.light.weight > 0.0f;
 		if (mesh_is_light) {
 			int light_index = light_mesh_count++;
 
@@ -871,7 +871,7 @@ void Pathtracer::update(float delta) {
 				global_lights_total_weight.set_value(0.0f);
 
 				for (int i = 0; i < scene.meshes.size(); i++) {
-					scene.meshes[i].light.weight = INVALID;
+					scene.meshes[i].light.weight = 0.0f;
 				}
 			}
 
