@@ -103,13 +103,13 @@ struct HashMap {
 
 		void operator++() {
 			if (map) {
-				while (index < map->capacity) {
+				while (index + 1 < map->capacity) {
 					index++;
 
-					if (map->hashes[index]) break;
+					if (map->hashes[index]) return;
 				}
+				map = nullptr;
 			}
-			map   = nullptr;
 			index = 0;
 		}
 		void operator--() {
@@ -117,10 +117,10 @@ struct HashMap {
 				while (index > 0) {
 					index--;
 
-					if (map->hashes[index]) break;
+					if (map->hashes[index]) return;
 				}
+				map = nullptr;
 			}
-			map   = nullptr;
 			index = 0;
 		}
 
