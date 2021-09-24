@@ -225,9 +225,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			float brdf_pdf = ray_buffer_trace.last_pdf[index];
 			
-			float mesh_scale = mesh_get_scale(hit.mesh_id);
-
-			float light_power = mesh_scale * mesh_scale * luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
 			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
 
 			float mis_weight = power_heuristic(brdf_pdf, light_pdf);
@@ -430,9 +428,7 @@ __device__ inline void nee_sample(
 	float  brdf_pdf;
 	float3 brdf = brdf_evaluator(to_light, brdf_pdf);
 
-	float mesh_scale = mesh_get_scale(light_mesh_id);
-
-	float light_power = mesh_scale * mesh_scale * luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+	float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
 	float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
 
 	float mis_weight;
