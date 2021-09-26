@@ -21,10 +21,10 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - *Next Event Estimation* (NEE): Shadow rays are explicitly aimed at light sources to reduce variance.
   - *Multiple Importance Sampling* (MIS): Explicit light sampling (NEE) is combined with standard BRDF sampling using MIS to get the best of both.
   - Cosine weighted direction sampling for diffuse bounces.
-  - Microfacet sampling as described in [Walter et al. 2007](https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf)
+  - Microfacet sampling as described in [Heitz 2018](http://jcgt.org/published/0007/04/01/)
 - *Mipmapping*: Textures are sampled using mipmapping. Mipmap sampling is done using ray cones (see [Möller et al. 2012](http://www.jcgt.org/published/0010/01/01/), [Möller et al. 2019](https://media.contentapi.ea.com/content/dam/ea/seed/presentations/2019-ray-tracing-gems-chapter-20-akenine-moller-et-al.pdf)). Primary rays perform anisotropic sampling, subsequent bounces use isotropic sampling.
 - *PMJ02 Sampling*: The low discrepency sampler by [Cristensen et al. 2019](https://graphics.pixar.com/library/ProgressiveMultiJitteredSampling/paper.pdf). Sequences are decorrelated using Cranley-Patterson rotations with blue noise.
-- Hot Reloading: When F5 is pressed the CUDA module is destroyed, recompiled, and reloaded.
+- Hot Reloading: When F5 is pressed the CUDA module is recompiled from source to allow for interactive debugging and development.
 - Multiple Material types
   - *Diffuse*
   - *Dielectrics*
