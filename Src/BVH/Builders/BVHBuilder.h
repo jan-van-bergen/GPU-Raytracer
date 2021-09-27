@@ -16,9 +16,7 @@ struct BVHBuilder {
 	float * sah  = nullptr;
 	int   * temp = nullptr;
 
-	int max_primitives_in_leaf;
-
-	void init(BVH * bvh, int primitive_count, int max_primitives_in_leaf);
+	void init(BVH * bvh, int primitive_count);
 	void free();
 
 	void build(const Triangle * triangles, int triangle_count);

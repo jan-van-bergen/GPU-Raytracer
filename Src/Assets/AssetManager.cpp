@@ -5,6 +5,7 @@
 
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"
+#include "BVH/BVHCollapser.h"
 #include "BVH/BVHOptimizer.h"
 
 #include "Util/ScopeTimer.h"
@@ -13,25 +14,20 @@ BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
 	printf("Constructing BVH...\r");
 	BVH bvh;
 
-	int max_primitives_in_leaf = BVH::max_primitives_in_leaf();
-	if (config.enable_bvh_optimization) {
-		max_primitives_in_leaf = 1;
-	}
-
 	// Only the SBVH uses SBVH as its starting point,
 	// all other BVH types use the standard BVH as their starting point
 	if (config.bvh_type == BVHType::SBVH) {
 		ScopeTimer timer("SBVH Construction");
 
 		SBVHBuilder sbvh_builder = { };
-		sbvh_builder.init(&bvh, triangle_count, max_primitives_in_leaf);
+		sbvh_builder.init(&bvh, triangle_count);
 		sbvh_builder.build(triangles, triangle_count);
 		sbvh_builder.free();
 	} else  {
 		ScopeTimer timer("BVH Construction");
 
 		BVHBuilder bvh_builder = { };
-		bvh_builder.init(&bvh, triangle_count, max_primitives_in_leaf);
+		bvh_builder.init(&bvh, triangle_count);
 		bvh_builder.build(triangles, triangle_count);
 		bvh_builder.free();
 	}

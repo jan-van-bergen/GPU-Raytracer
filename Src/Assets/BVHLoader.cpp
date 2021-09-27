@@ -19,7 +19,6 @@ struct BVHFileHeader {
 	// Store settings with which the BVH was created
 	char underlying_bvh_type;
 	bool bvh_is_optimized;
-	int  max_primitives_in_leaf;
 	float sah_cost_node;
 	float sah_cost_leaf;
 
@@ -56,7 +55,6 @@ bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, Me
 	// Check if the settings used to create the BVH file are the same as the current settings
 	if (header.underlying_bvh_type    != char(BVH::underlying_bvh_type()) ||
 		header.bvh_is_optimized       != config.enable_bvh_optimization ||
-		header.max_primitives_in_leaf != BVH::max_primitives_in_leaf() ||
 		header.sah_cost_node          != config.sah_cost_node ||
 		header.sah_cost_leaf          != config.sah_cost_leaf
 	) {
@@ -102,7 +100,6 @@ bool BVHLoader::save(const char * bvh_filename, const MeshData & mesh_data, cons
 
 	header.underlying_bvh_type    = char(BVH::underlying_bvh_type());
 	header.bvh_is_optimized       = config.enable_bvh_optimization;
-	header.max_primitives_in_leaf = BVH::max_primitives_in_leaf();
 	header.sah_cost_node          = config.sah_cost_node;
 	header.sah_cost_leaf          = config.sah_cost_leaf;
 

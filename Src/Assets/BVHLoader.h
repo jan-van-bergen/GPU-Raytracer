@@ -8,7 +8,7 @@
 
 namespace BVHLoader {
 	inline constexpr const char * BVH_FILE_EXTENSION = ".bvh";
-	inline constexpr int          BVH_FILETYPE_VERSION = 4;
+	inline constexpr int          BVH_FILETYPE_VERSION = 5;
 
 	const char * get_bvh_filename(const char * filename);
 

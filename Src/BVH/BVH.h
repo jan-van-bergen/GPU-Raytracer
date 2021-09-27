@@ -104,14 +104,6 @@ struct BVH {
 		}
 	}
 
-	static int max_primitives_in_leaf() {
-		if (config.bvh_type == BVHType::CWBVH) {
-			return 1;
-		} else {
-			return INT_MAX;
-		}
-	}
-
 	static int node_size() {
 		switch (config.bvh_type) {
 			case BVHType::BVH:

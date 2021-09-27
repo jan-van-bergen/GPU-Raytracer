@@ -11,6 +11,9 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
+		// We do not terminate based on the SAH termination criterion, so that the
+		// BVHs that are cached to disk have a standard layout (1 triangle per leaf node)
+		// If desired these trees can be collapsed based on the SAH cost using BVHCollapser::collapse
 		node.first = first_index;
 		node.count = index_count;
 
@@ -20,19 +23,6 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 	int   split_dimension;
 	float split_cost;
 	int   split_index = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, builder.sah, split_dimension, split_cost);
-
-	if (index_count <= builder.max_primitives_in_leaf) {
-		// Check SAH termination condition
-		float leaf_cost = node.aabb.surface_area() * config.sah_cost_leaf * float(index_count);
-		float node_cost = node.aabb.surface_area() * config.sah_cost_node + split_cost;
-
-		if (leaf_cost < node_cost) {
-			node.first = first_index;
-			node.count = index_count;
-
-			return;
-		}
-	}
 
 	node.left = node_index;
 	node_index += 2;
@@ -75,9 +65,8 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 	builder.bvh->index_count = primitive_count;
 }
 
-void BVHBuilder::init(BVH * bvh, int primitive_count, int max_primitives_in_leaf) {
+void BVHBuilder::init(BVH * bvh, int primitive_count) {
 	this->bvh = bvh;
-	this->max_primitives_in_leaf = max_primitives_in_leaf;
 
 	centers = new Vector3[primitive_count];
 

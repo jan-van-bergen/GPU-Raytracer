@@ -267,7 +267,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		case BVHType::CWBVH: cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes); break;
 	}
 
-	tlas_bvh_builder.init(&tlas_raw, scene.meshes.size(), 1);
+	tlas_bvh_builder.init(&tlas_raw, scene.meshes.size());
 
 	tlas_raw.index_count = scene.meshes.size();
 	tlas_raw.node_count  = scene.meshes.size() * 2;

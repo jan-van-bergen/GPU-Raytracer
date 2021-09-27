@@ -10,6 +10,9 @@
 int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
+		// We do not terminate based on the SAH termination criterion, so that the
+		// BVHs that are cached to disk have a standard layout (1 triangle per leaf node)
+		// If desired these trees can be collapsed based on the SAH cost using BVHCollapser::collapse
 		node.first = first_index;
 		node.count = index_count;
 
@@ -38,19 +41,6 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 	}
 
 	assert(object_split.cost != INFINITY || spatial_split.cost != INFINITY);
-
-	if (index_count <= max_primitives_in_leaf) {
-		// Check SAH termination condition
-		float leaf_cost = node.aabb.surface_area() * config.sah_cost_leaf * float(index_count);
-		float node_cost = node.aabb.surface_area() * config.sah_cost_node + Math::min(object_split.cost, spatial_split.cost);
-
-		if (leaf_cost < node_cost) {
-			node.first = first_index;
-			node.count = index_count;
-
-			return node.count;
-		}
-	}
 
 	node.left = node_index;
 	node_index += 2;
@@ -311,9 +301,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 	return num_leaves_left + num_leaves_right;
 }
 
-void SBVHBuilder::init(BVH * sbvh, int triangle_count, int max_primitives_in_leaf) {
+void SBVHBuilder::init(BVH * sbvh, int triangle_count) {
 	this->sbvh = sbvh;
-	this->max_primitives_in_leaf = max_primitives_in_leaf;
 
 	PrimitiveRef * indices_xyz = new PrimitiveRef[3 * SBVH_OVERALLOCATION * triangle_count];
 	indices_x = indices_xyz;
@@ -345,7 +334,7 @@ void SBVHBuilder::free() {
 }
 
 void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
-	puts("Construcing SBVH, this may take a few seconds for large scenes...");
+	puts("Construcing SBVH, this may take a few seconds for large Meshes...");
 
 	AABB root_aabb = AABB::create_empty();
 

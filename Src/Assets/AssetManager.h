@@ -4,6 +4,7 @@
 #include "Texture.h"
 
 #include "BVHLoader.h"
+#include "BVH/BVHCollapser.h"
 
 #include "Util/Array.h"
 #include "Util/HashMap.h"
@@ -55,6 +56,10 @@ public:
 
 			bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
 			BVHLoader::save(bvh_filename, mesh_data, bvh);
+		}
+
+		if (config.bvh_type != BVHType::CWBVH) {
+			BVHCollapser::collapse(bvh);
 		}
 
 		mesh_data.init_bvh(bvh);
