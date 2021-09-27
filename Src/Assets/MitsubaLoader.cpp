@@ -1152,8 +1152,13 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		if (camera_type == "perspective" || camera_type == "perspective_rdist" || camera_type == "thinlens") {
 			float fov = node->get_child_value_optional("fov", 110.0f);
 			scene.camera.set_fov(Math::deg_to_rad(fov));
-			scene.camera.aperture_radius = node->get_child_value_optional("apertureRadius", 0.05f);
-			scene.camera.focal_distance  = node->get_child_value_optional("focusDistance", 10.0f);
+
+			if (camera_type == "perspective") {
+				scene.camera.aperture_radius = 0.0f;
+			} else {
+				scene.camera.aperture_radius = node->get_child_value_optional("apertureRadius", 0.05f);
+				scene.camera.focal_distance  = node->get_child_value_optional("focusDistance", 10.0f);
+			}
 
 			float scale = 1.0f;
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
