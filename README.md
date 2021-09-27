@@ -40,7 +40,9 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Editor](Screenshots/Editor.png "Interactive Scene editor")
 ![Glass-of-Water](Screenshots/glass-of-water.png "Glass of Water")
 ![Kitchen](Screenshots/kitchen.png "Kitchen")
+![Bunny](Screenshots/bunny.png "Furry Bunny")
 ![Coffee](Screenshots/Coffee.png "Coffee")
+For more screenshots, see the Screenshots folder
 
 ## Usage
 
