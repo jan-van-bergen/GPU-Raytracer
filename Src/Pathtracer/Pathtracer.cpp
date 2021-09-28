@@ -218,19 +218,19 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 			int index = mesh_data.bvh.indices[i];
 			const Triangle & triangle = mesh_data.triangles[index];
 
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_0      = triangle.position_0;
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_edge_1 = triangle.position_1 - triangle.position_0;
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].position_edge_2 = triangle.position_2 - triangle.position_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].position_0      = triangle.position_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].position_edge_1 = triangle.position_1 - triangle.position_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].position_edge_2 = triangle.position_2 - triangle.position_0;
 
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].normal_0      = triangle.normal_0;
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].normal_edge_1 = triangle.normal_1 - triangle.normal_0;
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].normal_edge_2 = triangle.normal_2 - triangle.normal_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].normal_0      = triangle.normal_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].normal_edge_1 = triangle.normal_1 - triangle.normal_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].normal_edge_2 = triangle.normal_2 - triangle.normal_0;
 
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].tex_coord_0      = triangle.tex_coord_0;
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].tex_coord_edge_1 = triangle.tex_coord_1 - triangle.tex_coord_0;
-			aggregated_triangles[mesh_data_triangle_offsets[m] + i].tex_coord_edge_2 = triangle.tex_coord_2 - triangle.tex_coord_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].tex_coord_0      = triangle.tex_coord_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].tex_coord_edge_1 = triangle.tex_coord_1 - triangle.tex_coord_0;
+			aggregated_triangles[mesh_data_index_offsets[m] + i].tex_coord_edge_2 = triangle.tex_coord_2 - triangle.tex_coord_0;
 
-			reverse_indices[mesh_data_index_offsets[m] + index] = mesh_data_triangle_offsets[m] + i;
+			reverse_indices[mesh_data_triangle_offsets[m] + index] = mesh_data_index_offsets[m] + i;
 		}
 	}
 
