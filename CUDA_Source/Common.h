@@ -47,7 +47,8 @@ struct Config {
 	// Pathtracing
 	int num_bounces = 5;
 
-	int capture_frame_index = INVALID;
+	int          output_frame_index = INVALID;
+	const char * output_name        = "render.ppm";
 
 	bool enable_albedo                       = true;
 	bool enable_mipmapping                   = true;
@@ -89,7 +90,7 @@ struct Config {
 
 	float sbvh_alpha = 10e-5f; // Alpha parameter for SBVH construction, alpha == 1 means regular BVH, alpha == 0 means full SBVH
 
-	bool enable_bvh_optimization = true;
+	bool enable_bvh_optimization = false;
 
 	int bvh_optimizer_max_time        = 60'000; // Time limit in milliseconds
 	int bvh_optimizer_max_num_batches = 1000;

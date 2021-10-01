@@ -7,6 +7,8 @@ struct Mesh;
 struct BVHBuilder {
 	BVH * bvh = nullptr;
 
+	Vector3 * centers = nullptr;
+
 	int * indices_x = nullptr;
 	int * indices_y = nullptr;
 	int * indices_z = nullptr;
@@ -14,9 +16,7 @@ struct BVHBuilder {
 	float * sah  = nullptr;
 	int   * temp = nullptr;
 
-	int max_primitives_in_leaf;
-
-	void init(BVH * bvh, int primitive_count, int max_primitives_in_leaf);
+	void init(BVH * bvh, int primitive_count);
 	void free();
 
 	void build(const Triangle * triangles, int triangle_count);

@@ -63,7 +63,6 @@ __device__ inline Matrix3x4 mesh_get_transform_prev(int mesh_id) {
 }
 
 __device__ inline float mesh_get_scale(int mesh_id) {
-	// Scale is stored along the diagonal of the transformation matrix
-	// We only care about uniform scale, so the first value is sufficient
-	return __ldg(&mesh_transforms[mesh_id].row_0.x);
+	float3 row = make_float3(__ldg(&mesh_transforms[mesh_id].row_0));
+	return length(row);
 }

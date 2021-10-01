@@ -26,6 +26,7 @@ static PerfTest   perf_test;
 #define FRAMETIME_HISTORY_LENGTH 100
 
 struct Timing {
+	Uint64 start;
 	Uint64 now;
 	Uint64 last;
 
@@ -69,7 +70,8 @@ int main(int arg_count, char ** args) {
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
-	timing.last = SDL_GetPerformanceCounter();
+	timing.start = SDL_GetPerformanceCounter();
+	timing.last  = timing.start;
 
 	// Game loop
 	while (!window.is_closed) {
@@ -80,13 +82,15 @@ int main(int arg_count, char ** args) {
 
 		window.render_framebuffer();
 
-		if (Input::is_key_pressed(SDL_SCANCODE_P) || pathtracer.frames_accumulated == config.capture_frame_index) {
-			char screenshot_name[32];
+		if (pathtracer.frames_accumulated == config.output_frame_index) {
+			capture_screen(window, config.output_name);
+			break; // Exit game loop and terimate
+		}
+		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
+			char screenshot_name[32] = { };
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
 
 			capture_screen(window, screenshot_name);
-
-			if (pathtracer.frames_accumulated == config.capture_frame_index) break;
 		}
 
 		if (ImGui::IsMouseClicked(1)) {
@@ -118,6 +122,10 @@ int main(int arg_count, char ** args) {
 		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
 
 		window.swap();
+	}
+
+	if (pathtracer.frames_accumulated < config.output_frame_index) {
+		capture_screen(window, config.output_name);
 	}
 
 	CUDAContext::free();
@@ -158,12 +166,13 @@ static void parse_args(int arg_count, char ** args) {
 	};
 
 	static Array<Option> options = {
-		Option { "w", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
-		Option { "h", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.capture_frame_index = atoi(args[i + 1]); } },
-		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene               = args[i + 1]; } },
-		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                 = args[i + 1]; } },
+		Option { "W", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width      = atoi(args[i + 1]); } },
+		Option { "H", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height     = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces        = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.output_frame_index = atoi(args[i + 1]); } },
+		Option { "o", "output",  "Sets path to output file. Supported formats: ppm",                      1, [](int arg_count, char ** args, int i) { config.output_name        = args[i + 1]; } },
+		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene              = args[i + 1]; } },
+		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                = args[i + 1]; } },
 		Option { "b", "bvh",     "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh",      1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
 				config.bvh_type = BVHType::BVH;
@@ -178,6 +187,9 @@ static void parse_args(int arg_count, char ** args) {
 				abort();
 			}
 		} },
+		Option { nullptr, "albedo", "Enables or disables albedo",                       1, [](int arg_count, char ** args, int i) { config.enable_albedo                       = atob(args[i + 1]); } },
+		Option { nullptr, "nee",    "Enables or disables Next Event Estimation",        1, [](int arg_count, char ** args, int i) { config.enable_next_event_estimation        = atob(args[i + 1]); } },
+		Option { nullptr, "mis",    "Enables or disables Multiple Importance Sampling", 1, [](int arg_count, char ** args, int i) { config.enable_multiple_importance_sampling = atob(args[i + 1]); } },
 		Option { "O",     "optimize",    "Enables or disables BVH optimzation post-processing step",                                              1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
 		Option { "Ot",    "opt-time",    "Sets time limit (in seconds) for BVH optimization",                                                     1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
 		Option { "Ob",    "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization",                                1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
@@ -223,31 +235,39 @@ static void parse_args(int arg_count, char ** args) {
 		Parser parser = { };
 		parser.init(arg, arg + arg_len, arg_name);
 
-		parser.expect('-');
-		bool use_full_name = parser.match('-');
+		if (parser.match('-')) {
+			bool use_full_name = parser.match('-');
 
-		bool match = false;
+			bool match = false;
 
-		for (int o = 0; o < options.size(); o++) {
-			const Option & option = options[o];
+			for (int o = 0; o < options.size(); o++) {
+				const Option & option = options[o];
 
-			match =
-				( use_full_name &&                      strcmp(parser.cur, option.name_full)  == 0) ||
-				(!use_full_name && option.name_short && strcmp(parser.cur, option.name_short) == 0);
-
-			if (match) {
-				if (i + option.num_args >= arg_count) {
-					printf("Not enough arguments provided to option %s!\n", option.name_full);
-					abort();
+				if (use_full_name) {
+					match = strcmp(parser.cur, option.name_full) == 0;
+				} else if (option.name_short) {
+					match = strcmp(parser.cur, option.name_short) == 0;
 				}
-				option.action(arg_count, args, i);
-				i += option.num_args;
-				break;
-			}
-		}
 
-		if (!match) {
-			printf("Unrecognized command line option '%s'\n", parser.cur);
+				if (match) {
+					if (i + option.num_args >= arg_count) {
+						printf("Not enough arguments provided to option '%s'!\n", option.name_full);
+						return;
+					}
+
+					option.action(arg_count, args, i);
+					i += option.num_args;
+
+					break;
+				}
+			}
+
+			if (!match) {
+				printf("Unrecognized command line option '%s'\nUse --help for a list of valid options\n", parser.cur);
+			}
+		} else {
+			// Without explicit option, assume scene name
+			config.scene = arg;
 		}
 	}
 }
@@ -300,16 +320,37 @@ static void calc_timing() {
 
 	int count = timing.frame_index < FRAMETIME_HISTORY_LENGTH ? timing.frame_index : FRAMETIME_HISTORY_LENGTH;
 
-	timing.avg = 0.0;
+	int min_index = INVALID;
+	int max_index = INVALID;
+
 	timing.min = INFINITY;
 	timing.max = 0.0;
 
 	for (int i = 0; i < count; i++) {
-		timing.avg += timing.history[i];
-		timing.min = fmin(timing.min, timing.history[i]);
-		timing.max = fmax(timing.max, timing.history[i]);
+		float time = timing.history[i];
+		if (time < timing.min) {
+			timing.min = time;
+			min_index = i;
+		} else if (time > timing.max) {
+			timing.max = time;
+			max_index = i;
+		}
 	}
-	timing.avg /= double(count);
+
+	timing.avg = 0.0;
+	if (count <= 2) {
+		for (int i = 0; i < count; i++) {
+			timing.avg += timing.history[i];
+		}
+		timing.avg /= double(count);
+	} else {
+		for (int i = 0; i < count; i++) {
+			if (i != min_index && i != max_index) { // For a more representative average, ignore the min and max times
+				timing.avg += timing.history[i];
+			}
+		}
+		timing.avg /= double(count - 2);
+	}
 
 	// Calculate fps
 	timing.frames_this_second++;
@@ -329,14 +370,14 @@ static void draw_gui() {
 	if (ImGui::Begin("Pathtracer")) {
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Text("Frame: %i", pathtracer.frames_accumulated);
-			ImGui::Text("Delta: %.2f ms", 1000.0f * timing.delta_time);
+			ImGui::Text("Time:  %.2f s", double(timing.now - timing.start) * timing.inv_perf_freq);
+			ImGui::Text("Delta: %.2f ms (%i fps)", 1000.0f * timing.delta_time, timing.fps);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * timing.avg);
 			ImGui::Text("Min:   %.2f ms", 1000.0f * timing.min);
 			ImGui::Text("Max:   %.2f ms", 1000.0f * timing.max);
-			ImGui::Text("FPS: %i", timing.fps);
+		}
 
-			ImGui::BeginChild("Performance Region", ImVec2(0, 150), true);
-
+		if (ImGui::CollapsingHeader("Kernels", ImGuiTreeNodeFlags_DefaultOpen)) {
 			struct EventTiming {
 				CUDAEvent::Desc desc;
 				float           timing;
@@ -414,8 +455,6 @@ static void draw_gui() {
 				}
 			}
 
-			ImGui::EndChild();
-
 			delete [] event_timings;
 		}
 
@@ -487,7 +526,7 @@ static void draw_gui() {
 
 				triangle_count += mesh_data.triangle_count;
 
-				if (mesh.light_index != INVALID) {
+				if (mesh.light.weight > 0.0f) {
 					light_mesh_count++;
 					light_triangle_count += mesh_data.triangle_count;
 				}

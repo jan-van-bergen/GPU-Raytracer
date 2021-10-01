@@ -120,9 +120,12 @@
     </ClCompile>
     <ClCompile Include="Src\BVH\BVH.cpp">
       <Filter>BVH</Filter>
-	</ClCompile>
+    </ClCompile>
     <ClCompile Include="Src\Util\BlueNoise.cpp">
       <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\BVHCollapser.cpp">
+      <Filter>BVH</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -331,11 +334,14 @@
     <ClInclude Include="Src\Util\PMJ.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Config.h" >
-	 <Filter>Util</Filter>
+    <ClInclude Include="Src\Config.h">
+      <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Util\BlueNoise.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\BVHCollapser.h">
+      <Filter>BVH</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

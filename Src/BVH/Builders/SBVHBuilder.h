@@ -30,12 +30,10 @@ private:
 	BitArray indices_going_left;
 	BitArray indices_going_right;
 
-	int max_primitives_in_leaf;
-
 	int build_sbvh(BVHNode2 & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area);
 
 public:
-	void init(BVH * sbvh, int triangle_count, int max_primitives_in_leaf);
+	void init(BVH * sbvh, int triangle_count);
 	void free();
 
 	void build(const Triangle * triangles, int triangle_count); // SAH-based object + spatial splits, Stich et al. 2009 (Triangles only)

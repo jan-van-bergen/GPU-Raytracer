@@ -127,17 +127,6 @@ __device__ inline float3 material_get_albedo(const float3 & diffuse, int texture
 	return diffuse * make_float3(tex_colour);
 }
 
-__device__ __constant__ float lights_total_power;
-
-__device__ __constant__ const int   * light_indices;
-__device__ __constant__ const float * light_power_cumulative;
-
-__device__ __constant__ const int   * light_mesh_triangle_count;
-__device__ __constant__ const int   * light_mesh_triangle_first_index;
-__device__ __constant__ const float * light_mesh_power_scaled;
-__device__ __constant__ const float * light_mesh_power_unscaled;
-__device__ __constant__ const int   * light_mesh_transform_indices;
-
 // Assumes no Total Internal Reflection
 __device__ inline float fresnel_dielectric(float cos_theta_i, float cos_theta_o, float eta) {
 	float s = (cos_theta_i - eta * cos_theta_o) / (cos_theta_i + eta * cos_theta_o);

@@ -69,14 +69,11 @@ __device__ inline float3 ycocg_to_rgb(const float3 & colour) {
 	);
 }
 
-__device__ inline unsigned wang_hash(unsigned seed) {
-    seed = (seed ^ 61) ^ (seed >> 16);
-    seed *= 9;
-    seed = seed ^ (seed >> 4);
-    seed *= 0x27d4eb2d;
-    seed = seed ^ (seed >> 15);
-
-    return seed;
+// Based on: https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+__device__ inline unsigned pcg_hash(unsigned seed) {
+    unsigned state = seed * 747796405u + 2891336453u;
+    unsigned word  = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
 }
 
 // Based on: https://github.com/blender/blender/blob/master/intern/cycles/kernel/kernel_jitter.h#L122
@@ -158,23 +155,19 @@ __device__ inline float3 world_to_local(const float3 & vector, const float3 & ta
 	return make_float3(dot(tangent, vector), dot(binormal, vector), dot(normal, vector));
 }
 
-__device__ inline unsigned active_thread_mask() {
-	return __ballot_sync(0xffffffff, 1);
-}
-
 // Based on: https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
-__device__ inline int atomic_agg_inc(int * ctr) {
-	int mask   = active_thread_mask();
-	int leader = __ffs(mask) - 1;
-	int laneid = threadIdx.x & 31;
+__device__ inline int atomic_agg_inc(int * ptr) {
+	int mask    = __activemask();
+	int leader  = __ffs(mask) - 1;
+	int lane_id = threadIdx.x & 31;
 
 	int res;
-	if (laneid == leader) {
-		res = atomicAdd(ctr, __popc(mask));
+	if (lane_id == leader) {
+		res = atomicAdd(ptr, __popc(mask));
 	}
 
 	res = __shfl_sync(mask, res, leader);
-	return res + __popc(mask & ((1 << laneid) - 1));
+	return res + __popc(mask & ((1 << lane_id) - 1));
 }
 
 // Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
@@ -217,32 +210,6 @@ __device__ float mitchell_netravali(float x) {
 	} else {
 		return 0.0f;
 	}
-}
-
-// Binary search a cumulative (monotone increasing) array for the first index that is smaller than a given value
-__device__ inline int binary_search(const float cumulative_array[], int index_first, int index_last, float value) {
-	int index_left  = index_first;
-	int index_right = index_last;
-
-	while (true) {
-		int index_middle = (index_left + index_right) / 2;
-
-		if (index_middle > index_first && value <= cumulative_array[index_middle - 1]) {
-			index_right = index_middle - 1;
-		} else if (value > cumulative_array[index_middle]) {
-			index_left = index_middle + 1;
-		} else {
-			return index_middle;
-		}
-	}
-}
-
-__device__ inline float balance_heuristic(float pdf_f, float pdf_g) {
-	return pdf_f / (pdf_f + pdf_g);
-}
-
-__device__ inline float power_heuristic(float pdf_f, float pdf_g) {
-	return (pdf_f * pdf_f) / (pdf_f * pdf_f + pdf_g * pdf_g); // Power of 2 hardcoded, best empirical results according to Veach
 }
 
 // Create byte mask from sign bit

@@ -20,6 +20,10 @@ struct alignas(8)  float2 { float x, y; };
 struct             float3 { float x, y, z; };
 struct alignas(16) float4 { float x, y, z, w; };
 
+struct alignas(8)  int2 { int x, y; };
+struct             int3 { int x, y, z; };
+struct alignas(16) int4 { int x, y, z, w; };
+
 struct CUDAVector3_SoA {
 	CUDAMemory::Ptr<float> x;
 	CUDAMemory::Ptr<float> y;
@@ -286,8 +290,11 @@ private:
 	Matrix3x4 * pinned_mesh_transforms;
 	Matrix3x4 * pinned_mesh_transforms_inv;
 	Matrix3x4 * pinned_mesh_transforms_prev;
-	int       * pinned_light_mesh_transform_indices;
-	float     * pinned_light_mesh_area_scaled;
+	ProbAlias * pinned_light_mesh_prob_alias;
+	int2      * pinned_light_mesh_first_index_and_triangle_count;
+	int       * pinned_light_mesh_transform_index;
+
+	double * light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
 
 	struct CUDAMaterial {
 		union {
@@ -348,17 +355,14 @@ private:
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_prev;
 
-	CUDAMemory::Ptr<int>   ptr_light_indices;
-	CUDAMemory::Ptr<float> ptr_light_areas_cumulative;
+	CUDAModule::Global global_lights_total_weight;
 
-	CUDAMemory::Ptr<float> ptr_light_mesh_power_unscaled;
-	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_count;
-	CUDAMemory::Ptr<int>   ptr_light_mesh_triangle_first_index;
+	CUDAMemory::Ptr<int>       ptr_light_indices;
+	CUDAMemory::Ptr<ProbAlias> ptr_light_prob_alias;
 
-	CUDAMemory::Ptr<float> ptr_light_mesh_power_scaled;
-	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
-
-	CUDAModule::Global global_lights_total_power;
+	CUDAMemory::Ptr<ProbAlias> ptr_light_mesh_prob_alias;
+	CUDAMemory::Ptr<int2>      ptr_light_mesh_first_index_and_triangle_count;
+	CUDAMemory::Ptr<int>       ptr_light_mesh_transform_index;
 
 	CUDAMemory::Ptr<Vector3> ptr_sky_data;
 

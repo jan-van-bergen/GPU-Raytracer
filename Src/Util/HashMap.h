@@ -91,6 +91,56 @@ struct HashMap {
 		map.init(0);
 	}
 
+	struct Iterator {
+		Map  * map   = nullptr;
+		size_t index = 0;
+
+		Key   & get_key()   const { return map->get_keys  ()[index]; }
+		Value & get_value() const { return map->get_values()[index]; }
+
+//		Value & operator* () { return  map->values[index]; }
+//		Value * operator->() { return &map->values[index]; }
+
+		void operator++() {
+			if (map) {
+				while (index + 1 < map->capacity) {
+					index++;
+
+					if (map->hashes[index]) return;
+				}
+				map = nullptr;
+			}
+			index = 0;
+		}
+		void operator--() {
+			if (map) {
+				while (index > 0) {
+					index--;
+
+					if (map->hashes[index]) return;
+				}
+				map = nullptr;
+			}
+			index = 0;
+		}
+
+		bool operator==(const Iterator & other) const { return map == other.map && index == other.index; }
+		bool operator!=(const Iterator & other) const { return map != other.map || index != other.index; }
+	};
+
+	Iterator begin() {
+		for (size_t i = 0; i < map.capacity; i++) {
+			if (map.hashes[i]) {
+				return Iterator { &map, i };
+			}
+		}
+		return end();
+	}
+
+	Iterator end() {
+		return Iterator { nullptr, 0 };
+	}
+
 private:
 	static constexpr Value * get(const Map & map, size_t hash, const Key & key) {
 		Cmp cmp = { };

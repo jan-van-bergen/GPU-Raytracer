@@ -11,6 +11,9 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
+		// We do not terminate based on the SAH termination criterion, so that the
+		// BVHs that are cached to disk have a standard layout (1 triangle per leaf node)
+		// If desired these trees can be collapsed based on the SAH cost using BVHCollapser::collapse
 		node.first = first_index;
 		node.count = index_count;
 
@@ -20,19 +23,6 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 	int   split_dimension;
 	float split_cost;
 	int   split_index = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, builder.sah, split_dimension, split_cost);
-
-	if (index_count <= builder.max_primitives_in_leaf) {
-		// Check SAH termination condition
-		float leaf_cost = node.aabb.surface_area() * config.sah_cost_leaf * float(index_count);
-		float node_cost = node.aabb.surface_area() * config.sah_cost_node + split_cost;
-
-		if (leaf_cost < node_cost) {
-			node.first = first_index;
-			node.count = index_count;
-
-			return;
-		}
-	}
 
 	node.left = node_index;
 	node_index += 2;
@@ -52,15 +42,13 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 
 template<typename Primitive>
 static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, int primitive_count) {
-	Vector3 * centers = new Vector3[primitive_count];
-
 	for (int i = 0; i < primitive_count; i++) {
-		centers[i] = primitives[i].get_center();
+		builder.centers[i] = primitives[i].get_center();
 	}
 
-	Util::quick_sort(builder.indices_x, builder.indices_x + primitive_count, [centers](int a, int b) { return centers[a].x < centers[b].x; });
-	Util::quick_sort(builder.indices_y, builder.indices_y + primitive_count, [centers](int a, int b) { return centers[a].y < centers[b].y; });
-	Util::quick_sort(builder.indices_z, builder.indices_z + primitive_count, [centers](int a, int b) { return centers[a].z < centers[b].z; });
+	Util::quick_sort(builder.indices_x, builder.indices_x + primitive_count, [centers = builder.centers](int a, int b) { return centers[a].x < centers[b].x; });
+	Util::quick_sort(builder.indices_y, builder.indices_y + primitive_count, [centers = builder.centers](int a, int b) { return centers[a].y < centers[b].y; });
+	Util::quick_sort(builder.indices_z, builder.indices_z + primitive_count, [centers = builder.centers](int a, int b) { return centers[a].z < centers[b].z; });
 
 	int * indices[3] = {
 		builder.indices_x,
@@ -69,19 +57,18 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 	};
 
 	int node_index = 2;
-	build_bvh_recursive(builder, builder.bvh->nodes_2[0], primitives, centers, indices, node_index, 0, primitive_count);
+	build_bvh_recursive(builder, builder.bvh->nodes_2[0], primitives, builder.centers, indices, node_index, 0, primitive_count);
 
 	assert(node_index <= 2 * primitive_count);
 
 	builder.bvh->node_count  = node_index;
 	builder.bvh->index_count = primitive_count;
-
-	delete [] centers;
 }
 
-void BVHBuilder::init(BVH * bvh, int primitive_count, int max_primitives_in_leaf) {
+void BVHBuilder::init(BVH * bvh, int primitive_count) {
 	this->bvh = bvh;
-	this->max_primitives_in_leaf = max_primitives_in_leaf;
+
+	centers = new Vector3[primitive_count];
 
 	indices_x = new int[primitive_count];
 	indices_y = new int[primitive_count];
@@ -101,6 +88,8 @@ void BVHBuilder::init(BVH * bvh, int primitive_count, int max_primitives_in_leaf
 }
 
 void BVHBuilder::free() {
+	delete [] centers;
+
 	delete [] indices_y;
 	delete [] indices_z;
 
