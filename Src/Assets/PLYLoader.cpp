@@ -111,7 +111,7 @@ static T parse_value(Parser & parser, Format format) {
 		case Format::BINARY_BIG_ENDIAN: {
 			char       * dst = reinterpret_cast<char *>(&value);
 			const char * src = start;
-			for (int i = 0; i < sizeof(T) / 2; i++) {
+			for (int i = 0; i < sizeof(T); i++) {
 				dst[i] = src[sizeof(T) - 1 - i];
 			}
 			break;
