@@ -64,7 +64,7 @@ int main(int arg_count, char ** args) {
 		window.resize_handler = &window_resize;
 
 		CUDAContext::init();
-		pathtracer.init(config.scene, config.sky, window.frame_buffer_handle, config.initial_width, config.initial_height);
+		pathtracer.init(config.scene, window.frame_buffer_handle, config.initial_width, config.initial_height);
 
 		perf_test.init(&pathtracer, false, config.scene);
 	}

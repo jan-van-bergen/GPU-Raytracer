@@ -9,7 +9,7 @@
 
 #include "Util/Util.h"
 
-void Scene::init(const char * scene_name, const char * sky_name) {
+void Scene::init(const char * scene_name) {
 	camera.init(DEG_TO_RAD(110.0f));
 
 	asset_manager.init();
@@ -38,7 +38,7 @@ void Scene::init(const char * scene_name, const char * sky_name) {
 	}
 
 	// Initialize Sky
-	sky.init(sky_name);
+	sky.init(config.sky);
 }
 
 Mesh & Scene::add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
