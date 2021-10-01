@@ -496,14 +496,32 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		inner_bsdf_type == "bumpmap" ||
 		inner_bsdf_type == "coating"
 	) {
-		inner_bsdf      = inner_bsdf->find_child("bsdf");
+		const XMLNode * inner_bsdf_child = inner_bsdf->find_child("bsdf");
+		if (inner_bsdf_child) {
+			inner_bsdf = inner_bsdf_child;
+		} else {
+			const XMLNode * ref = inner_bsdf->find_child("ref");
+			if (ref) {
+				StringView id = ref->get_attribute_value<StringView>("id");
+
+				MaterialHandle material_handle;
+				if (material_map.try_get(id, material_handle)) {
+					return material_handle;
+				} else {
+					WARNING(ref->location, "Invalid material Ref '%.*s'!\n", unsigned(id.length()), id.start);
+					return MaterialHandle::get_default();
+				}
+			} else {
+				return MaterialHandle::get_default();
+			}
+		}
+
 		inner_bsdf_type = inner_bsdf->get_attribute_value<StringView>("type");
 
 		if (name == nullptr) {
 			name = inner_bsdf->find_attribute("id");
 		}
 	}
-
 	if (name) {
 		material.name = name->value.c_str();
 	} else {
