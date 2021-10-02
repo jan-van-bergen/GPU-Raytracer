@@ -787,13 +787,10 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	// Importance sample distribution of normals
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 
-	float3 micro_normal_local = sample_ggx_distribution_of_normals(omega_i, material.roughness, material.roughness, rand_brdf.x, rand_brdf.y);
-	float3 omega_o = reflect(-omega_i, micro_normal_local);
-
-	float pdf;
-	throughput *= ggx_eval(material, omega_o, omega_i, pdf) * omega_o.z;
-	throughput /= pdf;
-
+	float  pdf;
+	float3 omega_o;
+	throughput *= ggx_sample(material, rand_brdf.x, rand_brdf.y, omega_i, omega_o, pdf);
+	
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
 	
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);

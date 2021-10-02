@@ -1,4 +1,5 @@
 #pragma once
+#include "Sampling.h"
 
 // Glossy materials with roughness below the cutoff don't use direct Light sampling
 #define ROUGHNESS_CUTOFF (0.001f)
@@ -199,4 +200,25 @@ __device__ inline float3 ggx_eval(const MaterialGlossy & material, const float3 
 
 	pdf = G1 * D * mu * denom_inv;
 	return F * D * G2 * denom_inv;
+}
+
+__device__ inline float3 ggx_sample(const MaterialGlossy & material, float u1, float u2, const float3 & omega_i, float3 & omega_o, float & pdf) {
+	float alpha_x = material.roughness;
+	float alpha_y = material.roughness; // TODO: anisotropic
+	float alpha_x2 = alpha_x * alpha_x;
+	float alpha_y2 = alpha_y * alpha_y;
+
+	float3 omega_m = sample_ggx_distribution_of_normals(omega_i, material.roughness, material.roughness, u1, u2);
+	omega_o = reflect(-omega_i, omega_m);
+
+	float mu = fmaxf(0.0, dot(omega_o, omega_m));
+
+	float3 F  = fresnel_conductor(mu, material.eta, material.k);
+	float  D  = ggx_D (omega_m, alpha_x, alpha_y);
+	float  G1 = ggx_G1(omega_o,                   alpha_x2, alpha_y2);
+	float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x2, alpha_y2);
+
+	pdf = G1 * D * mu / (4.0f * omega_i.z * omega_o.z);
+
+	return F * G2 * omega_o.z / (G1 * mu); // Includes cos(theta) term and division by pdf
 }
