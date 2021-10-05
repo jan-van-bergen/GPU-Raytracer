@@ -86,10 +86,10 @@ inline Vector3 operator-(const Vector3 & vector, float scalar) {                
 inline Vector3 operator*(const Vector3 & vector, float scalar) {                                   return Vector3(vector.x * scalar,     vector.y * scalar,     vector.z * scalar); }
 inline Vector3 operator/(const Vector3 & vector, float scalar) { float inv_scalar = 1.0f / scalar; return Vector3(vector.x * inv_scalar, vector.y * inv_scalar, vector.z * inv_scalar); }
 
-inline Vector3 operator+(float scalar, const Vector3 & vector) {                                   return Vector3(vector.x + scalar,     vector.y + scalar,     vector.z + scalar); }
-inline Vector3 operator-(float scalar, const Vector3 & vector) {                                   return Vector3(vector.x - scalar,     vector.y - scalar,     vector.z - scalar); }
-inline Vector3 operator*(float scalar, const Vector3 & vector) {                                   return Vector3(vector.x * scalar,     vector.y * scalar,     vector.z * scalar); }
-inline Vector3 operator/(float scalar, const Vector3 & vector) { float inv_scalar = 1.0f / scalar; return Vector3(vector.x * inv_scalar, vector.y * inv_scalar, vector.z * inv_scalar); }
+inline Vector3 operator+(float scalar, const Vector3 & vector) {                                   return Vector3(scalar + vector.x, scalar + vector.y, scalar + vector.z); }
+inline Vector3 operator-(float scalar, const Vector3 & vector) {                                   return Vector3(scalar - vector.x, scalar - vector.y, scalar - vector.z); }
+inline Vector3 operator*(float scalar, const Vector3 & vector) {                                   return Vector3(scalar * vector.x, scalar * vector.y, scalar * vector.z); }
+inline Vector3 operator/(float scalar, const Vector3 & vector) { float inv_scalar = 1.0f / scalar; return Vector3(scalar / vector.x, scalar / vector.y, scalar / vector.z); }
 
 inline bool operator==(const Vector3 & left, const Vector3 & right) { return left.x == right.x && left.y == right.y && left.z == right.z; }
 inline bool operator!=(const Vector3 & left, const Vector3 & right) { return left.x != right.x || left.y != right.y || left.z != right.z; }
