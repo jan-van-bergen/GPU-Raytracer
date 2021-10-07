@@ -8,8 +8,6 @@ struct Mesh;
 struct BVHBuilder {
 	BVH * bvh = nullptr;
 
-	Vector3 * centers = nullptr;
-
 	int * indices_x = nullptr;
 	int * indices_y = nullptr;
 	int * indices_z = nullptr;
