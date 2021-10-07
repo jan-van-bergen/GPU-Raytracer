@@ -1,5 +1,7 @@
 #include "AssetManager.h"
 
+#include "Math/Vector4.h"
+
 #include "BVHLoader.h"
 #include "TextureLoader.h"
 
@@ -8,7 +10,9 @@
 #include "BVH/BVHCollapser.h"
 #include "BVH/BVHOptimizer.h"
 
+#include "Util/Util.h"
 #include "Util/ScopeTimer.h"
+#include "Util/ThreadPool.h"
 
 BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
 	printf("Constructing BVH...\r");
@@ -40,7 +44,8 @@ BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
 }
 
 void AssetManager::init() {
-	thread_pool.init();
+	thread_pool = new ThreadPool();
+	thread_pool->init();
 }
 
 MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
@@ -75,14 +80,13 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 	if (texture_id.handle != INVALID) return texture_id;
 
 	// Otherwise, create new Texture and load it from disk
-	{
-		std::lock_guard<std::mutex> lock(textures_mutex);
 
-		texture_id.handle = textures.size();
-		textures.emplace_back();
-	}
+	textures_mutex.lock();
+	texture_id.handle = textures.size();
+	textures.emplace_back();
+	textures_mutex.lock();
 
-	thread_pool.submit([this, filename = _strdup(filename), texture_id]() {
+	thread_pool->submit([this, filename = _strdup(filename), texture_id]() {
 		const char * name = Util::find_last(filename, "/\\");
 		if (!name) {
 			name = "Texture";
@@ -117,10 +121,9 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 			texture.mip_offsets = new int(0);
 		}
 
-		{
-			std::lock_guard<std::mutex> lock(textures_mutex);
-			textures[texture_id.handle] = texture;
-		}
+		textures_mutex.lock();
+		textures[texture_id.handle] = texture;
+		textures_mutex.unlock();
 	});
 
 	return texture_id;
@@ -129,8 +132,9 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 void AssetManager::wait_until_loaded() {
 	if (assets_loaded) return; // Only necessary to wait the first time
 
-	thread_pool.sync();
-	thread_pool.free();
+	thread_pool->sync();
+	thread_pool->free();
+	delete thread_pool;
 
 	mesh_data_cache.clear();
 	texture_cache  .clear();

@@ -5,11 +5,11 @@
 
 #include "Config.h"
 
+#include "Util/Util.h"
 #include "Util/Array.h"
 #include "Util/ScopeTimer.h"
 
-static std::random_device device;
-static std::mt19937 rng(device());
+static std::default_random_engine random_engine;
 
 // Calculates the SAH cost of a whole tree
 static float bvh_sah_cost(const BVH & bvh) {
@@ -64,7 +64,7 @@ static void select_nodes_random(const BVH & bvh, const int parent_indices[], int
 	}
 
 	// Select a single batch of random Nodes from all viable Nodes
-	std::sample(temp, temp + offset, batch_indices, batch_size, rng);
+	std::sample(temp, temp + offset, batch_indices, batch_size, random_engine);
 
 	delete [] temp;
 }

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "StringView.h"
+#include "Util.h"
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp

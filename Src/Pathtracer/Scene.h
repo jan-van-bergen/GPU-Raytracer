@@ -1,7 +1,4 @@
 #pragma once
-#include <mutex>
-#include <thread>
-
 #include "Camera.h"
 #include "Mesh.h"
 #include "Sky.h"

@@ -45,6 +45,7 @@
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <EnableASAN>false</EnableASAN>
+    <EnableUnitySupport>true</EnableUnitySupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -53,6 +54,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <EnableASAN>false</EnableASAN>
+    <EnableUnitySupport>true</EnableUnitySupport>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -231,6 +233,7 @@
     <ClCompile Include="Src\Util\BitArray.cpp" />
     <ClCompile Include="Src\Util\BlueNoise.cpp" />
     <ClCompile Include="Src\Util\Geometry.cpp" />
+    <ClCompile Include="Src\Util\Mutex.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />
     <ClCompile Include="Src\Util\PMJ.cpp" />
     <ClCompile Include="Src\Util\Shader.cpp" />
@@ -292,6 +295,7 @@
     <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\Geometry.h" />
     <ClInclude Include="Src\Util\HashMap.h" />
+    <ClInclude Include="Src\Util\Mutex.h" />
     <ClInclude Include="Src\Util\Parser.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\PMJ.h" />

@@ -1,6 +1,7 @@
 #include "Scene.h"
 
 #include <ctype.h>
+#include <stdio.h>
 
 #include "Assets/Material.h"
 #include "Assets/OBJLoader.h"

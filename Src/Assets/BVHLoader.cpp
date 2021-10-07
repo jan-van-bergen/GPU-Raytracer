@@ -1,5 +1,8 @@
 #include "BVHLoader.h"
 
+#include <stdio.h>
+#include <string.h>
+
 #include "Util/Util.h"
 
 const char * BVHLoader::get_bvh_filename(const char * filename) {

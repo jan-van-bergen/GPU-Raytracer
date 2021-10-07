@@ -2,6 +2,9 @@
 #include "Assets/MeshData.h"
 #include "Assets/Material.h"
 
+#include "Math/Quaternion.h"
+#include "Math/Matrix4.h"
+
 struct Scene;
 
 struct Mesh {
