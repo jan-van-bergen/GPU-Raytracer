@@ -496,14 +496,32 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		inner_bsdf_type == "bumpmap" ||
 		inner_bsdf_type == "coating"
 	) {
-		inner_bsdf      = inner_bsdf->find_child("bsdf");
+		const XMLNode * inner_bsdf_child = inner_bsdf->find_child("bsdf");
+		if (inner_bsdf_child) {
+			inner_bsdf = inner_bsdf_child;
+		} else {
+			const XMLNode * ref = inner_bsdf->find_child("ref");
+			if (ref) {
+				StringView id = ref->get_attribute_value<StringView>("id");
+
+				MaterialHandle material_handle;
+				if (material_map.try_get(id, material_handle)) {
+					return material_handle;
+				} else {
+					WARNING(ref->location, "Invalid material Ref '%.*s'!\n", unsigned(id.length()), id.start);
+					return MaterialHandle::get_default();
+				}
+			} else {
+				return MaterialHandle::get_default();
+			}
+		}
+
 		inner_bsdf_type = inner_bsdf->get_attribute_value<StringView>("type");
 
 		if (name == nullptr) {
 			name = inner_bsdf->find_attribute("id");
 		}
 	}
-
 	if (name) {
 		material.name = name->value.c_str();
 	} else {
@@ -1168,6 +1186,25 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			}
 		} else {
 			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
+		}
+	} else if (node->tag == "emitter") {
+		const StringView & emitter_type = node->get_attribute_value<StringView>("type");
+
+		if (emitter_type == "area") {
+			WARNING(node->location, "Area emitter defined without geometry!\n");
+		} else if (emitter_type == "envmap") {
+			const StringView & filename_rel = node->get_child_value<StringView>("filename");
+
+			const char * extension = Util::find_last(filename_rel.start, ".");
+			if (!extension) {
+				WARNING(node->location, "Environment Map '%.*s' has no file extension!\n", unsigned(filename_rel.length()), filename_rel.start)
+			} else if (strcmp(extension, "hdr") != 0) {
+				WARNING(node->location, "Only HDR Environment Maps are supported!\n");
+			} else {
+				config.sky = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+			}
+		} else {
+			WARNING(node->location, "Emitter type '%.*s' is not supported!\n", unsigned(emitter_type.length()), emitter_type.start);
 		}
 	} else if (node->tag == "include") {
 		const StringView & filename_rel = node->get_attribute_value<StringView>("filename");

@@ -3,17 +3,13 @@
 
 #include "Util/BitArray.h"
 
-namespace BVHPartitions {
-	struct PrimitiveRef;
-}
+struct PrimitiveRef;
 
 struct SBVHBuilder {
 private:
 	static constexpr int SBVH_OVERALLOCATION = 4; // SBVH requires more space
 
 	BVH * sbvh = nullptr;
-
-	using PrimitiveRef = BVHPartitions::PrimitiveRef;
 
 	PrimitiveRef * indices_x = nullptr;
 	PrimitiveRef * indices_y = nullptr;
@@ -25,8 +21,7 @@ private:
 	int            indices_going_right_offset;
 
 	// Scatch memory
-	float * sah    = nullptr;
-	AABB  * bounds = nullptr;
+	float * sah = nullptr;
 	BitArray indices_going_left;
 	BitArray indices_going_right;
 

@@ -64,7 +64,7 @@ int main(int arg_count, char ** args) {
 		window.resize_handler = &window_resize;
 
 		CUDAContext::init();
-		pathtracer.init(config.scene, config.sky, window.frame_buffer_handle, config.initial_width, config.initial_height);
+		pathtracer.init(config.scene, window.frame_buffer_handle, config.initial_width, config.initial_height);
 
 		perf_test.init(&pathtracer, false, config.scene);
 	}
@@ -190,6 +190,7 @@ static void parse_args(int arg_count, char ** args) {
 		Option { nullptr, "albedo", "Enables or disables albedo",                       1, [](int arg_count, char ** args, int i) { config.enable_albedo                       = atob(args[i + 1]); } },
 		Option { nullptr, "nee",    "Enables or disables Next Event Estimation",        1, [](int arg_count, char ** args, int i) { config.enable_next_event_estimation        = atob(args[i + 1]); } },
 		Option { nullptr, "mis",    "Enables or disables Multiple Importance Sampling", 1, [](int arg_count, char ** args, int i) { config.enable_multiple_importance_sampling = atob(args[i + 1]); } },
+		Option { nullptr, "force-rebuild", "BVH will not be loaded from disk but rebuild from scratch",                                           0, [](int arg_count, char ** args, int i) { config.bvh_force_rebuild             = true; } },
 		Option { "O",     "optimize",    "Enables or disables BVH optimzation post-processing step",                                              1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
 		Option { "Ot",    "opt-time",    "Sets time limit (in seconds) for BVH optimization",                                                     1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
 		Option { "Ob",    "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization",                                1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },

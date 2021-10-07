@@ -630,10 +630,12 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 
 	if (k < 0.0f) { // Total Internal Reflection
 		direction_out = ray_direction_reflected;
+		origin_out    = ray_origin_epsilon_offset(hit_point, hit_normal);
 	} else {
 		float3 ray_direction_refracted = normalize(eta * ray_direction + (eta * cos_theta - sqrtf(k)) * hit_normal);
+		float cos_theta_o = -dot(ray_direction_refracted, hit_normal);
 
-		float fresnel      = fresnel_dielectric(cos_theta, -dot(ray_direction_refracted, hit_normal), eta);
+		float fresnel      = fresnel_dielectric(cos_theta, cos_theta_o, eta);
 		float rand_fresnel = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index).x;
 
 		if (rand_fresnel < fresnel) {
@@ -642,6 +644,8 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 		} else {
 			direction_out = ray_direction_refracted;
 			origin_out    = ray_origin_epsilon_offset(hit_point, -hit_normal);
+
+			ray_throughput *= eta * eta; // Account for solid angle compression
 		}
 	}
 
@@ -787,13 +791,10 @@ extern "C" __global__ void kernel_shade_glossy(int bounce, int sample_index) {
 	// Importance sample distribution of normals
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 
-	float3 micro_normal_local = sample_ggx_distribution_of_normals(omega_i, material.roughness, material.roughness, rand_brdf.x, rand_brdf.y);
-	float3 omega_o = reflect(-omega_i, micro_normal_local);
-
-	float pdf;
-	throughput *= ggx_eval(material, omega_o, omega_i, pdf) * omega_o.z;
-	throughput /= pdf;
-
+	float  pdf;
+	float3 omega_o;
+	throughput *= ggx_sample(material, rand_brdf.x, rand_brdf.y, omega_i, omega_o, pdf);
+	
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
 	
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);

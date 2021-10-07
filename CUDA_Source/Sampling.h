@@ -4,6 +4,21 @@
 __device__ __constant__ float2 * pmj_samples;
 __device__ __constant__ uchar2 * blue_noise_textures;
 
+__device__ __constant__ float lights_total_weight;
+
+struct alignas(float2) ProbAlias {
+	float prob;
+	int   alias;
+};
+
+__device__ __constant__ const int       * light_indices;
+__device__ __constant__ const ProbAlias * light_prob_alias;
+
+__device__ __constant__ int               light_mesh_count;
+__device__ __constant__ const ProbAlias * light_mesh_prob_alias;
+__device__ __constant__ const int2      * light_mesh_first_index_and_triangle_count;
+__device__ __constant__ const int       * light_mesh_transform_index;
+
 __device__ inline float balance_heuristic(float pdf_f, float pdf_g) {
 	return pdf_f / (pdf_f + pdf_g);
 }

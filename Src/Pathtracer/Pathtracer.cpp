@@ -18,8 +18,8 @@
 #include "Util/HashMap.h"
 #include "Util/ScopeTimer.h"
 
-void Pathtracer::init(const char * scene_name, const char * sky_name, unsigned frame_buffer_handle, int width, int height) {
-	scene.init(scene_name, sky_name);
+void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle, int width, int height) {
+	scene.init(scene_name);
 
 	cuda_init(frame_buffer_handle, width, height);
 

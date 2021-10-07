@@ -22,7 +22,7 @@ struct Scene {
 
 	int triangle_count = 0;
 
-	void init(const char * scene_name, const char * sky_name);
+	void init(const char * scene_name);
 
 	Mesh & add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
 

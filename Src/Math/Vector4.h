@@ -81,10 +81,10 @@ inline Vector4 operator-(const Vector4 & vector, float scalar) {                
 inline Vector4 operator*(const Vector4 & vector, float scalar) {                                   return Vector4(vector.x * scalar,     vector.y * scalar,     vector.z * scalar,     vector.w * scalar); }
 inline Vector4 operator/(const Vector4 & vector, float scalar) { float inv_scalar = 1.0f / scalar; return Vector4(vector.x * inv_scalar, vector.y * inv_scalar, vector.z * inv_scalar, vector.w * inv_scalar); }
 
-inline Vector4 operator+(float scalar, const Vector4 & vector) {                                   return Vector4(vector.x + scalar,     vector.y + scalar,     vector.z + scalar,     vector.z + scalar); }
-inline Vector4 operator-(float scalar, const Vector4 & vector) {                                   return Vector4(vector.x - scalar,     vector.y - scalar,     vector.z - scalar,     vector.z - scalar); }
-inline Vector4 operator*(float scalar, const Vector4 & vector) {                                   return Vector4(vector.x * scalar,     vector.y * scalar,     vector.z * scalar,     vector.z * scalar); }
-inline Vector4 operator/(float scalar, const Vector4 & vector) { float inv_scalar = 1.0f / scalar; return Vector4(vector.x * inv_scalar, vector.y * inv_scalar, vector.z * inv_scalar, vector.z * inv_scalar); }
+inline Vector4 operator+(float scalar, const Vector4 & vector) {                                   return Vector4(scalar + vector.x, scalar + vector.y, scalar + vector.z, scalar + vector.w); }
+inline Vector4 operator-(float scalar, const Vector4 & vector) {                                   return Vector4(scalar - vector.x, scalar - vector.y, scalar - vector.z, scalar - vector.w); }
+inline Vector4 operator*(float scalar, const Vector4 & vector) {                                   return Vector4(scalar * vector.x, scalar * vector.y, scalar * vector.z, scalar * vector.w); }
+inline Vector4 operator/(float scalar, const Vector4 & vector) { float inv_scalar = 1.0f / scalar; return Vector4(scalar / vector.x, scalar / vector.y, scalar / vector.z, scalar / vector.w); }
 
 inline bool operator==(const Vector4 & left, const Vector4 & right) { return left.x == right.x && left.y == right.y && left.z == right.z && left.w == right.w; }
 inline bool operator!=(const Vector4 & left, const Vector4 & right) { return left.x != right.x || left.y != right.y || left.z != right.z || left.w != right.w; }
