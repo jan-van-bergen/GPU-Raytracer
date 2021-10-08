@@ -346,5 +346,8 @@
     <ClInclude Include="Src\Util\MinHeap.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Util\Random.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

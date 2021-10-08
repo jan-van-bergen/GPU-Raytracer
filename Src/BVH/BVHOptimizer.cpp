@@ -1,15 +1,12 @@
 #include "BVHOptimizer.h"
 
-#include <random>
-
 #include "Config.h"
 
 #include "Util/Util.h"
+#include "Util/Random.h"
 #include "Util/Array.h"
 #include "Util/MinHeap.h"
 #include "Util/ScopeTimer.h"
-
-static std::default_random_engine random_engine;
 
 // Calculates the SAH cost of a whole tree
 static float bvh_sah_cost(const BVH & bvh) {
@@ -52,7 +49,7 @@ static void init_parent_indices(const BVH & bvh, int parent_indices[], int node_
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
-static void select_nodes_random(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[]) {
+static void select_nodes_random(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[], RNG & rng) {
 	int offset = 0;
 	int * temp = new int[bvh.node_count];
 
@@ -63,8 +60,7 @@ static void select_nodes_random(const BVH & bvh, const int parent_indices[], int
 		}
 	}
 
-	// Select a single batch of random Nodes from all viable Nodes
-	std::sample(temp, temp + offset, batch_indices, batch_size, random_engine);
+	Util::sample(temp, temp + offset, batch_indices, batch_indices + batch_size, rng);
 
 	delete [] temp;
 }
@@ -93,10 +89,17 @@ static void select_nodes_measure(const BVH & bvh, const int parent_indices[], in
 		}
 	}
 
-	// Select 'batch_size' worst Nodes
-	std::partial_sort(batch_indices, batch_indices + batch_size, batch_indices + offset, [&](int a, int b) {
+	auto cmp = [costs](int a, int b) {
 		return costs[a] > costs[b];
-	});
+	};
+	MinHeap<int, decltype(cmp)> heap(cmp);
+
+	for (int i = 0; i < offset; i++) {
+		heap.insert(batch_indices[i]);
+	}
+	for (int i = 0; i < batch_size; i++) {
+		batch_indices[i] = heap.pop();
+	}
 
 	delete [] costs;
 }
@@ -245,12 +248,15 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	int * originated   = new int[bvh.node_count];
 	int * displacement = new int[bvh.node_count];
 
+	RNG rng = { };
+	rng.init(time(nullptr));
+
 	clock_t start_time = clock();
 
 	while (true) {
 		// Select a batch of internal Nodes, either randomly or using a heuristic measure
 		switch (node_selection_method) {
-			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices); break;
+			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices, rng); break;
 			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, batch_indices); break;
 
 			default: abort();

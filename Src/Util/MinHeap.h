@@ -4,6 +4,9 @@
 template<typename T, typename Cmp = std::less<T>>
 struct MinHeap {
 	Array<T> data;
+	Cmp cmp;
+
+	constexpr MinHeap(Cmp cmp = { }) : cmp(cmp) { }
 
 	constexpr void insert(T item) {
 		size_t size = data.size();
@@ -23,7 +26,7 @@ struct MinHeap {
 
 		T result = data[0];
 
-		if (size() > 1) {
+		if (size() >= 2) {
 			data[0] = data[size() - 1];
 			data.pop_back();
 			heapify_down(0);
@@ -47,7 +50,6 @@ private:
 
 		size_t parent = (index - 1) / 2;
 
-		Cmp cmp = { };
 		if (!cmp(data[parent], data[index])) {
 			swap(index, parent);
 			heapify_up(parent);
@@ -60,7 +62,6 @@ private:
 
 		size_t smallest = index;
 
-		Cmp cmp = { };
 		if (left  < size() && cmp(data[left],  data[smallest])) smallest = left;
 		if (right < size() && cmp(data[right], data[smallest])) smallest = right;
 
