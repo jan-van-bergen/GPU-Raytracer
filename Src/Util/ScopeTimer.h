@@ -15,16 +15,17 @@ public:
 
 	inline ~ScopeTimer() {
 		clock_t stop_time = clock();
-		size_t  duration  = (stop_time - start_time) * 1000 / CLOCKS_PER_SEC;
 
-		if (duration >= 60'000'000) {
-			printf("%s took: %llu s (%llu min)\n", name, duration / 1'000'000, duration / 60'000'000);
-		} else if (duration >= 1'000'000) {
-			printf("%s took: %llu us (%llu s)\n", name, duration, duration / 1'000'000);
-		} else if (duration >= 1'000) {
-			printf("%s took: %llu us (%llu ms)\n", name, duration, duration / 1'000);
+		size_t duration_in_ms  = (stop_time - start_time) * 1000 / CLOCKS_PER_SEC;
+		size_t duration_in_s   = duration_in_ms / 1000;
+		size_t duration_in_min = duration_in_s  / 60;
+
+		if (duration_in_min > 0) {
+			printf("%s took: %llu s (%llu min)\n", name, duration_in_s, duration_in_min);
+		} else if (duration_in_s > 0) {
+			printf("%s took: %llu us (%llu s)\n", name, duration_in_ms, duration_in_s);
 		} else {
-			printf("%s took: %llu us\n", name, duration);
+			printf("%s took: %llu ms\n", name, duration_in_ms);
 		}
 	}
 };
