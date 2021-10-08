@@ -300,6 +300,7 @@
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\PMJ.h" />
     <ClInclude Include="Src\Util\MinHeap.h" />
+    <ClInclude Include="Src\Util\Queue.h" />
     <ClInclude Include="Src\Util\Random.h" />
     <ClInclude Include="Src\Util\ScopeTimer.h" />
     <ClInclude Include="Src\Util\Shader.h" />

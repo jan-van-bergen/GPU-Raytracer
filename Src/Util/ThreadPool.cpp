@@ -14,8 +14,7 @@ void ThreadPool::init(int thread_count) {
 
 					if (is_done) return;
 
-					work = std::move(work_queue.front());
-					work_queue.pop();
+					work = std::move(work_queue.pop());
 				}
 				work();
 
