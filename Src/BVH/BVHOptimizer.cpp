@@ -1,12 +1,12 @@
 #include "BVHOptimizer.h"
 
-#include <queue>
 #include <random>
 
 #include "Config.h"
 
 #include "Util/Util.h"
 #include "Util/Array.h"
+#include "Util/MinHeap.h"
 #include "Util/ScopeTimer.h"
 
 static std::default_random_engine random_engine;
@@ -105,18 +105,20 @@ static void select_nodes_measure(const BVH & bvh, const int parent_indices[], in
 static void find_reinsertion(const BVH & bvh, const BVHNode2 & node_reinsert, float & min_cost, int & min_index) {
 	float node_reinsert_area = node_reinsert.aabb.surface_area();
 
-	// Compare based on induced cost
-	auto cmp = [](const std::pair<int, float> & a, const std::pair<int, float> & b) {
-		return a.second < b.second;
+	struct Pair {
+		int   node_index;
+		float induced_cost;
+
+		bool operator<(Pair other) const {
+			return induced_cost < other.induced_cost; // Compare based on induced cost
+		}
 	};
 
-	std::priority_queue<std::pair<int, float>, Array<std::pair<int, float>>, decltype(cmp)> priority_queue(cmp);
-
+	MinHeap<Pair> priority_queue;
 	priority_queue.emplace(0, 0.0f); // Push BVH root with 0 induced cost
 
 	while (priority_queue.size() > 0) {
-		auto [node_index, induced_cost] = priority_queue.top();
-		priority_queue.pop();
+		auto [node_index, induced_cost] = priority_queue.pop();
 
 		const BVHNode2 & node = bvh.nodes_2[node_index];
 

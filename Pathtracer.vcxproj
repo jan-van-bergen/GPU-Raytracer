@@ -299,6 +299,7 @@
     <ClInclude Include="Src\Util\Parser.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\PMJ.h" />
+    <ClInclude Include="Src\Util\MinHeap.h" />
     <ClInclude Include="Src\Util\ScopeTimer.h" />
     <ClInclude Include="Src\Util\Shader.h" />
     <ClInclude Include="Src\Util\String.h" />
