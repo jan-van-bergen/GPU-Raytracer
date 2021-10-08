@@ -1,27 +1,28 @@
 #pragma once
-#include <chrono>
+#include <time.h>
+#include <stdio.h>
 
 // Timer that records the time between its construction and destruction
 struct ScopeTimer {
 private:
 	const char * name;
-	std::chrono::high_resolution_clock::time_point start_time;
+	clock_t start_time;
 
 public:
 	inline ScopeTimer(const char * name) : name(name) {
-		start_time = std::chrono::high_resolution_clock::now();
+		start_time = clock();
 	}
 
 	inline ~ScopeTimer() {
-		std::chrono::time_point stop_time = std::chrono::high_resolution_clock::now();
-		unsigned long long      duration  = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
+		clock_t stop_time = clock();
+		size_t  duration  = (stop_time - start_time) * 1000 / CLOCKS_PER_SEC;
 
-		if (duration >= 60000000) {
-			printf("%s took: %llu s (%llu min)\n", name, duration / 1000000, duration / 60000000);
-		} else if (duration >= 1000000) {
-			printf("%s took: %llu us (%llu s)\n", name, duration, duration / 1000000);
-		} else if (duration >= 1000) {
-			printf("%s took: %llu us (%llu ms)\n", name, duration, duration / 1000);
+		if (duration >= 60'000'000) {
+			printf("%s took: %llu s (%llu min)\n", name, duration / 1'000'000, duration / 60'000'000);
+		} else if (duration >= 1'000'000) {
+			printf("%s took: %llu us (%llu s)\n", name, duration, duration / 1'000'000);
+		} else if (duration >= 1'000) {
+			printf("%s took: %llu us (%llu ms)\n", name, duration, duration / 1'000);
 		} else {
 			printf("%s took: %llu us\n", name, duration);
 		}
