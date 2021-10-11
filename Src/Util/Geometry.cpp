@@ -164,9 +164,6 @@ void Geometry::cylinder(Triangle *& triangles, int & triangle_count, const Matri
 	ortho_0 *= radius;
 	ortho_1 *= radius;
 
-	Vector3 vertex_prev_bottom = Matrix4::transform_position(transform, p0_world + ortho_0);
-	Vector3 vertex_prev_top    = Matrix4::transform_position(transform, p1_world + ortho_0);
-
 	Vector3 normal_prev        = Vector3::normalize(ortho_0);
 	Vector3 vertex_offset_prev = ortho_0;
 

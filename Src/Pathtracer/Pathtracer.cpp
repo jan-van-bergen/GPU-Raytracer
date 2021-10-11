@@ -619,13 +619,11 @@ void Pathtracer::calc_light_power() {
 
 	using It = decltype(mesh_data_used_as_lights)::Iterator;
 
-	for (auto it = mesh_data_used_as_lights.begin(); it != mesh_data_used_as_lights.end(); ++it) {
+	for (It it = mesh_data_used_as_lights.begin(); it != mesh_data_used_as_lights.end(); ++it) {
 		MeshDataHandle  mesh_data_handle = MeshDataHandle { it.get_key() };
 		Array<Mesh *> & meshes           = it.get_value();
 
 		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
-
-		int light_index = light_mesh_datas.size();
 
 		LightMeshData & light_mesh_data = light_mesh_datas.emplace_back();
 		light_mesh_data.first_triangle_index = light_triangles.size();

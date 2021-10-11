@@ -296,27 +296,25 @@ private:
 
 	double * light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
 
-	struct CUDAMaterial {
-		union {
-			struct {
-				Vector3 emission;
-			} light;
-			struct {
-				Vector3 alignas(float4) diffuse;
-				int                     texture_id;
-			} diffuse;
-			struct {
-				Vector3 alignas(float4) negative_absorption;
-				float                   index_of_refraction;
-			} dielectric;
-			struct {
-				Vector3 alignas(float4) diffuse;
-				int                     texture_id;
-				Vector3 alignas(float4) eta;
-				Vector3                 k;
-				float                   roughness;
-			} glossy;
-		};
+	union alignas(float4) CUDAMaterial {
+		struct {
+			Vector3 emission;
+		} light;
+		struct {
+			Vector3 diffuse;
+			int     texture_id;
+		} diffuse;
+		struct {
+			Vector3 negative_absorption;
+			float   index_of_refraction;
+		} dielectric;
+		struct {
+			Vector3 diffuse;
+			int     texture_id;
+			Vector3 eta;
+			Vector3 k;
+			float   roughness;
+		} glossy;
 	};
 
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;

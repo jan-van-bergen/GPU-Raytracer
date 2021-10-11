@@ -106,8 +106,6 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 		node.count = 0;
 		node.axis  = spatial_split.dimension;
 
-		int temp_left = 0, temp_right = 0;
-
 		// Keep track of amount of rejected references on both sides for debugging purposes
 		int rejected_left  = 0;
 		int rejected_right = 0;
@@ -117,7 +115,6 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 
 		float bounds_min  = node.aabb.min[spatial_split.dimension] - 0.001f;
 		float bounds_max  = node.aabb.max[spatial_split.dimension] + 0.001f;
-		float bounds_step = (bounds_max - bounds_min) / BVHPartitions::SBVH_BIN_COUNT;
 
 		float inv_bounds_delta = 1.0f / (bounds_max - bounds_min);
 

@@ -52,7 +52,7 @@ void AssetManager::init() {
 }
 
 MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
-	MeshDataHandle mesh_data_id = { mesh_datas.size() };
+	MeshDataHandle mesh_data_id = { int(mesh_datas.size()) };
 	mesh_datas.push_back(mesh_data);
 
 	return mesh_data_id;
@@ -70,7 +70,7 @@ MeshDataHandle AssetManager::add_mesh_data(Triangle * triangles, int triangle_co
 }
 
 MaterialHandle AssetManager::add_material(const Material & material) {
-	MaterialHandle material_id = { materials.size() };
+	MaterialHandle material_id = { int(materials.size()) };
 	materials.push_back(material);
 
 	return material_id;
