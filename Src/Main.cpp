@@ -48,6 +48,8 @@ struct Timing {
 static int last_pixel_query_x;
 static int last_pixel_query_y;
 
+static SceneConfig scene_config = { };
+
 static void parse_args(int arg_count, char ** args);
 static void capture_screen(const Window & window, const char * file_name);
 static void window_resize(unsigned frame_buffer_handle, int width, int height);
@@ -57,6 +59,13 @@ static void draw_gui();
 int main(int arg_count, char ** args) {
 	parse_args(arg_count, args);
 
+	if (scene_config.scenes.size() == 0) {
+		scene_config.scenes.push_back("Data/cornellbox/scene.xml");
+	}
+	if (scene_config.sky == nullptr) {
+		scene_config.sky = "Data/Skies/sky_15.hdr";
+	}
+
 	{
 		ScopeTimer timer("Initialization");
 
@@ -64,9 +73,9 @@ int main(int arg_count, char ** args) {
 		window.resize_handler = &window_resize;
 
 		CUDAContext::init();
-		pathtracer.init(config.scene, window.frame_buffer_handle, config.initial_width, config.initial_height);
+		pathtracer.init(scene_config, window.frame_buffer_handle, config.initial_width, config.initial_height);
 
-		perf_test.init(&pathtracer, false, config.scene);
+		perf_test.init(&pathtracer, false, scene_config.scenes[0]);
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
@@ -166,14 +175,16 @@ static void parse_args(int arg_count, char ** args) {
 	};
 
 	static Array<Option> options = {
-		Option { "W", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width      = atoi(args[i + 1]); } },
-		Option { "H", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height     = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces        = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.output_frame_index = atoi(args[i + 1]); } },
-		Option { "o", "output",  "Sets path to output file. Supported formats: ppm",                      1, [](int arg_count, char ** args, int i) { config.output_name        = args[i + 1]; } },
-		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene              = args[i + 1]; } },
-		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                = args[i + 1]; } },
-		Option { "b", "bvh",     "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh",      1, [](int arg_count, char ** args, int i) {
+		Option { "W", "width",   "Sets the width of the window",                     1, [](int arg_count, char ** args, int i) { config.initial_width      = atoi(args[i + 1]); } },
+		Option { "H", "height",  "Sets the height of the window",                    1, [](int arg_count, char ** args, int i) { config.initial_height     = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  "Sets the number of pathtracing bounces",           1, [](int arg_count, char ** args, int i) { config.num_bounces        = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", "Sets a target number of samples to use",           1, [](int arg_count, char ** args, int i) { config.output_frame_index = atoi(args[i + 1]); } },
+		Option { "o", "output",  "Sets path to output file. Supported formats: ppm", 1, [](int arg_count, char ** args, int i) { config.output_name        = args[i + 1]; } },
+
+		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { scene_config.scenes.push_back(args[i + 1]); } },
+		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { scene_config.sky = args[i + 1]; } },
+
+		Option { "b", "bvh", "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh", 1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
 				config.bvh_type = BVHType::BVH;
 			} else if (strcmp(args[i + 1], "sbvh") == 0) {
@@ -187,18 +198,23 @@ static void parse_args(int arg_count, char ** args) {
 				abort();
 			}
 		} },
+
 		Option { nullptr, "albedo", "Enables or disables albedo",                       1, [](int arg_count, char ** args, int i) { config.enable_albedo                       = atob(args[i + 1]); } },
 		Option { nullptr, "nee",    "Enables or disables Next Event Estimation",        1, [](int arg_count, char ** args, int i) { config.enable_next_event_estimation        = atob(args[i + 1]); } },
 		Option { nullptr, "mis",    "Enables or disables Multiple Importance Sampling", 1, [](int arg_count, char ** args, int i) { config.enable_multiple_importance_sampling = atob(args[i + 1]); } },
+
 		Option { nullptr, "force-rebuild", "BVH will not be loaded from disk but rebuild from scratch",                                           0, [](int arg_count, char ** args, int i) { config.bvh_force_rebuild             = true; } },
-		Option { "O",     "optimize",    "Enables or disables BVH optimzation post-processing step",                                              1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
-		Option { "Ot",    "opt-time",    "Sets time limit (in seconds) for BVH optimization",                                                     1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
-		Option { "Ob",    "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization",                                1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+
+		Option { "O",  "optimize",    "Enables or disables BVH optimzation post-processing step",               1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
+		Option { "Ot", "opt-time",    "Sets time limit (in seconds) for BVH optimization",                      1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
+		Option { "Ob", "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization", 1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+
 		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
 		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
 		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
-		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                                1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
-		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser",            1, [](int arg_count, char ** args, int i) {
+
+		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                     1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
+		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser", 1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "box") == 0) {
 				config.mipmap_filter = Config::MipmapFilter::BOX;
 			} else if (strcmp(args[i + 1], "lanczos") == 0) {
@@ -268,7 +284,7 @@ static void parse_args(int arg_count, char ** args) {
 			}
 		} else {
 			// Without explicit option, assume scene name
-			config.scene = arg;
+			scene_config.scenes.push_back(arg);
 		}
 	}
 }

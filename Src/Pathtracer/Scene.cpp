@@ -10,7 +10,7 @@
 
 #include "Util/Util.h"
 
-void Scene::init(const char * scene_name) {
+void Scene::init(const SceneConfig & scene_config) {
 	camera.init(DEG_TO_RAD(110.0f));
 
 	asset_manager.init();
@@ -21,25 +21,29 @@ void Scene::init(const char * scene_name) {
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
 	asset_manager.add_material(default_material);
 
-	const char * file_extension = Util::find_last(scene_name, ".");
-	if (!file_extension) {
-		printf("ERROR: File '%s' has no file extension, cannot deduce file format!\n", scene_name);
-		abort();
-	}
+	for (int i = 0; i < scene_config.scenes.size(); i++) {
+		const char * scene_name = scene_config.scenes[i];
 
-	if (strcmp(file_extension, "obj") == 0) {
-		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, OBJLoader::load));
-	} else if (strcmp(file_extension, "ply") == 0) {
-		add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, PLYLoader::load));
-	} else if (strcmp(file_extension, "xml") == 0) {
-		MitsubaLoader::load(scene_name, *this);
-	} else {
-		printf("ERROR: '%s' file format is not supported!\n", file_extension);
-		abort();
+		const char * file_extension = Util::find_last(scene_name, ".");
+		if (!file_extension) {
+			printf("ERROR: File '%s' has no file extension, cannot deduce file format!\n", scene_name);
+			abort();
+		}
+
+		if (strcmp(file_extension, "obj") == 0) {
+			add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, OBJLoader::load));
+		} else if (strcmp(file_extension, "ply") == 0) {
+			add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, PLYLoader::load));
+		} else if (strcmp(file_extension, "xml") == 0) {
+			MitsubaLoader::load(scene_name, *this);
+		} else {
+			printf("ERROR: '%s' file format is not supported!\n", file_extension);
+			abort();
+		}
 	}
 
 	// Initialize Sky
-	sky.init(config.sky);
+	sky.init(scene_config.sky);
 }
 
 Mesh & Scene::add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {

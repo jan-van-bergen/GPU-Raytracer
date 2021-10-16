@@ -5,6 +5,11 @@
 
 #include "Assets/AssetManager.h"
 
+struct SceneConfig {
+	Array<const char *> scenes;
+	const char * sky = nullptr;
+};
+
 struct Scene {
 	AssetManager asset_manager;
 
@@ -17,7 +22,7 @@ struct Scene {
 	bool has_glossy     = false;
 	bool has_lights     = false;
 
-	void init(const char * scene_name);
+	void init(const SceneConfig & scene_config);
 
 	Mesh & add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
 
