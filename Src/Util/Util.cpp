@@ -43,7 +43,7 @@ char * Util::file_read(const char * filename, int & file_length) {
 	fopen_s(&file, filename, "rb");
 
 	if (file == nullptr) {
-		printf("ERROR: Unable to open %s!\n", filename);
+		printf("ERROR: Unable to open '%s'!\n", filename);
 		abort();
 	}
 

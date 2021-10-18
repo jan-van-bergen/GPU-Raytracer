@@ -139,7 +139,7 @@ struct BufferSizes {
 	int trace     [MAX_BOUNCES];
 	int diffuse   [MAX_BOUNCES];
 	int dielectric[MAX_BOUNCES];
-	int glossy    [MAX_BOUNCES];
+	int conductor [MAX_BOUNCES];
 	int shadow    [MAX_BOUNCES];
 
 	int rays_retired       [MAX_BOUNCES];
@@ -217,7 +217,7 @@ private:
 	CUDAKernel kernel_sort;
 	CUDAKernel kernel_shade_diffuse;
 	CUDAKernel kernel_shade_dielectric;
-	CUDAKernel kernel_shade_glossy;
+	CUDAKernel kernel_shade_conductor;
 	CUDAKernel kernel_trace_shadow_bvh;
 	CUDAKernel kernel_trace_shadow_qbvh;
 	CUDAKernel kernel_trace_shadow_cwbvh;
@@ -240,11 +240,11 @@ private:
 
 	TraceBuffer     ray_buffer_trace;
 	MaterialBuffer  ray_buffer_shade_diffuse;
-	MaterialBuffer  ray_buffer_shade_dielectric_and_glossy;
+	MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
 	ShadowRayBuffer ray_buffer_shadow;
 
 	CUDAModule::Global global_ray_buffer_shade_diffuse;
-	CUDAModule::Global global_ray_buffer_shade_dielectric_and_glossy;
+	CUDAModule::Global global_ray_buffer_shade_dielectric_and_conductor;
 	CUDAModule::Global global_ray_buffer_shadow;
 
 	BufferSizes * pinned_buffer_sizes;
@@ -307,6 +307,7 @@ private:
 		struct {
 			Vector3 negative_absorption;
 			float   index_of_refraction;
+			float   roughness;
 		} dielectric;
 		struct {
 			Vector3 diffuse;
@@ -314,7 +315,7 @@ private:
 			Vector3 eta;
 			Vector3 k;
 			float   roughness;
-		} glossy;
+		} conductor;
 	};
 
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;
@@ -373,7 +374,7 @@ private:
 	CUDAEvent::Desc event_desc_sort [MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shade_diffuse   [MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shade_dielectric[MAX_BOUNCES];
-	CUDAEvent::Desc event_desc_shade_glossy    [MAX_BOUNCES];
+	CUDAEvent::Desc event_desc_shade_conductor [MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shadow_trace[MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_svgf_reproject;
 	CUDAEvent::Desc event_desc_svgf_variance;

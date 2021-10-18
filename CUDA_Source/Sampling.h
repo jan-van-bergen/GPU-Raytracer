@@ -138,7 +138,7 @@ __device__ float3 sample_cosine_weighted_direction(float u1, float u2) {
 }
 
 // Based on: Heitz - Sampling the GGX Distribution of Visible Normals
-__device__ float3 sample_ggx_distribution_of_normals(const float3 & omega, float alpha_x, float alpha_y, float u1, float u2){
+__device__ float3 sample_visible_normals_ggx(const float3 & omega, float alpha_x, float alpha_y, float u1, float u2){
 	// Transform the view direction to the hemisphere configuration
 	float3 v = normalize(make_float3(alpha_x * omega.x, alpha_y * omega.y, omega.z));
 
@@ -153,13 +153,13 @@ __device__ float3 sample_ggx_distribution_of_normals(const float3 & omega, float
 	float t2 = d.y;
 
 	float s = 0.5f * (1.0f + v.z);
-	t2 = (1.0f - s) * sqrtf(1.0 - t1*t1) + s*t2;
+	t2 = (1.0f - s) * sqrtf(1.0f - t1*t1) + s*t2;
 
 	// Reproject onto hemisphere
-	float3 n_h = t1*axis_1 + t2*axis_2 + sqrtf(fmaxf(0.0f, 1.0f - t1*t1 - t2*t2)) * v;
+	float3 n_h = t1*axis_1 + t2*axis_2 + safe_sqrt(1.0f - t1*t1 - t2*t2) * v;
 
 	// Transform the normal back to the ellipsoid configuration
-	return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, fmaxf(0.0f, n_h.z)));
+	return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, n_h.z));
 }
 
 // Draw sample from arbitrary distribution in O(1) time using the alias method

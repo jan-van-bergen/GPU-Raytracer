@@ -19,7 +19,7 @@ struct Scene {
 
 	bool has_diffuse    = false;
 	bool has_dielectric = false;
-	bool has_glossy     = false;
+	bool has_conductor  = false;
 	bool has_lights     = false;
 
 	void init(const SceneConfig & scene_config);

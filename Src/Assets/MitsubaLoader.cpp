@@ -533,7 +533,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else if (inner_bsdf_type == "conductor") {
-		material.type = Material::Type::GLOSSY;
+		material.type = Material::Type::CONDUCTOR;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
@@ -541,36 +541,31 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.eta              = inner_bsdf->get_child_value_optional("eta", Vector3(1.33f));
 		material.k                = inner_bsdf->get_child_value_optional("k",   Vector3(1.0f));
 	} else if (inner_bsdf_type == "roughconductor" || inner_bsdf_type == "roughdiffuse") {
-		material.type = Material::Type::GLOSSY;
+		material.type = Material::Type::CONDUCTOR;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
-		material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
+		material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
 		material.eta              = inner_bsdf->get_child_value_optional("eta",   Vector3(1.33f));
 		material.k                = inner_bsdf->get_child_value_optional("k",     Vector3(1.0f));
 	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic") {
-		material.type = Material::Type::GLOSSY;
+		material.type = Material::Type::CONDUCTOR;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
 		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
 		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
 
-		material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
+		material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
 		material.eta              = Vector3(int_ior / ext_ior);
 		material.k                = Vector3(5.0f);
-
-		const XMLNode * nonlinear = inner_bsdf->find_child_by_name("nonlinear");
-		if (nonlinear && nonlinear->get_attribute_value<bool>("value")) {
-			material.linear_roughness = sqrtf(material.linear_roughness);
-		}
 	} else if (inner_bsdf_type == "phong") {
-		material.type = Material::Type::GLOSSY;
+		material.type = Material::Type::CONDUCTOR;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
 		float exponent = inner_bsdf->get_child_value_optional("exponent", 1.0f);
-		material.linear_roughness = sqrtf(0.5f * exponent + 1.0f);
+		material.linear_roughness = powf(0.5f * exponent + 1.0f, 0.25f);
 
 	} else if (inner_bsdf_type == "thindielectric" || inner_bsdf_type == "dielectric" || inner_bsdf_type == "roughdielectric") {
 		float int_ior = 0.0f;
@@ -641,6 +636,12 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.type = Material::Type::DIELECTRIC;
 		material.transmittance       = Vector3(1.0f);
 		material.index_of_refraction = ext_ior == 0.0f ? int_ior : int_ior / ext_ior;
+
+		if (inner_bsdf_type == "roughdielectric") {
+			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+		} else {
+			material.linear_roughness = 0.0f;
+		}
 
 		const XMLNode * medium = node->find_child("medium");
 		if (medium) {

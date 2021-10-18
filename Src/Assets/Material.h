@@ -10,7 +10,7 @@ struct Material {
 		LIGHT      = 0,
 		DIFFUSE    = 1,
 		DIELECTRIC = 2,
-		GLOSSY     = 3
+		CONDUCTOR  = 3
 	};
 
 	Type type = Type::DIFFUSE;

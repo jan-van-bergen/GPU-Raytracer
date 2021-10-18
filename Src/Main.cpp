@@ -530,7 +530,7 @@ static void draw_gui() {
 		if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Text("Has Diffuse:    %s", pathtracer.scene.has_diffuse    ? "True" : "False");
 			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
-			ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
+			ImGui::Text("Has Conductor:  %s", pathtracer.scene.has_conductor  ? "True" : "False");
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
 
 			int triangle_count       = 0;
@@ -641,13 +641,14 @@ static void draw_gui() {
 					}
 					case Material::Type::DIELECTRIC: {
 						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
-						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 2.5f);
+						material_changed |= ImGui::SliderFloat ("Roughness",     &material.linear_roughness,    0.0f, 1.0f);
 						break;
 					}
-					case Material::Type::GLOSSY: {
+					case Material::Type::CONDUCTOR: {
 						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
 						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
-						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
 						material_changed |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
@@ -721,8 +722,10 @@ static void draw_gui() {
 			Input::mouse_position(&mouse_x, &mouse_y);
 
 			if (Vector2::length(Vector2(mouse_x, mouse_y) - Vector2(last_pixel_query_x, last_pixel_query_y)) < 50.0f) {
+				Vector3 triangle_center_world = Matrix4::transform_position(mesh.transform, triangle.get_center());
+
 				ImGui::BeginTooltip();
-				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
+				ImGui::Text("Distance: %f", Vector3::length(triangle_center_world - pathtracer.scene.camera.position));
 				ImGui::EndTooltip();
 			}
 
