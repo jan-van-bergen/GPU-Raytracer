@@ -242,6 +242,9 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		return;
 	}
 
+	// If this is the last bounce and we haven't hit a light, terminate
+	if (bounce == config.num_bounces - 1) return;
+
 	// Russian Roulette
 	if (config.enable_russian_roulette && bounce > 0) {
 		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
@@ -547,8 +550,6 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 		});
 	}
 
-	if (bounce == config.num_bounces - 1) return;
-
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
 	float3 tangent, binormal; orthonormal_basis(hit_normal, tangent, binormal);
@@ -574,7 +575,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 
 extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index >= buffer_sizes.dielectric[bounce] || bounce == config.num_bounces - 1) return;
+	if (index >= buffer_sizes.dielectric[bounce]) return;
 
 	float3 ray_direction = ray_buffer_shade_dielectric_and_conductor.direction.get(index);
 	RayHit hit           = ray_buffer_shade_dielectric_and_conductor.hits     .get(index);
@@ -850,8 +851,6 @@ extern "C" __global__ void kernel_shade_conductor(int bounce, int sample_index) 
 			return true;
 		});
 	}
-
-	if (bounce == config.num_bounces - 1) return;
 
 	// Importance sample distribution of normals
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
