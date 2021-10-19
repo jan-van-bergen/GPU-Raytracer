@@ -331,9 +331,6 @@
     <ClInclude Include="Src\Util\PMJ.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Config.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\BlueNoise.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -352,5 +349,6 @@
     <ClInclude Include="Src\Util\Queue.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Config.h" />
   </ItemGroup>
 </Project>

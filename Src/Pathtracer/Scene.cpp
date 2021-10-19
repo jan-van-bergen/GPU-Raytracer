@@ -11,7 +11,7 @@
 #include "Util/Util.h"
 
 void Scene::init(const SceneConfig & scene_config) {
-	camera.init(DEG_TO_RAD(110.0f));
+	camera.init(DEG_TO_RAD(85.0f));
 
 	asset_manager.init();
 

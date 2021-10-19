@@ -39,13 +39,8 @@ struct Config {
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::GAUSSIAN;
 
 
-	// Scene
-	const char * scene = "Data/cornellbox/scene.xml";
-	const char * sky   = "Data/Skies/sky_15.hdr";
-
-
 	// Pathtracing
-	int num_bounces = 5;
+	int num_bounces = 10;
 
 	int          output_frame_index = INVALID;
 	const char * output_name        = "render.ppm";
@@ -79,7 +74,7 @@ struct Config {
 		BOX,
 		LANCZOS,
 		KAISER
-	} mipmap_filter = MipmapFilter::KAISER;
+	} mipmap_filter = MipmapFilter::BOX;
 
 
 	// BVH

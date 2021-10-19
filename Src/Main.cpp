@@ -48,8 +48,6 @@ struct Timing {
 static int last_pixel_query_x;
 static int last_pixel_query_y;
 
-static SceneConfig scene_config = { };
-
 static void parse_args(int arg_count, char ** args);
 static void capture_screen(const Window & window, const char * file_name);
 static void window_resize(unsigned frame_buffer_handle, int width, int height);

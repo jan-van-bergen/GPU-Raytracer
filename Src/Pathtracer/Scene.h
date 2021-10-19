@@ -5,11 +5,6 @@
 
 #include "Assets/AssetManager.h"
 
-struct SceneConfig {
-	Array<const char *> scenes;
-	const char * sky = nullptr;
-};
-
 struct Scene {
 	AssetManager asset_manager;
 

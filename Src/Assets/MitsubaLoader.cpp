@@ -1202,7 +1202,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			} else if (strcmp(extension, "hdr") != 0) {
 				WARNING(node->location, "Only HDR Environment Maps are supported!\n");
 			} else {
-				config.sky = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+				scene_config.sky = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 			}
 		} else {
 			WARNING(node->location, "Emitter type '%.*s' is not supported!\n", unsigned(emitter_type.length()), emitter_type.start);
