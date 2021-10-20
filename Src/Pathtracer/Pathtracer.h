@@ -138,6 +138,7 @@ struct ShadowRayBuffer {
 struct BufferSizes {
 	int trace     [MAX_BOUNCES];
 	int diffuse   [MAX_BOUNCES];
+	int plastic   [MAX_BOUNCES];
 	int dielectric[MAX_BOUNCES];
 	int conductor [MAX_BOUNCES];
 	int shadow    [MAX_BOUNCES];
@@ -146,7 +147,15 @@ struct BufferSizes {
 	int rays_retired_shadow[MAX_BOUNCES];
 
 	void reset(int batch_size) {
-		memset(this, 0, sizeof(BufferSizes));
+		memset(trace,               0, sizeof(trace));
+		memset(diffuse,             0, sizeof(diffuse));
+		memset(plastic,             0, sizeof(plastic));
+		memset(dielectric,          0, sizeof(dielectric));
+		memset(conductor,           0, sizeof(conductor));
+		memset(shadow,              0, sizeof(shadow));
+		memset(rays_retired,        0, sizeof(rays_retired));
+		memset(rays_retired_shadow, 0, sizeof(rays_retired_shadow));
+
 		trace[0] = batch_size;
 	}
 };
@@ -216,6 +225,7 @@ private:
 	CUDAKernel kernel_trace_cwbvh;
 	CUDAKernel kernel_sort;
 	CUDAKernel kernel_shade_diffuse;
+	CUDAKernel kernel_shade_plastic;
 	CUDAKernel kernel_shade_dielectric;
 	CUDAKernel kernel_shade_conductor;
 	CUDAKernel kernel_trace_shadow_bvh;
@@ -239,11 +249,11 @@ private:
 	CUsurfObject       surf_accumulator;
 
 	TraceBuffer     ray_buffer_trace;
-	MaterialBuffer  ray_buffer_shade_diffuse;
+	MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
 	MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
 	ShadowRayBuffer ray_buffer_shadow;
 
-	CUDAModule::Global global_ray_buffer_shade_diffuse;
+	CUDAModule::Global global_ray_buffer_shade_diffuse_and_plastic;
 	CUDAModule::Global global_ray_buffer_shade_dielectric_and_conductor;
 	CUDAModule::Global global_ray_buffer_shadow;
 
@@ -304,6 +314,11 @@ private:
 			Vector3 diffuse;
 			int     texture_id;
 		} diffuse;
+		struct {
+			Vector3 diffuse;
+			int     texture_id;
+			float   roughness;
+		} plastic;
 		struct {
 			Vector3 negative_absorption;
 			float   index_of_refraction;
@@ -373,6 +388,7 @@ private:
 	CUDAEvent::Desc event_desc_trace[MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_sort [MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shade_diffuse   [MAX_BOUNCES];
+	CUDAEvent::Desc event_desc_shade_plastic   [MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shade_dielectric[MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shade_conductor [MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shadow_trace[MAX_BOUNCES];

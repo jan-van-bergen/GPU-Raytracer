@@ -19,6 +19,10 @@ __device__ __constant__ const ProbAlias * light_mesh_prob_alias;
 __device__ __constant__ const int2      * light_mesh_first_index_and_triangle_count;
 __device__ __constant__ const int       * light_mesh_transform_index;
 
+__device__ inline bool pdf_is_valid(float pdf) {
+	return pdf > 1e-4f;
+}
+
 __device__ inline float balance_heuristic(float pdf_f, float pdf_g) {
 	return pdf_f / (pdf_f + pdf_g);
 }

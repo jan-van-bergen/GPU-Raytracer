@@ -540,7 +540,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.linear_roughness = 0.0f;
 		material.eta              = inner_bsdf->get_child_value_optional("eta", Vector3(1.33f));
 		material.k                = inner_bsdf->get_child_value_optional("k",   Vector3(1.0f));
-	} else if (inner_bsdf_type == "roughconductor" || inner_bsdf_type == "roughdiffuse") {
+	} else if (inner_bsdf_type == "roughconductor") {
 		material.type = Material::Type::CONDUCTOR;
 
 		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
@@ -548,17 +548,11 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
 		material.eta              = inner_bsdf->get_child_value_optional("eta",   Vector3(1.33f));
 		material.k                = inner_bsdf->get_child_value_optional("k",     Vector3(1.0f));
-	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic") {
-		material.type = Material::Type::CONDUCTOR;
+	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic" || inner_bsdf_type == "roughdiffuse") {
+		material.type = Material::Type::PLASTIC;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
-
-		float int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
-		float ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
-
 		material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
-		material.eta              = Vector3(int_ior / ext_ior);
-		material.k                = Vector3(5.0f);
 	} else if (inner_bsdf_type == "phong") {
 		material.type = Material::Type::CONDUCTOR;
 

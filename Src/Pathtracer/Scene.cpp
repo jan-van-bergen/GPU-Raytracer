@@ -55,6 +55,7 @@ Mesh & Scene::add_mesh(const char * name, MeshDataHandle mesh_data_handle, Mater
 
 void Scene::check_materials() {
 	has_diffuse    = false;
+	has_plastic    = false;
 	has_dielectric = false;
 	has_conductor  = false;
 	has_lights     = false;
@@ -63,6 +64,7 @@ void Scene::check_materials() {
 	for (int i = 0; i < asset_manager.materials.size(); i++) {
 		switch (asset_manager.materials[i].type) {
 			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
+			case Material::Type::PLASTIC:    has_plastic    = true; break;
 			case Material::Type::DIELECTRIC: has_dielectric = true; break;
 			case Material::Type::CONDUCTOR:  has_conductor  = true; break;
 			case Material::Type::LIGHT:      has_lights     = true; break;

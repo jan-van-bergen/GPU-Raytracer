@@ -7,10 +7,11 @@ struct Material {
 	const char * name;
 
 	enum struct Type : char {
-		LIGHT      = 0,
-		DIFFUSE    = 1,
-		DIELECTRIC = 2,
-		CONDUCTOR  = 3
+		LIGHT,
+		DIFFUSE,
+		PLASTIC,
+		DIELECTRIC,
+		CONDUCTOR
 	};
 
 	Type type = Type::DIFFUSE;

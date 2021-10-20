@@ -616,7 +616,7 @@ static void draw_gui() {
 				bool material_changed = false;
 
 				int material_type = int(material.type);
-				if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Dielectric\0Glossy\0")) {
+				if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Plastic\0Dielectric\0Conductor\0")) {
 					material.type = Material::Type(material_type);
 					material_changed = true;
 				}
@@ -635,6 +635,12 @@ static void draw_gui() {
 					case Material::Type::DIFFUSE: {
 						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
 						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						break;
+					}
+					case Material::Type::PLASTIC: {
+						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
 					}
 					case Material::Type::DIELECTRIC: {

@@ -265,14 +265,30 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		case MaterialType::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[bounce]);
 
-			ray_buffer_shade_diffuse.direction.set(index_out, ray_direction);
+			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse.cone[index_out] = ray_buffer_trace.cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace.cone[index];
 
-			ray_buffer_shade_diffuse.hits.set(index_out, hit);
+			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
 
-			ray_buffer_shade_diffuse.pixel_index[index_out] = ray_pixel_index;
-			if (bounce > 0) ray_buffer_shade_diffuse.throughput.set(index_out, ray_throughput);
+			ray_buffer_shade_diffuse_and_plastic.pixel_index[index_out] = ray_pixel_index;
+			if (bounce > 0) ray_buffer_shade_diffuse_and_plastic.throughput.set(index_out, ray_throughput);
+
+			break;
+		}
+
+		case MaterialType::PLASTIC: {
+			// Plastic Material buffer is shared with Diffuse Material buffer but grows in the opposite direction
+			int index_out = (BATCH_SIZE - 1) - atomic_agg_inc(&buffer_sizes.plastic[bounce]);
+
+			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
+
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace.cone[index];
+
+			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
+
+			ray_buffer_shade_diffuse_and_plastic.pixel_index[index_out] = ray_pixel_index;
+			if (bounce > 0) ray_buffer_shade_diffuse_and_plastic.throughput.set(index_out, ray_throughput);
 
 			break;
 		}
@@ -464,10 +480,10 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.diffuse[bounce]) return;
 
-	float3 ray_direction = ray_buffer_shade_diffuse.direction.get(index);
-	RayHit hit           = ray_buffer_shade_diffuse.hits     .get(index);
+	float3 ray_direction = ray_buffer_shade_diffuse_and_plastic.direction.get(index);
+	RayHit hit           = ray_buffer_shade_diffuse_and_plastic.hits     .get(index);
 
-	int ray_pixel_index = ray_buffer_shade_diffuse.pixel_index[index];
+	int ray_pixel_index = ray_buffer_shade_diffuse_and_plastic.pixel_index[index];
 	int x = ray_pixel_index % screen_pitch;
 	int y = ray_pixel_index / screen_pitch;
 
@@ -475,7 +491,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	if (bounce == 0) {
 		ray_throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
 	} else {
-		ray_throughput = ray_buffer_shade_diffuse.throughput.get(index);
+		ray_throughput = ray_buffer_shade_diffuse_and_plastic.throughput.get(index);
 	}
 
 	int material_id = mesh_get_material_id(hit.mesh_id);
@@ -514,7 +530,7 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 			hit_normal,
 			hit_tex_coord,
 			ray_direction,
-			ray_buffer_shade_diffuse.cone,
+			ray_buffer_shade_diffuse_and_plastic.cone,
 			index,
 			cone_angle, cone_width
 		);
@@ -522,10 +538,8 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 		albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
 	}
 
-	float3 throughput = ray_throughput;
-
 	if (bounce > 0) {
-		throughput *= albedo;
+		ray_throughput *= albedo;
 	} else if (config.enable_albedo || config.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
@@ -540,25 +554,25 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	}
 
 	if (config.enable_next_event_estimation && lights_total_weight > 0.0f) {
-		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float cos_theta, float3 & brdf, float & pdf) {
+		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, ray_throughput, [&](const float3 & to_light, float cos_theta, float3 & brdf, float & pdf) {
 			if (cos_theta <= 0.0f) return false;
 
 			brdf = make_float3(cos_theta * ONE_OVER_PI);
 			pdf  = cos_theta * ONE_OVER_PI;
 
-			return true;
+			return pdf_is_valid(pdf);
 		});
 	}
 
-	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
-
-	float3 tangent, binormal; orthonormal_basis(hit_normal, tangent, binormal);
+	float3 hit_tangent, hit_binormal; orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
 
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 	float3 direction_local = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 
-	float3 direction_out = local_to_world(direction_local, tangent, binormal, hit_normal);
+	float3 direction_out = local_to_world(direction_local, hit_tangent, hit_binormal, hit_normal);
 	float3 origin_out    = ray_origin_epsilon_offset(hit_point, direction_out, hit_normal);
+
+	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
 	ray_buffer_trace.origin   .set(index_out, origin_out);
 	ray_buffer_trace.direction.set(index_out, direction_out);
@@ -568,9 +582,186 @@ extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
 	}
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (true << 31);
-	ray_buffer_trace.throughput.set(index_out, throughput);
+	ray_buffer_trace.throughput.set(index_out, ray_throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = fabsf(dot(direction_out, hit_normal)) * ONE_OVER_PI;
+}
+
+extern "C" __global__ void kernel_shade_plastic(int bounce, int sample_index) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index >= buffer_sizes.plastic[bounce]) return;
+
+	index = (BATCH_SIZE - 1) - index;
+
+	float3 ray_direction = ray_buffer_shade_diffuse_and_plastic.direction.get(index);
+	RayHit hit           = ray_buffer_shade_diffuse_and_plastic.hits     .get(index);
+
+	int ray_pixel_index = ray_buffer_shade_diffuse_and_plastic.pixel_index[index];
+	int x = ray_pixel_index % screen_pitch;
+	int y = ray_pixel_index / screen_pitch;
+
+	float3 ray_throughput;
+	if (bounce == 0) {
+		ray_throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
+	} else {
+		ray_throughput = ray_buffer_shade_diffuse_and_plastic.throughput.get(index);
+	}
+
+	int material_id = mesh_get_material_id(hit.mesh_id);
+	MaterialPlastic material = material_as_plastic(material_id);
+
+	// Obtain hit Triangle position, normal, and texture coordinates
+	TrianglePosNorTex hit_triangle = triangle_get_positions_normals_and_tex_coords(hit.triangle_id);
+
+	float3 hit_point;
+	float3 hit_normal;
+	float2 hit_tex_coord;
+	triangle_barycentric(hit_triangle, hit.u, hit.v, hit_point, hit_normal, hit_tex_coord);
+
+	float3 hit_point_local = hit_point; // Keep copy of the untransformed hit point in local space
+
+	// Transform into world space
+	Matrix3x4 world = mesh_get_transform(hit.mesh_id);
+	matrix3x4_transform_position (world, hit_point);
+	matrix3x4_transform_direction(world, hit_normal);
+
+	hit_normal = normalize(hit_normal);
+	if (dot(ray_direction, hit_normal) > 0.0f) hit_normal = -hit_normal;
+
+	// Sample albedo
+	float cone_angle;
+	float cone_width;
+	float3 albedo;
+	if (config.enable_mipmapping) {
+		albedo = sample_albedo(
+			bounce,
+			material.diffuse,
+			material.texture_id,
+			hit,
+			hit_triangle,
+			hit_point_local,
+			hit_normal,
+			hit_tex_coord,
+			ray_direction,
+			ray_buffer_shade_diffuse_and_plastic.cone,
+			index,
+			cone_angle, cone_width
+		);
+	} else {
+		albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
+	}
+
+	if (bounce == 0 && (config.enable_albedo || config.enable_svgf)) {
+		frame_buffer_albedo[ray_pixel_index] = make_float4(1.0f);
+	}
+
+	if (bounce == 0 && config.enable_svgf) {
+		float3 hit_point_prev = hit_point_local;
+
+		Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
+		matrix3x4_transform_position(world_prev, hit_point_prev);
+
+		svgf_set_gbuffers(x, y, hit, hit_point, hit_normal, hit_point_prev);
+	}
+
+	float3 hit_tangent, hit_binormal; orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
+
+	float3 omega_i = world_to_local(-ray_direction, hit_tangent, hit_binormal, hit_normal);
+
+	float alpha_x = material.roughness;
+	float alpha_y = material.roughness;
+	
+	constexpr float ETA = 1.0f / 1.5f;
+	constexpr float TIR_COMPENSATION = 0.596345782f; // Hemispherical integral of fresnel * cos(theta)
+
+	if (config.enable_next_event_estimation && lights_total_weight > 0.0f) {
+		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, ray_throughput, [&](const float3 & to_light, float cos_theta, float3 & brdf, float & pdf) {
+			if (cos_theta <= 0.0f) return false;
+
+			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
+			float3 omega_m = normalize(omega_i + omega_o);
+
+			// Specular component
+			float F  = fresnel_dielectric(dot(omega_i, omega_m), ETA);
+			float D  = ggx_D (omega_m, alpha_x, alpha_y);
+			float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
+			float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
+
+			float3 brdf_specular = make_float3(F * G2 * D / (4.0f * omega_i.z));
+
+			// Diffuse component
+			float F_i = fresnel_dielectric(omega_i.z, ETA);
+			float F_o = fresnel_dielectric(omega_o.z, ETA);
+
+			float3 brdf_diffuse = ETA*ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * TIR_COMPENSATION) * omega_o.z;
+
+			float pdf_specular = G1 * D / (4.0f * omega_i.z);
+			float pdf_diffuse  = omega_o.z * ONE_OVER_PI;
+
+			pdf  = lerp(pdf_diffuse, pdf_specular, F_i);
+			brdf = brdf_specular + brdf_diffuse; // BRDF * cos(theta_o)
+
+			return pdf_is_valid(pdf);
+		});
+	}
+
+	float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(ray_pixel_index, bounce, sample_index).y;
+	float2 rand_brdf    = random<SampleDimension::BRDF>            (ray_pixel_index, bounce, sample_index);
+
+	float F_i = fresnel_dielectric(omega_i.z, ETA);
+
+	float3 omega_m;
+	float3 omega_o;
+	if (rand_fresnel < F_i) {
+		// Sample specular component
+		omega_m = sample_visible_normals_ggx(omega_i, material.roughness, material.roughness, rand_brdf.x, rand_brdf.y);
+		omega_o = reflect(-omega_i, omega_m);
+	} else {
+		// Sample diffuse component
+		omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
+		omega_m = normalize(omega_i + omega_o);
+	}
+
+	if (omega_m.z < 0.0f) return; // Wrong hemisphere
+
+	// Specular component
+	float F  = fresnel_dielectric(dot(omega_i, omega_m), ETA);
+	float D  = ggx_D (omega_m, alpha_x, alpha_y);
+	float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
+	float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
+
+	float3 brdf_specular = make_float3(F * G2 * D / (4.0f * omega_i.z));
+
+	// Diffuse component
+	float F_o = fresnel_dielectric(omega_o.z, ETA);
+
+	float3 brdf_diffuse = ETA*ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * TIR_COMPENSATION) * omega_o.z;
+
+	// PDFs
+	float pdf_specular = G1 * D / (4.0f * omega_i.z);
+	float pdf_diffuse  = omega_o.z * ONE_OVER_PI;
+	float pdf          = lerp(pdf_diffuse, pdf_specular, F_i);
+
+	if (!pdf_is_valid(pdf)) return;
+
+	ray_throughput *= (brdf_specular + brdf_diffuse) / pdf; // BRDF * cos(theta) / pdf
+
+	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
+	float3 origin_out = ray_origin_epsilon_offset(hit_point, direction_out, hit_normal);
+
+	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
+
+	ray_buffer_trace.origin   .set(index_out, origin_out);
+	ray_buffer_trace.direction.set(index_out, direction_out);
+
+	if (config.enable_mipmapping) {
+		ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
+	}
+
+	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | (true << 31);
+	ray_buffer_trace.throughput.set(index_out, ray_throughput);
+
+	ray_buffer_trace.last_pdf[index_out] = pdf;
 }
 
 extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index) {
@@ -629,9 +820,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 
 	float alpha_x = material.roughness;
 	float alpha_y = material.roughness;
-	float alpha_x2 = alpha_x * alpha_x;
-	float alpha_y2 = alpha_y * alpha_y;
-
+	
 	if (config.enable_next_event_estimation && lights_total_weight > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
 		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, ray_throughput, [&](const float3 & to_light, float cos_theta, float3 & brdf, float & pdf) {
 			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
@@ -651,8 +840,8 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 
 			float F  = fresnel_dielectric(i_dot_m, eta);
 			float D  = ggx_D (omega_m, alpha_x, alpha_y);
-			float G1 = ggx_G1(omega_i,                   alpha_x2, alpha_y2);
-			float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x2, alpha_y2);
+			float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
+			float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
 			if (reflected) {
 				pdf = F * G1 * D / (4.0f * omega_i.z);
@@ -666,7 +855,7 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 				brdf = eta * eta * make_float3((1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m))); // BRDF times cos(theta_o)
 			}
 
-			return pdf > 1e-4f;
+			return pdf_is_valid(pdf);
 		});
 	}
 
@@ -689,8 +878,8 @@ extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index)
 	if (reflected ^ (omega_o.z >= 0.0f)) return; // Hemisphere check: reflection should have positive z, transmission negative z
 
 	float D  = ggx_D (omega_m, alpha_x, alpha_y);
-	float G1 = ggx_G1(omega_i,                   alpha_x2, alpha_y2);
-	float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x2, alpha_y2);
+	float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
+	float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
 	float i_dot_m = abs_dot(omega_i, omega_m);
 	float o_dot_m = abs_dot(omega_o, omega_m);
@@ -818,10 +1007,8 @@ extern "C" __global__ void kernel_shade_conductor(int bounce, int sample_index) 
 		albedo = material_get_albedo(material.diffuse, material.texture_id, hit_tex_coord.x, hit_tex_coord.y);
 	}
 
-	float3 throughput = ray_throughput;
-
 	if (bounce > 0) {
-		throughput *= albedo;
+		ray_throughput *= albedo;
 	} else if (config.enable_albedo || config.enable_svgf) {
 		frame_buffer_albedo[ray_pixel_index] = make_float4(albedo);
 	}
@@ -840,24 +1027,49 @@ extern "C" __global__ void kernel_shade_conductor(int bounce, int sample_index) 
 	orthonormal_basis(hit_normal, hit_tangent, hit_binormal);
 
 	float3 omega_i = world_to_local(-ray_direction, hit_tangent, hit_binormal, hit_normal);
-
+	
+	float alpha_x = material.roughness;
+	float alpha_y = material.roughness; // TODO: anisotropic
+	
 	if (config.enable_next_event_estimation && lights_total_weight > 0.0f && material.roughness >= ROUGHNESS_CUTOFF) {
-		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, throughput, [&](const float3 & to_light, float cos_theta, float3 & brdf, float & pdf) {
+		nee_sample(ray_pixel_index, bounce, sample_index, hit_point, hit_normal, ray_throughput, [&](const float3 & to_light, float cos_theta, float3 & brdf, float & pdf) {
 			if (cos_theta <= 0.0f) return false;
 
 			float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
-			brdf = ggx_eval(material, omega_o, omega_i, pdf);
+			float3 omega_m = normalize(omega_o + omega_i);
+			
+			float mu = dot(omega_o, omega_m);
+			if (mu <= 0.0f) return false;
 
-			return true;
+			float3 F  = fresnel_conductor(mu, material.eta, material.k);
+			float  D  = ggx_D (omega_m, alpha_x, alpha_y);
+			float  G1 = ggx_G1(omega_i, alpha_x, alpha_y);
+			float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
+
+			pdf  =     G1 * D / (4.0f * omega_i.z);
+			brdf = F * G2 * D / (4.0f * omega_i.z); // BRDF * cos(theta_o)
+
+			return pdf_is_valid(pdf);
 		});
 	}
 
 	// Importance sample distribution of normals
 	float2 rand_brdf = random<SampleDimension::BRDF>(ray_pixel_index, bounce, sample_index);
 
-	float  pdf;
-	float3 omega_o;
-	throughput *= ggx_sample(material, rand_brdf.x, rand_brdf.y, omega_i, omega_o, pdf);
+	float3 omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
+	float3 omega_o = reflect(-omega_i, omega_m);
+
+	float o_dot_m = dot(omega_o, omega_m);
+	if (o_dot_m <= 0.0f) return;
+
+	float3 F  = fresnel_conductor(o_dot_m, material.eta, material.k);
+	float  D  = ggx_D (omega_m, alpha_x, alpha_y);
+	float  G1 = ggx_G1(omega_i, alpha_x, alpha_y);
+	float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
+
+	float pdf = G1 * D / (4.0f * omega_i.z);
+
+	ray_throughput *= F * G2 / G1; // BRDF * cos(theta_o) / pdf
 
 	float3 direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
 	float3 origin_out    = ray_origin_epsilon_offset(hit_point, direction_out, hit_normal);
@@ -872,7 +1084,7 @@ extern "C" __global__ void kernel_shade_conductor(int bounce, int sample_index) 
 	}
 
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = ray_pixel_index | ((material.roughness >= ROUGHNESS_CUTOFF) << 31);
-	ray_buffer_trace.throughput.set(index_out, throughput);
+	ray_buffer_trace.throughput.set(index_out, ray_throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = pdf;
 }

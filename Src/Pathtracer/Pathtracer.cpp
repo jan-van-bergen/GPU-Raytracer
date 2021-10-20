@@ -53,6 +53,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_trace_cwbvh       .init(&cuda_module, "kernel_trace_cwbvh");
 	kernel_sort              .init(&cuda_module, "kernel_sort");
 	kernel_shade_diffuse     .init(&cuda_module, "kernel_shade_diffuse");
+	kernel_shade_plastic     .init(&cuda_module, "kernel_shade_plastic");
 	kernel_shade_dielectric  .init(&cuda_module, "kernel_shade_dielectric");
 	kernel_shade_conductor   .init(&cuda_module, "kernel_shade_conductor");
 	kernel_trace_shadow_bvh  .init(&cuda_module, "kernel_trace_shadow_bvh");
@@ -86,6 +87,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_generate        .set_block_dim(WARP_SIZE * 8, 1, 1);
 	kernel_sort            .set_block_dim(WARP_SIZE * 8, 1, 1);
 	kernel_shade_diffuse   .set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_shade_plastic   .set_block_dim(WARP_SIZE * 8, 1, 1);
 	kernel_shade_dielectric.set_block_dim(WARP_SIZE * 8, 1, 1);
 	kernel_shade_conductor .set_block_dim(WARP_SIZE * 8, 1, 1);
 
@@ -307,7 +309,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	ray_buffer_trace.init(BATCH_SIZE);
 	cuda_module.get_global("ray_buffer_trace").set_value(ray_buffer_trace);
 
-	global_ray_buffer_shade_diffuse                  = cuda_module.get_global("ray_buffer_shade_diffuse");
+	global_ray_buffer_shade_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_shade_diffuse_and_plastic");
 	global_ray_buffer_shade_dielectric_and_conductor = cuda_module.get_global("ray_buffer_shade_dielectric_and_conductor");
 	global_ray_buffer_shadow                         = cuda_module.get_global("ray_buffer_shadow");
 
@@ -331,6 +333,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		event_desc_trace           [i] = { display_order, category, "Trace" };
 		event_desc_sort            [i] = { display_order, category, "Sort" };
 		event_desc_shade_diffuse   [i] = { display_order, category, "Diffuse" };
+		event_desc_shade_plastic   [i] = { display_order, category, "Plastic" };
 		event_desc_shade_dielectric[i] = { display_order, category, "Dielectric" };
 		event_desc_shade_conductor [i] = { display_order, category, "Conductor" };
 		event_desc_shadow_trace    [i] = { display_order, category, "Shadow" };
@@ -368,6 +371,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	scene.update(0.0f);
 
 	scene.has_diffuse    = false;
+	scene.has_plastic    = false;
 	scene.has_dielectric = false;
 	scene.has_conductor  = false;
 	scene.has_lights     = false;
@@ -433,7 +437,7 @@ void Pathtracer::cuda_free() {
 	}
 
 	ray_buffer_trace.free();
-	if (scene.has_diffuse)                           ray_buffer_shade_diffuse.free();
+	if (scene.has_diffuse    || scene.has_plastic)   ray_buffer_shade_diffuse_and_plastic.free();
 	if (scene.has_dielectric || scene.has_conductor) ray_buffer_shade_dielectric_and_conductor.free();
 	if (scene.has_lights)                            ray_buffer_shadow.free();
 
@@ -489,6 +493,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_generate        .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_generate        .block_dim_x), 1, 1);
 	kernel_sort            .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_sort            .block_dim_x), 1, 1);
 	kernel_shade_diffuse   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_diffuse   .block_dim_x), 1, 1);
+	kernel_shade_plastic   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_plastic   .block_dim_x), 1, 1);
 	kernel_shade_dielectric.set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_dielectric.block_dim_x), 1, 1);
 	kernel_shade_conductor .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_conductor .block_dim_x), 1, 1);
 
@@ -795,6 +800,12 @@ void Pathtracer::update(float delta) {
 					cuda_materials[i].diffuse.texture_id = material.texture_id.handle;
 					break;
 				}
+				case Material::Type::PLASTIC: {
+					cuda_materials[i].plastic.diffuse    = material.diffuse;
+					cuda_materials[i].plastic.texture_id = material.texture_id.handle;
+					cuda_materials[i].plastic.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					break;
+				}
 				case Material::Type::DIELECTRIC: {
 					cuda_materials[i].dielectric.negative_absorption = Vector3( // Absorption = -log(Transmittance), so -A = log(T)
 						logf(material.transmittance.x),
@@ -824,24 +835,25 @@ void Pathtracer::update(float delta) {
 		delete [] cuda_materials;
 
 		bool had_diffuse    = scene.has_diffuse;
+		bool had_plastic    = scene.has_plastic;
 		bool had_dielectric = scene.has_dielectric;
 		bool had_conductor  = scene.has_conductor;
 		bool had_lights     = scene.has_lights;
 
 		scene.check_materials();
 
-		bool diffuse_changed                 =  had_diffuse                      ^  scene.has_diffuse;
+		bool diffuse_or_plastic_changed      = (had_diffuse    || had_plastic)   ^ (scene.has_diffuse    || scene.has_plastic);
 		bool dielectric_or_conductor_changed = (had_dielectric || had_conductor) ^ (scene.has_dielectric || scene.has_conductor);
 		bool lights_changed                  =  had_lights                       ^  scene.has_lights;
 
 		// Handle (dis)appearance of Diffuse materials
-		if (diffuse_changed) {
-			if (scene.has_diffuse) {
-				ray_buffer_shade_diffuse.init(BATCH_SIZE);
+		if (diffuse_or_plastic_changed) {
+			if (scene.has_diffuse || scene.has_plastic) {
+				ray_buffer_shade_diffuse_and_plastic.init(BATCH_SIZE);
 			} else {
-				ray_buffer_shade_diffuse.free();
+				ray_buffer_shade_diffuse_and_plastic.free();
 			}
-			global_ray_buffer_shade_diffuse.set_value(ray_buffer_shade_diffuse);
+			global_ray_buffer_shade_diffuse_and_plastic.set_value(ray_buffer_shade_diffuse_and_plastic);
 		}
 
 		// Handle (dis)appearance of Dielectric OR Conductor materials (they share the same Material buffer)
@@ -1003,6 +1015,11 @@ void Pathtracer::render() {
 			if (scene.has_diffuse) {
 				event_pool.record(event_desc_shade_diffuse[bounce]);
 				kernel_shade_diffuse.execute(bounce, frames_accumulated);
+			}
+
+			if (scene.has_plastic) {
+				event_pool.record(event_desc_shade_plastic[bounce]);
+				kernel_shade_plastic.execute(bounce, frames_accumulated);
 			}
 
 			if (scene.has_dielectric) {
