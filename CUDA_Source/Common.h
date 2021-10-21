@@ -74,7 +74,7 @@ struct Config {
 		BOX,
 		LANCZOS,
 		KAISER
-	} mipmap_filter = MipmapFilter::KAISER;
+	} mipmap_filter = MipmapFilter::BOX;
 
 
 	// BVH

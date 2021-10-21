@@ -150,6 +150,9 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 		int offset      = texture.width * texture.height;
 		int offset_prev = 0;
 
+		int level_width_prev  = texture.width;
+		int level_height_prev = texture.height;
+
 		int level_width  = texture.width  / 2;
 		int level_height = texture.height / 2;
 
@@ -160,7 +163,7 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 		while (true) {
 			if (config.mipmap_filter == Config::MipmapFilter::BOX) {
 				// Box filter can downsample the previous Mip level
-				Mipmap::downsample(level_width * 2, level_height * 2, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
+				Mipmap::downsample(level_width_prev, level_height_prev, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
 			} else {
 				// Other filters downsample the original Texture for better quality
 				Mipmap::downsample(texture.width, texture.height, level_width, level_height, data_rgba, data_rgba + offset, temp);
@@ -172,6 +175,9 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 
 			offset_prev = offset;
 			offset += level_width * level_height;
+
+			level_width_prev  = level_width;
+			level_height_prev = level_height;
 
 			if (level_width  > 1) level_width  /= 2;
 			if (level_height > 1) level_height /= 2;
