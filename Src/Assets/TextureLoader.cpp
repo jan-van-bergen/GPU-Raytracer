@@ -204,7 +204,7 @@ bool TextureLoader::load_stb(const char * filename, Texture & texture) {
 	}
 	delete [] data_rgba;
 
-	if (config.enable_block_compression) {
+	if (config.enable_block_compression && Math::is_power_of_two(texture.width) && Math::is_power_of_two(texture.height)) {
 		// Block Compression
 		int new_width  = Math::divide_round_up(texture.width,  4);
 		int new_height = Math::divide_round_up(texture.height, 4);
