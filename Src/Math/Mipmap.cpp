@@ -27,7 +27,7 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 	float scale_x = float(width_dst)  / float(width_src);
 	float scale_y = float(height_dst) / float(height_src);
 
-	assert(scale_x < 1.0f && scale_y < 1.0f);
+	assert(scale_x <= 1.0f && scale_y <= 1.0f);
 
 	float inv_scale_x = 1.0f / scale_x;
 	float inv_scale_y = 1.0f / scale_y;
