@@ -127,6 +127,9 @@
     <ClCompile Include="Src\BVH\BVHCollapser.cpp">
       <Filter>BVH</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Util\Mutex.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -334,14 +337,24 @@
     <ClInclude Include="Src\Util\PMJ.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Config.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\BlueNoise.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\BVH\BVHCollapser.h">
       <Filter>BVH</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Util\Mutex.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\MinHeap.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Random.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Queue.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Config.h" />
   </ItemGroup>
 </Project>

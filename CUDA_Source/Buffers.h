@@ -104,8 +104,8 @@ struct ShadowRayBuffer {
 };
 
 __device__ __constant__ TraceBuffer     ray_buffer_trace;
-__device__ __constant__ MaterialBuffer  ray_buffer_shade_diffuse;
-__device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric_and_glossy;
+__device__ __constant__ MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
+__device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
 __device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
 
 // Number of elements in each Buffer
@@ -114,8 +114,9 @@ __device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
 struct BufferSizes {
 	int trace     [MAX_BOUNCES];
 	int diffuse   [MAX_BOUNCES];
+	int plastic   [MAX_BOUNCES];
 	int dielectric[MAX_BOUNCES];
-	int glossy    [MAX_BOUNCES];
+	int conductor [MAX_BOUNCES];
 	int shadow    [MAX_BOUNCES];
 
 	// Global counters for tracing kernels

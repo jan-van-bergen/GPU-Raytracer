@@ -16,10 +16,10 @@ struct HomogeneousMedium {
 	Vector3 sigma_s;
 };
 
-using TextureMap  = HashMap<String, TextureHandle,     StringHash>;
-using MaterialMap = HashMap<String, MaterialHandle,    StringHash>;
-using MediumMap   = HashMap<String, HomogeneousMedium, StringHash>;
-using ObjectMap   = HashMap<String, Array<Instance>,   StringHash>;
+using PBRTTextureMap  = HashMap<String, TextureHandle,     StringHash>;
+using PBRTMaterialMap = HashMap<String, MaterialHandle,    StringHash>;
+using PBRTMediumMap   = HashMap<String, HomogeneousMedium, StringHash>;
+using PBRTObjectMap   = HashMap<String, Array<Instance>,   StringHash>;
 
 static void parser_next_line(Parser & parser) {
 	while (true) {
@@ -33,9 +33,9 @@ static void parser_next_line(Parser & parser) {
 }
 
 // Skips whitespace, newlines, and comments
-static void parser_skip(Parser & parser) {
+static void pbrt_parser_skip(Parser & parser) {
 	while (true) {
-		if (parser.match('#')) { // Comment
+		while (parser.match('#')) { // Comment
 			parser_next_line(parser);
 		}
 		if (!is_whitespace(*parser.cur) && !is_newline(*parser.cur)) break;
@@ -45,7 +45,7 @@ static void parser_skip(Parser & parser) {
 }
 
 static StringView parse_quoted(Parser & parser) {
-	parser_skip(parser);
+	pbrt_parser_skip(parser);
 	parser.expect('"');
 
 	const char * start = parser.cur;
@@ -93,9 +93,9 @@ static Param parse_param(Parser & parser) {
 
 	param.name = name;
 
-	parser_skip(parser);
+	pbrt_parser_skip(parser);
 	bool has_brackets = parser.match('[');
-	parser_skip(parser);
+	pbrt_parser_skip(parser);
 
 	if (type == "bool") {
 		param.type = Param::Type::BOOL;
@@ -109,7 +109,7 @@ static Param parse_param(Parser & parser) {
 				ERROR(parser.location, "Invalid boolean value!\n");
 			}
 			param.bools.push_back(value);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
 	} else if (type == "int" || type == "integer") {
@@ -117,7 +117,7 @@ static Param parse_param(Parser & parser) {
 		do {
 			int value = parser.parse_int();
 			param.ints.push_back(value);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
 	} else if (type == "float" || type == "blackbody") {
@@ -125,28 +125,28 @@ static Param parse_param(Parser & parser) {
 		do {
 			float value = parser.parse_float();
 			param.floats.push_back(value);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
 	} else if (type == "point2") {
 		param.type = Param::Type::FLOAT2;
 		do {
 			Vector2 value;
-			value.x = parser.parse_float(); parser_skip(parser);
+			value.x = parser.parse_float(); pbrt_parser_skip(parser);
 			value.y = parser.parse_float();
 			param.float2s.push_back(value);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
 	} else if (type == "vector3" || type == "point3" || type == "normal" || type == "rgb") {
 		param.type = Param::Type::FLOAT3;
 		do {
 			Vector3 value;
-			value.x = parser.parse_float(); parser_skip(parser);
-			value.y = parser.parse_float(); parser_skip(parser);
+			value.x = parser.parse_float(); pbrt_parser_skip(parser);
+			value.y = parser.parse_float(); pbrt_parser_skip(parser);
 			value.z = parser.parse_float();
 			param.float3s.push_back(value);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
 	} else if (type == "string") {
@@ -154,7 +154,7 @@ static Param parse_param(Parser & parser) {
 		do {
 			StringView value = parse_quoted(parser);
 			param.strings.push_back(value);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
 	} else if (type == "spectrum") {
@@ -163,14 +163,14 @@ static Param parse_param(Parser & parser) {
 			do {
 				StringView value = parse_quoted(parser);
 				param.strings.push_back(value);
-				parser_skip(parser);
+				pbrt_parser_skip(parser);
 			} while (has_brackets && !parser.match(']'));
 		} else {
 			param.type = Param::Type::FLOAT;
 			do {
 				float value = parser.parse_float();
 				param.floats.push_back(value);
-				parser_skip(parser);
+				pbrt_parser_skip(parser);
 			} while (has_brackets && !parser.match(']'));
 		}
 
@@ -179,14 +179,14 @@ static Param parse_param(Parser & parser) {
 		do {
 			StringView value = parse_quoted(parser);
 			param.strings.push_back(value);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
 	} else {
 		ERROR(parser.location, "Unrecognized type '%.*s'", unsigned(type.length()), type.start);
 	}
 
-	parser_skip(parser);
+	pbrt_parser_skip(parser);
 
 	return param;
 }
@@ -256,17 +256,7 @@ static const Array<Vector3>    & find_param_float3s (const Array<Param> & params
 static const Array<StringView> & find_param_strings (const Array<Param> & params, const char * name) { return find_param(params, name, Param::Type::STRING) .strings; }
 static const Array<StringView> & find_param_textures(const Array<Param> & params, const char * name) { return find_param(params, name, Param::Type::TEXTURE).strings; }
 
-static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
-	char * filename_abs = new char[len_path + len_filename + 1];
-
-	memcpy(filename_abs,            path,     len_path);
-	memcpy(filename_abs + len_path, filename, len_filename);
-	filename_abs[len_path + len_filename] = '\0';
-
-	return filename_abs;
-}
-
-static Material parse_material(const char * name, const StringView & type, const Array<Param> & params, const TextureMap & texture_map) {
+static Material parse_material(const char * name, const StringView & type, const Array<Param> & params, const PBRTTextureMap & texture_map) {
 	Material material = { };
 	material.name = name;
 
@@ -291,7 +281,7 @@ static Material parse_material(const char * name, const StringView & type, const
 		material.type = Material::Type::DIFFUSE;
 		parse_reflectance();
 	} else if (type == "coateddiffuse") {
-		material.type = Material::Type::GLOSSY;
+		material.type = Material::Type::PLASTIC;
 		parse_reflectance();
 
 		const Param * param_roughness = find_param_optional(params, "roughness");
@@ -301,7 +291,7 @@ static Material parse_material(const char * name, const StringView & type, const
 			material.linear_roughness = 0.5f;
 		}
 	} else if (type == "conductor") {
-		material.type = Material::Type::GLOSSY;
+		material.type = Material::Type::CONDUCTOR;
 
 		const Param * param_eta = find_param_optional(params, "eta");
 		const Param * param_k   = find_param_optional(params, "k");
@@ -439,7 +429,7 @@ static Material parse_material(const char * name, const StringView & type, const
 	return material;
 }
 
-static void load_include(const char * filename, const char * path, int path_length, Scene & scene, TextureMap & texture_map, MaterialMap & material_map, MediumMap & medium_map, ObjectMap & object_map) {
+static void load_include(const char * filename, const char * path, int path_length, Scene & scene, PBRTTextureMap & texture_map, PBRTMaterialMap & material_map, PBRTMediumMap & medium_map, PBRTObjectMap & object_map) {
 	int          file_length;
 	const char * file = Util::file_read(filename, file_length);
 
@@ -474,21 +464,21 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("Include")) {
 			StringView name = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
-			const char * include_abs = get_absolute_filename(path, path_length, name.start, name.length());
+			const char * include_abs = Util::get_absolute_filename(path, path_length, name.start, name.length());
 			load_include(include_abs, path, path_length, scene, texture_map, material_map, medium_map, object_map);
 			delete [] include_abs;
 
 		} else if (parser.match("AttributeBegin")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 			if (attribute_stack.size() == 0) {
 				ERROR(parser.location, "Invalid AttributeBegin block!\n");
 			}
 			attribute_stack.emplace_back(attribute_stack.back());
 
 		} else if (parser.match("AttributeEnd")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			if (attribute_stack.size() == 0) {
 				ERROR(parser.location, "Invalid AttributeEnd block!\n");
@@ -497,7 +487,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("ObjectBegin")) {
 			StringView name = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			if (current_object.inside) {
 				ERROR(parser.location, "Nested Objects!\n");
@@ -507,7 +497,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			current_object.shapes.clear();
 
 		} else if (parser.match("ObjectEnd")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			if (!current_object.inside) {
 				ERROR(parser.location, "ObjectEnd without ObjectBegin!\n");
@@ -518,7 +508,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("ObjectInstance")) {
 			StringView name = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Instance> shape;
 			if (!object_map.try_get(name, shape)) {
@@ -533,78 +523,78 @@ static void load_include(const char * filename, const char * path, int path_leng
 			}
 
 		} else if (parser.match("Identity")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			attribute_stack.back().transform = Matrix4();
 
 		} else if (parser.match("Translate")) {
-			parser_skip(parser);
-			float x = parser.parse_float(); parser_skip(parser);
-			float y = parser.parse_float(); parser_skip(parser);
-			float z = parser.parse_float(); parser_skip(parser);
+			pbrt_parser_skip(parser);
+			float x = parser.parse_float(); pbrt_parser_skip(parser);
+			float y = parser.parse_float(); pbrt_parser_skip(parser);
+			float z = parser.parse_float(); pbrt_parser_skip(parser);
 
 			attribute_stack.back().transform = Matrix4::create_translation(Vector3(x, y, z)) * attribute_stack.back().transform;
 
 		} else if (parser.match("Rotate")) {
-			parser_skip(parser);
-			float angle = Math::deg_to_rad(parser.parse_float()); parser_skip(parser);
-			float x = parser.parse_float(); parser_skip(parser);
-			float y = parser.parse_float(); parser_skip(parser);
-			float z = parser.parse_float(); parser_skip(parser);
+			pbrt_parser_skip(parser);
+			float angle = Math::deg_to_rad(parser.parse_float()); pbrt_parser_skip(parser);
+			float x = parser.parse_float(); pbrt_parser_skip(parser);
+			float y = parser.parse_float(); pbrt_parser_skip(parser);
+			float z = parser.parse_float(); pbrt_parser_skip(parser);
 
 			attribute_stack.back().transform = Matrix4::create_rotation(Quaternion::axis_angle(Vector3(x, y, z), angle)) * attribute_stack.back().transform;
 
 		} else if (parser.match("Scale")) {
-			parser_skip(parser);
-			float x = parser.parse_float(); parser_skip(parser);
-			float y = parser.parse_float(); parser_skip(parser);
-			float z = parser.parse_float(); parser_skip(parser);
+			pbrt_parser_skip(parser);
+			float x = parser.parse_float(); pbrt_parser_skip(parser);
+			float y = parser.parse_float(); pbrt_parser_skip(parser);
+			float z = parser.parse_float(); pbrt_parser_skip(parser);
 
 			attribute_stack.back().transform = Matrix4::create_scale(cbrtf(x * y * z)) * attribute_stack.back().transform; // Geometric mean
 
 		} else if (parser.match("Transform")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 			parser.expect('[');
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Matrix4 matrix;
 			for (int i = 0; i < 16; i++) {
 				matrix.cells[i] = parser.parse_float();
-				parser_skip(parser);
+				pbrt_parser_skip(parser);
 			}
 //			attribute_stack.back().transform = Matrix4::transpose(matrix);
 			attribute_stack.back().transform = matrix;
 
 			parser.expect(']');
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 		} else if (parser.match("ConcatTransform")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 			parser.expect('[');
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Matrix4 matrix;
 			for (int i = 0; i < 16; i++) {
 				matrix.cells[i] = parser.parse_float();
-				parser_skip(parser);
+				pbrt_parser_skip(parser);
 			}
 //			attribute_stack.back().transform = Matrix4::transpose(matrix) * attribute_stack.back().transform;
 			attribute_stack.back().transform = matrix * attribute_stack.back().transform;
 
 			parser.expect(']');
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 		} else if (parser.match("LookAt")) {
-			parser_skip(parser);
-			float e_x = parser.parse_float(); parser_skip(parser);
-			float e_y = parser.parse_float(); parser_skip(parser);
-			float e_z = parser.parse_float(); parser_skip(parser);
-			float f_x = parser.parse_float(); parser_skip(parser);
-			float f_y = parser.parse_float(); parser_skip(parser);
-			float f_z = parser.parse_float(); parser_skip(parser);
-			float u_x = parser.parse_float(); parser_skip(parser);
-			float u_y = parser.parse_float(); parser_skip(parser);
-			float u_z = parser.parse_float(); parser_skip(parser);
+			pbrt_parser_skip(parser);
+			float e_x = parser.parse_float(); pbrt_parser_skip(parser);
+			float e_y = parser.parse_float(); pbrt_parser_skip(parser);
+			float e_z = parser.parse_float(); pbrt_parser_skip(parser);
+			float f_x = parser.parse_float(); pbrt_parser_skip(parser);
+			float f_y = parser.parse_float(); pbrt_parser_skip(parser);
+			float f_z = parser.parse_float(); pbrt_parser_skip(parser);
+			float u_x = parser.parse_float(); pbrt_parser_skip(parser);
+			float u_y = parser.parse_float(); pbrt_parser_skip(parser);
+			float u_z = parser.parse_float(); pbrt_parser_skip(parser);
 
 			attribute_stack.back().transform =
 				Matrix4::create_translation(Vector3(e_x, e_y, e_z)) *
@@ -612,7 +602,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("Camera")) {
 			StringView type = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Param> params = parse_params(parser);
 
@@ -629,13 +619,13 @@ static void load_include(const char * filename, const char * path, int path_leng
 			StringView name = parse_quoted(parser);
 			StringView type = parse_quoted(parser);
 			StringView clas = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Param> params = parse_params(parser);
 
 			if (clas == "imagemap") {
 				StringView   filename_rel = find_param_string(params, "filename");
-				const char * filename_abs = get_absolute_filename(path, path_length, filename_rel.start, filename_rel.length());
+				const char * filename_abs = Util::get_absolute_filename(path, path_length, filename_rel.start, filename_rel.length());
 
 				TextureHandle texture_handle = scene.asset_manager.add_texture(filename_abs);
 				texture_map.insert(name, texture_handle);
@@ -674,7 +664,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("Material")) {
 			StringView type = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Param> params = parse_params(parser);
 
@@ -683,7 +673,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("MakeNamedMaterial")) {
 			StringView name = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Param> params = parse_params(parser);
 			StringView type = find_param_string(params, "type");
@@ -695,7 +685,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("NamedMaterial")) {
 			StringView name = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			if (!material_map.try_get(name, attribute_stack.back().material)) {
 				attribute_stack.back().material = MaterialHandle::get_default();
@@ -704,7 +694,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("MakeNamedMedium")) {
 			StringView name = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Param> params = parse_params(parser);
 			StringView type = find_param_string(params, "type");
@@ -731,8 +721,8 @@ static void load_include(const char * filename, const char * path, int path_leng
 			}
 
 		} else if (parser.match("MediumInterface")) {
-			StringView medium_name_from = parse_quoted(parser); parser_skip(parser);
-			StringView medium_name_to   = parse_quoted(parser); parser_skip(parser);
+			StringView medium_name_from = parse_quoted(parser); pbrt_parser_skip(parser);
+			StringView medium_name_to   = parse_quoted(parser); pbrt_parser_skip(parser);
 
 			HomogeneousMedium medium;
 			if (medium_map.try_get(medium_name_to, medium)) {
@@ -753,7 +743,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("AreaLightSource")) {
 			StringView type = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			if (type != "diffuse") {
 				WARNING(parser.location, "AreaLightSource type should be 'diffuse'!\n");
@@ -785,7 +775,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 		} else if (parser.match("Shape")) {
 			StringView type = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Param> params = parse_params(parser);
 
@@ -793,7 +783,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 				StringView param_filename = find_param(params, "filename", Param::Type::STRING).strings[0];
 
 				const char * filename_rel = param_filename.c_str();
-				const char * filename_abs = get_absolute_filename(path, path_length, filename_rel, param_filename.length());
+				const char * filename_abs = Util::get_absolute_filename(path, path_length, filename_rel, param_filename.length());
 
 				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
 
@@ -878,7 +868,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			}
 
 		} else if (parser.match("WorldBegin")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			if (attribute_stack.size() != 1) {
 				ERROR(parser.location, "Invalid AttributeBegin block!\n");
@@ -886,11 +876,11 @@ static void load_include(const char * filename, const char * path, int path_leng
 			attribute_stack.back().transform = Matrix4();
 
 		} else if (parser.match("WorldEnd")) {
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 		} else if (parser.match("Film") || parser.match("Sampler") || parser.match("Integrator")) { // Ingnore
 			StringView type = parse_quoted(parser);
-			parser_skip(parser);
+			pbrt_parser_skip(parser);
 
 			Array<Param> params = parse_params(parser);
 
@@ -908,10 +898,10 @@ static void load_include(const char * filename, const char * path, int path_leng
 }
 
 void PBRTLoader::load(const char * filename, Scene & scene) {
-	TextureMap  texture_map;
-	MaterialMap material_map;
-	MediumMap   medium_map;
-	ObjectMap   object_map;
+	PBRTTextureMap  texture_map;
+	PBRTMaterialMap material_map;
+	PBRTMediumMap   medium_map;
+	PBRTObjectMap   object_map;
 
 	char path[512]; Util::get_path(filename, path);
 	int  path_length = strlen(path);

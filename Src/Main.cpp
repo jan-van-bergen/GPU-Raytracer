@@ -57,6 +57,13 @@ static void draw_gui();
 int main(int arg_count, char ** args) {
 	parse_args(arg_count, args);
 
+	if (scene_config.scenes.size() == 0) {
+		scene_config.scenes.push_back("Data/cornellbox/scene.xml");
+	}
+	if (scene_config.sky == nullptr) {
+		scene_config.sky = "Data/Skies/sky_15.hdr";
+	}
+
 	{
 		ScopeTimer timer("Initialization");
 
@@ -64,9 +71,9 @@ int main(int arg_count, char ** args) {
 		window.resize_handler = &window_resize;
 
 		CUDAContext::init();
-		pathtracer.init(config.scene, window.frame_buffer_handle, config.initial_width, config.initial_height);
+		pathtracer.init(scene_config, window.frame_buffer_handle, config.initial_width, config.initial_height);
 
-		perf_test.init(&pathtracer, false, config.scene);
+		perf_test.init(&pathtracer, false, scene_config.scenes[0]);
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
@@ -166,14 +173,16 @@ static void parse_args(int arg_count, char ** args) {
 	};
 
 	static Array<Option> options = {
-		Option { "W", "width",   "Sets the width of the window",                                          1, [](int arg_count, char ** args, int i) { config.initial_width      = atoi(args[i + 1]); } },
-		Option { "H", "height",  "Sets the height of the window",                                         1, [](int arg_count, char ** args, int i) { config.initial_height     = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  "Sets the number of pathtracing bounces",                                1, [](int arg_count, char ** args, int i) { config.num_bounces        = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", "Sets a target number of samples to use",                                1, [](int arg_count, char ** args, int i) { config.output_frame_index = atoi(args[i + 1]); } },
-		Option { "o", "output",  "Sets path to output file. Supported formats: ppm",                      1, [](int arg_count, char ** args, int i) { config.output_name        = args[i + 1]; } },
-		Option { "s", "scene",   "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { config.scene              = args[i + 1]; } },
-		Option { "S", "sky",     "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { config.sky                = args[i + 1]; } },
-		Option { "b", "bvh",     "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh",      1, [](int arg_count, char ** args, int i) {
+		Option { "W", "width",   "Sets the width of the window",                     1, [](int arg_count, char ** args, int i) { config.initial_width      = atoi(args[i + 1]); } },
+		Option { "H", "height",  "Sets the height of the window",                    1, [](int arg_count, char ** args, int i) { config.initial_height     = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  "Sets the number of pathtracing bounces",           1, [](int arg_count, char ** args, int i) { config.num_bounces        = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", "Sets a target number of samples to use",           1, [](int arg_count, char ** args, int i) { config.output_frame_index = atoi(args[i + 1]); } },
+		Option { "o", "output",  "Sets path to output file. Supported formats: ppm", 1, [](int arg_count, char ** args, int i) { config.output_name        = args[i + 1]; } },
+
+		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { scene_config.scenes.push_back(args[i + 1]); } },
+		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { scene_config.sky = args[i + 1]; } },
+
+		Option { "b", "bvh", "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh", 1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
 				config.bvh_type = BVHType::BVH;
 			} else if (strcmp(args[i + 1], "sbvh") == 0) {
@@ -187,18 +196,23 @@ static void parse_args(int arg_count, char ** args) {
 				abort();
 			}
 		} },
+
 		Option { nullptr, "albedo", "Enables or disables albedo",                       1, [](int arg_count, char ** args, int i) { config.enable_albedo                       = atob(args[i + 1]); } },
 		Option { nullptr, "nee",    "Enables or disables Next Event Estimation",        1, [](int arg_count, char ** args, int i) { config.enable_next_event_estimation        = atob(args[i + 1]); } },
 		Option { nullptr, "mis",    "Enables or disables Multiple Importance Sampling", 1, [](int arg_count, char ** args, int i) { config.enable_multiple_importance_sampling = atob(args[i + 1]); } },
+
 		Option { nullptr, "force-rebuild", "BVH will not be loaded from disk but rebuild from scratch",                                           0, [](int arg_count, char ** args, int i) { config.bvh_force_rebuild             = true; } },
-		Option { "O",     "optimize",    "Enables or disables BVH optimzation post-processing step",                                              1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
-		Option { "Ot",    "opt-time",    "Sets time limit (in seconds) for BVH optimization",                                                     1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
-		Option { "Ob",    "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization",                                1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+
+		Option { "O",  "optimize",    "Enables or disables BVH optimzation post-processing step",               1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
+		Option { "Ot", "opt-time",    "Sets time limit (in seconds) for BVH optimization",                      1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
+		Option { "Ob", "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization", 1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+
 		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
 		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
 		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
-		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                                1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
-		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser",            1, [](int arg_count, char ** args, int i) {
+
+		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                     1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
+		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser", 1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "box") == 0) {
 				config.mipmap_filter = Config::MipmapFilter::BOX;
 			} else if (strcmp(args[i + 1], "lanczos") == 0) {
@@ -268,7 +282,7 @@ static void parse_args(int arg_count, char ** args) {
 			}
 		} else {
 			// Without explicit option, assume scene name
-			config.scene = arg;
+			scene_config.scenes.push_back(arg);
 		}
 	}
 }
@@ -514,7 +528,7 @@ static void draw_gui() {
 		if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Text("Has Diffuse:    %s", pathtracer.scene.has_diffuse    ? "True" : "False");
 			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
-			ImGui::Text("Has Glossy:     %s", pathtracer.scene.has_glossy     ? "True" : "False");
+			ImGui::Text("Has Conductor:  %s", pathtracer.scene.has_conductor  ? "True" : "False");
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
 
 			int triangle_count       = 0;
@@ -602,7 +616,7 @@ static void draw_gui() {
 				bool material_changed = false;
 
 				int material_type = int(material.type);
-				if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Dielectric\0Glossy\0")) {
+				if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Plastic\0Dielectric\0Conductor\0")) {
 					material.type = Material::Type(material_type);
 					material_changed = true;
 				}
@@ -623,15 +637,22 @@ static void draw_gui() {
 						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						break;
 					}
-					case Material::Type::DIELECTRIC: {
-						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
-						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 5.0f);
-						break;
-					}
-					case Material::Type::GLOSSY: {
+					case Material::Type::PLASTIC: {
 						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
 						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
-						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 5.0f);
+						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
+						break;
+					}
+					case Material::Type::DIELECTRIC: {
+						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
+						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 2.5f);
+						material_changed |= ImGui::SliderFloat ("Roughness",     &material.linear_roughness,    0.0f, 1.0f);
+						break;
+					}
+					case Material::Type::CONDUCTOR: {
+						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
 						material_changed |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
@@ -705,8 +726,10 @@ static void draw_gui() {
 			Input::mouse_position(&mouse_x, &mouse_y);
 
 			if (Vector2::length(Vector2(mouse_x, mouse_y) - Vector2(last_pixel_query_x, last_pixel_query_y)) < 50.0f) {
+				Vector3 triangle_center_world = Matrix4::transform_position(mesh.transform, triangle.get_center());
+
 				ImGui::BeginTooltip();
-				ImGui::Text("Distance: %f", Vector3::length(triangle.get_center() - pathtracer.scene.camera.position));
+				ImGui::Text("Distance: %f", Vector3::length(triangle_center_world - pathtracer.scene.camera.position));
 				ImGui::EndTooltip();
 			}
 

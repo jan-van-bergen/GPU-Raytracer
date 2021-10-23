@@ -18,8 +18,8 @@
 #include "Util/HashMap.h"
 #include "Util/ScopeTimer.h"
 
-void Pathtracer::init(const char * scene_name, unsigned frame_buffer_handle, int width, int height) {
-	scene.init(scene_name);
+void Pathtracer::init(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height) {
+	scene.init(scene_config);
 
 	cuda_init(frame_buffer_handle, width, height);
 
@@ -53,8 +53,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_trace_cwbvh       .init(&cuda_module, "kernel_trace_cwbvh");
 	kernel_sort              .init(&cuda_module, "kernel_sort");
 	kernel_shade_diffuse     .init(&cuda_module, "kernel_shade_diffuse");
+	kernel_shade_plastic     .init(&cuda_module, "kernel_shade_plastic");
 	kernel_shade_dielectric  .init(&cuda_module, "kernel_shade_dielectric");
-	kernel_shade_glossy      .init(&cuda_module, "kernel_shade_glossy");
+	kernel_shade_conductor   .init(&cuda_module, "kernel_shade_conductor");
 	kernel_trace_shadow_bvh  .init(&cuda_module, "kernel_trace_shadow_bvh");
 	kernel_trace_shadow_qbvh .init(&cuda_module, "kernel_trace_shadow_qbvh");
 	kernel_trace_shadow_cwbvh.init(&cuda_module, "kernel_trace_shadow_cwbvh");
@@ -86,8 +87,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_generate        .set_block_dim(WARP_SIZE * 8, 1, 1);
 	kernel_sort            .set_block_dim(WARP_SIZE * 8, 1, 1);
 	kernel_shade_diffuse   .set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_shade_plastic   .set_block_dim(WARP_SIZE * 8, 1, 1);
 	kernel_shade_dielectric.set_block_dim(WARP_SIZE * 8, 1, 1);
-	kernel_shade_glossy    .set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_shade_conductor .set_block_dim(WARP_SIZE * 8, 1, 1);
 
 	// CWBVH uses a stack of int2's (8 bytes)
 	// Other BVH's use a stack of ints (4 bytes)
@@ -307,9 +309,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	ray_buffer_trace.init(BATCH_SIZE);
 	cuda_module.get_global("ray_buffer_trace").set_value(ray_buffer_trace);
 
-	global_ray_buffer_shade_diffuse               = cuda_module.get_global("ray_buffer_shade_diffuse");
-	global_ray_buffer_shade_dielectric_and_glossy = cuda_module.get_global("ray_buffer_shade_dielectric_and_glossy");
-	global_ray_buffer_shadow                      = cuda_module.get_global("ray_buffer_shadow");
+	global_ray_buffer_shade_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_shade_diffuse_and_plastic");
+	global_ray_buffer_shade_dielectric_and_conductor = cuda_module.get_global("ray_buffer_shade_dielectric_and_conductor");
+	global_ray_buffer_shadow                         = cuda_module.get_global("ray_buffer_shadow");
 
 	global_camera      = cuda_module.get_global("camera");
 	global_config      = cuda_module.get_global("config");
@@ -331,8 +333,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		event_desc_trace           [i] = { display_order, category, "Trace" };
 		event_desc_sort            [i] = { display_order, category, "Sort" };
 		event_desc_shade_diffuse   [i] = { display_order, category, "Diffuse" };
+		event_desc_shade_plastic   [i] = { display_order, category, "Plastic" };
 		event_desc_shade_dielectric[i] = { display_order, category, "Dielectric" };
-		event_desc_shade_glossy    [i] = { display_order, category, "Glossy" };
+		event_desc_shade_conductor [i] = { display_order, category, "Conductor" };
 		event_desc_shadow_trace    [i] = { display_order, category, "Shadow" };
 
 		display_order++;
@@ -368,8 +371,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	scene.update(0.0f);
 
 	scene.has_diffuse    = false;
+	scene.has_plastic    = false;
 	scene.has_dielectric = false;
-	scene.has_glossy     = false;
+	scene.has_conductor  = false;
 	scene.has_lights     = false;
 
 	invalidated_scene     = true;
@@ -432,10 +436,10 @@ void Pathtracer::cuda_free() {
 		CUDAMemory::free(ptr_light_mesh_transform_index);
 	}
 
-                                                  ray_buffer_trace                      .free();
-	if (scene.has_diffuse)                        ray_buffer_shade_diffuse              .free();
-	if (scene.has_dielectric || scene.has_glossy) ray_buffer_shade_dielectric_and_glossy.free();
-	if (scene.has_lights)                         ray_buffer_shadow                     .free();
+	ray_buffer_trace.free();
+	if (scene.has_diffuse    || scene.has_plastic)   ray_buffer_shade_diffuse_and_plastic.free();
+	if (scene.has_dielectric || scene.has_conductor) ray_buffer_shade_dielectric_and_conductor.free();
+	if (scene.has_lights)                            ray_buffer_shadow.free();
 
 	tlas_bvh_builder.free();
 	if (config.bvh_type == BVHType::CWBVH) {
@@ -489,8 +493,9 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_generate        .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_generate        .block_dim_x), 1, 1);
 	kernel_sort            .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_sort            .block_dim_x), 1, 1);
 	kernel_shade_diffuse   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_diffuse   .block_dim_x), 1, 1);
+	kernel_shade_plastic   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_plastic   .block_dim_x), 1, 1);
 	kernel_shade_dielectric.set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_dielectric.block_dim_x), 1, 1);
-	kernel_shade_glossy    .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_glossy    .block_dim_x), 1, 1);
+	kernel_shade_conductor .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_conductor .block_dim_x), 1, 1);
 
 	scene.camera.resize(width, height);
 	invalidated_camera = true;
@@ -619,13 +624,11 @@ void Pathtracer::calc_light_power() {
 
 	using It = decltype(mesh_data_used_as_lights)::Iterator;
 
-	for (auto it = mesh_data_used_as_lights.begin(); it != mesh_data_used_as_lights.end(); ++it) {
+	for (It it = mesh_data_used_as_lights.begin(); it != mesh_data_used_as_lights.end(); ++it) {
 		MeshDataHandle  mesh_data_handle = MeshDataHandle { it.get_key() };
 		Array<Mesh *> & meshes           = it.get_value();
 
 		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
-
-		int light_index = light_mesh_datas.size();
 
 		LightMeshData & light_mesh_data = light_mesh_datas.emplace_back();
 		light_mesh_data.first_triangle_index = light_triangles.size();
@@ -797,6 +800,12 @@ void Pathtracer::update(float delta) {
 					cuda_materials[i].diffuse.texture_id = material.texture_id.handle;
 					break;
 				}
+				case Material::Type::PLASTIC: {
+					cuda_materials[i].plastic.diffuse    = material.diffuse;
+					cuda_materials[i].plastic.texture_id = material.texture_id.handle;
+					cuda_materials[i].plastic.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					break;
+				}
 				case Material::Type::DIELECTRIC: {
 					cuda_materials[i].dielectric.negative_absorption = Vector3( // Absorption = -log(Transmittance), so -A = log(T)
 						logf(material.transmittance.x),
@@ -804,14 +813,15 @@ void Pathtracer::update(float delta) {
 						logf(material.transmittance.z)
 					);
 					cuda_materials[i].dielectric.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
+					cuda_materials[i].dielectric.roughness           = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}
-				case Material::Type::GLOSSY: {
-					cuda_materials[i].glossy.diffuse    = material.diffuse;
-					cuda_materials[i].glossy.texture_id = material.texture_id.handle;
-					cuda_materials[i].glossy.eta        = Vector3::max(material.eta, Vector3(1.0001f));
-					cuda_materials[i].glossy.k          = material.k;
-					cuda_materials[i].glossy.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+				case Material::Type::CONDUCTOR: {
+					cuda_materials[i].conductor.diffuse    = material.diffuse;
+					cuda_materials[i].conductor.texture_id = material.texture_id.handle;
+					cuda_materials[i].conductor.eta        = Vector3::max(material.eta, Vector3(1.0001f));
+					cuda_materials[i].conductor.k          = material.k;
+					cuda_materials[i].conductor.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}
 				default: abort();
@@ -825,34 +835,35 @@ void Pathtracer::update(float delta) {
 		delete [] cuda_materials;
 
 		bool had_diffuse    = scene.has_diffuse;
+		bool had_plastic    = scene.has_plastic;
 		bool had_dielectric = scene.has_dielectric;
-		bool had_glossy     = scene.has_glossy;
+		bool had_conductor  = scene.has_conductor;
 		bool had_lights     = scene.has_lights;
 
 		scene.calc_properties();
 
-		bool diffuse_changed              =  had_diffuse                   ^  scene.has_diffuse;
-		bool dielectric_or_glossy_changed = (had_dielectric || had_glossy) ^ (scene.has_dielectric || scene.has_glossy);
-		bool lights_changed               =  had_lights                    ^  scene.has_lights;
+		bool diffuse_or_plastic_changed      = (had_diffuse    || had_plastic)   ^ (scene.has_diffuse    || scene.has_plastic);
+		bool dielectric_or_conductor_changed = (had_dielectric || had_conductor) ^ (scene.has_dielectric || scene.has_conductor);
+		bool lights_changed                  =  had_lights                       ^  scene.has_lights;
 
 		// Handle (dis)appearance of Diffuse materials
-		if (diffuse_changed) {
-			if (scene.has_diffuse) {
-				ray_buffer_shade_diffuse.init(BATCH_SIZE);
+		if (diffuse_or_plastic_changed) {
+			if (scene.has_diffuse || scene.has_plastic) {
+				ray_buffer_shade_diffuse_and_plastic.init(BATCH_SIZE);
 			} else {
-				ray_buffer_shade_diffuse.free();
+				ray_buffer_shade_diffuse_and_plastic.free();
 			}
-			global_ray_buffer_shade_diffuse.set_value(ray_buffer_shade_diffuse);
+			global_ray_buffer_shade_diffuse_and_plastic.set_value(ray_buffer_shade_diffuse_and_plastic);
 		}
 
-		// Handle (dis)appearance of Dielectric OR Glossy materials (they share the same Material buffer)
-		if (dielectric_or_glossy_changed) {
-			if (scene.has_dielectric || scene.has_glossy) {
-				ray_buffer_shade_dielectric_and_glossy.init(BATCH_SIZE);
+		// Handle (dis)appearance of Dielectric OR Conductor materials (they share the same Material buffer)
+		if (dielectric_or_conductor_changed) {
+			if (scene.has_dielectric || scene.has_conductor) {
+				ray_buffer_shade_dielectric_and_conductor.init(BATCH_SIZE);
 			} else {
-				ray_buffer_shade_dielectric_and_glossy.free();
+				ray_buffer_shade_dielectric_and_conductor.free();
 			}
-			global_ray_buffer_shade_dielectric_and_glossy.set_value(ray_buffer_shade_dielectric_and_glossy);
+			global_ray_buffer_shade_dielectric_and_conductor.set_value(ray_buffer_shade_dielectric_and_conductor);
 		}
 
 		// Handle (dis)appearance of Light materials
@@ -1006,14 +1017,19 @@ void Pathtracer::render() {
 				kernel_shade_diffuse.execute(bounce, frames_accumulated);
 			}
 
+			if (scene.has_plastic) {
+				event_pool.record(event_desc_shade_plastic[bounce]);
+				kernel_shade_plastic.execute(bounce, frames_accumulated);
+			}
+
 			if (scene.has_dielectric) {
 				event_pool.record(event_desc_shade_dielectric[bounce]);
 				kernel_shade_dielectric.execute(bounce, frames_accumulated);
 			}
 
-			if (scene.has_glossy) {
-				event_pool.record(event_desc_shade_glossy[bounce]);
-				kernel_shade_glossy.execute(bounce, frames_accumulated);
+			if (scene.has_conductor) {
+				event_pool.record(event_desc_shade_conductor[bounce]);
+				kernel_shade_conductor.execute(bounce, frames_accumulated);
 			}
 
 			// Trace shadow Rays

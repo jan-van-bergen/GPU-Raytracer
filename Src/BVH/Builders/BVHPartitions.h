@@ -157,11 +157,11 @@ namespace BVHPartitions {
 				if (vertices[1][dimension] > vertices[2][dimension]) Util::swap(vertices[1], vertices[2]);
 				if (vertices[0][dimension] > vertices[1][dimension]) Util::swap(vertices[0], vertices[1]);
 
-				float vertex_min = triangle_aabb.min[dimension];
-				float vertex_max = triangle_aabb.max[dimension];
+				float triangle_aabb_min = triangle_aabb.min[dimension];
+				float triangle_aabb_max = triangle_aabb.max[dimension];
 
-				int bin_min = int(SBVH_BIN_COUNT * ((vertex_min - bounds_min) * inv_bounds_delta));
-				int bin_max = int(SBVH_BIN_COUNT * ((vertex_max - bounds_min) * inv_bounds_delta));
+				int bin_min = int(SBVH_BIN_COUNT * ((triangle_aabb_min - bounds_min) * inv_bounds_delta));
+				int bin_max = int(SBVH_BIN_COUNT * ((triangle_aabb_max - bounds_min) * inv_bounds_delta));
 
 				bin_min = Math::clamp(bin_min, 0, SBVH_BIN_COUNT - 1);
 				bin_max = Math::clamp(bin_max, 0, SBVH_BIN_COUNT - 1);
@@ -179,7 +179,7 @@ namespace BVHPartitions {
 					assert(bin.aabb.is_valid() || bin.aabb.is_empty());
 
 					// If all vertices lie outside the bin we don't care about this triangle
-					if (vertex_min >= bin_right_plane || vertex_max <= bin_left_plane) {
+					if (triangle_aabb_min >= bin_right_plane || triangle_aabb_max <= bin_left_plane) {
 						continue;
 					}
 
@@ -187,14 +187,14 @@ namespace BVHPartitions {
 					AABB triangle_aabb_clipped_against_bin = AABB::create_empty();
 
 					// If all verticies lie between the two planes, the AABB is just the Triangle's entire AABB
-					if (vertex_min >= bin_left_plane && vertex_max <= bin_right_plane) {
+					if (triangle_aabb_min >= bin_left_plane && triangle_aabb_max <= bin_right_plane) {
 						triangle_aabb_clipped_against_bin = triangle_aabb;
 					} else {
 						Vector3 intersections[12];
 						int     intersection_count = 0;
 
-						if (vertex_min <= bin_left_plane  && bin_left_plane  <= vertex_max) triangle_intersect_plane(vertices, dimension, bin_left_plane,  intersections, &intersection_count);
-						if (vertex_min <= bin_right_plane && bin_right_plane <= vertex_max) triangle_intersect_plane(vertices, dimension, bin_right_plane, intersections, &intersection_count);
+						if (triangle_aabb_min <= bin_left_plane  && bin_left_plane  <= triangle_aabb_max) triangle_intersect_plane(vertices, dimension, bin_left_plane,  intersections, &intersection_count);
+						if (triangle_aabb_min <= bin_right_plane && bin_right_plane <= triangle_aabb_max) triangle_intersect_plane(vertices, dimension, bin_right_plane, intersections, &intersection_count);
 
 						assert(intersection_count < Util::array_count(intersections));
 
@@ -209,8 +209,8 @@ namespace BVHPartitions {
 								triangle_aabb_clipped_against_bin.expand(vertices[1]);
 							}
 
-							if (vertices[2][dimension] <= bin_right_plane && vertices[2][dimension <= vertex_max]) triangle_aabb_clipped_against_bin.expand(vertices[2]);
-							if (vertices[0][dimension] >= bin_left_plane  && vertices[0][dimension >= vertex_min]) triangle_aabb_clipped_against_bin.expand(vertices[0]);
+							if (vertices[2][dimension] <= bin_right_plane && vertices[2][dimension] <= triangle_aabb_max) triangle_aabb_clipped_against_bin.expand(vertices[2]);
+							if (vertices[0][dimension] >= bin_left_plane  && vertices[0][dimension] >= triangle_aabb_min) triangle_aabb_clipped_against_bin.expand(vertices[0]);
 
 							triangle_aabb_clipped_against_bin = AABB::overlap(triangle_aabb_clipped_against_bin, triangle_aabb);
 						}

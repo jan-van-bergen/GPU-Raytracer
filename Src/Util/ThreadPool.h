@@ -1,8 +1,9 @@
 #pragma once
-#include <queue>
 #include <thread>
 #include <mutex>
 #include <functional>
+
+#include "Util/Queue.h"
 
 struct ThreadPool {
 	using Work = std::function<void()>;
@@ -11,7 +12,7 @@ private:
 	std::thread * threads;
 	int           thread_count;
 
-	std::queue<Work> work_queue;
+	Queue<Work> work_queue;
 
 	struct Signal {
 		std::condition_variable condition;

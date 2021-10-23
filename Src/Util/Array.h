@@ -18,7 +18,7 @@ struct Array {
 	size_t count    = 0;
 	size_t capacity = 0;
 
-	constexpr Array(int initial_count = 0) {
+	constexpr Array(size_t initial_count = 0) {
 		resize(initial_count);
 	}
 
@@ -167,12 +167,12 @@ struct Array {
 		return reinterpret_cast<const T *>(buffer);
 	}
 
-	constexpr T & operator[](int index) {
+	constexpr T & operator[](size_t index) {
 		assert(0 <= index && index < count);
 		return data()[index];
 	}
 
-	constexpr const T & operator[](int index) const {
+	constexpr const T & operator[](size_t index) const {
 		assert(0 <= index && index < count);
 		return data()[index];
 	}

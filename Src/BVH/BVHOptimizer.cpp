@@ -1,15 +1,12 @@
 #include "BVHOptimizer.h"
 
-#include <queue>
-#include <random>
-
 #include "Config.h"
 
+#include "Util/Util.h"
+#include "Util/Random.h"
 #include "Util/Array.h"
+#include "Util/MinHeap.h"
 #include "Util/ScopeTimer.h"
-
-static std::random_device device;
-static std::mt19937 rng(device());
 
 // Calculates the SAH cost of a whole tree
 static float bvh_sah_cost(const BVH & bvh) {
@@ -52,7 +49,7 @@ static void init_parent_indices(const BVH & bvh, int parent_indices[], int node_
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
-static void select_nodes_random(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[]) {
+static void select_nodes_random(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[], RNG & rng) {
 	int offset = 0;
 	int * temp = new int[bvh.node_count];
 
@@ -63,8 +60,7 @@ static void select_nodes_random(const BVH & bvh, const int parent_indices[], int
 		}
 	}
 
-	// Select a single batch of random Nodes from all viable Nodes
-	std::sample(temp, temp + offset, batch_indices, batch_size, rng);
+	Util::sample(temp, temp + offset, batch_indices, batch_indices + batch_size, rng);
 
 	delete [] temp;
 }
@@ -93,10 +89,17 @@ static void select_nodes_measure(const BVH & bvh, const int parent_indices[], in
 		}
 	}
 
-	// Select 'batch_size' worst Nodes
-	std::partial_sort(batch_indices, batch_indices + batch_size, batch_indices + offset, [&](int a, int b) {
+	auto cmp = [costs](int a, int b) {
 		return costs[a] > costs[b];
-	});
+	};
+	MinHeap<int, decltype(cmp)> heap(cmp);
+
+	for (int i = 0; i < offset; i++) {
+		heap.insert(batch_indices[i]);
+	}
+	for (int i = 0; i < batch_size; i++) {
+		batch_indices[i] = heap.pop();
+	}
 
 	delete [] costs;
 }
@@ -105,18 +108,20 @@ static void select_nodes_measure(const BVH & bvh, const int parent_indices[], in
 static void find_reinsertion(const BVH & bvh, const BVHNode2 & node_reinsert, float & min_cost, int & min_index) {
 	float node_reinsert_area = node_reinsert.aabb.surface_area();
 
-	// Compare based on induced cost
-	auto cmp = [](const std::pair<int, float> & a, const std::pair<int, float> & b) {
-		return a.second < b.second;
+	struct Pair {
+		int   node_index;
+		float induced_cost;
+
+		bool operator<(Pair other) const {
+			return induced_cost < other.induced_cost; // Compare based on induced cost
+		}
 	};
 
-	std::priority_queue<std::pair<int, float>, Array<std::pair<int, float>>, decltype(cmp)> priority_queue(cmp);
-
+	MinHeap<Pair> priority_queue;
 	priority_queue.emplace(0, 0.0f); // Push BVH root with 0 induced cost
 
 	while (priority_queue.size() > 0) {
-		auto [node_index, induced_cost] = priority_queue.top();
-		priority_queue.pop();
+		auto [node_index, induced_cost] = priority_queue.pop();
 
 		const BVHNode2 & node = bvh.nodes_2[node_index];
 
@@ -243,12 +248,15 @@ void BVHOptimizer::optimize(BVH & bvh) {
 	int * originated   = new int[bvh.node_count];
 	int * displacement = new int[bvh.node_count];
 
+	RNG rng = { };
+	rng.init(time(nullptr));
+
 	clock_t start_time = clock();
 
 	while (true) {
 		// Select a batch of internal Nodes, either randomly or using a heuristic measure
 		switch (node_selection_method) {
-			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices); break;
+			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices, rng); break;
 			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, batch_indices); break;
 
 			default: abort();

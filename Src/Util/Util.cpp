@@ -27,6 +27,16 @@ void Util::get_path(const char * filename, char * path) {
 	path[path_length] = NULL;
 }
 
+const char * Util::get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
+	char * filename_abs = new char[len_path + len_filename + 1];
+
+	memcpy(filename_abs,            path,     len_path);
+	memcpy(filename_abs + len_path, filename, len_filename);
+	filename_abs[len_path + len_filename] = '\0';
+
+	return filename_abs;
+}
+
 bool Util::file_exists(const char * filename) {
 	return std::filesystem::exists(filename);
 }
@@ -43,7 +53,7 @@ char * Util::file_read(const char * filename, int & file_length) {
 	fopen_s(&file, filename, "rb");
 
 	if (file == nullptr) {
-		printf("ERROR: Unable to open %s!\n", filename);
+		printf("ERROR: Unable to open '%s'!\n", filename);
 		abort();
 	}
 

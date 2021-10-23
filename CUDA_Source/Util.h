@@ -116,12 +116,28 @@ __device__ inline unsigned permute(unsigned index, unsigned length, unsigned see
 	return (index + seed) & mask;
 }
 
+__device__ inline float sign(float x) {
+	return copysignf(1.0f, x);
+}
+
 __device__ inline constexpr bool is_power_of_two(unsigned x) {
 	if (x) {
 		return (x & (x - 1)) == 0;
 	} else {
 		return false;
 	}
+}
+
+__device__ inline float square(float x) {
+	return x * x;
+}
+
+__device__ inline float safe_sqrt(float x) {
+	return sqrtf(fmaxf(0.0f, x));
+}
+
+__device__ inline float abs_dot(const float3 & a, const float3 & b) {
+	return fabsf(dot(a, b));
 }
 
 template<typename T>

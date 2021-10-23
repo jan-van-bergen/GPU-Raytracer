@@ -77,6 +77,8 @@ inline bool operator==(const StringView & a, const StringView & b) {
 	int length_a = a.length();
 	int length_b = b.length();
 
+	if (length_a != length_b) return false;
+
 	for (int i = 0; i < length_a; i++) {
 		if (a[i] != b[i]) return false;
 	}

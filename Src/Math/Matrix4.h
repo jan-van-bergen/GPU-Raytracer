@@ -79,8 +79,8 @@ struct alignas(16) Matrix4 {
 		float tan_half_fov = tanf(0.5f * fov);
 
 		Matrix4 result;
-		result(0, 0) = 1.0f / (aspect * tan_half_fov);
-		result(1, 1) = 1.0f / tan_half_fov;
+		result(0, 0) = 1.0f / tan_half_fov;
+		result(1, 1) = 1.0f / (aspect * tan_half_fov);
 		result(2, 2) = -(far + near) / (far - near);
 		result(3, 2) = -1.0f;
 		result(2, 3) = -2.0f * (far * near) / (far - near);

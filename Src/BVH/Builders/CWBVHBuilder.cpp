@@ -1,6 +1,7 @@
 #include "CWBVHBuilder.h"
 
-#include <cstdlib>
+#include <stdio.h>
+#include <string.h>
 
 int CWBVHBuilder::calculate_cost(int node_index, const BVHNode2 nodes[]) {
 	const BVHNode2 & node = nodes[node_index];

@@ -26,7 +26,7 @@ void Camera::recalibrate() {
 	float tan_half_fov = tanf(0.5f * fov);
 
 	// Distance to the viewing plane
-	float d = half_height / tan_half_fov;
+	float d = half_width / tan_half_fov;
 
 	// Initialize viewing pyramid vectors
 	bottom_left_corner = Vector3(-half_width, -half_height, -d);
@@ -34,7 +34,7 @@ void Camera::recalibrate() {
 	y_axis = Vector3(0.0f, 1.0f, 0.0f);
 
 	// Projection matrix (for rasterization)
-	projection = Matrix4::perspective(fov, half_width / half_height, near, far);
+	projection = Matrix4::perspective(fov, half_height / half_width, near, far);
 
 	// See equation 30 of "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 	pixel_spread_angle = atanf(2.0f * tan_half_fov * inv_width);

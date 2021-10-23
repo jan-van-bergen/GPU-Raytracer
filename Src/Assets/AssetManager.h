@@ -9,7 +9,9 @@
 #include "Util/Array.h"
 #include "Util/HashMap.h"
 #include "Util/String.h"
-#include "Util/ThreadPool.h"
+#include "Util/Mutex.h"
+
+struct ThreadPool;
 
 struct AssetManager {
 	Array<MeshData> mesh_datas;
@@ -20,10 +22,10 @@ private:
 	HashMap<String, MeshDataHandle, StringHash> mesh_data_cache;
 	HashMap<String, TextureHandle,  StringHash> texture_cache;
 
-	std::mutex mesh_datas_mutex;
-	std::mutex textures_mutex;
+	Mutex mesh_datas_mutex;
+	Mutex textures_mutex;
 
-	ThreadPool thread_pool;
+	ThreadPool * thread_pool;
 
 	bool assets_loaded = false;
 

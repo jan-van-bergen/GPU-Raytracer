@@ -1,5 +1,6 @@
 #pragma once
 #include <malloc.h>
+#include <utility>
 
 #define DATA_PATH(file_name) "./Data/" file_name
 
@@ -27,6 +28,8 @@ struct alignas(8) ProbAlias {
 
 namespace Util {
 	void get_path(const char * filename, char * path);
+
+	const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename);
 
 	bool file_exists(const char * filename);
 
