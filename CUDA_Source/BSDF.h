@@ -1,20 +1,36 @@
 #pragma once
 #include "Sampling.h"
 #include "Material.h"
+#include "RayCone.h"
 
 struct BSDFDiffuse {
+	static constexpr bool HAS_ALBEDO = true;
+
 	int pixel_index;
 	int bounce;
 	int sample_index;
 
-	float3 hit_tangent;
-	float3 hit_binormal;
-	float3 hit_normal;
+	float3 tangent;
+	float3 bitangent;
+	float3 normal;
 
 	float3 omega_i;
 
-	float3          albedo;
 	MaterialDiffuse material;
+	float3          albedo;
+
+    __device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+        material = material_as_diffuse(material_id);
+		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
+    }
+
+	__device__ void attenuate(int bounce, int pixel_index, float3 & throughput, float distance) {
+		if (bounce > 0) {
+			throughput *= albedo;
+		} else if (config.enable_albedo || config.enable_svgf) {
+			frame_buffer_albedo[pixel_index] = make_float4(albedo);
+		}
+	}
 
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		if (cos_theta_o <= 0.0f) return false;
@@ -29,7 +45,7 @@ struct BSDFDiffuse {
 		float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
 		float3 omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 
-		direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
+		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 		pdf = omega_o.z * ONE_OVER_PI;
 
 		return pdf_is_valid(pdf);
@@ -41,26 +57,39 @@ struct BSDFDiffuse {
 };
 
 struct BSDFPlastic {
+	static constexpr bool HAS_ALBEDO = true;
+	
 	int pixel_index;
 	int bounce;
 	int sample_index;
 
-	float3 hit_tangent;
-	float3 hit_binormal;
-	float3 hit_normal;
+	float3 tangent;
+	float3 bitangent;
+	float3 normal;
 
 	float3 omega_i;
 
-	float3          albedo;
 	MaterialPlastic material;
+	float3          albedo;
 
 	static constexpr float ETA = 1.0f / 1.5f;
 	static constexpr float TIR_COMPENSATION = 0.596345782f; // Hemispherical integral of fresnel * cos(theta)
 
+	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+		material = material_as_plastic(material_id);
+		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
+	}
+
+	__device__ void attenuate(int bounce, int pixel_index, float3 & ray_throughput, float distance) {
+		if (bounce == 0 && (config.enable_albedo || config.enable_svgf)) {
+			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+		}
+	}
+
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		if (cos_theta_o <= 0.0f) return false;
 
-		float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
+		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 		float3 omega_m = normalize(omega_i + omega_o);
 
 		// Specular component
@@ -131,7 +160,7 @@ struct BSDFPlastic {
 
 		throughput *= (brdf_specular + brdf_diffuse) / pdf; // BRDF * cos(theta) / pdf
 
-		direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
+		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 
 		return pdf_is_valid(pdf);
 	}
@@ -142,23 +171,40 @@ struct BSDFPlastic {
 };
 
 struct BSDFDielectric {
+	static constexpr bool HAS_ALBEDO = false;
+	
 	int pixel_index;
 	int bounce;
 	int sample_index;
 
-	float3 hit_tangent;
-	float3 hit_binormal;
-	float3 hit_normal;
+	float3 tangent;
+	float3 bitangent;
+	float3 normal;
 
 	float3 omega_i;
 
-	float3             albedo;
 	MaterialDielectric material;
 
 	float eta;
 
+	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+		material = material_as_dielectric(material_id);
+
+		eta = entering_material ? 1.0f / material.index_of_refraction : material.index_of_refraction;
+	}
+
+	__device__ void attenuate(int bounce, int pixel_index, float3 & throughput, float distance) {
+		frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+
+		// Lambert-Beer Law
+		// NOTE: does not take into account e.g. nested dielectrics or diffuse inside dielectric!
+		throughput.x *= expf(material.negative_absorption.x * distance);
+		throughput.y *= expf(material.negative_absorption.y * distance);
+		throughput.z *= expf(material.negative_absorption.z * distance);
+	}
+
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
-		float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
+		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 
 		bool reflected = omega_o.z >= 0.0f; // Same sign means reflection, alternate signs means transmission
 
@@ -235,7 +281,7 @@ struct BSDFDielectric {
 
 		throughput *= G2 / G1; // BRDF * cos(theta_o) / pdf (same for reflection and transmission)
 
-		direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
+		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 
 		return pdf_is_valid(pdf);
 	}
@@ -246,23 +292,38 @@ struct BSDFDielectric {
 };
 
 struct BSDFConductor {
+	static constexpr bool HAS_ALBEDO = true;
+	
 	int pixel_index;
 	int bounce;
 	int sample_index;
 
-	float3 hit_tangent;
-	float3 hit_binormal;
-	float3 hit_normal;
+	float3 tangent;
+	float3 bitangent;
+	float3 normal;
 
 	float3 omega_i;
 
-	float3            albedo;
 	MaterialConductor material;
+	float3            albedo;
+
+	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+		material = material_as_conductor(material_id);
+		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
+	}
+
+	__device__ void attenuate(int bounce, int pixel_index, float3 & throughput, float distance) {
+		if (bounce > 0) {
+			throughput *= albedo;
+		} else if (config.enable_albedo || config.enable_svgf) {
+			frame_buffer_albedo[pixel_index] = make_float4(albedo);
+		}
+	}
 
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		if (cos_theta_o <= 0.0f) return false;
 
-		float3 omega_o = world_to_local(to_light, hit_tangent, hit_binormal, hit_normal);
+		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 		float3 omega_m = normalize(omega_o + omega_i);
 
 		float o_dot_m = dot(omega_o, omega_m);
@@ -303,7 +364,7 @@ struct BSDFConductor {
 
 		throughput *= F * G2 / G1; // BRDF * cos(theta_o) / pdf
 
-		direction_out = local_to_world(omega_o, hit_tangent, hit_binormal, hit_normal);
+		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 
 		return pdf_is_valid(pdf);
 	}
