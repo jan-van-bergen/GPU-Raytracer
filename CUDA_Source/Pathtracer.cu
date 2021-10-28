@@ -229,6 +229,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
 			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
 
+			if (!pdf_is_valid(light_pdf)) return;
+
 			float mis_weight = power_heuristic(brdf_pdf, light_pdf);
 			float3 illumination = throughput * material_light.emission * mis_weight;
 
@@ -513,29 +515,31 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
 			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
 
-			float mis_weight;
-			if (config.enable_multiple_importance_sampling) {
-				mis_weight = power_heuristic(light_pdf, bsdf_pdf);
-			} else {
-				mis_weight = 1.0f;
+			if (pdf_is_valid(light_pdf)) {
+				float mis_weight;
+				if (config.enable_multiple_importance_sampling) {
+					mis_weight = power_heuristic(light_pdf, bsdf_pdf);
+				} else {
+					mis_weight = 1.0f;
+				}
+
+				float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
+
+				// Emit Shadow Ray
+				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
+
+				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, normal));
+				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
+
+				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - 2.0f * EPSILON;
+
+				ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
+					illumination.x,
+					illumination.y,
+					illumination.z,
+					__int_as_float(pixel_index)
+				);
 			}
-
-			float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
-
-			// Emit Shadow Ray
-			int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
-
-			ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, normal));
-			ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
-
-			ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - 2.0f * EPSILON;
-
-			ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
-				illumination.x,
-				illumination.y,
-				illumination.z,
-				__int_as_float(pixel_index)
-			);
 		}
 	}
 
