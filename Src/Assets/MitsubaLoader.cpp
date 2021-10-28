@@ -1200,6 +1200,23 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			}
 
 			delete [] filename_rel;
+		} else if (emitter_type == "point") {
+			Material material = { };
+			material.type = Material::Type::LIGHT;
+			material.emission = node->get_child_value_optional<Vector3>("intensity", Vector3(1.0f));
+
+			MaterialHandle material_handle = scene.asset_manager.add_material(material);
+
+			// Make small area light
+			constexpr float RADIUS = 0.0001f;
+			Matrix4 transform = parse_transform_matrix(node) * Matrix4::create_scale(RADIUS);
+
+			Triangle * triangles;
+			int        triangle_count;
+			Geometry::sphere(triangles, triangle_count, transform, 0);
+
+			MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
+			scene.add_mesh("PointLight", mesh_data_handle, material_handle);
 		} else {
 			WARNING(node->location, "Emitter type '%.*s' is not supported!\n", unsigned(emitter_type.length()), emitter_type.start);
 		}
