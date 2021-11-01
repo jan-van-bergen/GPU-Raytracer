@@ -27,8 +27,9 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 - Hot Reloading: When F5 is pressed the CUDA module is recompiled from source to allow for interactive debugging and development.
 - Multiple Material types
   - *Diffuse*
-  - *Dielectrics*
-  - *Microfacets* (GGX)
+  - *Plastic* (Specular on top of diffuse)
+  - *(Rough) Dielectric*
+  - *(Rough) Conductor*
 - Mitsuba XML Scene support: A custom Mitsuba XML parser is included to load scene files. Custom loaders for OBJ and PLY files are available.
 
 ## Screenshots
@@ -41,7 +42,7 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Glass-of-Water](Screenshots/glass-of-water.png "Glass of Water")
 ![Kitchen](Screenshots/kitchen.png "Kitchen")
 ![Bunny](Screenshots/bunny.png "Furry Bunny")
-![Coffee](Screenshots/Coffee.png "Coffee")
+![Coffee](Screenshots/stormtrooper.png "Stormtrooper")
 For more screenshots, see the Screenshots folder
 
 ## Usage
@@ -68,3 +69,4 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 
 - [Mitsuba files](https://benedikt-bitterli.me/resources/)
 
+- [Stormtrooper](https://www.blendswap.com/blend/13953)
