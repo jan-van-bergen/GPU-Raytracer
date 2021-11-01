@@ -70,3 +70,5 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 - [Mitsuba files](https://benedikt-bitterli.me/resources/)
 
 - [Stormtrooper](https://www.blendswap.com/blend/13953)
+
+- [Lone Monk](https://www.blender.org/download/demo-files/)
