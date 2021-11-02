@@ -65,13 +65,14 @@ struct XMLAttribute {
 		Vector3 v;
 		v.x = parser.parse_float();
 
-		if (parser.match(',')) {
-			parser.match(' ');
+		bool uses_comma = parser.match(',');
+		parser.skip_whitespace();
 
+		if (!parser.reached_end()) {
 			v.y = parser.parse_float();
 
-			parser.expect(',');
-			parser.match(' ');
+			if (uses_comma) parser.expect(',');
+			parser.skip_whitespace();
 
 			v.z = parser.parse_float();
 		} else {
@@ -552,7 +553,12 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.type = Material::Type::PLASTIC;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
-		material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+
+		if (inner_bsdf_type == "plastic") {
+			material.linear_roughness = 0.0f;
+		} else {
+			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+		}
 	} else if (inner_bsdf_type == "phong") {
 		material.type = Material::Type::CONDUCTOR;
 
