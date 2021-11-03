@@ -1,6 +1,6 @@
 # CUDA Pathtracer
 
-![Scene](Screenshots/Scene.png "Example Scene")
+![Stormtrooper](Screenshots/stormtrooper.png "Stormtrooper")
 
 Interactive CUDA pathtracer that implements a variety of rendering techniques. 
 
@@ -42,7 +42,7 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Glass-of-Water](Screenshots/glass-of-water.png "Glass of Water")
 ![Kitchen](Screenshots/kitchen.png "Kitchen")
 ![Bunny](Screenshots/bunny.png "Furry Bunny")
-![Coffee](Screenshots/stormtrooper.png "Stormtrooper")
+![Lone-Monk](Screenshots/lone-monk.png "Lone Monk")
 For more screenshots, see the Screenshots folder
 
 ## Usage
@@ -70,3 +70,5 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 - [Mitsuba files](https://benedikt-bitterli.me/resources/)
 
 - [Stormtrooper](https://www.blendswap.com/blend/13953)
+
+- [Lone Monk](https://www.blender.org/download/demo-files/)
