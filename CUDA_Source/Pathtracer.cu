@@ -344,7 +344,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	RayHit hit           = material_buffer->hits     .get(index);
 
 	int pixel_index = material_buffer->pixel_index[index];
-	
+
 	float3 throughput;
 	if (bounce == 0) {
 		throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
@@ -422,7 +422,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 			}
 		}
 	}
-	
+
 	// Calulate new Ray Cone angle based on Mesh curvature
 	if (config.enable_mipmapping) {
 		float curvature = triangle_get_curvature(
@@ -431,7 +431,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 			hit_triangle.normal_edge_1,
 			hit_triangle.normal_edge_2
 		) / mesh_scale;
-		
+
 		cone_angle -= 2.0f * curvature * fabsf(cone_width) / dot(normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 	}
 
@@ -443,14 +443,14 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 
 	// Initialize BSDF
 	int material_id = mesh_get_material_id(hit.mesh_id);
-	
+
 	BSDF bsdf;
 	bsdf.pixel_index  = pixel_index;
-    bsdf.bounce       = bounce;
-    bsdf.sample_index = sample_index;
-    bsdf.tangent      = tangent;
-    bsdf.bitangent    = bitangent;
-    bsdf.normal       = normal;
+	bsdf.bounce       = bounce;
+	bsdf.sample_index = sample_index;
+	bsdf.tangent      = tangent;
+	bsdf.bitangent    = bitangent;
+	bsdf.normal       = normal;
 	bsdf.omega_i      = omega_i;
 	bsdf.init(bounce, entering_material, material_id, tex_coord, lod);
 
@@ -464,7 +464,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 		matrix3x4_transform_position(world_prev, hit_point_prev);
 
 		int x = pixel_index % screen_pitch;
-		int y = pixel_index / screen_pitch;	
+		int y = pixel_index / screen_pitch;
 		svgf_set_gbuffers(x, y, hit, hit_point, normal, hit_point_prev);
 	}
 
@@ -510,7 +510,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 		float3 bsdf_value;
 		float  bsdf_pdf;
 		bool valid = bsdf.eval(to_light, cos_theta_hit, bsdf_value, bsdf_pdf);
-		
+
 		if (valid) {
 			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
 			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
@@ -565,7 +565,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = pixel_index | (bsdf.is_mis_eligable() << 31);
 	ray_buffer_trace.throughput.set(index_out, throughput);
 
-	ray_buffer_trace.last_pdf[index_out] = pdf;	
+	ray_buffer_trace.last_pdf[index_out] = pdf;
 }
 
 extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
