@@ -1,5 +1,32 @@
 #pragma once
 
+union LOD {
+	struct {
+		float2 gradient_1;
+		float2 gradient_2;
+	} aniso;
+	struct {
+		float lod;
+	} iso;
+};
+
+__device__ inline float3 sample_albedo(int bounce, const float3 & diffuse, int texture_id, float2 tex_coord, const LOD & lod) {
+	if (config.enable_mipmapping) {
+		if (bounce == 0) {
+			// Anisotropic sampling
+			return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y, lod.aniso.gradient_1, lod.aniso.gradient_2);
+		} else {
+			// Trilinear sampling
+			float2 tex_size = texture_get_size(texture_id);
+			float  tex_lod = 0.5f * log2f(tex_size.x * tex_size.y); // TODO: maybe precalculate this
+			
+			return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y, lod.iso.lod + tex_lod);
+		}
+	} else {
+		return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y);
+	}
+}
+
 __device__ inline void ray_cone_get_ellipse_axes(
 	const float3 & ray_direction,
 	const float3 & geometric_normal,

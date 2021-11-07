@@ -213,37 +213,3 @@ __device__ inline float ggx_G2(const float3 & omega_o, const float3 & omega_i, c
 		return 1.0f / (1.0f + ggx_lambda(omega_o, alpha_x, alpha_y) + ggx_lambda(omega_i, alpha_x, alpha_y));
 	}
 }
-
-__device__ inline float3 ggx_eval(const MaterialConductor & material, const float3 & omega_o, const float3 & omega_i, float & pdf) {
-	float alpha_x = material.roughness;
-	float alpha_y = material.roughness; // TODO: anisotropic
-	
-	float3 omega_m = normalize(omega_o + omega_i);
-	float mu = fmaxf(0.0, dot(omega_o, omega_m));
-
-	float3 F  = fresnel_conductor(mu, material.eta, material.k);
-	float  D  = ggx_D (omega_m, alpha_x, alpha_y);
-	float  G1 = ggx_G1(omega_i, alpha_x, alpha_y);
-	float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
-
-	pdf = G1 * D / (4.0f * omega_i.z);
-	return F * D * G2 / (4.0f * omega_i.z); // BRDF * cos(theta_o)
-}
-
-__device__ inline float3 ggx_sample(const MaterialConductor & material, float u1, float u2, const float3 & omega_i, float3 & omega_o, float & pdf) {
-	float alpha_x = material.roughness;
-	float alpha_y = material.roughness; // TODO: anisotropic
-	
-	float3 omega_m = sample_visible_normals_ggx(omega_i, material.roughness, material.roughness, u1, u2);
-	omega_o = reflect(-omega_i, omega_m);
-
-	float mu = fmaxf(0.0, dot(omega_o, omega_m));
-
-	float3 F  = fresnel_conductor(mu, material.eta, material.k);
-	float  D  = ggx_D (omega_m, alpha_x, alpha_y);
-	float  G1 = ggx_G1(omega_i, alpha_x, alpha_y);
-	float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
-
-	pdf = G1 * D / (4.0f * omega_i.z);
-	return F * G2 / G1; // BRDF * cos(theta_o) / pdf
-}
