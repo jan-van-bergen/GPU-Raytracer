@@ -560,7 +560,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
 		}
 	} else if (inner_bsdf_type == "phong") {
-		material.type = Material::Type::CONDUCTOR;
+		material.type = Material::Type::PLASTIC;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
