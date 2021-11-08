@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<scene version="0.5.0" >
+	<sensor type="thinlens">
+		<float name="fov" value="80"/>
+		<transform>
+			<translate x="-107.150345" y="27.518641" z="112.720177"/>
+			<rotate y="1" angle="-45"/>
+		</transform>
+	</sensor>
+	
+	<bsdf type="diffuse" id="lucy_dif_0"> <rgb name="reflectance" value="0.2, 0.2, 0.2"/> </bsdf>
+	<bsdf type="diffuse" id="lucy_dif_1"> <rgb name="reflectance" value="0.8, 0.2, 0.2"/> </bsdf>
+	<bsdf type="diffuse" id="lucy_dif_2"> <rgb name="reflectance" value="0.2, 0.8, 0.2"/> </bsdf>
+	<bsdf type="diffuse" id="lucy_dif_3"> <rgb name="reflectance" value="0.2, 0.2, 0.8"/> </bsdf>
+	<bsdf type="diffuse" id="lucy_dif_4"> <rgb name="reflectance" value="0.8, 0.7, 0.7"/> </bsdf>
+	
+	<bsdf type="roughplastic" id="lucy_pla_0"> <rgb name="diffuseReflectance" value="0.2, 0.2, 0.2"/> <float name="alpha" value="0.1"/> </bsdf>
+	<bsdf type="roughplastic" id="lucy_pla_1"> <rgb name="diffuseReflectance" value="0.2, 0.8, 0.8"/> <float name="alpha" value="0.2"/> </bsdf>
+	<bsdf type="roughplastic" id="lucy_pla_2"> <rgb name="diffuseReflectance" value="0.8, 0.2, 0.8"/> <float name="alpha" value="0.3"/> </bsdf>
+	<bsdf type="roughplastic" id="lucy_pla_3"> <rgb name="diffuseReflectance" value="0.8, 0.8, 0.2"/> <float name="alpha" value="0.5"/> </bsdf>
+	<bsdf type="roughplastic" id="lucy_pla_4"> <rgb name="diffuseReflectance" value="0.8, 0.7, 0.7"/> <float name="alpha" value="0.6"/> </bsdf>
+	
+	<bsdf type="roughdielectric" id="lucy_die_0"> <string name="intIOR" value="water"/>   <float name="alpha" value="0.3"/> </bsdf>
+	<bsdf type="roughdielectric" id="lucy_die_1"> <string name="intIOR" value="acetone"/> <float name="alpha" value="0.3"/> </bsdf>
+	<bsdf type="roughdielectric" id="lucy_die_2"> <string name="intIOR" value="ethanol"/> <float name="alpha" value="0.4"/> </bsdf>
+	<bsdf type="roughdielectric" id="lucy_die_3"> <string name="intIOR" value="benzene"/> <float name="alpha" value="0.5"/> </bsdf>
+	<bsdf type="roughdielectric" id="lucy_die_4"> <string name="intIOR" value="diamond"/> <float name="alpha" value="0.6"/> </bsdf>
+	
+	<bsdf type="roughconductor" id="lucy_con_0"> <rgb name="eta" value="1.25, 1.02, 0.3"/>  <rgb name="k" value="2.48, 2.58, 3.2"/>  <float name="alpha" value="0.1"/> </bsdf> <!-- Copper (Cu) -->
+	<bsdf type="roughconductor" id="lucy_con_1"> <rgb name="eta" value="2.59, 2.95, 2.88"/> <rgb name="k" value="2.77, 2.93, 3.05"/> <float name="alpha" value="0.2"/> </bsdf> <!-- Iron (Fe) -->
+	<bsdf type="roughconductor" id="lucy_con_2"> <rgb name="eta" value="0.56, 0.82, 0.99"/> <rgb name="k" value="4.26, 5.00, 5.69"/> <float name="alpha" value="0.3"/> </bsdf> <!-- Magnesium (Mg) -->
+	<bsdf type="roughconductor" id="lucy_con_3"> <rgb name="eta" value="0.04, 0.06, 0.06"/> <rgb name="k" value="2.66, 3.59, 4.15"/> <float name="alpha" value="0.5"/> </bsdf> <!-- Silver (Ag) -->
+	<bsdf type="roughconductor" id="lucy_con_4"> <rgb name="eta" value="1.45, 0.43, 0.21"/> <rgb name="k" value="1.95, 2.46, 3.27"/> <float name="alpha" value="0.6"/> </bsdf> <!-- Gold (Au) -->
+	
+	<bsdf type="diffuse" id="wall">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/wall.jpg"/>
+		</texture>
+	</bsdf>
+	
+	<bsdf type="diffuse" id="floor">
+		<texture name="reflectance" type="bitmap">
+			<string name="filename" value="textures/concrete.jpg"/>
+		</texture>
+	</bsdf>
+	
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-100" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-90" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-80" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-70" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-60" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-50" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-40" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-30" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-20" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-10" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="0" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="10" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="20" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="30" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="40" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="50" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="60" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="70" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="80" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="90" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="100" z="-100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-100" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-90" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-80" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-70" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="-60" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-50" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-40" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-30" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-20" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-10" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="0" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="10" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="20" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="30" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="40" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="50" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="60" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="70" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="80" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="90" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="100" z="-90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-100" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-90" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-80" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-70" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-60" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-50" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-40" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-30" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-20" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-10" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="0" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="10" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="20" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="30" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="40" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="50" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="60" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="70" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="80" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="90" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="100" z="-80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-100" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-90" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-80" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-70" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-60" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-50" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-40" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-30" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-20" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-10" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="0" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="10" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="20" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="30" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="40" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="50" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="60" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="70" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="80" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="90" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="100" z="-70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-100" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="-90" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-80" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-70" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="-60" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-50" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-40" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-30" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-20" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-10" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="0" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="10" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="20" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="30" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="40" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="50" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="60" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="70" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="80" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="90" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="100" z="-60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-100" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-90" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-80" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="-70" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-60" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-50" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-40" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-30" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-20" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="-10" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="0" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="10" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="20" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="30" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="40" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="50" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="60" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="70" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="80" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="90" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="100" z="-50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-100" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-90" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-80" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-70" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-60" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-50" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-40" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-30" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-20" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-10" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="0" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="10" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="20" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="30" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="40" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="50" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="60" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="70" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="80" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="90" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="100" z="-40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-100" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-90" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-80" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-70" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="-60" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="-50" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-40" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-30" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-20" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-10" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="0" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="10" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="20" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="30" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="40" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="50" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="60" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="70" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="80" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="90" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="100" z="-30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-100" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-90" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-80" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-70" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-60" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-50" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-40" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-30" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-20" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-10" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="0" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="10" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="20" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="30" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="40" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="50" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="60" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="70" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="80" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="90" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="100" z="-20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-100" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-90" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-80" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-70" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-60" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-50" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-40" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-30" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-20" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-10" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="0" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="10" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="20" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="30" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="40" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="50" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="60" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="70" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="80" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="90" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="100" z="-10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-100" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-90" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-80" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-70" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-60" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-50" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-40" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-30" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-20" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-10" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="0" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="10" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="20" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="30" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="40" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="50" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="60" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="70" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="80" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="90" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="100" z="0"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-100" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-90" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-80" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-70" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-60" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-50" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-40" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-30" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-20" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-10" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="0" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="10" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="20" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="30" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="40" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="50" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="60" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="70" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="80" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="90" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="100" z="10"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-100" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-90" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-80" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-70" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-60" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-50" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-40" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-30" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-20" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-10" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="0" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="10" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="20" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="30" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="40" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="50" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="60" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="70" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="80" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="90" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="100" z="20"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-100" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-90" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="-80" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-70" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-60" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-50" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-40" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-30" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-20" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-10" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="0" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="10" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="20" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="30" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="40" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="50" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="60" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="70" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="80" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="90" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="100" z="30"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-100" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-90" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-80" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-70" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-60" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-50" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-40" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-30" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-20" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-10" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="0" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="10" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="20" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="30" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="40" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="50" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="60" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="70" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="80" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="90" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="100" z="40"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-100" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="-90" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-80" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-70" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-60" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="-50" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="-40" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-30" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-20" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-10" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="0" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="10" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="20" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="30" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="40" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="50" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="60" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="70" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="80" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="90" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="100" z="50"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-100" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-90" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-80" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-70" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-60" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-50" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-40" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="-30" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-20" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-10" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="0" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="10" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="20" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="30" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="40" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="50" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="60" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="70" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="80" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="90" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_3"/> <transform> <translate x="100" z="60"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-100" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-90" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-80" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-70" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-60" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-50" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="-40" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-30" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-20" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-10" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="0" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="10" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="20" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="30" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="40" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="50" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="60" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="70" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="80" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="90" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="100" z="70"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-100" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-90" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="-80" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_3"/> <transform> <translate x="-70" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-60" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="-50" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-40" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-30" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="-20" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="-10" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="0" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="10" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_4"/> <transform> <translate x="20" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_0"/> <transform> <translate x="30" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="40" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="50" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="60" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="70" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="80" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="90" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="100" z="80"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-100" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-90" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_1"/> <transform> <translate x="-80" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="-70" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="-60" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_3"/> <transform> <translate x="-50" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_4"/> <transform> <translate x="-40" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-30" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-20" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="-10" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="0" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_2"/> <transform> <translate x="10" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="20" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="30" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="40" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="50" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="60" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="70" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="80" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="90" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="100" z="90"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-100" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="-90" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-80" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-70" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_1"/> <transform> <translate x="-60" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_3"/> <transform> <translate x="-50" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-40" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="-30" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_4"/> <transform> <translate x="-20" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_4"/> <transform> <translate x="-10" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_2"/> <transform> <translate x="0" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_0"/> <transform> <translate x="10" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="20" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_2"/> <transform> <translate x="30" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="40" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_die_1"/> <transform> <translate x="50" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="60" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_pla_0"/> <transform> <translate x="70" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_dif_0"/> <transform> <translate x="80" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_1"/> <transform> <translate x="90" z="100"/> </transform> </shape>
+	<shape type="obj"> <string name="filename" value="lucy.obj"/> <ref id="lucy_con_2"/> <transform> <translate x="100" z="100"/> </transform> </shape>
+
+	<shape type="obj">
+		<string name="filename" value="room.obj"/>
+		<ref id="wall"/>
+	</shape>
+	<shape type="obj">
+		<string name="filename" value="floor.obj"/>
+		<ref id="floor"/>
+	</shape>
+	
+	
+	<shape type="obj">
+		<string name="filename" value="light.obj"/>
+		<emitter type="area">
+			<rgb name="radiance" value="25, 18, 10"/>
+		</emitter>
+	</shape>
+</scene>
