@@ -318,7 +318,32 @@ static const char * get_absolute_filename(const char * path, int len_path, const
 	return filename_abs;
 }
 
-static void parse_rgb_or_texture(const XMLNode * node, const char * name, const TextureMap & texture_map, const char * path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
+static void parse_texture(const XMLNode * node, TextureMap & texture_map, const char * path, Scene & scene, TextureHandle & texture) {
+	StringView type = node->get_attribute_value("type");
+
+	if (type == "bitmap") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
+		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+
+		texture = scene.asset_manager.add_texture(filename_abs);
+
+		StringView texture_id = { };
+		const XMLAttribute * id = node->find_attribute("id");
+		if (id) {
+			texture_id = id->value;
+		} else {
+			texture_id = filename_rel;
+		}
+		texture_map[texture_id] = texture;
+
+		delete [] filename_abs;
+		return;
+	} else {
+		WARNING(node->location, "Only bitmap textures are supported!\n");
+	}
+}
+
+static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, const char * path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
 	const XMLNode * reflectance = node->find_child_by_name(name);
 	if (reflectance) {
 		if (reflectance->tag == "rgb") {
@@ -331,29 +356,17 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			rgb.z = Math::gamma_to_linear(rgb.z);
 			return;
 		} else if (reflectance->tag == "texture") {
-			StringView type = reflectance->get_attribute_value("type");
+			parse_texture(reflectance, texture_map, path, scene, texture);
 
-			if (type == "bitmap") {
-				const StringView & filename_rel = reflectance->get_child_value<StringView>("filename");
-				const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
-
-				texture = scene.asset_manager.add_texture(filename_abs);
-
-				const XMLNode * scale = reflectance->find_child_by_name("scale");
-				if (scale) {
-					rgb = scale->get_optional_attribute("value", Vector3(1.0f));
-				}
-
-				delete [] filename_abs;
-				return;
-			} else {
-				WARNING(reflectance->location, "Only bitmap textures are supported!\n");
+			const XMLNode * scale = reflectance->find_child_by_name("scale");
+			if (scale) {
+				rgb = scale->get_optional_attribute("value", Vector3(1.0f));
 			}
 		} else if (reflectance->tag == "ref") {
 			const StringView & texture_name = reflectance->get_attribute_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture);
 			if (!found) {
-				WARNING(reflectance->location, "Invalid texture ref '%.*s'!", unsigned(texture_name.length()), texture_name.start);
+				WARNING(reflectance->location, "Invalid texture ref '%.*s'!\n", unsigned(texture_name.length()), texture_name.start);
 			}
 		}
 	}
@@ -443,7 +456,7 @@ static Matrix4 parse_transform_matrix(const XMLNode * node) {
 	return Matrix4::create_translation(translation) * Matrix4::create_rotation(rotation) * Matrix4::create_scale(scale);
 }
 
-static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, const TextureMap & texture_map, const char * path) {
+static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, const char * path) {
 	Material material = { };
 
 	const XMLNode * bsdf;
@@ -1109,19 +1122,8 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		StringView str = { material.name, material.name + strlen(material.name) };
 		material_map[str] = material_handle;
 	} else if (node->tag == "texture") {
-		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
-
-		StringView texture_id = { };
-		const XMLAttribute * id = node->find_attribute("id");
-		if (id) {
-			texture_id = id->value;
-		} else {
-			texture_id = filename_rel;
-		}
-		texture_map[texture_id] = scene.asset_manager.add_texture(filename_abs);
-
-		delete [] filename_abs;
+		TextureHandle texture;
+		parse_texture(node, texture_map, path, scene, texture);
 	} else if (node->tag == "shape") {
 		StringView type = node->get_attribute_value<StringView>("type");
 		if (type == "shapegroup") {
