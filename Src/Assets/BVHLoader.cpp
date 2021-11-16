@@ -31,7 +31,7 @@ struct BVHFileHeader {
 };
 
 bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, MeshData & mesh_data, BVH & bvh) {
-	if (config.bvh_force_rebuild || !Util::file_exists(bvh_filename) || !Util::file_is_newer(filename, bvh_filename)) {
+	if (config.bvh_force_rebuild || !Util::file_exists(bvh_filename) || Util::file_is_newer(bvh_filename, filename)) {
 		return false;
 	}
 
