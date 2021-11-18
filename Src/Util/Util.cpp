@@ -35,7 +35,7 @@ bool Util::file_is_newer(const char * filename_a, const char * filename_b) {
 	std::filesystem::file_time_type last_write_time_filename_a = std::filesystem::last_write_time(filename_a);
 	std::filesystem::file_time_type last_write_time_filename_b = std::filesystem::last_write_time(filename_b);
 
-	return last_write_time_filename_a <= last_write_time_filename_b;
+	return last_write_time_filename_a < last_write_time_filename_b;
 }
 
 char * Util::file_read(const char * filename, int & file_length) {
