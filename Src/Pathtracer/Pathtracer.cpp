@@ -388,6 +388,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 }
 
 void Pathtracer::cuda_free() {
+	CUDAMemory::free(ptr_material_types);
 	CUDAMemory::free(ptr_materials);
 
 	if (scene.asset_manager.textures.size() > 0) {
@@ -426,6 +427,7 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_sky_data);
 
 	CUDAMemory::free(ptr_pmj_samples);
+	CUDAMemory::free(ptr_blue_noise_textures);
 
 	if (scene.has_lights) {
 		CUDAMemory::free(ptr_light_indices);
@@ -889,7 +891,13 @@ void Pathtracer::update(float delta) {
 			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
 		}
 
-		if (scene.has_lights) calc_light_power();
+		if (had_lights) {
+			CUDAMemory::free(ptr_light_indices);
+			CUDAMemory::free(ptr_light_prob_alias);
+		}
+		if (scene.has_lights) {
+			calc_light_power();
+		}
 
 		frames_accumulated = 0;
 		invalidated_materials = false;
