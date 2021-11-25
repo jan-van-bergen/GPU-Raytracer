@@ -38,7 +38,7 @@ public:
 		cwbvh->index_count = 0;
 		cwbvh->indices     = new int[bvh.index_count];
 		cwbvh->node_count  = 1;
-		cwbvh->nodes_8     = new BVHNode8[bvh.node_count];
+		cwbvh->nodes._8    = new BVHNode8[bvh.node_count];
 	}
 
 	inline void free() {

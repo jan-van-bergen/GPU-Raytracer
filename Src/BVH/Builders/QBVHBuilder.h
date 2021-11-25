@@ -15,7 +15,7 @@ public:
 		qbvh->indices     = bvh.indices; // Indices array can be reused
 
 		qbvh->node_count = bvh.node_count;
-		qbvh->nodes_4    = new BVHNode4[bvh.node_count];
+		qbvh->nodes._4   = new BVHNode4[bvh.node_count];
 	}
 
 	void build(const BVH & bvh);

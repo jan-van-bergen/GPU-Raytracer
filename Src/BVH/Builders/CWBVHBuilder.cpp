@@ -216,7 +216,7 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode2 nodes[], int ch
 }
 
 void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[], int node_index_cwbvh, int node_index_bvh) {
-	BVHNode8 & node = cwbvh->nodes_8[node_index_cwbvh];
+	BVHNode8 & node = cwbvh->nodes._8[node_index_cwbvh];
 	const AABB & aabb = nodes_bvh[node_index_bvh].aabb;
 
 	memset(&node, 0, sizeof(BVHNode8));
@@ -332,9 +332,9 @@ void CWBVHBuilder::build(const BVH & bvh) {
 	cwbvh->node_count  = 1;
 
 	// Fill cost table using dynamic programming (bottom up)
-	calculate_cost(0, bvh.nodes_2);
+	calculate_cost(0, bvh.nodes._2);
 
 	// Collapse SBVH into 8-way tree (top down)
-	collapse(bvh.nodes_2, bvh.indices, 0, 0);
+	collapse(bvh.nodes._2, bvh.indices, 0, 0);
 	assert(cwbvh->index_count == bvh.index_count);
 }

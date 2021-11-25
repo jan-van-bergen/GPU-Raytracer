@@ -9,7 +9,7 @@ struct CollapseCost {
 
 // Bottom up calculation of the cost of collapsing multiple leaf nodes into one
 static CollapseCost calc_collapse_cost(const BVH & bvh, BitArray & collapse, int node_index = 0) {
-	const BVHNode2 & node = bvh.nodes_2[node_index];
+	const BVHNode2 & node = bvh.nodes._2[node_index];
 
 	if (node.is_leaf()) {
 		return { int(node.count), float(node.count) * config.sah_cost_leaf };
@@ -21,8 +21,8 @@ static CollapseCost calc_collapse_cost(const BVH & bvh, BitArray & collapse, int
 
 		float sah_leaf = config.sah_cost_leaf * float(total_primtive_count);
 		float sah_node = config.sah_cost_node + (
-			bvh.nodes_2[node.left    ].aabb.surface_area() * cost_left .sah +
-			bvh.nodes_2[node.left + 1].aabb.surface_area() * cost_right.sah
+			bvh.nodes._2[node.left    ].aabb.surface_area() * cost_left .sah +
+			bvh.nodes._2[node.left + 1].aabb.surface_area() * cost_right.sah
 		) / node.aabb.surface_area();
 
 		if (sah_leaf < sah_node) {
@@ -38,7 +38,7 @@ static CollapseCost calc_collapse_cost(const BVH & bvh, BitArray & collapse, int
 
 // Helper method that collapses all subnodes in a given subtree into a single leaf Node
 static int collapse_subtree(const BVH & bvh, BVH & new_bvh, int node_index) {
-	const BVHNode2 & node = bvh.nodes_2[node_index];
+	const BVHNode2 & node = bvh.nodes._2[node_index];
 
 	if (node.is_leaf()) {
 		for (int i = 0; i < node.count; i++) {
@@ -56,9 +56,9 @@ static int collapse_subtree(const BVH & bvh, BVH & new_bvh, int node_index) {
 
 // Collapse leaf nodes based on precalculated cost
 static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, BitArray & collapse, int node_index = 0) {
-	const BVHNode2 & node = bvh.nodes_2[node_index];
+	const BVHNode2 & node = bvh.nodes._2[node_index];
 
-	BVHNode2 & new_node = new_bvh.nodes_2[new_index];
+	BVHNode2 & new_node = new_bvh.nodes._2[new_index];
 	new_node.aabb  = node.aabb;
 	new_node.count = node.count;
 	new_node.axis  = node.axis;
@@ -99,8 +99,8 @@ void BVHCollapser::collapse(BVH & bvh) {
 
 	// Collapse BVH using a copy
 	BVH collapsed_bvh = { };
-	collapsed_bvh.nodes_2 = new BVHNode2[bvh.node_count];
-	collapsed_bvh.indices = new int     [bvh.index_count];
+	collapsed_bvh.nodes._2 = new BVHNode2[bvh.node_count];
+	collapsed_bvh.indices  = new int     [bvh.index_count];
 	collapsed_bvh.node_count  = 2;
 	collapsed_bvh.index_count = 0;
 
@@ -109,7 +109,7 @@ void BVHCollapser::collapse(BVH & bvh) {
 	assert(collapsed_bvh.node_count  <= bvh.node_count);
 	assert(collapsed_bvh.index_count == bvh.index_count);
 
-	delete [] bvh.nodes_2;
+	delete [] bvh.nodes._2;
 	delete [] bvh.indices;
 
 	bvh = collapsed_bvh;

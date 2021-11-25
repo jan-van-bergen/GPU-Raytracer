@@ -277,13 +277,13 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 		child_aabb_right = spatial_split.aabb_right;
 	}
 
-	sbvh->nodes_2[node.left    ].aabb = child_aabb_left;
-	sbvh->nodes_2[node.left + 1].aabb = child_aabb_right;
+	sbvh->nodes._2[node.left    ].aabb = child_aabb_left;
+	sbvh->nodes._2[node.left + 1].aabb = child_aabb_right;
 
 	indices_going_right_offset += n_right;
 
 	// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
-	int num_leaves_left = build_sbvh(sbvh->nodes_2[node.left], triangles, indices, node_index, first_index, n_left, inv_root_surface_area);
+	int num_leaves_left = build_sbvh(sbvh->nodes._2[node.left], triangles, indices, node_index, first_index, n_left, inv_root_surface_area);
 
 	// Using the depth first offset, we can now copy over the right references
 	memcpy(indices[0] + first_index + num_leaves_left, children_right[0], n_right * sizeof(PrimitiveRef));
@@ -291,7 +291,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 	memcpy(indices[2] + first_index + num_leaves_left, children_right[2], n_right * sizeof(PrimitiveRef));
 
 	// Now recurse on the right side
-	int num_leaves_right = build_sbvh(sbvh->nodes_2[node.left + 1], triangles, indices, node_index, first_index + num_leaves_left, n_right, inv_root_surface_area);
+	int num_leaves_right = build_sbvh(sbvh->nodes._2[node.left + 1], triangles, indices, node_index, first_index + num_leaves_left, n_right, inv_root_surface_area);
 
 	indices_going_right_offset -= n_right;
 
@@ -315,8 +315,8 @@ void SBVHBuilder::init(BVH * sbvh, int triangle_count) {
 	indices_going_left .init(triangle_count);
 	indices_going_right.init(triangle_count);
 
-	sbvh->indices = new int     [SBVH_OVERALLOCATION * triangle_count];
-	sbvh->nodes_2 = new BVHNode2[SBVH_OVERALLOCATION * triangle_count];
+	sbvh->indices  = new int     [SBVH_OVERALLOCATION * triangle_count];
+	sbvh->nodes._2 = new BVHNode2[SBVH_OVERALLOCATION * triangle_count];
 }
 
 void SBVHBuilder::free() {
@@ -360,10 +360,10 @@ void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 
 	PrimitiveRef * indices[3] = { indices_x, indices_y, indices_z };
 
-	sbvh->nodes_2[0].aabb = root_aabb;
+	sbvh->nodes._2[0].aabb = root_aabb;
 
 	int node_index = 2;
-	sbvh->index_count = build_sbvh(sbvh->nodes_2[0], triangles, indices, node_index, 0, triangle_count, 1.0f / root_aabb.surface_area());
+	sbvh->index_count = build_sbvh(sbvh->nodes._2[0], triangles, indices, node_index, 0, triangle_count, 1.0f / root_aabb.surface_area());
 	sbvh->node_count = node_index;
 
 	assert(node_index <= SBVH_OVERALLOCATION * triangle_count);
