@@ -268,36 +268,43 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
 	cuda_module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 
-	switch (config.bvh_type) {
-		case BVHType::BVH:
-		case BVHType::SBVH:  ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes._2, aggregated_bvh_node_count); cuda_module.get_global("bvh_nodes")  .set_value(ptr_bvh_nodes_2); break;
-		case BVHType::QBVH:  ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes._4, aggregated_bvh_node_count); cuda_module.get_global("qbvh_nodes") .set_value(ptr_bvh_nodes_4); break;
-		case BVHType::CWBVH: ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes._8, aggregated_bvh_node_count); cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes_8); break;
-	}
-
 	tlas_bvh_builder.init(&tlas_raw, scene.meshes.size());
-
 	tlas_raw.index_count = scene.meshes.size();
 	tlas_raw.node_count  = scene.meshes.size() * 2;
+
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  tlas = tlas_raw; break;
-		case BVHType::QBVH:  tlas_converter_qbvh .init(&tlas, tlas_raw); break;
-		case BVHType::CWBVH: tlas_converter_cwbvh.init(&tlas, tlas_raw); break;
-		default: abort();
+		case BVHType::SBVH: {
+			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes._2, aggregated_bvh_node_count);
+			cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes_2);
+
+			tlas = tlas_raw;
+
+			delete [] aggregated_bvh_nodes._2;
+			break;
+		}
+		case BVHType::QBVH: {
+			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes._4, aggregated_bvh_node_count);
+			cuda_module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes_4);
+
+			tlas_converter_qbvh.init(&tlas, tlas_raw);
+
+			delete [] aggregated_bvh_nodes._4;
+			break;
+		}
+		case BVHType::CWBVH: {
+			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes._8, aggregated_bvh_node_count);
+			cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes_8);
+
+			tlas_converter_cwbvh.init(&tlas, tlas_raw);
+
+			delete [] aggregated_bvh_nodes._8;
+			break;
+		}
 	}
 
 	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
-
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
-
-	switch (config.bvh_type) {
-		case BVHType::BVH:
-		case BVHType::SBVH:  delete [] aggregated_bvh_nodes._2; break;
-		case BVHType::QBVH:  delete [] aggregated_bvh_nodes._4; break;
-		case BVHType::CWBVH: delete [] aggregated_bvh_nodes._8; break;
-	}
-
 	delete [] aggregated_triangles;
 
 	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
