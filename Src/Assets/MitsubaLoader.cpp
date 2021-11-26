@@ -725,11 +725,10 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 		// Decompress stream for this Mesh
 		mz_ulong num_bytes = mesh_offsets[i+1] - mesh_offsets[i] - 4;
 
-		uLong  deserialized_length;
-		char * deserialized;
+		mz_ulong deserialized_length = 3 * num_bytes;
+		char   * deserialized = nullptr;
 
 		while (true) {
-			deserialized_length = compressBound(num_bytes);
 			deserialized = new char[deserialized_length];
 
 			int status = uncompress(
@@ -739,11 +738,11 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 			if (status == MZ_BUF_ERROR) {
 				delete [] deserialized;
-				num_bytes *= 2;
+				deserialized_length *= 2;
 			} else if (status == MZ_OK) {
 				break;
 			} else {
-				ERROR(node->location, "ERROR: Failed to decompress file '%s'!\n", filename);
+				ERROR(node->location, "ERROR: Failed to decompress serialized mesh #%u in file '%s'!\n%s", i, filename, mz_error(status));
 			}
 		}
 
