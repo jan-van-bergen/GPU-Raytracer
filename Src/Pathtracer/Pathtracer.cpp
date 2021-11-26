@@ -206,7 +206,14 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		aggregated_index_count    += scene.asset_manager.mesh_datas[i].bvh.index_count;
 	}
 
-	char         * aggregated_bvh_nodes = new char[aggregated_bvh_node_count * BVH::node_size()];
+	BVHNodePtr aggregated_bvh_nodes = { };
+	switch (config.bvh_type) {
+		case BVHType::BVH:
+		case BVHType::SBVH:  aggregated_bvh_nodes._2 = new BVHNode2[aggregated_bvh_node_count]; break;
+		case BVHType::QBVH:  aggregated_bvh_nodes._4 = new BVHNode4[aggregated_bvh_node_count]; break;
+		case BVHType::CWBVH: aggregated_bvh_nodes._8 = new BVHNode8[aggregated_bvh_node_count]; break;
+	}
+
 	CUDATriangle * aggregated_triangles = new CUDATriangle[aggregated_index_count];
 
 	reverse_indices = new int[aggregated_triangle_count];
@@ -261,31 +268,43 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
 	cuda_module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 
-	ptr_bvh_nodes = CUDAMemory::malloc<char>(aggregated_bvh_nodes, aggregated_bvh_node_count * BVH::node_size());
-	switch (config.bvh_type) {
-		case BVHType::BVH:
-		case BVHType::SBVH:  cuda_module.get_global("bvh_nodes")  .set_value(ptr_bvh_nodes); break;
-		case BVHType::QBVH:  cuda_module.get_global("qbvh_nodes") .set_value(ptr_bvh_nodes); break;
-		case BVHType::CWBVH: cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes); break;
-	}
-
 	tlas_bvh_builder.init(&tlas_raw, scene.meshes.size());
-
 	tlas_raw.index_count = scene.meshes.size();
 	tlas_raw.node_count  = scene.meshes.size() * 2;
+
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  tlas = tlas_raw; break;
-		case BVHType::QBVH:  tlas_converter_qbvh .init(&tlas, tlas_raw); break;
-		case BVHType::CWBVH: tlas_converter_cwbvh.init(&tlas, tlas_raw); break;
-		default: abort();
+		case BVHType::SBVH: {
+			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes._2, aggregated_bvh_node_count);
+			cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes_2);
+
+			tlas = tlas_raw;
+
+			delete [] aggregated_bvh_nodes._2;
+			break;
+		}
+		case BVHType::QBVH: {
+			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes._4, aggregated_bvh_node_count);
+			cuda_module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes_4);
+
+			tlas_converter_qbvh.init(&tlas, tlas_raw);
+
+			delete [] aggregated_bvh_nodes._4;
+			break;
+		}
+		case BVHType::CWBVH: {
+			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes._8, aggregated_bvh_node_count);
+			cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes_8);
+
+			tlas_converter_cwbvh.init(&tlas, tlas_raw);
+
+			delete [] aggregated_bvh_nodes._8;
+			break;
+		}
 	}
 
 	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
-
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
-
-	delete [] aggregated_bvh_nodes;
 	delete [] aggregated_triangles;
 
 	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
@@ -359,11 +378,12 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	event_desc_end = { ++display_order, "END", "END" };
 
+	// Reallocate TLAS BVH nodes as page locked memory, this allows faster copying to the GPU
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  tlas.nodes_2 = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
-		case BVHType::QBVH:  tlas.nodes_4 = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
-		case BVHType::CWBVH: tlas.nodes_8 = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
+		case BVHType::SBVH:  delete [] tlas.nodes._2; tlas.nodes._2 = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
+		case BVHType::QBVH:  delete [] tlas.nodes._4; tlas.nodes._4 = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
+		case BVHType::CWBVH: delete [] tlas.nodes._8; tlas.nodes._8 = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
 		default: abort();
 	}
 
@@ -388,6 +408,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 }
 
 void Pathtracer::cuda_free() {
+	CUDAMemory::free(ptr_material_types);
 	CUDAMemory::free(ptr_materials);
 
 	if (scene.asset_manager.textures.size() > 0) {
@@ -419,13 +440,19 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_mesh_transforms_inv);
 	CUDAMemory::free(ptr_mesh_transforms_prev);
 
-	CUDAMemory::free(ptr_bvh_nodes);
+	switch (config.bvh_type) {
+		case BVHType::BVH:
+		case BVHType::SBVH:  CUDAMemory::free(ptr_bvh_nodes_2); break;
+		case BVHType::QBVH:  CUDAMemory::free(ptr_bvh_nodes_4); break;
+		case BVHType::CWBVH: CUDAMemory::free(ptr_bvh_nodes_8); break;
+	}
 
 	CUDAMemory::free(ptr_triangles);
 
 	CUDAMemory::free(ptr_sky_data);
 
 	CUDAMemory::free(ptr_pmj_samples);
+	CUDAMemory::free(ptr_blue_noise_textures);
 
 	if (scene.has_lights) {
 		CUDAMemory::free(ptr_light_indices);
@@ -714,15 +741,13 @@ void Pathtracer::build_tlas() {
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  tlas = tlas_raw; break;
-		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw); break;
-		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); break;
+		case BVHType::SBVH:  tlas = tlas_raw;                      CUDAMemory::memcpy(ptr_bvh_nodes_2, tlas.nodes._2, tlas.node_count); break;
+		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw); CUDAMemory::memcpy(ptr_bvh_nodes_4, tlas.nodes._4, tlas.node_count); break;
+		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); CUDAMemory::memcpy(ptr_bvh_nodes_8, tlas.nodes._8, tlas.node_count); break;
 		default: abort();
 	}
-
 	assert(tlas.index_count == scene.meshes.size());
 	assert(tlas.node_count <= 2 * scene.meshes.size());
-	CUDAMemory::memcpy(ptr_bvh_nodes, tlas.nodes_raw, tlas.node_count * BVH::node_size());
 
 	int    light_mesh_count    = 0;
 	double lights_total_weight = 0.0;
@@ -889,7 +914,13 @@ void Pathtracer::update(float delta) {
 			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
 		}
 
-		if (scene.has_lights) calc_light_power();
+		if (had_lights) {
+			CUDAMemory::free(ptr_light_indices);
+			CUDAMemory::free(ptr_light_prob_alias);
+		}
+		if (scene.has_lights) {
+			calc_light_power();
+		}
 
 		frames_accumulated = 0;
 		invalidated_materials = false;

@@ -362,7 +362,9 @@ private:
 
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
 
-	CUDAMemory::Ptr<char>        ptr_bvh_nodes;
+	CUDAMemory::Ptr<BVHNode2>    ptr_bvh_nodes_2;
+	CUDAMemory::Ptr<BVHNode4>    ptr_bvh_nodes_4;
+	CUDAMemory::Ptr<BVHNode8>    ptr_bvh_nodes_8;
 	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
 	CUDAMemory::Ptr<int>         ptr_mesh_material_ids;
 	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;

@@ -298,9 +298,10 @@ struct ShapeGroup {
 };
 
 struct Serialized {
-	uint32_t         num_meshes;
-	const char    ** mesh_names;
-	MeshDataHandle * mesh_data_handles;
+	uint32_t num_meshes;
+
+	int       * triangle_count;
+	Triangle ** triangles;
 };
 
 using ShapeGroupMap = HashMap<StringView, ShapeGroup,     StringViewHash>;
@@ -308,7 +309,42 @@ using SerializedMap = HashMap<StringView, Serialized,     StringViewHash>;
 using MaterialMap   = HashMap<StringView, MaterialHandle, StringViewHash>;
 using TextureMap    = HashMap<StringView, TextureHandle,  StringViewHash>;
 
-static void parse_rgb_or_texture(const XMLNode * node, const char * name, const TextureMap & texture_map, const char * path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
+static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
+	char * filename_abs = new char[len_path + len_filename + 1];
+
+	memcpy(filename_abs,            path,     len_path);
+	memcpy(filename_abs + len_path, filename, len_filename);
+	filename_abs[len_path + len_filename] = '\0';
+
+	return filename_abs;
+}
+
+static void parse_texture(const XMLNode * node, TextureMap & texture_map, const char * path, Scene & scene, TextureHandle & texture) {
+	StringView type = node->get_attribute_value("type");
+
+	if (type == "bitmap") {
+		const StringView & filename_rel = node->get_child_value<StringView>("filename");
+		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+
+		texture = scene.asset_manager.add_texture(filename_abs);
+
+		StringView texture_id = { };
+		const XMLAttribute * id = node->find_attribute("id");
+		if (id) {
+			texture_id = id->value;
+		} else {
+			texture_id = filename_rel;
+		}
+		texture_map[texture_id] = texture;
+
+		delete [] filename_abs;
+		return;
+	} else {
+		WARNING(node->location, "Only bitmap textures are supported!\n");
+	}
+}
+
+static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, const char * path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
 	const XMLNode * reflectance = node->find_child_by_name(name);
 	if (reflectance) {
 		if (reflectance->tag == "rgb") {
@@ -321,29 +357,17 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, const 
 			rgb.z = Math::gamma_to_linear(rgb.z);
 			return;
 		} else if (reflectance->tag == "texture") {
-			StringView type = reflectance->get_attribute_value("type");
+			parse_texture(reflectance, texture_map, path, scene, texture);
 
-			if (type == "bitmap") {
-				const StringView & filename_rel = reflectance->get_child_value<StringView>("filename");
-				const char       * filename_abs = Util::get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
-
-				texture = scene.asset_manager.add_texture(filename_abs);
-
-				const XMLNode * scale = reflectance->find_child_by_name("scale");
-				if (scale) {
-					rgb = scale->get_optional_attribute("value", Vector3(1.0f));
-				}
-
-				delete [] filename_abs;
-				return;
-			} else {
-				WARNING(reflectance->location, "Only bitmap textures are supported!\n");
+			const XMLNode * scale = reflectance->find_child_by_name("scale");
+			if (scale) {
+				rgb = scale->get_optional_attribute("value", Vector3(1.0f));
 			}
 		} else if (reflectance->tag == "ref") {
 			const StringView & texture_name = reflectance->get_attribute_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture);
 			if (!found) {
-				WARNING(reflectance->location, "Invalid texture ref '%.*s'!", unsigned(texture_name.length()), texture_name.start);
+				WARNING(reflectance->location, "Invalid texture ref '%.*s'!\n", unsigned(texture_name.length()), texture_name.start);
 			}
 		}
 	}
@@ -433,7 +457,7 @@ static Matrix4 parse_transform_matrix(const XMLNode * node) {
 	return Matrix4::create_translation(translation) * Matrix4::create_rotation(rotation) * Matrix4::create_scale(scale);
 }
 
-static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, const TextureMap & texture_map, const char * path) {
+static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, const char * path) {
 	Material material = { };
 
 	const XMLNode * bsdf;
@@ -550,7 +574,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
 		}
 	} else if (inner_bsdf_type == "phong") {
-		material.type = Material::Type::CONDUCTOR;
+		material.type = Material::Type::PLASTIC;
 
 		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
@@ -692,18 +716,19 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 	mesh_offsets[num_meshes] = eof_dictionary_offset;
 	assert(mesh_offsets[0] == 0);
 
-	const char    ** mesh_names        = new const char * [num_meshes];
-	MeshDataHandle * mesh_data_handles = new MeshDataHandle[num_meshes];
+	Serialized result = { };
+	result.num_meshes     = num_meshes;
+	result.triangle_count = new int         [num_meshes];
+	result.triangles      = new Triangle   *[num_meshes];
 
 	for (uint32_t i = 0; i < num_meshes; i++) {
 		// Decompress stream for this Mesh
 		mz_ulong num_bytes = mesh_offsets[i+1] - mesh_offsets[i] - 4;
 
-		uLong  deserialized_length;
-		char * deserialized;
+		mz_ulong deserialized_length = 3 * num_bytes;
+		char   * deserialized = nullptr;
 
 		while (true) {
-			deserialized_length = compressBound(num_bytes);
 			deserialized = new char[deserialized_length];
 
 			int status = uncompress(
@@ -713,11 +738,11 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 
 			if (status == MZ_BUF_ERROR) {
 				delete [] deserialized;
-				num_bytes *= 2;
+				deserialized_length *= 2;
 			} else if (status == MZ_OK) {
 				break;
 			} else {
-				ERROR(node->location, "ERROR: Failed to decompress file '%s'!\n", filename);
+				ERROR(node->location, "ERROR: Failed to decompress serialized mesh #%u in file '%s'!\n%s", i, filename, mz_error(status));
 			}
 		}
 
@@ -733,12 +758,9 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 		bool flag_single_precision = flags & 0x1000;
 		bool flag_double_precision = flags & 0x2000;
 
-		if (file_version <= 3) {
-			flag_single_precision = true;
-			mesh_names[i] = "Serialized Mesh";
-		} else {
+		if (file_version > 3) {
 			// Read null terminated name
-			mesh_names[i] = parser.parse_c_str().c_str();
+			parser.parse_c_str();
 		}
 
 		// Read number of vertices and triangles1
@@ -746,7 +768,8 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 		uint64_t num_triangles = parser.parse_binary<uint64_t>();
 
 		if (num_vertices == 0 || num_triangles == 0) {
-			mesh_data_handles[i] = MeshDataHandle { INVALID };
+			result.triangle_count[i] = 0;
+			result.triangles     [i] = nullptr;
 
 			WARNING(node->location, "WARNING: Serialized Mesh defined without vertices or triangles, skipping\n");
 
@@ -858,18 +881,14 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 			triangles[t].init();
 		}
 
-		mesh_data_handles[i] = scene.asset_manager.add_mesh_data(triangles, num_triangles);
+		result.triangle_count[i] = num_triangles;
+		result.triangles     [i] = triangles;
 
 		delete [] deserialized;
 	}
 
 	delete [] mesh_offsets;
 	delete [] serialized;
-
-	Serialized result = { };
-	result.num_meshes        = num_meshes;
-	result.mesh_names        = mesh_names;
-	result.mesh_data_handles = mesh_data_handles;
 
 	return result;
 }
@@ -1053,22 +1072,32 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
 	} else if (type == "serialized") {
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-
-		Serialized serialized;
-		bool found = serialized_map.try_get(filename_rel, serialized);
-		if (!found) {
-			const char * filename_abs = Util::get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
-
-			serialized = parse_serialized(node, filename_abs, scene);
-			serialized_map[filename_rel] = serialized;
-
-			delete [] filename_abs;
-		}
+		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
-		name = serialized.mesh_names[shape_index];
-		return serialized.mesh_data_handles[shape_index];
+		char bvh_filename[512] = { };
+		sprintf_s(bvh_filename, "%s.shape_%i.bvh", filename_abs, shape_index);
+
+		auto fallback_loader = [&](const char * filename, Triangle *& triangles, int & triangle_count) {
+			Serialized serialized;
+			bool found = serialized_map.try_get(filename_rel, serialized);
+			if (!found) {
+				serialized = parse_serialized(node, filename_abs, scene);
+				serialized_map[filename_rel] = serialized;
+			}
+
+			triangles      = serialized.triangles     [shape_index];
+			triangle_count = serialized.triangle_count[shape_index];
+		};
+		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, fallback_loader);
+
+		char * shape_name = new char[filename_rel.length() + 32];
+		sprintf_s(shape_name, filename_rel.length() + 32, "%.*s_%i", unsigned(filename_rel.length()), filename_rel.start, shape_index);
+		name = shape_name;
+
+		delete [] filename_abs;
+		return mesh_data_handle;
 	} else if (type == "hair") {
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
 		const char       * filename_abs = Util::get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
@@ -1099,19 +1128,8 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		StringView str = { material.name, material.name + strlen(material.name) };
 		material_map[str] = material_handle;
 	} else if (node->tag == "texture") {
-		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = Util::get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
-
-		StringView texture_id = { };
-		const XMLAttribute * id = node->find_attribute("id");
-		if (id) {
-			texture_id = id->value;
-		} else {
-			texture_id = filename_rel;
-		}
-		texture_map[texture_id] = scene.asset_manager.add_texture(filename_abs);
-
-		delete [] filename_abs;
+		TextureHandle texture;
+		parse_texture(node, texture_map, path, scene, texture);
 	} else if (node->tag == "shape") {
 		StringView type = node->get_attribute_value<StringView>("type");
 		if (type == "shapegroup") {

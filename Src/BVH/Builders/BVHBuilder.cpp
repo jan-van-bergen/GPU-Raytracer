@@ -24,8 +24,8 @@ void BVHBuilder::init(BVH * bvh, int primitive_count) {
 
 	indices_going_left.init(primitive_count);
 
-	bvh->indices = indices_x;
-	bvh->nodes_2 = new BVHNode2[2 * primitive_count];
+	bvh->indices  = indices_x;
+	bvh->nodes._2 = new BVHNode2[2 * primitive_count];
 }
 
 void BVHBuilder::free() {
@@ -82,16 +82,16 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 	node.count = 0;
 	node.axis  = split.dimension;
 
-	builder.bvh->nodes_2[node.left    ].aabb = split.aabb_left;
-	builder.bvh->nodes_2[node.left + 1].aabb = split.aabb_right;
+	builder.bvh->nodes._2[node.left    ].aabb = split.aabb_left;
+	builder.bvh->nodes._2[node.left + 1].aabb = split.aabb_right;
 
 	node_index += 2;
 
 	int num_left  = split.index - first_index;
 	int num_right = first_index + index_count - split.index;
 
-	build_bvh_recursive(builder, builder.bvh->nodes_2[node.left    ], primitives, indices, node_index, first_index,            num_left);
-	build_bvh_recursive(builder, builder.bvh->nodes_2[node.left + 1], primitives, indices, node_index, first_index + num_left, num_right);
+	build_bvh_recursive(builder, builder.bvh->nodes._2[node.left    ], primitives, indices, node_index, first_index,            num_left);
+	build_bvh_recursive(builder, builder.bvh->nodes._2[node.left + 1], primitives, indices, node_index, first_index + num_left, num_right);
 }
 
 template<typename Primitive>
@@ -100,7 +100,7 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 	for (int i = 0; i < primitive_count; i++) {
 		root_aabb.expand(primitives[i].aabb);
 	}
-	builder.bvh->nodes_2[0].aabb = root_aabb;
+	builder.bvh->nodes._2[0].aabb = root_aabb;
 
 	Util::quick_sort(builder.indices_x, builder.indices_x + primitive_count, [primitives](int a, int b) { return primitives[a].get_center().x < primitives[b].get_center().x; });
 	Util::quick_sort(builder.indices_y, builder.indices_y + primitive_count, [primitives](int a, int b) { return primitives[a].get_center().y < primitives[b].get_center().y; });
@@ -113,7 +113,7 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 	};
 
 	int node_index = 2;
-	build_bvh_recursive(builder, builder.bvh->nodes_2[0], primitives, indices, node_index, 0, primitive_count);
+	build_bvh_recursive(builder, builder.bvh->nodes._2[0], primitives, indices, node_index, 0, primitive_count);
 
 	assert(node_index <= 2 * primitive_count);
 

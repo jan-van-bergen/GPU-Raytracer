@@ -78,21 +78,22 @@ struct BVHNode8 {
 
 static_assert(sizeof(BVHNode8) == 80);
 
+union BVHNodePtr {
+	BVHNode2 * _2;
+	BVHNode4 * _4;
+	BVHNode8 * _8;
+};
+
 struct BVH {
 	int   index_count;
 	int * indices;
 
-	int node_count;
-	union {
-		BVHNode2 * nodes_2;
-		BVHNode4 * nodes_4;
-		BVHNode8 * nodes_8;
-		char     * nodes_raw;
-	};
+	int        node_count;
+	BVHNodePtr nodes;
 
 	// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
 	// The procedure to do this is different for each BVH type
-	void aggregate(char * aggregated_bvh_nodes, int index_offset, int bvh_offset) const;
+	void aggregate(BVHNodePtr aggregated_bvh_nodes, int index_offset, int bvh_offset) const;
 
 	// Helper Methods
 	static BVHType underlying_bvh_type() {
@@ -101,16 +102,6 @@ struct BVH {
 			return BVHType::SBVH;
 		} else {
 			return BVHType::BVH;
-		}
-	}
-
-	static int node_size() {
-		switch (config.bvh_type) {
-			case BVHType::BVH:
-			case BVHType::SBVH:  return sizeof(BVHNode2);
-			case BVHType::QBVH:  return sizeof(BVHNode4);
-			case BVHType::CWBVH: return sizeof(BVHNode8);
-			default: abort();
 		}
 	}
 };

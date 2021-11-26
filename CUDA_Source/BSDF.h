@@ -58,7 +58,7 @@ struct BSDFDiffuse {
 
 struct BSDFPlastic {
 	static constexpr bool HAS_ALBEDO = true;
-	
+
 	int pixel_index;
 	int bounce;
 	int sample_index;
@@ -73,7 +73,32 @@ struct BSDFPlastic {
 	float3          albedo;
 
 	static constexpr float ETA = 1.0f / 1.5f;
-	static constexpr float TIR_COMPENSATION = 0.596345782f; // Hemispherical integral of fresnel * cos(theta)
+
+	// The Total Internal Reflection compensation factor is calculated as
+	// the hemispherical integral of fresnel * cos(theta)
+	// This integral has a closed form and can be calculated as follows:
+	//
+	// float fresnel_first_moment(float ior) {
+	//      double n  = ior;
+	//      double n2 = n * n;
+	//      double n4 = n2 * n2;
+	//
+	//      auto sq = [](auto x) { return x * x; };
+	//      auto cb = [](auto x) { return x * x * x; };
+	//
+	//      auto a = (n - 1.0)*(3.0*n + 1.0) / (6.0 * sq(n + 1.0));
+	//      auto b = (n2*sq(n2 - 1.0) / cb(n2 + 1.0)) * log((n - 1.0) / (n + 1.0));
+	//      auto c = (2.0*cb(n)*(n2 + 2.0*n - 1.0)) / ((n2 + 1.0) * (n4 - 1.0));
+	//      auto d = (8.0*n4*(n4 + 1.0) / ((n2 + 1.0) * sq(n4 - 1.0))) * log(n);
+	//
+	//      return float(0.5 + a + b - c + d);
+	//	}
+	//
+	//	TIR_COMPENSATION = 1.0f - (1.0f - fresnel_first_moment(ior)) / (ior * ior);
+	//
+	// TIR_COMPENSATION has been precalculated for ior = 1.5f. Unfortunately constexpr
+	// does not work with math functions, so the value has to be hardcoded.
+	static constexpr float TIR_COMPENSATION = 0.596345782f;
 
 	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
 		material = material_as_plastic(material_id);
@@ -172,7 +197,7 @@ struct BSDFPlastic {
 
 struct BSDFDielectric {
 	static constexpr bool HAS_ALBEDO = false;
-	
+
 	int pixel_index;
 	int bounce;
 	int sample_index;
@@ -293,7 +318,7 @@ struct BSDFDielectric {
 
 struct BSDFConductor {
 	static constexpr bool HAS_ALBEDO = true;
-	
+
 	int pixel_index;
 	int bounce;
 	int sample_index;

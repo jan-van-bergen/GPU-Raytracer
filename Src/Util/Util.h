@@ -33,8 +33,7 @@ namespace Util {
 
 	bool file_exists(const char * filename);
 
-	// Checks if file_check is newer than file_reference
-	bool file_is_newer(const char * file_reference, const char * file_check);
+	bool file_is_newer(const char * filename_a, const char * filename_b);
 
 	char * file_read(const char * filename, int & file_length);
 

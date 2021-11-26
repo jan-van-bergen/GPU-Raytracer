@@ -41,11 +41,11 @@ bool Util::file_exists(const char * filename) {
 	return std::filesystem::exists(filename);
 }
 
-bool Util::file_is_newer(const char * file_reference, const char * file_check) {
-	std::filesystem::file_time_type last_write_time_reference = std::filesystem::last_write_time(file_reference);
-	std::filesystem::file_time_type last_write_time_check     = std::filesystem::last_write_time(file_check);
+bool Util::file_is_newer(const char * filename_a, const char * filename_b) {
+	std::filesystem::file_time_type last_write_time_filename_a = std::filesystem::last_write_time(filename_a);
+	std::filesystem::file_time_type last_write_time_filename_b = std::filesystem::last_write_time(filename_b);
 
-	return last_write_time_reference < last_write_time_check;
+	return last_write_time_filename_a < last_write_time_filename_b;
 }
 
 char * Util::file_read(const char * filename, int & file_length) {

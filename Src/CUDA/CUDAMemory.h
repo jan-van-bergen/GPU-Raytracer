@@ -11,6 +11,14 @@ namespace CUDAMemory {
 
 		Ptr()                : ptr(NULL) { }
 		Ptr(CUdeviceptr ptr) : ptr(ptr)  { }
+
+		void operator=(Ptr other) {
+			if (ptr != NULL) {
+				puts("WARNING: CUDA memory leak detected!");
+				__debugbreak();
+			}
+			ptr = other.ptr;
+		}
 	};
 
 	template<typename T>

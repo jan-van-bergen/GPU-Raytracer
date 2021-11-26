@@ -20,7 +20,7 @@ void MeshData::init_bvh(BVH & bvh) {
 			qbvh_builder.init(&this->bvh, bvh);
 			qbvh_builder.build(bvh);
 
-			delete [] bvh.nodes_2; // Delete only the nodes array, indices array is cannibalized by the QBVH
+			delete [] bvh.nodes._2; // Delete only the nodes array, indices array is cannibalized by the QBVH
 			break;
 		}
 		case BVHType::CWBVH: {
@@ -31,7 +31,7 @@ void MeshData::init_bvh(BVH & bvh) {
 			cwbvh_builder.free();
 
 			delete [] bvh.indices;
-			delete [] bvh.nodes_2;
+			delete [] bvh.nodes._2;
 			break;
 		}
 		default: abort();
