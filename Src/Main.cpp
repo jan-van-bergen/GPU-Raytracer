@@ -650,8 +650,6 @@ static void draw_gui() {
 						break;
 					}
 					case Material::Type::CONDUCTOR: {
-						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
 						material_changed |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);

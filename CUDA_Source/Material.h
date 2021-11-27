@@ -38,9 +38,8 @@ union Material {
 		float  roughness;
 	} dielectric;
 	struct {
-		float4 diffuse_and_texture_id;
-		float4 eta_and_k;       // eta xyz and k x
-		float4 k_and_roughness; // k yz and roughness;
+		float4 eta_and_roughness;
+		float4 k;
 	} conductor;
 };
 
@@ -73,11 +72,9 @@ struct MaterialDielectric {
 };
 
 struct MaterialConductor {
-	float3 diffuse;
-	int    texture_id;
 	float3 eta;
-	float3 k;
 	float  roughness;
+	float3 k;
 };
 
 __device__ inline MaterialLight material_as_light(int material_id) {
@@ -120,16 +117,13 @@ __device__ inline MaterialDielectric material_as_dielectric(int material_id) {
 }
 
 __device__ inline MaterialConductor material_as_conductor(int material_id) {
-	float4 diffuse_and_texture_id = __ldg(&materials[material_id].conductor.diffuse_and_texture_id);
-	float4 eta_and_k              = __ldg(&materials[material_id].conductor.eta_and_k);
-	float4 k_and_roughness        = __ldg(&materials[material_id].conductor.k_and_roughness);
+	float4 eta_and_roughness = __ldg(&materials[material_id].conductor.eta_and_roughness);
+	float4 k                 = __ldg(&materials[material_id].conductor.k);
 
 	MaterialConductor material;
-	material.diffuse             = make_float3(diffuse_and_texture_id);
-	material.texture_id          = __float_as_int(diffuse_and_texture_id.w);
-	material.eta                 = make_float3(eta_and_k);
-	material.k                   = make_float3(eta_and_k.w, k_and_roughness.x, k_and_roughness.y);
-	material.roughness           = k_and_roughness.z;
+	material.eta       = make_float3(eta_and_roughness);
+	material.roughness = eta_and_roughness.w;
+	material.k         = make_float3(k);
 	return material;
 }
 

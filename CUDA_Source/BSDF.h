@@ -330,18 +330,14 @@ struct BSDFConductor {
 	float3 omega_i;
 
 	MaterialConductor material;
-	float3            albedo;
 
 	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
 		material = material_as_conductor(material_id);
-		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
 	}
 
 	__device__ void attenuate(int bounce, int pixel_index, float3 & throughput, float distance) {
-		if (bounce > 0) {
-			throughput *= albedo;
-		} else if (config.enable_albedo || config.enable_svgf) {
-			frame_buffer_albedo[pixel_index] = make_float4(albedo);
+		if (bounce == 0 && (config.enable_albedo || config.enable_svgf)) {
+			frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 		}
 	}
 

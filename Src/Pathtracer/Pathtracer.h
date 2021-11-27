@@ -325,11 +325,9 @@ private:
 			float   roughness;
 		} dielectric;
 		struct {
-			Vector3 diffuse;
-			int     texture_id;
 			Vector3 eta;
-			Vector3 k;
 			float   roughness;
+			Vector3 k;
 		} conductor;
 	};
 
