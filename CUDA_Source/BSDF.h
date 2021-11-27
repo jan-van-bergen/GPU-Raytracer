@@ -317,7 +317,7 @@ struct BSDFDielectric {
 };
 
 struct BSDFConductor {
-	static constexpr bool HAS_ALBEDO = true;
+	static constexpr bool HAS_ALBEDO = false;
 
 	int pixel_index;
 	int bounce;
