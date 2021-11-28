@@ -893,7 +893,7 @@ static Serialized parse_serialized(const XMLNode * node, const char * filename, 
 	return result;
 }
 
-static void parse_hair(const XMLNode * node, const char * filename, Triangle *& triangles, int & triangle_count, const Matrix4 & transform, float radius) {
+static void parse_hair(const XMLNode * node, const char * filename, Triangle *& triangles, int & triangle_count, float radius) {
 	int          file_length;
 	const char * file = Util::file_read(filename, file_length);
 
@@ -960,10 +960,6 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 			continue;
 		}
 
-		for (int s = 0; s < strand.size(); s++) {
-			strand[s] = Matrix4::transform_position(transform, strand[s]);
-		}
-
 		float angle = PI * float(rand()) / float(RAND_MAX);
 
 		Vector3 direction  = Vector3::normalize(strand[1] - strand[0]);
@@ -973,8 +969,13 @@ static void parse_hair(const XMLNode * node, const char * filename, Triangle *& 
 		prev_segment[1] = strand[0] - radius * orthogonal;
 
 		for (int s = 1; s < strand.size(); s++) {
-			Vector3 direction  = Vector3::normalize(strand[s] - strand[s-1]);
-			Vector3 orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
+			Vector3 direction = Vector3::normalize(strand[s] - strand[s-1]);
+			Vector3 orthogonal;
+			if (isnan(direction.x + direction.y + direction.z)) {
+				orthogonal = Vector3(1.0f, 0.0f, 0.0f);
+			} else {
+				orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
+			}
 
 			float r = Math::lerp(radius, 0.0f, float(s) / float(strand.size() - 1));
 			curr_segment[0] = strand[s] + r * orthogonal;
@@ -1105,8 +1106,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		float radius = node->get_child_value_optional("radius", 0.0025f);
 
 		auto fallback_loader = [&](const char * filename, Triangle *& triangles, int & triangle_count) {
-			Matrix4 transform = parse_transform_matrix(node);
-			parse_hair(node, filename, triangles, triangle_count, transform, radius);
+			parse_hair(node, filename, triangles, triangle_count, radius);
 		};
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
 
@@ -1168,7 +1168,8 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
 
 				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
-				if (type == "obj" || type == "ply" || type == "serialized") {
+				bool type_is_primitive = type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere";
+				if (!type_is_primitive) {
 					parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 				}
 			}
