@@ -778,7 +778,7 @@ static void draw_gui() {
 		float text_width = ImGui::CalcTextSize(text).x;
 
 		ImDrawList * draw_list = ImGui::GetForegroundDrawList();
-		draw_list->AddText(ImVec2(0.5f * (window.width - text_width), 0.0f), colour, "Screenshot taken");
+		draw_list->AddText(ImVec2(0.5f * (window.width - text_width), 0.0f), colour, text);
 	}
 
 	window.gui_end();
