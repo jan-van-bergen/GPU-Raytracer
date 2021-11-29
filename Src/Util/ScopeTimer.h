@@ -23,7 +23,7 @@ public:
 		if (duration_in_min > 0) {
 			printf("%s took: %llu s (%llu min)\n", name, duration_in_s, duration_in_min);
 		} else if (duration_in_s > 0) {
-			printf("%s took: %llu us (%llu s)\n", name, duration_in_ms, duration_in_s);
+			printf("%s took: %llu ms (%llu s)\n", name, duration_in_ms, duration_in_s);
 		} else {
 			printf("%s took: %llu ms\n", name, duration_in_ms);
 		}
