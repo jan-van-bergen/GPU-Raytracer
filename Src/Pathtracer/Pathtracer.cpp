@@ -842,11 +842,9 @@ void Pathtracer::update(float delta) {
 					break;
 				}
 				case Material::Type::CONDUCTOR: {
-					cuda_materials[i].conductor.diffuse    = material.diffuse;
-					cuda_materials[i].conductor.texture_id = material.texture_id.handle;
-					cuda_materials[i].conductor.eta        = Vector3::max(material.eta, Vector3(1.0001f));
-					cuda_materials[i].conductor.k          = material.k;
-					cuda_materials[i].conductor.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].conductor.eta       = Vector3::max(material.eta, Vector3(1.0001f));
+					cuda_materials[i].conductor.roughness = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].conductor.k         = material.k;
 					break;
 				}
 				default: abort();

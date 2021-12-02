@@ -23,12 +23,16 @@ static Window window;
 static Pathtracer pathtracer;
 static PerfTest   perf_test;
 
-#define FRAMETIME_HISTORY_LENGTH 100
+static constexpr int FRAMETIME_HISTORY_LENGTH = 100;
+
+static constexpr float SCREENSHOT_FADE_TIME = 5.0f;
 
 struct Timing {
 	Uint64 start;
 	Uint64 now;
 	Uint64 last;
+
+	Uint64 time_of_last_screenshot = -1;
 
 	double inv_perf_freq;
 	double delta_time;
@@ -98,6 +102,8 @@ int main(int arg_count, char ** args) {
 			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.frames_accumulated);
 
 			capture_screen(window, screenshot_name);
+
+			timing.time_of_last_screenshot = timing.now;
 		}
 
 		if (ImGui::IsMouseClicked(1)) {
@@ -650,8 +656,6 @@ static void draw_gui() {
 						break;
 					}
 					case Material::Type::CONDUCTOR: {
-						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
 						material_changed |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
@@ -762,6 +766,19 @@ static void draw_gui() {
 			draw_line_clipped(triangle_positions[1], triangle_positions[1] + 0.1f * triangle_normals[1], normal_colour);
 			draw_line_clipped(triangle_positions[2], triangle_positions[2] + 0.1f * triangle_normals[2], normal_colour);
 		}
+	}
+
+	double time_since_last_screenshot = (timing.now - timing.time_of_last_screenshot) * timing.inv_perf_freq;
+	if (time_since_last_screenshot >= 0.0f && time_since_last_screenshot < SCREENSHOT_FADE_TIME) {
+		unsigned colour = Math::lerp(0xff, 0, time_since_last_screenshot / SCREENSHOT_FADE_TIME);
+		colour |= colour << 8;
+		colour |= colour << 16;
+
+		const char * text = "Screenshot taken";
+		float text_width = ImGui::CalcTextSize(text).x;
+
+		ImDrawList * draw_list = ImGui::GetForegroundDrawList();
+		draw_list->AddText(ImVec2(0.5f * (window.width - text_width), 0.0f), colour, text);
 	}
 
 	window.gui_end();
