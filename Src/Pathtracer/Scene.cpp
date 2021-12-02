@@ -37,6 +37,8 @@ void Scene::init(const SceneConfig & scene_config) {
 			add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, PLYLoader::load));
 		} else if (strcmp(file_extension, "xml") == 0) {
 			MitsubaLoader::load(scene_name, *this);
+		} else if (strcmp(file_extension, "pbrt") == 0) {
+			PBRTLoader::load(scene_name, *this);
 		} else {
 			printf("ERROR: '%s' file format is not supported!\n", file_extension);
 			abort();

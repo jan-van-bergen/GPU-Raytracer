@@ -1,5 +1,7 @@
 #include "PBRTLoader.h"
 
+#include "Config.h"
+
 #include "PLYLoader.h"
 
 #include "Util/Util.h"
@@ -739,6 +741,17 @@ static void load_include(const char * filename, const char * path, int path_leng
 				}
 			} else {
 				WARNING(parser.location, "Named Medium '%.*s' not found!\n", unsigned(medium_name_to.length()), medium_name_to.start);
+			}
+
+		} else if (parser.match("LightSource")) {
+			StringView type = parse_quoted(parser);
+			pbrt_parser_skip(parser);
+
+			Array<Param> params = parse_params(parser);
+
+			const Param * filename = find_param_optional(params, "filename");
+			if (filename) {
+				scene_config.sky = Util::get_absolute_filename(path, path_length, filename->strings[0].c_str(), filename->strings[0].length());
 			}
 
 		} else if (parser.match("AreaLightSource")) {
