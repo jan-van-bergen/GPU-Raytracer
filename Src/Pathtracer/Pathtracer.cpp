@@ -118,22 +118,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	scene.asset_manager.wait_until_loaded();
 
-	// Set global Mediums table
-	int medium_count = scene.asset_manager.mediums.size();
-	if (medium_count > 0) {
-		CUDAMedium * cuda_mediums = new CUDAMedium[medium_count];
-
-		for (int i = 0; i < medium_count; i++) {
-			const Medium & medium = scene.asset_manager.mediums[i];
-			cuda_mediums[i].scatter_coefficient = medium.scatter_coefficient;
-			cuda_mediums[i].negative_absorption = medium.negative_absorption;
-		}
-
-		ptr_mediums = CUDAMemory::malloc(cuda_mediums, medium_count);
-		cuda_module.get_global("mediums").set_value(ptr_mediums);
-
-		delete [] cuda_mediums;
-	}
+	ptr_mediums = CUDAMemory::malloc<CUDAMedium>(Math::max<int>(1, scene.asset_manager.mediums.size()));
+	cuda_module.get_global("mediums").set_value(ptr_mediums);
 
 	// Set global Texture table
 	int texture_count = scene.asset_manager.textures.size();
@@ -417,6 +403,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	invalidated_scene     = true;
 	invalidated_materials = true;
+	invalidated_mediums   = true;
 	invalidated_config    = true;
 
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
@@ -429,6 +416,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_material_types);
 	CUDAMemory::free(ptr_materials);
+
+	CUDAMemory::free(ptr_mediums);
 
 	if (scene.asset_manager.textures.size() > 0) {
 		CUDAMemory::free(ptr_textures);
@@ -938,6 +927,27 @@ void Pathtracer::update(float delta) {
 
 		frames_accumulated = 0;
 		invalidated_materials = false;
+	}
+
+	if (invalidated_mediums) {
+		int medium_count = scene.asset_manager.mediums.size();
+		if (medium_count > 0) {
+			CUDAMedium * cuda_mediums = new CUDAMedium[medium_count];
+
+			for (int i = 0; i < medium_count; i++) {
+				const Medium & medium = scene.asset_manager.mediums[i];
+				cuda_mediums[i].sigma_a = medium.scale * medium.sigma_a;
+				cuda_mediums[i].sigma_s = medium.scale * medium.sigma_s;
+				cuda_mediums[i].g       = medium.g;
+			}
+
+			CUDAMemory::memcpy(ptr_mediums, cuda_mediums, medium_count);
+
+			delete [] cuda_mediums;
+		}
+
+		frames_accumulated = 0;
+		invalidated_mediums = false;
 	}
 
 	if (config.enable_scene_update) {

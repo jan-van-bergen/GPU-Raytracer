@@ -177,6 +177,7 @@ struct Pathtracer {
 
 	bool invalidated_scene     = true;
 	bool invalidated_materials = true;
+	bool invalidated_mediums   = true;
 	bool invalidated_camera    = true;
 	bool invalidated_config    = true;
 
@@ -348,8 +349,9 @@ private:
 	CUDAMemory::Ptr<CUDAMaterial>   ptr_materials;
 
 	struct CUDAMedium {
-		Vector3 scatter_coefficient;
-		Vector3 negative_absorption;
+		Vector3 sigma_a;
+		Vector3 sigma_s;
+		float   g;
 	};
 	CUDAMemory::Ptr<CUDAMedium> ptr_mediums;
 

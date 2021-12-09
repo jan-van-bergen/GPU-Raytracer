@@ -349,13 +349,11 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 	if (reflectance) {
 		if (reflectance->tag == "rgb") {
 			rgb = reflectance->get_optional_attribute("value", Vector3(1.0f));
-			return;
 		} else if (reflectance->tag == "srgb") {
 			rgb = reflectance->get_optional_attribute("value", Vector3(1.0f));
 			rgb.x = Math::gamma_to_linear(rgb.x);
 			rgb.y = Math::gamma_to_linear(rgb.y);
 			rgb.z = Math::gamma_to_linear(rgb.z);
-			return;
 		} else if (reflectance->tag == "texture") {
 			parse_texture(reflectance, texture_map, path, scene, texture);
 
@@ -370,8 +368,9 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 				WARNING(reflectance->location, "Invalid texture ref '%.*s'!\n", unsigned(texture_name.length()), texture_name.start);
 			}
 		}
+	} else {
+		rgb = Vector3(1.0f);
 	}
-	rgb = Vector3(1.0f);
 }
 
 static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
@@ -661,18 +660,26 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			StringView medium_type = xml_medium->get_attribute_value("type");
 
 			if (medium_type == "homogeneous") {
-				Vector3 sigma_s = xml_medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
-				Vector3 sigma_a = xml_medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+				Medium medium = { };
 
-				const char * medium_name = "Medium";
 				if (const XMLAttribute * name = xml_medium->find_attribute("name")) {
-					medium_name = name->value.c_str();
+					medium.name = name->value.c_str();
 				}
 
-				Medium medium = { };
-				medium.name                = medium_name;
-				medium.scatter_coefficient =  sigma_s;
-				medium.negative_absorption = -sigma_a;
+				medium.sigma_s = xml_medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
+				medium.sigma_a = xml_medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+
+				if (const XMLNode * phase = xml_medium->find_child("phase")) {
+					StringView phase_type = phase->get_attribute_value("type");
+
+					if (phase_type == "isotropic") {
+						medium.g = 0.0f;
+					} else if (phase_type == "hg") {
+						medium.g = phase->get_child_value_optional("g", 0.0f);
+					} else {
+						WARNING(xml_medium->location, "WARNING: Phase function type '%.*s' not supported!\n", unsigned(phase_type.length()), phase_type.start);
+					}
+				}
 
 				material.medium_handle = scene.asset_manager.add_medium(medium);
 			} else {

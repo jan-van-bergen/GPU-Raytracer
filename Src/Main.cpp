@@ -666,6 +666,22 @@ static void draw_gui() {
 				}
 
 				if (material_changed) pathtracer.invalidated_materials = true;
+
+				if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {
+					Medium & medium = pathtracer.scene.asset_manager.get_medium(material.medium_handle);
+
+					Vector3 sigma_t = medium.scale * (medium.sigma_a + medium.sigma_s);
+					ImGui::Text("Sigma T: %.3f, %.3f, %.3f", sigma_t.x, sigma_t.y, sigma_t.z);
+
+					bool medium_changed = false;
+
+					medium_changed |= ImGui::DragFloat3 ("Sigma A",   &medium.sigma_a.x, 0.01f, 0.0f, INFINITY);
+					medium_changed |= ImGui::DragFloat3 ("Sigma S",   &medium.sigma_s.x, 0.01f, 0.0f, INFINITY);
+					medium_changed |= ImGui::DragFloat  ("Scale###2", &medium.scale,     1.0f,  0.0f, INFINITY);
+					medium_changed |= ImGui::SliderFloat("G",         &medium.g,        -1.0f,  1.0f);
+
+					if (medium_changed) pathtracer.invalidated_mediums = true;
+				}
 			}
 		}
 	}

@@ -6,8 +6,11 @@
 struct Medium {
 	const char * name;
 
-	Vector3 scatter_coefficient;
-    Vector3 negative_absorption;
+	Vector3 sigma_a;
+	Vector3 sigma_s;
+	float   scale = 1000.0f;
+
+	float g = 0.0f;
 };
 
 struct MediumHandle { int handle = INVALID; };

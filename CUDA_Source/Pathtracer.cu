@@ -96,7 +96,7 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 	float3 direction = normalize(focal_point - offset);
 
 	TraceBuffer * ray_buffer_trace = get_ray_buffer_trace(0);
-	
+
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
 	ray_buffer_trace->origin   .set(index, camera.position + offset);
 	ray_buffer_trace->direction.set(index, direction);
@@ -126,6 +126,27 @@ extern "C" __global__ void kernel_trace_shadow_qbvh(int bounce) {
 
 extern "C" __global__ void kernel_trace_shadow_cwbvh(int bounce) {
 	cwbvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
+}
+
+// Returns true if the path should terminate
+__device__ bool russian_roulette(int pixel_index, int bounce, int sample_index, float3 & throughput) {
+	if (bounce == config.num_bounces - 1) {
+		return true;
+	}
+	if (config.enable_russian_roulette && bounce > 0) {
+		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
+		// This deteriorates Russian Roulette performance, so albedo is included here
+		float3 throughput_with_albedo = throughput * make_float3(frame_buffer_albedo[pixel_index]);
+
+		float survival_probability  = saturate(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
+		float rand_russian_roulette = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).x;
+
+		if (rand_russian_roulette > survival_probability) {
+			return true;
+		}
+		throughput /= survival_probability;
+	}
+	return false;
 }
 
 extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
@@ -159,7 +180,53 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		medium_id = ray_buffer_trace->medium[index];
 		Medium medium = mediums[medium_id];
 
-		throughput *= beer_lambert(medium.negative_absorption, hit.t);
+		bool medium_can_scatter = (medium.sigma_s.x + medium.sigma_s.y + medium.sigma_s.z) > 0.0f;
+
+		if (medium_can_scatter) {
+			float3 sigma_t = medium.sigma_a + medium.sigma_s;
+
+			float sampling_density = vmin_min(sigma_t.x, sigma_t.y, sigma_t.z);
+
+			float rand_scatter = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
+			float scatter_distance = -logf(rand_scatter) / sampling_density;
+
+			float pdf = expf(-sampling_density * fminf(scatter_distance, hit.t));
+
+			if (scatter_distance < hit.t) {
+				throughput *= medium.sigma_s * beer_lambert(sigma_t, scatter_distance) / (sampling_density * pdf);
+
+				if (russian_roulette(pixel_index, bounce, sample_index, throughput)) return;
+
+				float2 rand_phase = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
+				float3 direction_out = sample_henyey_greenstein(-ray_direction, medium.g, rand_phase.x, rand_phase.y);
+
+				float3 ray_origin = ray_buffer_trace->origin.get(index);
+				float3 origin_out = ray_origin + scatter_distance * ray_direction;
+
+				// Emit scattered Ray
+				int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
+
+				TraceBuffer * ray_buffer_trace_next = get_ray_buffer_trace(bounce + 1);
+
+				ray_buffer_trace_next->origin   .set(index_out, origin_out);
+				ray_buffer_trace_next->direction.set(index_out, direction_out);
+
+				ray_buffer_trace_next->medium[index_out] = medium_id;
+
+				if (config.enable_mipmapping) {
+					ray_buffer_trace_next->cone[index_out] = ray_buffer_trace->cone[index];
+				}
+
+				ray_buffer_trace_next->pixel_index_and_flags[index_out] = pixel_index | FLAG_INSIDE_MEDIUM;
+				ray_buffer_trace_next->throughput.set(index_out, throughput);
+
+				return;
+			} else {
+				throughput *= beer_lambert(sigma_t, hit.t) / pdf;
+			}
+		} else {
+			throughput *= beer_lambert(medium.sigma_a, hit.t);
+		}
 	}
 
 	// If we didn't hit anything, sample the Sky
@@ -259,24 +326,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		return;
 	}
 
-	// If this is the last bounce and we haven't hit a light, terminate
-	if (bounce == config.num_bounces - 1) return;
-
-	// Russian Roulette
-	if (config.enable_russian_roulette && bounce > 0) {
-		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
-		// This deteriorates Russian Roulette performance, so albedo is included here
-		float3 throughput_with_albedo = throughput * make_float3(frame_buffer_albedo[pixel_index]);
-
-		float survival_probability  = saturate(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
-		float rand_russian_roulette = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).x;
-
-		if (rand_russian_roulette > survival_probability) {
-			return;
-		}
-
-		throughput /= survival_probability;
-	}
+	if (russian_roulette(pixel_index, bounce, sample_index, throughput)) return;
 
 	unsigned flags = (medium_id != INVALID) << 30;
 
@@ -371,7 +421,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	int      pixel_index = pixel_index_and_flags & ~FLAGS_ALL;
 
 	bool inside_medium = pixel_index_and_flags & FLAG_INSIDE_MEDIUM;
-	
+
 	int medium_id = INVALID;
 	if (inside_medium) {
 		medium_id = material_buffer->medium[index];
@@ -647,7 +697,7 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 		colour = colour_prev + (colour - colour_prev) / frames_accumulated; // Online average
 	}
 
-//	if (isnan(colour.x + colour.y + colour.z)) colour = make_float4(1,0,1,1);
+	if (isnan(colour.x + colour.y + colour.z)) colour = make_float4(1,0,1,1);
 
 	accumulator.set(x, y, colour);
 }
