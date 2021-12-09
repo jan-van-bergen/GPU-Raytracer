@@ -98,7 +98,7 @@ __device__ inline unsigned cwbvh_node_intersect(
 #define N_d 4
 #define N_w 16
 
-__device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
+__device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired) {
 	extern __shared__ uint2 shared_stack_cwbvh[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -124,8 +124,8 @@ __device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_trace.origin   .get(ray_index);
-			ray.direction = ray_buffer_trace.direction.get(ray_index);
+			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
+			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			// Ray octant, encoded in 3 bits
@@ -249,7 +249,7 @@ __device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
 
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
-					ray_buffer_trace.hits.set(ray_index, ray_hit);
+					get_ray_buffer_trace(bounce)->hits.set(ray_index, ray_hit);
 
 					current_group.y = 0;
 
@@ -261,8 +261,8 @@ __device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
 
 					if (!mesh_has_identity_transform) {
 						// Reset Ray to untransformed version
-						ray.origin    = ray_buffer_trace.origin   .get(ray_index);
-						ray.direction = ray_buffer_trace.direction.get(ray_index);
+						ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
+						ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
 						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
@@ -283,7 +283,7 @@ __device__ inline void cwbvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ inline void cwbvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
+__device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_retired) {
 	extern __shared__ uint2 shared_stack_cwbvh[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];

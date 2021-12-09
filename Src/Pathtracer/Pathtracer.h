@@ -260,7 +260,8 @@ private:
 	CUgraphicsResource resource_accumulator;
 	CUsurfObject       surf_accumulator;
 
-	TraceBuffer     ray_buffer_trace;
+	TraceBuffer     ray_buffer_trace_0;
+	TraceBuffer     ray_buffer_trace_1;
 	MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
 	MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
 	ShadowRayBuffer ray_buffer_shadow;

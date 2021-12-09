@@ -342,8 +342,10 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	CUDAMemory::memcpy(ptr_blue_noise_textures, reinterpret_cast<unsigned short *>(BlueNoise::textures), BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
 	cuda_module.get_global("blue_noise_textures").set_value(ptr_blue_noise_textures);
 
-	ray_buffer_trace.init(BATCH_SIZE);
-	cuda_module.get_global("ray_buffer_trace").set_value(ray_buffer_trace);
+	ray_buffer_trace_0.init(BATCH_SIZE);
+	ray_buffer_trace_1.init(BATCH_SIZE);
+	cuda_module.get_global("ray_buffer_trace_0").set_value(ray_buffer_trace_0);
+	cuda_module.get_global("ray_buffer_trace_1").set_value(ray_buffer_trace_1);
 
 	global_ray_buffer_shade_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_shade_diffuse_and_plastic");
 	global_ray_buffer_shade_dielectric_and_conductor = cuda_module.get_global("ray_buffer_shade_dielectric_and_conductor");
@@ -480,7 +482,8 @@ void Pathtracer::cuda_free() {
 		CUDAMemory::free(ptr_light_mesh_transform_index);
 	}
 
-	ray_buffer_trace.free();
+	ray_buffer_trace_0.free();
+	ray_buffer_trace_1.free();
 	if (scene.has_diffuse    || scene.has_plastic)   ray_buffer_shade_diffuse_and_plastic.free();
 	if (scene.has_dielectric || scene.has_conductor) ray_buffer_shade_dielectric_and_conductor.free();
 	if (scene.has_lights)                            ray_buffer_shadow.free();

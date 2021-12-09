@@ -112,10 +112,19 @@ struct ShadowRayBuffer {
 	float4 * illumination_and_pixel_index;
 };
 
-__device__ __constant__ TraceBuffer     ray_buffer_trace;
+__device__ __constant__ TraceBuffer     ray_buffer_trace_0;
+__device__ __constant__ TraceBuffer     ray_buffer_trace_1;
 __device__ __constant__ MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
 __device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
 __device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
+
+__device__ inline TraceBuffer * get_ray_buffer_trace(int bounce) {
+	if (bounce & 1) {
+		return &ray_buffer_trace_1;
+	} else {
+		return &ray_buffer_trace_0;
+	}
+}
 
 // Number of elements in each Buffer
 // Sizes are stored for ALL bounces so we only have to reset these

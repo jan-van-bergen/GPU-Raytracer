@@ -95,46 +95,50 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);
 
+	TraceBuffer * ray_buffer_trace = get_ray_buffer_trace(0);
+	
 	// Create primary Ray that starts at the Camera's position and goes through the current pixel
-	ray_buffer_trace.origin   .set(index, camera.position + offset);
-	ray_buffer_trace.direction.set(index, direction);
+	ray_buffer_trace->origin   .set(index, camera.position + offset);
+	ray_buffer_trace->direction.set(index, direction);
 
-	ray_buffer_trace.pixel_index_and_flags[index] = pixel_index;
+	ray_buffer_trace->pixel_index_and_flags[index] = pixel_index;
 }
 
 extern "C" __global__ void kernel_trace_bvh(int bounce) {
-	bvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+	bvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_qbvh(int bounce) {
-	qbvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+	qbvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_cwbvh(int bounce) {
-	cwbvh_trace(buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+	cwbvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_shadow_bvh(int bounce) {
-	bvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
+	bvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_shadow_qbvh(int bounce) {
-	qbvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
+	qbvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_shadow_cwbvh(int bounce) {
-	cwbvh_trace_shadow(buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce], bounce);
+	cwbvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
 extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index >= buffer_sizes.trace[bounce]) return;
 
-	float3 ray_direction = ray_buffer_trace.direction.get(index);
+	const TraceBuffer * ray_buffer_trace = get_ray_buffer_trace(bounce);
 
-	RayHit hit = ray_buffer_trace.hits.get(index);
+	float3 ray_direction = ray_buffer_trace->direction.get(index);
 
-	unsigned pixel_index_and_flags = ray_buffer_trace.pixel_index_and_flags[index];
+	RayHit hit = ray_buffer_trace->hits.get(index);
+
+	unsigned pixel_index_and_flags = ray_buffer_trace->pixel_index_and_flags[index];
 	int      pixel_index = pixel_index_and_flags & ~FLAGS_ALL;
 
 	int x = pixel_index % screen_pitch;
@@ -147,12 +151,12 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	if (bounce == 0) {
 		throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
 	} else {
-		throughput = ray_buffer_trace.throughput.get(index);
+		throughput = ray_buffer_trace->throughput.get(index);
 	}
 
 	int medium_id = INVALID;
 	if (inside_medium) {
-		medium_id = ray_buffer_trace.medium[index];
+		medium_id = ray_buffer_trace->medium[index];
 		Medium medium = mediums[medium_id];
 
 		throughput *= beer_lambert(medium.negative_absorption, hit.t);
@@ -234,7 +238,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			float cos_theta_light = fabsf(dot(ray_direction, light_normal));
 			float distance_to_light_squared = hit.t * hit.t;
 
-			float brdf_pdf = ray_buffer_trace.last_pdf[index];
+			float brdf_pdf = ray_buffer_trace->last_pdf[index];
 
 			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
 			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
@@ -284,7 +288,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace.cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace->cone[index];
 
 			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
 
@@ -302,7 +306,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace.cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace->cone[index];
 
 			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
 
@@ -319,7 +323,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace.cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace->cone[index];
 
 			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
 
@@ -337,7 +341,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace.cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace->cone[index];
 
 			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
 
@@ -583,23 +587,25 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	// Emit next Ray
 	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
 
-	ray_buffer_trace.origin   .set(index_out, origin_out);
-	ray_buffer_trace.direction.set(index_out, direction_out);
+	TraceBuffer * ray_buffer_trace = get_ray_buffer_trace(bounce + 1);
+
+	ray_buffer_trace->origin   .set(index_out, origin_out);
+	ray_buffer_trace->direction.set(index_out, direction_out);
 
 	if (medium_id != INVALID) {
-		ray_buffer_trace.medium[index_out] = medium_id;
+		ray_buffer_trace->medium[index_out] = medium_id;
 	}
 
 	if (config.enable_mipmapping) {
-		ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
+		ray_buffer_trace->cone[index_out] = make_float2(cone_angle, cone_width);
 	}
 
 	unsigned flags = (bsdf.is_mis_eligable() << 31) | ((medium_id != INVALID) << 30);
 
-	ray_buffer_trace.pixel_index_and_flags[index_out] = pixel_index | flags;
-	ray_buffer_trace.throughput.set(index_out, throughput);
+	ray_buffer_trace->pixel_index_and_flags[index_out] = pixel_index | flags;
+	ray_buffer_trace->throughput.set(index_out, throughput);
 
-	ray_buffer_trace.last_pdf[index_out] = pdf;
+	ray_buffer_trace->last_pdf[index_out] = pdf;
 }
 
 extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
