@@ -19,6 +19,7 @@ __device__ __constant__ float4 * frame_buffer_indirect;
 #include "Util.h"
 #include "BSDF.h"
 #include "Material.h"
+#include "Medium.h"
 #include "Sky.h"
 #include "RayCone.h"
 
@@ -98,7 +99,7 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 	ray_buffer_trace.origin   .set(index, camera.position + offset);
 	ray_buffer_trace.direction.set(index, direction);
 
-	ray_buffer_trace.pixel_index_and_mis_eligable[index] = pixel_index | (false << 31);
+	ray_buffer_trace.pixel_index_and_flags[index] = pixel_index;
 }
 
 extern "C" __global__ void kernel_trace_bvh(int bounce) {
@@ -133,19 +134,28 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 	RayHit hit = ray_buffer_trace.hits.get(index);
 
-	unsigned pixel_index_and_mis_eligable = ray_buffer_trace.pixel_index_and_mis_eligable[index];
-	int      pixel_index = pixel_index_and_mis_eligable & ~(0b11 << 31);
+	unsigned pixel_index_and_flags = ray_buffer_trace.pixel_index_and_flags[index];
+	int      pixel_index = pixel_index_and_flags & ~FLAGS_ALL;
 
 	int x = pixel_index % screen_pitch;
 	int y = pixel_index / screen_pitch;
 
-	bool mis_eligable = pixel_index_and_mis_eligable >> 31;
+	bool mis_eligable  = pixel_index_and_flags & FLAG_MIS_ELIGABLE;
+	bool inside_medium = pixel_index_and_flags & FLAG_INSIDE_MEDIUM;
 
 	float3 throughput;
 	if (bounce == 0) {
 		throughput = make_float3(1.0f); // Throughput is known to be (1,1,1) still, skip the global memory load
 	} else {
 		throughput = ray_buffer_trace.throughput.get(index);
+	}
+
+	int medium_id = INVALID;
+	if (inside_medium) {
+		medium_id = ray_buffer_trace.medium[index];
+		Medium medium = mediums[medium_id];
+
+		throughput *= beer_lambert(medium.negative_absorption, hit.t);
 	}
 
 	// If we didn't hit anything, sample the Sky
@@ -264,17 +274,21 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		throughput /= survival_probability;
 	}
 
+	unsigned flags = (medium_id != INVALID) << 30;
+
 	switch (material_type) {
 		case MaterialType::DIFFUSE: {
 			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[bounce]);
 
 			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
 
+			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
+
 			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace.cone[index];
 
 			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
 
-			ray_buffer_shade_diffuse_and_plastic.pixel_index[index_out] = pixel_index;
+			ray_buffer_shade_diffuse_and_plastic.pixel_index_and_flags[index_out] = pixel_index | flags;
 			if (bounce > 0) ray_buffer_shade_diffuse_and_plastic.throughput.set(index_out, throughput);
 
 			break;
@@ -286,11 +300,13 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
 
+			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
+
 			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace.cone[index];
 
 			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
 
-			ray_buffer_shade_diffuse_and_plastic.pixel_index[index_out] = pixel_index;
+			ray_buffer_shade_diffuse_and_plastic.pixel_index_and_flags[index_out] = pixel_index | flags;
 			if (bounce > 0) ray_buffer_shade_diffuse_and_plastic.throughput.set(index_out, throughput);
 
 			break;
@@ -301,11 +317,13 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			ray_buffer_shade_dielectric_and_conductor.direction.set(index_out, ray_direction);
 
+			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
+
 			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace.cone[index];
 
 			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
 
-			ray_buffer_shade_dielectric_and_conductor.pixel_index[index_out] = pixel_index;
+			ray_buffer_shade_dielectric_and_conductor.pixel_index_and_flags[index_out] = pixel_index | flags;
 			if (bounce > 0) ray_buffer_shade_dielectric_and_conductor.throughput.set(index_out, throughput);
 
 			break;
@@ -317,11 +335,13 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			ray_buffer_shade_dielectric_and_conductor.direction.set(index_out, ray_direction);
 
+			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
+
 			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace.cone[index];
 
 			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
 
-			ray_buffer_shade_dielectric_and_conductor.pixel_index[index_out] = pixel_index;
+			ray_buffer_shade_dielectric_and_conductor.pixel_index_and_flags[index_out] = pixel_index | flags;
 			if (bounce > 0) ray_buffer_shade_dielectric_and_conductor.throughput.set(index_out, throughput);
 
 			break;
@@ -343,7 +363,15 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	float3 ray_direction = material_buffer->direction.get(index);
 	RayHit hit           = material_buffer->hits     .get(index);
 
-	int pixel_index = material_buffer->pixel_index[index];
+	unsigned pixel_index_and_flags = material_buffer->pixel_index_and_flags[index];
+	int      pixel_index = pixel_index_and_flags & ~FLAGS_ALL;
+
+	bool inside_medium = pixel_index_and_flags & FLAG_INSIDE_MEDIUM;
+	
+	int medium_id = INVALID;
+	if (inside_medium) {
+		medium_id = material_buffer->medium[index];
+	}
 
 	float3 throughput;
 	if (bounce == 0) {
@@ -546,7 +574,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	// Sample BSDF
 	float3 direction_out;
 	float pdf;
-	bool valid = bsdf.sample(throughput, direction_out, pdf);
+	bool valid = bsdf.sample(throughput, medium_id, direction_out, pdf);
 
 	if (!valid) return;
 
@@ -558,11 +586,17 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	ray_buffer_trace.origin   .set(index_out, origin_out);
 	ray_buffer_trace.direction.set(index_out, direction_out);
 
+	if (medium_id != INVALID) {
+		ray_buffer_trace.medium[index_out] = medium_id;
+	}
+
 	if (config.enable_mipmapping) {
 		ray_buffer_trace.cone[index_out] = make_float2(cone_angle, cone_width);
 	}
 
-	ray_buffer_trace.pixel_index_and_mis_eligable[index_out] = pixel_index | (bsdf.is_mis_eligable() << 31);
+	unsigned flags = (bsdf.is_mis_eligable() << 31) | ((medium_id != INVALID) << 30);
+
+	ray_buffer_trace.pixel_index_and_flags[index_out] = pixel_index | flags;
 	ray_buffer_trace.throughput.set(index_out, throughput);
 
 	ray_buffer_trace.last_pdf[index_out] = pdf;

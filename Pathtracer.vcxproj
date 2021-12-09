@@ -254,6 +254,7 @@
     <ClInclude Include="Src\Assets\AssetManager.h" />
     <ClInclude Include="Src\Assets\BVHLoader.h" />
     <ClInclude Include="Src\Assets\Material.h" />
+    <ClInclude Include="Src\Assets\Medium.h" />
     <ClInclude Include="Src\Assets\MeshData.h" />
     <ClInclude Include="Src\Assets\MitsubaLoader.h" />
     <ClInclude Include="Src\Assets\OBJLoader.h" />

@@ -1,6 +1,7 @@
 #pragma once
 #include "MeshData.h"
 #include "Material.h"
+#include "Medium.h"
 #include "Texture.h"
 
 #include "BVHLoader.h"
@@ -16,6 +17,7 @@ struct ThreadPool;
 struct AssetManager {
 	Array<MeshData> mesh_datas;
 	Array<Material> materials;
+	Array<Medium>   mediums;
 	Array<Texture>  textures;
 
 private:
@@ -76,6 +78,8 @@ public:
 	MeshDataHandle add_mesh_data(Triangle * triangles, int triangle_count);
 
 	MaterialHandle add_material(const Material & material);
+
+	MediumHandle add_medium(const Medium & medium);
 
 	TextureHandle add_texture(const char * filename);
 

@@ -34,8 +34,7 @@ union Material {
 		float  roughness;
 	} plastic;
 	struct {
-		float4 negative_absorption_and_ior;
-		float  roughness;
+		float4 medium_ior_and_roughness;
 	} dielectric;
 	struct {
 		float4 eta_and_roughness;
@@ -66,9 +65,9 @@ struct MaterialPlastic {
 };
 
 struct MaterialDielectric {
-	float3 negative_absorption;
-	float  index_of_refraction;
-	float  roughness;
+	int   medium_id;
+	float ior;
+	float roughness;
 };
 
 struct MaterialConductor {
@@ -106,13 +105,12 @@ __device__ inline MaterialPlastic material_as_plastic(int material_id) {
 }
 
 __device__ inline MaterialDielectric material_as_dielectric(int material_id) {
-	float4 negative_absorption_and_ior = __ldg(&materials[material_id].dielectric.negative_absorption_and_ior);
-	float  roughness                   = __ldg(&materials[material_id].dielectric.roughness);
+	float4 medium_ior_and_roughness = __ldg(&materials[material_id].dielectric.medium_ior_and_roughness);
 
 	MaterialDielectric material;
-	material.negative_absorption = make_float3(negative_absorption_and_ior);
-	material.index_of_refraction = negative_absorption_and_ior.w;
-	material.roughness           = roughness;
+	material.medium_id = __float_as_int(medium_ior_and_roughness.x);
+	material.ior       = medium_ior_and_roughness.y;
+	material.roughness = medium_ior_and_roughness.z;
 	return material;
 }
 

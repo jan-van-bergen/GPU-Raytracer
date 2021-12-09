@@ -46,6 +46,8 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
+	CUDAMemory::Ptr<int> medium;
+
 	CUDAMemory::Ptr<float2> cone;
 	CUDAMemory::Ptr<float4> hits;
 
@@ -57,6 +59,8 @@ struct TraceBuffer {
 	inline void init(int buffer_size) {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
+
+		medium = CUDAMemory::malloc<int>(buffer_size);
 
 		cone = CUDAMemory::malloc<float2>(buffer_size);
 		hits = CUDAMemory::malloc<float4>(buffer_size);
@@ -71,6 +75,8 @@ struct TraceBuffer {
 		origin.free();
 		direction.free();
 
+		CUDAMemory::free(medium);
+
 		CUDAMemory::free(cone);
 		CUDAMemory::free(hits);
 
@@ -84,6 +90,8 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 
+	CUDAMemory::Ptr<int> medium;
+
 	CUDAMemory::Ptr<float2> cone;
 	CUDAMemory::Ptr<float4> hits;
 
@@ -92,6 +100,8 @@ struct MaterialBuffer {
 
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
+
+		medium = CUDAMemory::malloc<int>(buffer_size);
 
 		cone = CUDAMemory::malloc<float2>(buffer_size);
 		hits = CUDAMemory::malloc<float4>(buffer_size);
@@ -102,6 +112,8 @@ struct MaterialBuffer {
 
 	inline void free() {
 		direction.free();
+
+		CUDAMemory::free(medium);
 
 		CUDAMemory::free(cone);
 		CUDAMemory::free(hits);
@@ -320,9 +332,9 @@ private:
 			float   roughness;
 		} plastic;
 		struct {
-			Vector3 negative_absorption;
-			float   index_of_refraction;
-			float   roughness;
+			int   medium_id;
+			float ior;
+			float roughness;
 		} dielectric;
 		struct {
 			Vector3 eta;
@@ -333,6 +345,12 @@ private:
 
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;
 	CUDAMemory::Ptr<CUDAMaterial>   ptr_materials;
+
+	struct CUDAMedium {
+		Vector3 scatter_coefficient;
+		Vector3 negative_absorption;
+	};
+	CUDAMemory::Ptr<CUDAMedium> ptr_mediums;
 
 	struct CUDATexture {
 		CUtexObject texture;

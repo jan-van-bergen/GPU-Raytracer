@@ -118,6 +118,23 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	scene.asset_manager.wait_until_loaded();
 
+	// Set global Mediums table
+	int medium_count = scene.asset_manager.mediums.size();
+	if (medium_count > 0) {
+		CUDAMedium * cuda_mediums = new CUDAMedium[medium_count];
+
+		for (int i = 0; i < medium_count; i++) {
+			const Medium & medium = scene.asset_manager.mediums[i];
+			cuda_mediums[i].scatter_coefficient = medium.scatter_coefficient;
+			cuda_mediums[i].negative_absorption = medium.negative_absorption;
+		}
+
+		ptr_mediums = CUDAMemory::malloc(cuda_mediums, medium_count);
+		cuda_module.get_global("mediums").set_value(ptr_mediums);
+
+		delete [] cuda_mediums;
+	}
+
 	// Set global Texture table
 	int texture_count = scene.asset_manager.textures.size();
 	if (texture_count > 0) {
@@ -832,13 +849,9 @@ void Pathtracer::update(float delta) {
 					break;
 				}
 				case Material::Type::DIELECTRIC: {
-					cuda_materials[i].dielectric.negative_absorption = Vector3( // Absorption = -log(Transmittance), so -A = log(T)
-						logf(material.transmittance.x),
-						logf(material.transmittance.y),
-						logf(material.transmittance.z)
-					);
-					cuda_materials[i].dielectric.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
-					cuda_materials[i].dielectric.roughness           = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].dielectric.medium_id = material.medium_handle.handle;
+					cuda_materials[i].dielectric.ior       = Math::max(material.index_of_refraction, 1.0001f);
+					cuda_materials[i].dielectric.roughness = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}
 				case Material::Type::CONDUCTOR: {

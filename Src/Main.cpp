@@ -650,9 +650,9 @@ static void draw_gui() {
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
-						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
-						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 2.5f);
-						material_changed |= ImGui::SliderFloat ("Roughness",     &material.linear_roughness,    0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt  ("Medium",    &material.medium_handle.handle, -1, pathtracer.scene.asset_manager.mediums.size() - 1);
+						material_changed |= ImGui::SliderFloat("IOR",       &material.index_of_refraction, 1.0f, 2.5f);
+						material_changed |= ImGui::SliderFloat("Roughness", &material.linear_roughness,    0.0f, 1.0f);
 						break;
 					}
 					case Material::Type::CONDUCTOR: {

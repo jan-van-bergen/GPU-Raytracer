@@ -648,7 +648,6 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		}
 
 		material.type = Material::Type::DIELECTRIC;
-		material.transmittance       = Vector3(1.0f);
 		material.index_of_refraction = ext_ior == 0.0f ? int_ior : int_ior / ext_ior;
 
 		if (inner_bsdf_type == "roughdielectric") {
@@ -657,16 +656,28 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			material.linear_roughness = 0.0f;
 		}
 
-		const XMLNode * medium = node->find_child("medium");
-		if (medium) {
-			Vector3 sigma_s = medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
-			Vector3 sigma_a = medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+		const XMLNode * xml_medium = node->find_child("medium");
+		if (xml_medium) {
+			StringView medium_type = xml_medium->get_attribute_value("type");
 
-			material.transmittance = Vector3(
-				expf(-(sigma_a.x + sigma_s.x)),
-				expf(-(sigma_a.y + sigma_s.y)),
-				expf(-(sigma_a.z + sigma_s.z))
-			);
+			if (medium_type == "homogeneous") {
+				Vector3 sigma_s = xml_medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
+				Vector3 sigma_a = xml_medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+
+				const char * medium_name = "Medium";
+				if (const XMLAttribute * name = xml_medium->find_attribute("name")) {
+					medium_name = name->value.c_str();
+				}
+
+				Medium medium = { };
+				medium.name                = medium_name;
+				medium.scatter_coefficient =  sigma_s;
+				medium.negative_absorption = -sigma_a;
+
+				material.medium_handle = scene.asset_manager.add_medium(medium);
+			} else {
+				WARNING(xml_medium->location, "WARNING: Medium type '%.*s' not supported!\n", unsigned(medium_type.length()), medium_type.start);
+			}
 		}
 	} else if (inner_bsdf_type == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
