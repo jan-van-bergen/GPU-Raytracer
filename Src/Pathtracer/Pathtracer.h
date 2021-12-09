@@ -353,7 +353,7 @@ private:
 		Vector3 sigma_s;
 		float   g;
 	};
-	CUDAMemory::Ptr<CUDAMedium> ptr_mediums;
+	CUDAMemory::Ptr<CUDAMedium> ptr_media;
 
 	struct CUDATexture {
 		CUtexObject texture;

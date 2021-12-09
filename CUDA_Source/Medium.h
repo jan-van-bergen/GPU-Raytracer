@@ -6,7 +6,7 @@ struct Medium {
     float  g;
 };
 
-__device__ __constant__ Medium * mediums;
+__device__ __constant__ Medium * media;
 
 __device__ inline float3 beer_lambert(const float3 & sigma_t, float distance) {
 	return make_float3(

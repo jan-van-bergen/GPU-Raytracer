@@ -17,7 +17,7 @@ struct ThreadPool;
 struct AssetManager {
 	Array<MeshData> mesh_datas;
 	Array<Material> materials;
-	Array<Medium>   mediums;
+	Array<Medium>   media;
 	Array<Texture>  textures;
 
 private:
@@ -87,6 +87,6 @@ public:
 
 	inline MeshData & get_mesh_data(MeshDataHandle handle) { return mesh_datas[handle.handle]; }
 	inline Material & get_material (MaterialHandle handle) { return materials [handle.handle]; }
-	inline Medium   & get_medium   (MediumHandle   handle) { return mediums   [handle.handle]; }
+	inline Medium   & get_medium   (MediumHandle   handle) { return media     [handle.handle]; }
 	inline Texture  & get_texture  (TextureHandle  handle) { return textures  [handle.handle]; }
 };

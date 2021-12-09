@@ -118,8 +118,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	scene.asset_manager.wait_until_loaded();
 
-	ptr_mediums = CUDAMemory::malloc<CUDAMedium>(Math::max<int>(1, scene.asset_manager.mediums.size()));
-	cuda_module.get_global("mediums").set_value(ptr_mediums);
+	ptr_media = CUDAMemory::malloc<CUDAMedium>(Math::max<int>(1, scene.asset_manager.media.size()));
+	cuda_module.get_global("media").set_value(ptr_media);
 
 	// Set global Texture table
 	int texture_count = scene.asset_manager.textures.size();
@@ -417,7 +417,7 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_material_types);
 	CUDAMemory::free(ptr_materials);
 
-	CUDAMemory::free(ptr_mediums);
+	CUDAMemory::free(ptr_media);
 
 	if (scene.asset_manager.textures.size() > 0) {
 		CUDAMemory::free(ptr_textures);
@@ -930,18 +930,18 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (invalidated_mediums) {
-		int medium_count = scene.asset_manager.mediums.size();
+		int medium_count = scene.asset_manager.media.size();
 		if (medium_count > 0) {
 			CUDAMedium * cuda_mediums = new CUDAMedium[medium_count];
 
 			for (int i = 0; i < medium_count; i++) {
-				const Medium & medium = scene.asset_manager.mediums[i];
+				const Medium & medium = scene.asset_manager.media[i];
 				cuda_mediums[i].sigma_a = medium.scale * medium.sigma_a;
 				cuda_mediums[i].sigma_s = medium.scale * medium.sigma_s;
 				cuda_mediums[i].g       = medium.g;
 			}
 
-			CUDAMemory::memcpy(ptr_mediums, cuda_mediums, medium_count);
+			CUDAMemory::memcpy(ptr_media, cuda_mediums, medium_count);
 
 			delete [] cuda_mediums;
 		}
