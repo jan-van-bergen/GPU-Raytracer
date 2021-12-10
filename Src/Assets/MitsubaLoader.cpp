@@ -349,13 +349,11 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 	if (reflectance) {
 		if (reflectance->tag == "rgb") {
 			rgb = reflectance->get_optional_attribute("value", Vector3(1.0f));
-			return;
 		} else if (reflectance->tag == "srgb") {
 			rgb = reflectance->get_optional_attribute("value", Vector3(1.0f));
 			rgb.x = Math::gamma_to_linear(rgb.x);
 			rgb.y = Math::gamma_to_linear(rgb.y);
 			rgb.z = Math::gamma_to_linear(rgb.z);
-			return;
 		} else if (reflectance->tag == "texture") {
 			parse_texture(reflectance, texture_map, path, scene, texture);
 
@@ -370,8 +368,9 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 				WARNING(reflectance->location, "Invalid texture ref '%.*s'!\n", unsigned(texture_name.length()), texture_name.start);
 			}
 		}
+	} else {
+		rgb = Vector3(1.0f);
 	}
-	rgb = Vector3(1.0f);
 }
 
 static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
@@ -648,7 +647,6 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		}
 
 		material.type = Material::Type::DIELECTRIC;
-		material.transmittance       = Vector3(1.0f);
 		material.index_of_refraction = ext_ior == 0.0f ? int_ior : int_ior / ext_ior;
 
 		if (inner_bsdf_type == "roughdielectric") {
@@ -657,16 +655,36 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			material.linear_roughness = 0.0f;
 		}
 
-		const XMLNode * medium = node->find_child("medium");
-		if (medium) {
-			Vector3 sigma_s = medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
-			Vector3 sigma_a = medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+		const XMLNode * xml_medium = node->find_child("medium");
+		if (xml_medium) {
+			StringView medium_type = xml_medium->get_attribute_value("type");
 
-			material.transmittance = Vector3(
-				expf(-(sigma_a.x + sigma_s.x)),
-				expf(-(sigma_a.y + sigma_s.y)),
-				expf(-(sigma_a.z + sigma_s.z))
-			);
+			if (medium_type == "homogeneous") {
+				Medium medium = { };
+
+				if (const XMLAttribute * name = xml_medium->find_attribute("name")) {
+					medium.name = name->value.c_str();
+				}
+
+				medium.sigma_s = xml_medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
+				medium.sigma_a = xml_medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+
+				if (const XMLNode * phase = xml_medium->find_child("phase")) {
+					StringView phase_type = phase->get_attribute_value("type");
+
+					if (phase_type == "isotropic") {
+						medium.g = 0.0f;
+					} else if (phase_type == "hg") {
+						medium.g = phase->get_child_value_optional("g", 0.0f);
+					} else {
+						WARNING(xml_medium->location, "WARNING: Phase function type '%.*s' not supported!\n", unsigned(phase_type.length()), phase_type.start);
+					}
+				}
+
+				material.medium_handle = scene.asset_manager.add_medium(medium);
+			} else {
+				WARNING(xml_medium->location, "WARNING: Medium type '%.*s' not supported!\n", unsigned(medium_type.length()), medium_type.start);
+			}
 		}
 	} else if (inner_bsdf_type == "difftrans") {
 		material.type = Material::Type::DIFFUSE;

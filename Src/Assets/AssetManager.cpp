@@ -76,6 +76,13 @@ MaterialHandle AssetManager::add_material(const Material & material) {
 	return material_id;
 }
 
+MediumHandle AssetManager::add_medium(const Medium & medium) {
+	MediumHandle medium_id = { int(media.size()) };
+	media.push_back(medium);
+
+	return medium_id;
+}
+
 TextureHandle AssetManager::add_texture(const char * filename) {
 	TextureHandle & texture_id = texture_cache[filename];
 

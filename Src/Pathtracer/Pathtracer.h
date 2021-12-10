@@ -46,6 +46,8 @@ struct TraceBuffer {
 	CUDAVector3_SoA origin;
 	CUDAVector3_SoA direction;
 
+	CUDAMemory::Ptr<int> medium;
+
 	CUDAMemory::Ptr<float2> cone;
 	CUDAMemory::Ptr<float4> hits;
 
@@ -57,6 +59,8 @@ struct TraceBuffer {
 	inline void init(int buffer_size) {
 		origin   .init(buffer_size);
 		direction.init(buffer_size);
+
+		medium = CUDAMemory::malloc<int>(buffer_size);
 
 		cone = CUDAMemory::malloc<float2>(buffer_size);
 		hits = CUDAMemory::malloc<float4>(buffer_size);
@@ -71,6 +75,8 @@ struct TraceBuffer {
 		origin.free();
 		direction.free();
 
+		CUDAMemory::free(medium);
+
 		CUDAMemory::free(cone);
 		CUDAMemory::free(hits);
 
@@ -84,6 +90,8 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 
+	CUDAMemory::Ptr<int> medium;
+
 	CUDAMemory::Ptr<float2> cone;
 	CUDAMemory::Ptr<float4> hits;
 
@@ -92,6 +100,8 @@ struct MaterialBuffer {
 
 	inline void init(int buffer_size) {
 		direction.init(buffer_size);
+
+		medium = CUDAMemory::malloc<int>(buffer_size);
 
 		cone = CUDAMemory::malloc<float2>(buffer_size);
 		hits = CUDAMemory::malloc<float4>(buffer_size);
@@ -102,6 +112,8 @@ struct MaterialBuffer {
 
 	inline void free() {
 		direction.free();
+
+		CUDAMemory::free(medium);
 
 		CUDAMemory::free(cone);
 		CUDAMemory::free(hits);
@@ -165,6 +177,7 @@ struct Pathtracer {
 
 	bool invalidated_scene     = true;
 	bool invalidated_materials = true;
+	bool invalidated_mediums   = true;
 	bool invalidated_camera    = true;
 	bool invalidated_config    = true;
 
@@ -248,7 +261,8 @@ private:
 	CUgraphicsResource resource_accumulator;
 	CUsurfObject       surf_accumulator;
 
-	TraceBuffer     ray_buffer_trace;
+	TraceBuffer     ray_buffer_trace_0;
+	TraceBuffer     ray_buffer_trace_1;
 	MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
 	MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
 	ShadowRayBuffer ray_buffer_shadow;
@@ -320,9 +334,9 @@ private:
 			float   roughness;
 		} plastic;
 		struct {
-			Vector3 negative_absorption;
-			float   index_of_refraction;
-			float   roughness;
+			int   medium_id;
+			float ior;
+			float roughness;
 		} dielectric;
 		struct {
 			Vector3 eta;
@@ -333,6 +347,13 @@ private:
 
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;
 	CUDAMemory::Ptr<CUDAMaterial>   ptr_materials;
+
+	struct alignas(float4) CUDAMedium {
+		Vector3 sigma_a;
+		float   g;
+		Vector3 sigma_s;
+	};
+	CUDAMemory::Ptr<CUDAMedium> ptr_media;
 
 	struct CUDATexture {
 		CUtexObject texture;

@@ -66,16 +66,23 @@ struct HitBuffer {
 	}
 };
 
+inline constexpr unsigned FLAG_MIS_ELIGABLE  = 1u << 31; // indicates the previous Material has a BRDF that supports MIS
+inline constexpr unsigned FLAG_INSIDE_MEDIUM = 1u << 30;
+
+inline constexpr unsigned FLAGS_ALL = FLAG_MIS_ELIGABLE | FLAG_INSIDE_MEDIUM;
+
 // Input to the Trace and Sort Kernels in SoA layout
 struct TraceBuffer {
 	Vector3_SoA origin;
 	Vector3_SoA direction;
 
+	int * medium;
+
 	float2 * cone;
 
 	HitBuffer hits;
 
-	int       * pixel_index_and_mis_eligable; // mis_eligable is a single bit (most significant bit) that indicates the previous Material has a BRDF that supports MIS
+	unsigned  * pixel_index_and_flags;
 	Vector3_SoA throughput;
 
 	float * last_pdf;
@@ -85,11 +92,13 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	Vector3_SoA direction;
 
+	int * medium;
+
 	float2 * cone;
 
 	HitBuffer hits;
 
-	int       * pixel_index;
+	int       * pixel_index_and_flags;
 	Vector3_SoA throughput;
 };
 
@@ -103,10 +112,19 @@ struct ShadowRayBuffer {
 	float4 * illumination_and_pixel_index;
 };
 
-__device__ __constant__ TraceBuffer     ray_buffer_trace;
+__device__ __constant__ TraceBuffer     ray_buffer_trace_0;
+__device__ __constant__ TraceBuffer     ray_buffer_trace_1;
 __device__ __constant__ MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
 __device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
 __device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
+
+__device__ inline TraceBuffer * get_ray_buffer_trace(int bounce) {
+	if (bounce & 1) {
+		return &ray_buffer_trace_1;
+	} else {
+		return &ray_buffer_trace_0;
+	}
+}
 
 // Number of elements in each Buffer
 // Sizes are stored for ALL bounces so we only have to reset these

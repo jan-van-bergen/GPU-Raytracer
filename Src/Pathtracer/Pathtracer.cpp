@@ -118,6 +118,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	scene.asset_manager.wait_until_loaded();
 
+	ptr_media = CUDAMemory::malloc<CUDAMedium>(Math::max<int>(1, scene.asset_manager.media.size()));
+	cuda_module.get_global("media").set_value(ptr_media);
+
 	// Set global Texture table
 	int texture_count = scene.asset_manager.textures.size();
 	if (texture_count > 0) {
@@ -325,8 +328,10 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	CUDAMemory::memcpy(ptr_blue_noise_textures, reinterpret_cast<unsigned short *>(BlueNoise::textures), BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
 	cuda_module.get_global("blue_noise_textures").set_value(ptr_blue_noise_textures);
 
-	ray_buffer_trace.init(BATCH_SIZE);
-	cuda_module.get_global("ray_buffer_trace").set_value(ray_buffer_trace);
+	ray_buffer_trace_0.init(BATCH_SIZE);
+	ray_buffer_trace_1.init(BATCH_SIZE);
+	cuda_module.get_global("ray_buffer_trace_0").set_value(ray_buffer_trace_0);
+	cuda_module.get_global("ray_buffer_trace_1").set_value(ray_buffer_trace_1);
 
 	global_ray_buffer_shade_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_shade_diffuse_and_plastic");
 	global_ray_buffer_shade_dielectric_and_conductor = cuda_module.get_global("ray_buffer_shade_dielectric_and_conductor");
@@ -398,6 +403,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	invalidated_scene     = true;
 	invalidated_materials = true;
+	invalidated_mediums   = true;
 	invalidated_config    = true;
 
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
@@ -410,6 +416,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_material_types);
 	CUDAMemory::free(ptr_materials);
+
+	CUDAMemory::free(ptr_media);
 
 	if (scene.asset_manager.textures.size() > 0) {
 		CUDAMemory::free(ptr_textures);
@@ -463,7 +471,8 @@ void Pathtracer::cuda_free() {
 		CUDAMemory::free(ptr_light_mesh_transform_index);
 	}
 
-	ray_buffer_trace.free();
+	ray_buffer_trace_0.free();
+	ray_buffer_trace_1.free();
 	if (scene.has_diffuse    || scene.has_plastic)   ray_buffer_shade_diffuse_and_plastic.free();
 	if (scene.has_dielectric || scene.has_conductor) ray_buffer_shade_dielectric_and_conductor.free();
 	if (scene.has_lights)                            ray_buffer_shadow.free();
@@ -832,13 +841,9 @@ void Pathtracer::update(float delta) {
 					break;
 				}
 				case Material::Type::DIELECTRIC: {
-					cuda_materials[i].dielectric.negative_absorption = Vector3( // Absorption = -log(Transmittance), so -A = log(T)
-						logf(material.transmittance.x),
-						logf(material.transmittance.y),
-						logf(material.transmittance.z)
-					);
-					cuda_materials[i].dielectric.index_of_refraction = Math::max(material.index_of_refraction, 1.0001f);
-					cuda_materials[i].dielectric.roughness           = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].dielectric.medium_id = material.medium_handle.handle;
+					cuda_materials[i].dielectric.ior       = Math::max(material.index_of_refraction, 1.0001f);
+					cuda_materials[i].dielectric.roughness = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}
 				case Material::Type::CONDUCTOR: {
@@ -922,6 +927,27 @@ void Pathtracer::update(float delta) {
 
 		frames_accumulated = 0;
 		invalidated_materials = false;
+	}
+
+	if (invalidated_mediums) {
+		int medium_count = scene.asset_manager.media.size();
+		if (medium_count > 0) {
+			CUDAMedium * cuda_mediums = new CUDAMedium[medium_count];
+
+			for (int i = 0; i < medium_count; i++) {
+				const Medium & medium = scene.asset_manager.media[i];
+				cuda_mediums[i].sigma_a = medium.scale * medium.sigma_a;
+				cuda_mediums[i].sigma_s = medium.scale * medium.sigma_s;
+				cuda_mediums[i].g       = medium.g;
+			}
+
+			CUDAMemory::memcpy(ptr_media, cuda_mediums, medium_count);
+
+			delete [] cuda_mediums;
+		}
+
+		frames_accumulated = 0;
+		invalidated_mediums = false;
 	}
 
 	if (config.enable_scene_update) {
