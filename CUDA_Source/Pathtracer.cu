@@ -185,15 +185,17 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		if (medium_can_scatter) {
 			float3 sigma_t = medium.sigma_a + medium.sigma_s;
 
+			// Sample according to the smallest component of sigma_t
 			float sampling_density = vmin_min(sigma_t.x, sigma_t.y, sigma_t.z);
 
 			float rand_scatter = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
 			float scatter_distance = -logf(rand_scatter) / sampling_density;
 
-			float pdf = expf(-sampling_density * fminf(scatter_distance, hit.t));
+			float probability_of_no_scatter_event = expf(-sampling_density * fminf(scatter_distance, hit.t));
 
 			if (scatter_distance < hit.t) {
-				throughput *= medium.sigma_s * beer_lambert(sigma_t, scatter_distance) / (sampling_density * pdf);
+				float pdf = sampling_density * probability_of_no_scatter_event; // Exponential distribution
+				throughput *= medium.sigma_s * beer_lambert(sigma_t, scatter_distance) / pdf;
 
 				if (russian_roulette(pixel_index, bounce, sample_index, throughput)) return;
 
@@ -222,7 +224,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 				return;
 			} else {
-				throughput *= beer_lambert(sigma_t, hit.t) / pdf;
+				throughput *= beer_lambert(sigma_t, hit.t) / probability_of_no_scatter_event;
 			}
 		} else {
 			throughput *= beer_lambert(medium.sigma_a, hit.t);
