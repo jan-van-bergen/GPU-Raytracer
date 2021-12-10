@@ -348,10 +348,10 @@ private:
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;
 	CUDAMemory::Ptr<CUDAMaterial>   ptr_materials;
 
-	struct CUDAMedium {
+	struct alignas(float4) CUDAMedium {
 		Vector3 sigma_a;
-		Vector3 sigma_s;
 		float   g;
+		Vector3 sigma_s;
 	};
 	CUDAMemory::Ptr<CUDAMedium> ptr_media;
 
