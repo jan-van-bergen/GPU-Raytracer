@@ -118,7 +118,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	scene.asset_manager.wait_until_loaded();
 
-	ptr_media = CUDAMemory::malloc<CUDAMedium>(Math::max<int>(1, scene.asset_manager.media.size()));
+	ptr_media = CUDAMemory::malloc<CUDAMedium>(scene.asset_manager.media.size());
 	cuda_module.get_global("media").set_value(ptr_media);
 
 	// Set global Texture table

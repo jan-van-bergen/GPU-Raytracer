@@ -15,12 +15,6 @@ void Scene::init(const SceneConfig & scene_config) {
 
 	asset_manager.init();
 
-	// Default Material
-	Material default_material = { };
-	default_material.name    = "Default";
-	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
-	asset_manager.add_material(default_material);
-
 	for (int i = 0; i < scene_config.scenes.size(); i++) {
 		const char * scene_name = scene_config.scenes[i];
 
