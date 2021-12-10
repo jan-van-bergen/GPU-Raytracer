@@ -8,7 +8,7 @@ struct Medium {
 
 	Vector3 sigma_a;
 	Vector3 sigma_s;
-	float   scale = 1000.0f;
+	float   scale = 1.0f;
 
 	float g = 0.0f;
 };

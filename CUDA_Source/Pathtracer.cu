@@ -178,7 +178,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	int medium_id = INVALID;
 	if (inside_medium) {
 		medium_id = ray_buffer_trace->medium[index];
-		Medium medium = media[medium_id];
+		HomogeneousMedium medium = medium_as_homogeneous(medium_id);
 
 		bool medium_can_scatter = (medium.sigma_s.x + medium.sigma_s.y + medium.sigma_s.z) > 0.0f;
 
