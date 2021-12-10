@@ -1,2 +1,2 @@
 @echo off
-x64\Release\pathtracer
+x64\Release\pathtracer %*
