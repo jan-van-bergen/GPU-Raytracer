@@ -39,19 +39,16 @@ struct Face {
 };
 
 static Index parse_index(Parser & parser) {
-	Index index = { INVALID, INVALID, INVALID };
+	Index index = { };
 
-	index.v = parse_int(parser) - 1;
+	index.v = parse_int(parser);
 
 	if (parser.match('/')) {
-		if (parser.match('/')) {
-			index.n = parse_int(parser) - 1;
-		} else {
-			index.t = parse_int(parser) - 1;
-			if (parser.match('/')) {
-				index.n = parse_int(parser) - 1;
-			}
+		if (!parser.match('/')) {
+			index.t = parse_int(parser);
+			parser.expect('/');
 		}
+		index.n = parse_int(parser);
 	}
 
 	return index;
@@ -140,15 +137,36 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			int t = face.indices[i].t;
 			int n = face.indices[i].n;
 
-			if (v != INVALID) {
-				positions[i] = obj.positions[v];
+			auto get_index = [](int array_size, int index) {
+				int result = INVALID;
+				if (array_size != 0) {
+					if (index > 0) {
+						result = index - 1;
+					} else if (index < 0) {
+						result = array_size + index; // Negative indices are relative to end
+					}
+
+					// Check if the index is valid given the Array size
+					if (result < 0 || result >= array_size) {
+						result = INVALID;
+					}
+				}
+				return result;
+			};
+
+			int index_v = get_index(obj.positions .size(), v);
+			int index_t = get_index(obj.tex_coords.size(), t);
+			int index_n = get_index(obj.normals   .size(), n);
+
+			if (index_v != INVALID) {
+				positions[i] = obj.positions[index_v];
 			}
-			if (t != INVALID) {
-				tex_coords[i] = obj.tex_coords[t];
+			if (index_t != INVALID) {
+				tex_coords[i] = obj.tex_coords[index_t];
 				tex_coords[i].y = 1.0f - tex_coords[i].y; // Flip uv along v
 			}
-			if (n != INVALID) {
-				normals[i] = obj.normals[n];
+			if (index_n != INVALID) {
+				normals[i] = obj.normals[index_n];
 			}
 		}
 
