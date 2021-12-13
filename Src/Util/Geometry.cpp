@@ -1,10 +1,10 @@
 #include "Geometry.h"
 
 void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matrix4 & transform) {
-	Vector3 vertex_0 = Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, 0.0f));
-	Vector3 vertex_1 = Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, 0.0f));
-	Vector3 vertex_2 = Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, 0.0f));
-	Vector3 vertex_3 = Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, 0.0f));
+	Vector3 vertex_0 = Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, 0.0f));
+	Vector3 vertex_1 = Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, 0.0f));
+	Vector3 vertex_2 = Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, 0.0f));
+	Vector3 vertex_3 = Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, 0.0f));
 
 	Vector3 normal = Vector3::normalize(Matrix4::transform_direction(Matrix4::cofactor(transform), Vector3(0.0f, 0.0f, 1.0f)));
 
@@ -46,14 +46,14 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 	Matrix4 transform_cofactor = Matrix4::cofactor(transform);
 
 	Vector3 cube_vertices[8] = {
-		Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, -1.0f)),
-		Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, -1.0f)),
-		Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, +1.0f)),
-		Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, +1.0f)),
 		Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, -1.0f)),
 		Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, -1.0f)),
 		Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, +1.0f)),
-		Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, +1.0f))
+		Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, +1.0f)),
+		Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, -1.0f)),
+		Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, -1.0f)),
+		Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, +1.0f)),
+		Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, +1.0f))
 	};
 	Vector3 cube_normals[6] = {
 		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f, -1.0f,  0.0f))),
@@ -142,8 +142,8 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		triangles[i].normal_1 = normal;
 		triangles[i].normal_2 = normal;
 		triangles[i].tex_coord_0 = uv_prev;
-		triangles[i].tex_coord_0 = uv_curr;
-		triangles[i].tex_coord_0 = Vector2(0.5f, 0.5f);
+		triangles[i].tex_coord_1 = uv_curr;
+		triangles[i].tex_coord_2 = Vector2(0.5f, 0.5f);
 		triangles[i].init();
 
 		vertex_prev = vertex_curr;
@@ -189,8 +189,8 @@ void Geometry::cylinder(Triangle *& triangles, int & triangle_count, const Matri
 		triangles[2*i].normal_1 = normal_curr;
 		triangles[2*i].normal_2 = normal_prev;
 		triangles[2*i].tex_coord_0 = Vector2(u_prev, 0.0f);
-		triangles[2*i].tex_coord_0 = Vector2(u_curr, 0.0f);
-		triangles[2*i].tex_coord_0 = Vector2(u_prev, 1.0f);
+		triangles[2*i].tex_coord_1 = Vector2(u_curr, 0.0f);
+		triangles[2*i].tex_coord_2 = Vector2(u_prev, 1.0f);
 		triangles[2*i].init();
 
 		triangles[2*i + 1].position_0 = p0_world + vertex_offset_curr;
@@ -200,8 +200,8 @@ void Geometry::cylinder(Triangle *& triangles, int & triangle_count, const Matri
 		triangles[2*i + 1].normal_1 = normal_curr;
 		triangles[2*i + 1].normal_2 = normal_prev;
 		triangles[2*i + 1].tex_coord_0 = Vector2(u_curr, 0.0f);
-		triangles[2*i + 1].tex_coord_0 = Vector2(u_curr, 1.0f);
-		triangles[2*i + 1].tex_coord_0 = Vector2(u_prev, 1.0f);
+		triangles[2*i + 1].tex_coord_1 = Vector2(u_curr, 1.0f);
+		triangles[2*i + 1].tex_coord_2 = Vector2(u_prev, 1.0f);
 		triangles[2*i + 1].init();
 
 		vertex_offset_prev = vertex_offset_curr;
