@@ -666,8 +666,10 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 					medium.name = name->value.c_str();
 				}
 
-				medium.sigma_s = xml_medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
-				medium.sigma_a = xml_medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+				Vector3 sigma_a = xml_medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
+				Vector3 sigma_s = xml_medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
+
+				medium.set_A_and_d(sigma_a, sigma_s);
 
 				if (const XMLNode * phase = xml_medium->find_child("phase")) {
 					StringView phase_type = phase->get_attribute_value("type");

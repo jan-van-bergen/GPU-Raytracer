@@ -936,9 +936,8 @@ void Pathtracer::update(float delta) {
 
 			for (int i = 0; i < medium_count; i++) {
 				const Medium & medium = scene.asset_manager.media[i];
-				cuda_mediums[i].sigma_a = medium.scale * medium.sigma_a;
-				cuda_mediums[i].sigma_s = medium.scale * medium.sigma_s;
-				cuda_mediums[i].g       = medium.g;
+				medium.get_sigmas(cuda_mediums[i].sigma_a, cuda_mediums[i].sigma_s);
+				cuda_mediums[i].g = medium.g;
 			}
 
 			CUDAMemory::memcpy(ptr_media, cuda_mediums, medium_count);
