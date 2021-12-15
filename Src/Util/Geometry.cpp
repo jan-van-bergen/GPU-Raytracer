@@ -56,12 +56,12 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		Matrix4::transform_position(transform, Vector3(-1.0f, -1.0f, +1.0f))
 	};
 	Vector3 cube_normals[6] = {
-		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f, -1.0f,  0.0f))),
-		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f,  0.0f, +1.0f))),
-		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3(+1.0f,  0.0f,  0.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f, +1.0f,  0.0f))),
 		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f,  0.0f, -1.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3(+1.0f,  0.0f,  0.0f))),
+		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f,  0.0f, +1.0f))),
 		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3(-1.0f,  0.0f,  0.0f))),
-		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f, +1.0f,  0.0f)))
+		Vector3::normalize(Matrix4::transform_direction(transform_cofactor, Vector3( 0.0f, -1.0f,  0.0f)))
 	};
 	Vector2 cube_tex_coords[4] = {
 		Vector2(0.0f, 0.0f),
