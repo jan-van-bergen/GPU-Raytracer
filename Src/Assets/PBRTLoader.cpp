@@ -13,15 +13,10 @@ struct Instance {
 	MaterialHandle material_handle;
 };
 
-struct HomogeneousMedium {
-	Vector3 sigma_a;
-	Vector3 sigma_s;
-};
-
-using PBRTTextureMap  = HashMap<String, TextureHandle,     StringHash>;
-using PBRTMaterialMap = HashMap<String, MaterialHandle,    StringHash>;
-using PBRTMediumMap   = HashMap<String, HomogeneousMedium, StringHash>;
-using PBRTObjectMap   = HashMap<String, Array<Instance>,   StringHash>;
+using PBRTTextureMap  = HashMap<String, TextureHandle,   StringHash>;
+using PBRTMaterialMap = HashMap<String, MaterialHandle,  StringHash>;
+using PBRTMediumMap   = HashMap<String, MediumHandle,    StringHash>;
+using PBRTObjectMap   = HashMap<String, Array<Instance>, StringHash>;
 
 static void parser_next_line(Parser & parser) {
 	while (true) {
@@ -422,8 +417,10 @@ static Material parse_material(const char * name, const StringView & type, const
 
 	} else if (type == "dielectric" || type == "thindielectric") {
 		material.type = Material::Type::DIELECTRIC;
-		material.transmittance       = Vector3(1.0f);
-		material.index_of_refraction = 1.333f;
+
+		if (const Param * param_eta = find_param_optional(params, "eta")) {
+			material.index_of_refraction = param_eta->floats[0];
+		}
 	} else {
 		printf("WARNING: Material Type '%.*s' is not supported!\n", unsigned(type.length()), type.start);
 	}
@@ -705,19 +702,26 @@ static void load_include(const char * filename, const char * path, int path_leng
 				const Param * param_sigma_a = find_param_optional(params, "sigma_a");
 				const Param * param_sigma_s = find_param_optional(params, "sigma_s");
 
-				HomogeneousMedium medium = { };
+				Vector3 sigma_a = { };
+				Vector3 sigma_s = { };
+
 				if (param_sigma_a && param_sigma_a->type == Param::Type::FLOAT3) {
-					medium.sigma_a = param_sigma_a->float3s[0];
+					sigma_a = param_sigma_a->float3s[0];
 				} else {
-					medium.sigma_a = Vector3(0.0011f, 0.0024f, 0.014f);
+					sigma_a = Vector3(0.0011f, 0.0024f, 0.014f);
 				}
 				if (param_sigma_s && param_sigma_s->type == Param::Type::FLOAT3) {
-					medium.sigma_s = param_sigma_s->float3s[0];
+					sigma_s = param_sigma_s->float3s[0];
 				} else {
-					medium.sigma_s = Vector3(2.55f, 3.21f, 3.77f);
+					sigma_s = Vector3(2.55f, 3.21f, 3.77f);
 				}
 
-				medium_map.insert(name, medium);
+				Medium medium = { };
+				medium.name = name.c_str();
+				medium.set_A_and_d(sigma_a, sigma_s);
+
+				MediumHandle medium_handle = scene.asset_manager.add_medium(medium);
+				medium_map.insert(name, medium_handle);
 			} else {
 				WARNING(parser.location, "Only homogeneous media are supported!\n");
 			}
@@ -726,18 +730,11 @@ static void load_include(const char * filename, const char * path, int path_leng
 			StringView medium_name_from = parse_quoted(parser); pbrt_parser_skip(parser);
 			StringView medium_name_to   = parse_quoted(parser); pbrt_parser_skip(parser);
 
-			HomogeneousMedium medium;
-			if (medium_map.try_get(medium_name_to, medium)) {
+			MediumHandle medium_handle;
+			if (medium_map.try_get(medium_name_to, medium_handle)) {
 				MaterialHandle material_handle = attribute_stack.back().material;
 				if (material_handle.handle != INVALID) {
-					Material & material = scene.asset_manager.get_material(material_handle);
-					if (material.type == Material::Type::DIELECTRIC) {
-						material.transmittance = Vector3(
-							expf(-(medium.sigma_a.x + medium.sigma_s.x)),
-							expf(-(medium.sigma_a.y + medium.sigma_s.y)),
-							expf(-(medium.sigma_a.z + medium.sigma_s.z))
-						);
-					}
+					scene.asset_manager.get_material(material_handle).medium_handle = medium_handle;
 				}
 			} else {
 				WARNING(parser.location, "Named Medium '%.*s' not found!\n", unsigned(medium_name_to.length()), medium_name_to.start);
