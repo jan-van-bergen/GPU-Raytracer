@@ -43,7 +43,7 @@ struct BVHNode {
 
 __device__ __constant__ BVHNode * bvh_nodes;
 
-__device__ void bvh_trace(int ray_count, int * rays_retired) {
+__device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 	extern __shared__ int shared_stack_bvh[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -64,8 +64,8 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			ray_index = atomic_agg_inc(rays_retired);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_trace.origin   .get(ray_index);
-			ray.direction = ray_buffer_trace.direction.get(ray_index);
+			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
+			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
 			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
@@ -84,8 +84,8 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 
 				if (!mesh_has_identity_transform) {
 					// Reset Ray to untransformed version
-					ray.origin    = ray_buffer_trace.origin   .get(ray_index);
-					ray.direction = ray_buffer_trace.direction.get(ray_index);
+					ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
+					ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
 					ray.calc_direction_inv();
 				}
 			}
@@ -135,7 +135,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				ray_buffer_trace.hits.set(ray_index, ray_hit);
+				get_ray_buffer_trace(bounce)->hits.set(ray_index, ray_hit);
 
 				break;
 			}
@@ -143,7 +143,7 @@ __device__ void bvh_trace(int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ void bvh_trace_shadow(int ray_count, int * rays_retired, int bounce) {
+__device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) {
 	extern __shared__ int shared_stack_bvh[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];

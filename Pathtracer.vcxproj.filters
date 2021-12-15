@@ -356,5 +356,8 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Config.h" />
+    <ClInclude Include="Src\Assets\Medium.h">
+      <Filter>Assets</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

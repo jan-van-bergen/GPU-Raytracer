@@ -1,4 +1,6 @@
 #pragma once
+#include <float.h>
+
 #include "Math/Vector3.h"
 
 #include "../CUDA_Source/Common.h"
@@ -22,8 +24,22 @@ namespace Math {
 		return value;
 	}
 
+	// Based on: https://stackoverflow.com/questions/4915462/how-should-i-do-floating-point-comparison
 	inline bool approx_equal(float a, float b, float epsilon = 0.0001f) {
-		return fabsf(a - b) < epsilon;
+		float abs_a = fabsf(a);
+		float abs_b = fabsf(b);
+		float diff  = fabsf(a - b);
+		if (a == b) {
+			// Shortcut, handles infinities
+			return true;
+		} else if (a == 0.0f || b == 0.0f || diff < FLT_MIN) {
+			// a or b is zero or both are extremely close to it
+			// relative error is less meaningful here
+			return diff < (epsilon * FLT_MIN);
+		} else {
+			// Use relative error
+			return diff / (abs_a + abs_b) < epsilon;
+		}
 	}
 
 	template<typename T>
@@ -40,6 +56,8 @@ namespace Math {
 			return x + (n - remainder);
 		}
 	}
+
+	template<typename T> inline constexpr T square(T x) { return x * x; }
 
 	template<typename T> inline constexpr T min(T a, T b) { return a < b ? a : b;}
 	template<typename T> inline constexpr T max(T a, T b) { return a > b ? a : b;}
@@ -138,4 +156,25 @@ namespace Math {
 
 		return sum;
 	}
+
+	template<typename Function>
+	inline constexpr float invert_monotonically_increasing_function(float y, Function function, float x_min = 0.0f, float x_max = 1.0f) {
+		float x = { };
+
+		// Binary search
+		for (int i = 0; i < 100; i++) {
+			x = 0.5f * (x_min + x_max);
+			float y_approx = function(x);
+			if (Math::approx_equal(y_approx, y)) break;
+
+			if (y_approx > y) { // Assumes function is monotonically increasing
+				x_max = x;
+			} else {
+				x_min = x;
+			}
+		}
+
+		return x;
+	};
+
 }

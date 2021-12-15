@@ -20,7 +20,7 @@ __device__ __constant__ const int2      * light_mesh_first_index_and_triangle_co
 __device__ __constant__ const int       * light_mesh_transform_index;
 
 __device__ inline bool pdf_is_valid(float pdf) {
-	return pdf > 1e-4f;
+	return isfinite(pdf) && pdf > 1e-4f;
 }
 
 __device__ inline float balance_heuristic(float pdf_f, float pdf_g) {
@@ -139,6 +139,34 @@ __device__ float2 sample_disk(float u1, float u2) {
 __device__ float3 sample_cosine_weighted_direction(float u1, float u2) {
 	float2 d = sample_disk(u1, u2);
 	return make_float3(d.x, d.y, sqrtf(1.0f - dot(d, d)));
+}
+
+// Based on PBRT v3
+__device__ float3 sample_henyey_greenstein(const float3 & omega, float g, float u1, float u2) {
+	float cos_theta;
+	if (fabsf(g) < 1e-3f) {
+		// Isotropic case
+		cos_theta = 1.0f - 2.0f * u1;
+	} else {
+		float sqr_term = (1.0f - g * g) / (1.0f + g - 2.0f * g * u1);
+		cos_theta = -(1.0f + g * g - sqr_term * sqr_term) / (2.0f * g);
+	}
+	float sin_theta = safe_sqrt(1.0f - cos_theta * cos_theta);
+
+	float phi = TWO_PI * u2;
+	float sin_phi, cos_phi;
+	__sincosf(phi, &sin_phi, &cos_phi);
+
+	float3 direction = make_float3(
+		sin_theta * cos_phi,
+		sin_theta * sin_phi,
+		cos_theta
+	);
+
+	float3 v1, v2;
+	orthonormal_basis(omega, v1, v2);
+
+	return local_to_world(direction, v1, v2, omega);
 }
 
 // Based on: Heitz - Sampling the GGX Distribution of Visible Normals

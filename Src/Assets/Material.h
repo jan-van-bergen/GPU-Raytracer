@@ -1,6 +1,7 @@
 #pragma once
 #include "Math/Vector3.h"
 
+#include "Medium.h"
 #include "Texture.h"
 
 struct Material {
@@ -18,11 +19,11 @@ struct Material {
 
 	Vector3 emission;
 
-	Vector3 diffuse = Vector3(1.0f, 1.0f, 1.0f);
+	Vector3       diffuse = Vector3(1.0f, 1.0f, 1.0f);
 	TextureHandle texture_id;
 
-	Vector3 transmittance = Vector3(0.0f);
-	float   index_of_refraction = 1.33f;
+	MediumHandle medium_handle;
+	float        index_of_refraction = 1.33f;
 
 	Vector3 eta = Vector3(1.33f);
 	Vector3 k   = Vector3(1.0f);

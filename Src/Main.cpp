@@ -639,20 +639,20 @@ static void draw_gui() {
 						break;
 					}
 					case Material::Type::DIFFUSE: {
-						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						material_changed |= ImGui::ColorEdit3("Diffuse", &material.diffuse.x);
+						material_changed |= ImGui::SliderInt ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						break;
 					}
 					case Material::Type::PLASTIC: {
-						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::ColorEdit3  ("Diffuse",   &material.diffuse.x);
 						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
-						material_changed |= ImGui::SliderFloat3("Transmittance", &material.transmittance.x,     0.0f, 1.0f);
-						material_changed |= ImGui::SliderFloat ("IOR",           &material.index_of_refraction, 1.0f, 2.5f);
-						material_changed |= ImGui::SliderFloat ("Roughness",     &material.linear_roughness,    0.0f, 1.0f);
+						material_changed |= ImGui::SliderInt  ("Medium",    &material.medium_handle.handle, -1, pathtracer.scene.asset_manager.media.size() - 1);
+						material_changed |= ImGui::SliderFloat("IOR",       &material.index_of_refraction, 1.0f, 2.5f);
+						material_changed |= ImGui::SliderFloat("Roughness", &material.linear_roughness,    0.0f, 1.0f);
 						break;
 					}
 					case Material::Type::CONDUCTOR: {
@@ -666,6 +666,27 @@ static void draw_gui() {
 				}
 
 				if (material_changed) pathtracer.invalidated_materials = true;
+
+				if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {
+					Medium & medium = pathtracer.scene.asset_manager.get_medium(material.medium_handle);
+
+					Vector3 sigma_a;
+					Vector3 sigma_s;
+					medium.get_sigmas(sigma_a, sigma_s);
+
+					Vector3 sigma_t = sigma_a + sigma_s;
+					ImGui::Text("Sigma A: %.3f, %.3f, %.3f", sigma_a.x, sigma_a.y, sigma_a.z);
+					ImGui::Text("Sigma S: %.3f, %.3f, %.3f", sigma_s.x, sigma_s.y, sigma_s.z);
+					ImGui::Text("Sigma T: %.3f, %.3f, %.3f", sigma_t.x, sigma_t.y, sigma_t.z);
+
+					bool medium_changed = false;
+
+					medium_changed |= ImGui::ColorEdit3  ("Albedo",   &medium.A.x);
+					medium_changed |= ImGui::DragFloat3  ("Distance", &medium.d.x, 0.01f, 0.0f, INFINITY);
+					medium_changed |= ImGui::SliderFloat ("Phase g",  &medium.g,  -1.0f,  1.0f);
+
+					if (medium_changed) pathtracer.invalidated_mediums = true;
+				}
 			}
 		}
 	}

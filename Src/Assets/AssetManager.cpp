@@ -49,6 +49,15 @@ void AssetManager::init() {
 
 	textures_mutex.init();
 	mesh_datas_mutex.init();
+
+	Material default_material = { };
+	default_material.name    = "Default";
+	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
+	add_material(default_material);
+
+	Medium default_medium = { };
+	default_medium.name = "Default";
+	add_medium(default_medium);
 }
 
 MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
@@ -74,6 +83,13 @@ MaterialHandle AssetManager::add_material(const Material & material) {
 	materials.push_back(material);
 
 	return material_id;
+}
+
+MediumHandle AssetManager::add_medium(const Medium & medium) {
+	MediumHandle medium_id = { int(media.size()) };
+	media.push_back(medium);
+
+	return medium_id;
 }
 
 TextureHandle AssetManager::add_texture(const char * filename) {

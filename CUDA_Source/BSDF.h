@@ -41,7 +41,7 @@ struct BSDFDiffuse {
 		return pdf_is_valid(pdf);
 	}
 
-	__device__ bool sample(float3 & throughput, float3 & direction_out, float & pdf) const {
+	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
 		float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
 		float3 omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 
@@ -143,7 +143,7 @@ struct BSDFPlastic {
 		return pdf_is_valid(pdf);
 	}
 
-	__device__ bool sample(float3 & throughput, float3 & direction_out, float & pdf) const {
+	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
 		float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
 		float2 rand_brdf    = random<SampleDimension::BRDF>            (pixel_index, bounce, sample_index);
 
@@ -215,17 +215,11 @@ struct BSDFDielectric {
 	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
 		material = material_as_dielectric(material_id);
 
-		eta = entering_material ? 1.0f / material.index_of_refraction : material.index_of_refraction;
+		eta = entering_material ? 1.0f / material.ior : material.ior;
 	}
 
 	__device__ void attenuate(int bounce, int pixel_index, float3 & throughput, float distance) {
 		frame_buffer_albedo[pixel_index] = make_float4(1.0f);
-
-		// Lambert-Beer Law
-		// NOTE: does not take into account e.g. nested dielectrics or diffuse inside dielectric!
-		throughput.x *= expf(material.negative_absorption.x * distance);
-		throughput.y *= expf(material.negative_absorption.y * distance);
-		throughput.z *= expf(material.negative_absorption.z * distance);
 	}
 
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
@@ -267,7 +261,7 @@ struct BSDFDielectric {
 		return pdf_is_valid(pdf);
 	}
 
-	__device__ bool sample(float3 & throughput, float3 & direction_out, float & pdf) const {
+	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
 		float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
 		float2 rand_brdf    = random<SampleDimension::BRDF>            (pixel_index, bounce, sample_index);
 
@@ -302,6 +296,14 @@ struct BSDFDielectric {
 			pdf = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
 			throughput *= eta*eta; // Account for solid angle compression
+			
+			// Update the Medium based on whether we are transmitting into or out of the Material
+			bool entering_material = eta < 1.0f;
+			if (entering_material) {
+				medium_id = material.medium_id;
+			} else {
+				medium_id = INVALID;
+			}
 		}
 
 		throughput *= G2 / G1; // BRDF * cos(theta_o) / pdf (same for reflection and transmission)
@@ -364,7 +366,7 @@ struct BSDFConductor {
 		return pdf_is_valid(pdf);
 	}
 
-	__device__ bool sample(float3 & throughput, float3 & direction_out, float & pdf) const {
+	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
 		float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
 
 		float alpha_x = material.roughness;
