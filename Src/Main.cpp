@@ -639,12 +639,12 @@ static void draw_gui() {
 						break;
 					}
 					case Material::Type::DIFFUSE: {
-						material_changed |= ImGui::SliderFloat3("Diffuse", &material.diffuse.x, 0.0f, 1.0f);
-						material_changed |= ImGui::SliderInt   ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						material_changed |= ImGui::ColorEdit3("Diffuse", &material.diffuse.x);
+						material_changed |= ImGui::SliderInt ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						break;
 					}
 					case Material::Type::PLASTIC: {
-						material_changed |= ImGui::SliderFloat3("Diffuse",   &material.diffuse.x, 0.0f, 1.0f);
+						material_changed |= ImGui::ColorEdit3  ("Diffuse",   &material.diffuse.x);
 						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
@@ -681,9 +681,9 @@ static void draw_gui() {
 
 					bool medium_changed = false;
 
-					medium_changed |= ImGui::SliderFloat3("A", &medium.A.x, 0.0f, 1.0f);
-					medium_changed |= ImGui::DragFloat3  ("d", &medium.d.x, 0.01f, 0.0f, INFINITY);
-					medium_changed |= ImGui::SliderFloat ("g", &medium.g,  -1.0f,  1.0f);
+					medium_changed |= ImGui::ColorEdit3  ("Albedo",   &medium.A.x);
+					medium_changed |= ImGui::DragFloat3  ("Distance", &medium.d.x, 0.01f, 0.0f, INFINITY);
+					medium_changed |= ImGui::SliderFloat ("Phase g",  &medium.g,  -1.0f,  1.0f);
 
 					if (medium_changed) pathtracer.invalidated_mediums = true;
 				}
