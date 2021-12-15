@@ -666,10 +666,30 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 					medium.name = name->value.c_str();
 				}
 
-				Vector3 sigma_a = xml_medium->get_child_value_optional("sigmaA", Vector3(0.0f, 0.0f, 0.0f));
-				Vector3 sigma_s = xml_medium->get_child_value_optional("sigmaS", Vector3(0.0f, 0.0f, 0.0f));
+				const XMLNode * xml_sigma_a = xml_medium->find_child_by_name("sigmaA");
+				const XMLNode * xml_sigma_s = xml_medium->find_child_by_name("sigmaS");
+				const XMLNode * xml_sigma_t = xml_medium->find_child_by_name("sigmaT");
+				const XMLNode * xml_albedo  = xml_medium->find_child_by_name("albedo"); // Single scatter albedo
 
-				medium.set_A_and_d(sigma_a, sigma_s);
+				Vector3 sigma_a = { };
+				Vector3 sigma_s = { };
+
+				if (!((xml_sigma_a && xml_sigma_s) ^ (xml_sigma_t && xml_albedo))) {
+					WARNING(xml_medium->location, "WARNING: Incorrect configuration of Medium properties\nPlease provide EITHER sigmaA and sigmaS OR sigmaT and albedo\n");
+				} else if (xml_sigma_a && xml_sigma_s) {
+					sigma_a = xml_sigma_a->get_attribute_value<Vector3>("value");
+					sigma_s = xml_sigma_s->get_attribute_value<Vector3>("value");
+				} else {
+					Vector3 sigma_t = xml_sigma_t->get_attribute_value<Vector3>("value");
+					Vector3 albedo  = xml_albedo ->get_attribute_value<Vector3>("value");
+
+					sigma_s = albedo  * sigma_t;
+					sigma_a = sigma_t - sigma_s;
+				}
+
+				float scale = xml_medium->get_child_value_optional("scale", 1.0f);
+
+				medium.set_A_and_d(scale * sigma_a, scale * sigma_s);
 
 				if (const XMLNode * phase = xml_medium->find_child("phase")) {
 					StringView phase_type = phase->get_attribute_value("type");
