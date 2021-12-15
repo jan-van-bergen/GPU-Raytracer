@@ -183,23 +183,34 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		bool medium_can_scatter = (medium.sigma_s.x + medium.sigma_s.y + medium.sigma_s.z) > 0.0f;
 
 		if (medium_can_scatter) {
+			float2 rand_scatter = random<SampleDimension::NEE_LIGHT>(pixel_index, bounce, sample_index);
+			float2 rand_phase   = random<SampleDimension::BRDF>     (pixel_index, bounce, sample_index);
+
 			float3 sigma_t = medium.sigma_a + medium.sigma_s;
 
-			// Sample according to the smallest component of sigma_t
-			float sampling_density = vmin_min(sigma_t.x, sigma_t.y, sigma_t.z);
+			// MIS based on throughput
+			// See Wrenninge - Path Traced Subsurface Scattering using Anisotropic Phase Functions and Non-Exponential Free Flights
+			float  throughput_sum = throughput.x + throughput.y + throughput.z;
+			float3 wavelength_pdf = throughput / throughput_sum; // pdfs for choosing any of the 3 RGB wavelengths
 
-			float rand_scatter = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
-			float scatter_distance = -logf(rand_scatter) / sampling_density;
+			float sigma_t_used_for_sampling;
+			if (rand_scatter.x * throughput_sum < throughput.x) {
+				sigma_t_used_for_sampling = sigma_t.x;
+			} else if (rand_scatter.x * throughput_sum < throughput.x + throughput.y) {
+				sigma_t_used_for_sampling = sigma_t.y;
+			} else {
+				sigma_t_used_for_sampling = sigma_t.z;
+			}
 
-			float probability_of_no_scatter_event = expf(-sampling_density * fminf(scatter_distance, hit.t));
+			float scatter_distance = -logf(rand_scatter.y) / sigma_t_used_for_sampling;
+			float3 transmittance = beer_lambert(sigma_t, fminf(scatter_distance, hit.t));
 
 			if (scatter_distance < hit.t) {
-				float pdf = sampling_density * probability_of_no_scatter_event; // Exponential distribution
-				throughput *= medium.sigma_s * beer_lambert(sigma_t, scatter_distance) / pdf;
+				float3 pdf = wavelength_pdf * sigma_t * transmittance;
+				throughput *= medium.sigma_s * transmittance / (pdf.x + pdf.y + pdf.z);
 
 				if (russian_roulette(pixel_index, bounce, sample_index, throughput)) return;
 
-				float2 rand_phase = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
 				float3 direction_out = sample_henyey_greenstein(-ray_direction, medium.g, rand_phase.x, rand_phase.y);
 
 				float3 ray_origin = ray_buffer_trace->origin.get(index);
@@ -224,7 +235,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 				return;
 			} else {
-				throughput *= beer_lambert(sigma_t, hit.t) / probability_of_no_scatter_event;
+				float3 pdf = wavelength_pdf * transmittance;
+				throughput *= transmittance / (pdf.x + pdf.y + pdf.z);
 			}
 		} else {
 			throughput *= beer_lambert(medium.sigma_a, hit.t);
@@ -699,7 +711,10 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 		colour = colour_prev + (colour - colour_prev) / frames_accumulated; // Online average
 	}
 
-	if (isnan(colour.x + colour.y + colour.z)) colour = make_float4(1,0,1,1);
+	if (!isfinite(colour.x + colour.y + colour.z)) {
+		printf("WARNING: pixel (%i, %i) has colour (%f, %f, %f)!\n", x, y, colour.x, colour.y, colour.z);
+		colour = make_float4(1000.0f, 0.0f, 1000.0f, 1.0f);
+	}
 
 	accumulator.set(x, y, colour);
 }
