@@ -17,6 +17,9 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 - Two Level Acceleration Structures
   - BVH's are split into two parts, at the world level (TLAS) and at the model level (BLAS). This allows dynamic scenes with moving Meshes as well as Mesh instancing where multiple meshes with different transforms share the same underlying triangle/BVH data.
 - *SVGF* (Spatio-Temporal Variance Guided Filter), see [Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). Denoising filter that allows for noise-free images at interactive framerates. Also includes a TAA pass.
+- Participating Media (homogeneous)
+  - Intuitive, artist friendly parameters: Instead of the usual σ<sub>a</sub> and σ<sub>s</sub> parameters the more intuitive A (albedo) and d (distance) parameters are used (see [Chiang et al.](https://dl-acm-org.proxy.library.uu.nl/doi/10.1145/2897839.2927433)) 
+  - Multiple Importance Sampling* (MIS): Sample scattering distance for each wavelength using MIS (see [Wrenninge et al.](https://graphics.pixar.com/library/PathTracedSubsurface/paper.pdf))
 - Importance Sampling
   - *Next Event Estimation* (NEE): Shadow rays are explicitly aimed at light sources to reduce variance.
   - *Multiple Importance Sampling* (MIS): Explicit light sampling (NEE) is combined with standard BRDF sampling using MIS to get the best of both.
@@ -25,8 +28,8 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 - *Mipmapping*: Textures are sampled using mipmapping. Mipmap sampling is done using ray cones (see [Möller et al. 2012](http://www.jcgt.org/published/0010/01/01/), [Möller et al. 2019](https://media.contentapi.ea.com/content/dam/ea/seed/presentations/2019-ray-tracing-gems-chapter-20-akenine-moller-et-al.pdf)). Primary rays perform anisotropic sampling, subsequent bounces use isotropic sampling.
 - *PMJ02 Sampling*: The low discrepency sampler by [Cristensen et al. 2019](https://graphics.pixar.com/library/ProgressiveMultiJitteredSampling/paper.pdf). Sequences are decorrelated using Cranley-Patterson rotations with blue noise.
 - Hot Reloading: When F5 is pressed the CUDA module is recompiled from source to allow for interactive debugging and development.
-- Multiple Material types
-  - *Diffuse*
+- PBR Material types
+  - *Diffuse* (Lambertian)
   - *Plastic* (Specular on top of diffuse)
   - *(Rough) Dielectric*
   - *(Rough) Conductor*
