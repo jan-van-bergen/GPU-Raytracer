@@ -399,7 +399,7 @@ static void draw_gui() {
 			ImGui::Text("Max:   %.2f ms", 1000.0f * timing.max);
 		}
 
-		if (ImGui::CollapsingHeader("Kernels", ImGuiTreeNodeFlags_DefaultOpen)) {
+		if (ImGui::CollapsingHeader("Kernels")) {
 			struct EventTiming {
 				CUDAEvent::Desc desc;
 				float           timing;
