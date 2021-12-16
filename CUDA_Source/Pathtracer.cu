@@ -159,6 +159,11 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 	RayHit hit = ray_buffer_trace->hits.get(index);
 
+	float2 ray_cone;
+	if (bounce > 0 && config.enable_mipmapping) {
+		ray_cone = ray_buffer_trace->cone[index];
+	}
+
 	unsigned pixel_index_and_flags = ray_buffer_trace->pixel_index_and_flags[index];
 	int      pixel_index = pixel_index_and_flags & ~FLAGS_ALL;
 
@@ -227,7 +232,15 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 				ray_buffer_trace_next->medium[index_out] = medium_id;
 
 				if (config.enable_mipmapping) {
-					ray_buffer_trace_next->cone[index_out] = ray_buffer_trace->cone[index];
+					if (bounce == 0) {
+						// Ray Cone is normally initialized on the first bounce in the Material kernel.
+						// Since a scattered Ray does not invoke a Material kernel, initialize the Ray Cone here
+						ray_cone = make_float2(
+							camera.pixel_spread_angle,
+							camera.pixel_spread_angle * scatter_distance
+						);
+					}
+					ray_buffer_trace_next->cone[index_out] = ray_cone;
 				}
 
 				ray_buffer_trace_next->pixel_index_and_flags[index_out] = pixel_index | FLAG_INSIDE_MEDIUM;
@@ -352,7 +365,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace->cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_cone;
 
 			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
 
@@ -370,7 +383,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_buffer_trace->cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_cone;
 
 			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
 
@@ -387,7 +400,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace->cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_cone;
 
 			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
 
@@ -405,7 +418,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_buffer_trace->cone[index];
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_cone;
 
 			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
 
