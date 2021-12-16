@@ -243,6 +243,7 @@ static void parse_args(int arg_count, char ** args) {
 				printf("\t--%-16s%s\n", option.name_full, option.help_text);
 			}
 		}
+		exit(EXIT_SUCCESS);
 	});
 
 	char arg_name[32] = { };
