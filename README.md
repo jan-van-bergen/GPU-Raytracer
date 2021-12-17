@@ -46,6 +46,8 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Kitchen](Screenshots/kitchen.png "Kitchen")
 ![Bunny](Screenshots/bunny.png "Furry Bunny")
 ![Lone-Monk](Screenshots/lone-monk.png "Lone Monk")
+![Dragon](Screenshots/dragon.png "Dragon")
+
 For more screenshots, see the Screenshots folder
 
 ## Usage
