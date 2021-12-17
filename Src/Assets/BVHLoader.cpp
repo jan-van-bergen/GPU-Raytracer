@@ -93,7 +93,7 @@ bool BVHLoader::save(const char * bvh_filename, const MeshData & mesh_data, cons
 	FILE * file; fopen_s(&file, bvh_filename, "wb");
 
 	if (!file) {
-		printf("WARNING: Unable to save BVH to file %s!\n", bvh_filename);
+		printf("WARNING: Unable to open BVH file '%s' for writing!\n", bvh_filename);
 		return false;
 	}
 
@@ -113,12 +113,18 @@ bool BVHLoader::save(const char * bvh_filename, const MeshData & mesh_data, cons
 	header.num_nodes     = bvh.node_count;
 	header.num_indices   = bvh.index_count;
 
-	fwrite(reinterpret_cast<const char *>(&header), sizeof(header), 1, file);
+	size_t header_written = fwrite(reinterpret_cast<const char *>(&header), sizeof(header), 1, file);
 
-	fwrite(reinterpret_cast<const char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
-	fwrite(reinterpret_cast<const char *>(bvh.nodes._2),        sizeof(BVHNode2), bvh.node_count,           file);
-	fwrite(reinterpret_cast<const char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
+	size_t num_triangles_written = fwrite(reinterpret_cast<const char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
+	size_t num_bvh_nodes_written = fwrite(reinterpret_cast<const char *>(bvh.nodes._2),        sizeof(BVHNode2), bvh.node_count,           file);
+	size_t num_indices_written   = fwrite(reinterpret_cast<const char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
 
 	fclose(file);
+
+	if (!header_written || num_triangles_written < mesh_data.triangle_count || num_bvh_nodes_written < bvh.node_count || num_indices_written < bvh.index_count) {
+		printf("WARNING: Unable to successfully write to BVH file '%s'!\n", bvh_filename);
+		return false;
+	}
+
 	return true;
 }
