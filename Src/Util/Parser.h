@@ -230,9 +230,12 @@ struct Parser {
 
 	int parse_int() {
 		bool sign = match('-');
+		if (!sign) {
+			match('+');
+		}
 
 		if (!is_digit(*cur)) {
-			ERROR(location, "Expected integer, got '%s'", char_to_str(*cur));
+			ERROR(location, "Expected integer digit, got '%s'", char_to_str(*cur));
 		}
 
 		int value = 0;
