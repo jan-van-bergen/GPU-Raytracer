@@ -45,9 +45,8 @@ bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, Me
 		return false;
 	}
 
-	fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
-
-	if (strcmp(header.filetype_identifier, "BVH") != 0) {
+	size_t num_read = fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
+	if (num_read != 1 || strcmp(header.filetype_identifier, "BVH") != 0) {
 		printf("WARNING: BVH file '%s' has an invalid header!\n", bvh_filename);
 		goto exit;
 	}
@@ -69,12 +68,17 @@ bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, Me
 	bvh.index_count          = header.num_indices;
 
 	mesh_data.triangles = new Triangle[mesh_data.triangle_count];
-	bvh.nodes._2         = new BVHNode2[bvh.node_count];
+	bvh.nodes._2        = new BVHNode2[bvh.node_count];
 	bvh.indices         = new int     [bvh.index_count];
 
-	fread(reinterpret_cast<char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
-	fread(reinterpret_cast<char *>(bvh.nodes._2),        sizeof(BVHNode2), bvh.node_count,           file);
-	fread(reinterpret_cast<char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
+	size_t num_triangles_read = fread(reinterpret_cast<char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
+	size_t num_bvh_nodes_read = fread(reinterpret_cast<char *>(bvh.nodes._2),        sizeof(BVHNode2), bvh.node_count,           file);
+	size_t num_indices_read   = fread(reinterpret_cast<char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
+
+	if (num_triangles_read < mesh_data.triangle_count || num_bvh_nodes_read < bvh.node_count || num_indices_read < bvh.index_count) {
+		printf("WARNING: Unable to fully read BVH file '%s'!\n", bvh_filename);
+		goto exit;
+	}
 
 	printf("Loaded BVH %s from disk\n", bvh_filename);
 
