@@ -1,6 +1,7 @@
 # CUDA Pathtracer
 
 ![Stormtrooper](Screenshots/stormtrooper.png "Stormtrooper")
+![Monster](Screenshots/monster-under-bed.png "Monster Under Bed")
 
 Interactive CUDA pathtracer that implements a variety of rendering techniques. 
 
@@ -47,6 +48,7 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Bunny](Screenshots/bunny.png "Furry Bunny")
 ![Lone-Monk](Screenshots/lone-monk.png "Lone Monk")
 ![Dragon](Screenshots/dragon.png "Dragon")
+![Candles](Screenshots/candles.png "Candles")
 
 For more screenshots, see the Screenshots folder
 
