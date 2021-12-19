@@ -171,21 +171,6 @@ __device__ inline float3 world_to_local(const float3 & vector, const float3 & ta
 	return make_float3(dot(tangent, vector), dot(binormal, vector), dot(normal, vector));
 }
 
-// Based on: https://devblogs.nvidia.com/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
-__device__ inline int atomic_agg_inc(int * ptr) {
-	int mask    = __activemask();
-	int leader  = __ffs(mask) - 1;
-	int lane_id = threadIdx.x & 31;
-
-	int res;
-	if (lane_id == leader) {
-		res = atomicAdd(ptr, __popc(mask));
-	}
-
-	res = __shfl_sync(mask, res, leader);
-	return res + __popc(mask & ((1 << lane_id) - 1));
-}
-
 // Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
 __device__ inline float2 oct_encode_normal(float3 n) {
 	n /= (abs(n.x) + abs(n.y) + abs(n.z));

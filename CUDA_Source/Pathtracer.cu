@@ -222,7 +222,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 				float3 origin_out = ray_origin + scatter_distance * ray_direction;
 
 				// Emit scattered Ray
-				int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
+				int index_out = atomicAdd(&buffer_sizes.trace[bounce + 1], 1);
 
 				TraceBuffer * ray_buffer_trace_next = get_ray_buffer_trace(bounce + 1);
 
@@ -359,7 +359,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 	switch (material_type) {
 		case MaterialType::DIFFUSE: {
-			int index_out = atomic_agg_inc(&buffer_sizes.diffuse[bounce]);
+			int index_out = atomicAdd(&buffer_sizes.diffuse[bounce], 1);
 
 			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
 
@@ -377,7 +377,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 		case MaterialType::PLASTIC: {
 			// Plastic Material buffer is shared with Diffuse Material buffer but grows in the opposite direction
-			int index_out = (BATCH_SIZE - 1) - atomic_agg_inc(&buffer_sizes.plastic[bounce]);
+			int index_out = (BATCH_SIZE - 1) - atomicAdd(&buffer_sizes.plastic[bounce], 1);
 
 			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
 
@@ -394,7 +394,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		}
 
 		case MaterialType::DIELECTRIC: {
-			int index_out = atomic_agg_inc(&buffer_sizes.dielectric[bounce]);
+			int index_out = atomicAdd(&buffer_sizes.dielectric[bounce], 1);
 
 			ray_buffer_shade_dielectric_and_conductor.direction.set(index_out, ray_direction);
 
@@ -412,7 +412,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 		case MaterialType::CONDUCTOR: {
 			// Conductor Material buffer is shared with Dielectric Material buffer but grows in the opposite direction
-			int index_out = (BATCH_SIZE - 1) - atomic_agg_inc(&buffer_sizes.conductor[bounce]);
+			int index_out = (BATCH_SIZE - 1) - atomicAdd(&buffer_sizes.conductor[bounce], 1);
 
 			ray_buffer_shade_dielectric_and_conductor.direction.set(index_out, ray_direction);
 
@@ -635,7 +635,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 				float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
 
 				// Emit Shadow Ray
-				int shadow_ray_index = atomic_agg_inc(&buffer_sizes.shadow[bounce]);
+				int shadow_ray_index = atomicAdd(&buffer_sizes.shadow[bounce], 1);
 
 				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, normal));
 				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
@@ -662,7 +662,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	float3 origin_out = ray_origin_epsilon_offset(hit_point, direction_out, normal);
 
 	// Emit next Ray
-	int index_out = atomic_agg_inc(&buffer_sizes.trace[bounce + 1]);
+	int index_out = atomicAdd(&buffer_sizes.trace[bounce + 1], 1);
 
 	TraceBuffer * ray_buffer_trace = get_ray_buffer_trace(bounce + 1);
 

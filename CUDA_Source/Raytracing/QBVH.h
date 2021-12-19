@@ -105,7 +105,7 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 		bool inactive = stack_size == 0;
 
 		if (inactive) {
-			ray_index = atomic_agg_inc(rays_retired);
+			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
 			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
@@ -214,7 +214,7 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 		bool inactive = stack_size == 0;
 
 		if (inactive) {
-			ray_index = atomic_agg_inc(rays_retired);
+			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
 			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
