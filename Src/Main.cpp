@@ -391,8 +391,12 @@ static void draw_gui() {
 
 	if (ImGui::Begin("Pathtracer")) {
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
+			size_t time_in_seconds = double(timing.now - timing.start) * timing.inv_perf_freq;
+			size_t time_in_minutes = time_in_seconds / 60;
+			size_t time_in_hours   = time_in_minutes / 60;
+
 			ImGui::Text("Frame: %i", pathtracer.frames_accumulated);
-			ImGui::Text("Time:  %.2f s", double(timing.now - timing.start) * timing.inv_perf_freq);
+			ImGui::Text("Time:  %0.2llu:%0.2llu:%0.2llu", time_in_hours, time_in_minutes % 60, time_in_seconds % 60);
 			ImGui::Text("Delta: %.2f ms (%i fps)", 1000.0f * timing.delta_time, timing.fps);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * timing.avg);
 			ImGui::Text("Min:   %.2f ms", 1000.0f * timing.min);
