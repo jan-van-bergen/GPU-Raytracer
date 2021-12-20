@@ -546,22 +546,23 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		material.type = Material::Type::DIFFUSE;
 
 		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, material.diffuse, material.texture_id);
-	} else if (inner_bsdf_type == "conductor") {
+	} else if (inner_bsdf_type == "conductor" || inner_bsdf_type == "roughconductor") {
 		material.type = Material::Type::CONDUCTOR;
 
-		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
+		if (inner_bsdf_type == "conductor") {
+			material.linear_roughness = 0.0f;
+		} else {
+			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+		}
 
-		material.linear_roughness = 0.0f;
-		material.eta              = inner_bsdf->get_child_value_optional("eta", Vector3(1.33f));
-		material.k                = inner_bsdf->get_child_value_optional("k",   Vector3(1.0f));
-	} else if (inner_bsdf_type == "roughconductor") {
-		material.type = Material::Type::CONDUCTOR;
-
-		parse_rgb_or_texture(inner_bsdf, "specularReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
-
-		material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
-		material.eta              = inner_bsdf->get_child_value_optional("eta",   Vector3(1.33f));
-		material.k                = inner_bsdf->get_child_value_optional("k",     Vector3(1.0f));
+		const XMLNode * material_str = inner_bsdf->find_child_by_name("material");
+		if (material_str->get_attribute_value<StringView>("value") == "none") {
+			material.eta = Vector3(0.0f);
+			material.k   = Vector3(1.0f);
+		} else {
+			material.eta = inner_bsdf->get_child_value_optional("eta", Vector3(1.33f));
+			material.k   = inner_bsdf->get_child_value_optional("k",   Vector3(1.0f));
+		}
 	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic" || inner_bsdf_type == "roughdiffuse") {
 		material.type = Material::Type::PLASTIC;
 
