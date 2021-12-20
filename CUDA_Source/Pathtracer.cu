@@ -498,16 +498,16 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 		}
 	}
 
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float  triangle_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_area_inv; // Normalize
+
 	// Calculate texture level of detail
 	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
 	LOD lod;
 	if constexpr (BSDF::HAS_ALBEDO) {
 		if (config.enable_mipmapping) {
-			float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
-			float  triangle_area_inv = 1.0f / length(geometric_normal);
-			geometric_normal *= triangle_area_inv; // Normalize
-
 			if (bounce == 0) {
 				// First bounce uses anisotrpoic LOD
 				float3 ellipse_axis_1, ellipse_axis_2;
@@ -637,7 +637,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 				// Emit Shadow Ray
 				int shadow_ray_index = atomicAdd(&buffer_sizes.shadow[bounce], 1);
 
-				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, normal));
+				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, geometric_normal));
 				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
 
 				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - 2.0f * EPSILON;
@@ -659,7 +659,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 
 	if (!valid) return;
 
-	float3 origin_out = ray_origin_epsilon_offset(hit_point, direction_out, normal);
+	float3 origin_out = ray_origin_epsilon_offset(hit_point, direction_out, geometric_normal);
 
 	// Emit next Ray
 	int index_out = atomicAdd(&buffer_sizes.trace[bounce + 1], 1);

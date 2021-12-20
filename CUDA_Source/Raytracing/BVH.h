@@ -9,7 +9,7 @@ struct AABB {
 		float3 t0 = (min - ray.origin) * ray.direction_inv;
 		float3 t1 = (max - ray.origin) * ray.direction_inv;
 
-		float t_near = vmin_max(t0.x, t1.x, vmin_max(t0.y, t1.y, vmin_max(t0.z, t1.z, EPSILON)));
+		float t_near = vmin_max(t0.x, t1.x, vmin_max(t0.y, t1.y, vmin_max(t0.z, t1.z, 0.0f)));
 		float t_far  = vmax_min(t0.x, t1.x, vmax_min(t0.y, t1.y, vmax_min(t0.z, t1.z, max_distance)));
 
 		return t_near < t_far;

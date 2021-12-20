@@ -78,7 +78,7 @@ __device__ inline unsigned cwbvh_node_intersect(
 			tmin3 = tmin3 * adjusted_ray_direction_inv + adjusted_ray_origin;
 			tmax3 = tmax3 * adjusted_ray_direction_inv + adjusted_ray_origin;
 
-			float tmin = vmax_max(tmin3.x, tmin3.y, fmaxf(tmin3.z, EPSILON));
+			float tmin = vmax_max(tmin3.x, tmin3.y, fmaxf(tmin3.z, 0.0f));
 			float tmax = vmin_min(tmax3.x, tmax3.y, fminf(tmax3.z, max_distance));
 
 			bool intersected = tmin < tmax;
