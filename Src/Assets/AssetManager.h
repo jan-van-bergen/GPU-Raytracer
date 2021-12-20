@@ -58,6 +58,10 @@ public:
 		if (!bvh_loaded) {
 			fallback_loader(filename, mesh_data.triangles, mesh_data.triangle_count);
 
+			if (mesh_data.triangle_count == 0) {
+				return { INVALID };
+			}
+
 			bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
 			BVHLoader::save(bvh_filename, mesh_data, bvh);
 		}
