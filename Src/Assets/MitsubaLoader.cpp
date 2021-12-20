@@ -556,7 +556,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		}
 
 		const XMLNode * material_str = inner_bsdf->find_child_by_name("material");
-		if (material_str->get_attribute_value<StringView>("value") == "none") {
+		if (material_str && material_str->get_attribute_value<StringView>("value") == "none") {
 			material.eta = Vector3(0.0f);
 			material.k   = Vector3(1.0f);
 		} else {
