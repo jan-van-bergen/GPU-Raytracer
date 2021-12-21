@@ -78,4 +78,4 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 
 - [Stormtrooper](https://www.blendswap.com/blend/13953)
 
-- [Lone Monk](https://www.blender.org/download/demo-files/)
+- [Blender Demos](https://www.blender.org/download/demo-files/)
