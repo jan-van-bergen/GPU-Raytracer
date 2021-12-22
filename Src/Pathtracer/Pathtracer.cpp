@@ -180,8 +180,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 			CUDACALL(cuTexObjectCreate(&textures[i].texture, &res_desc, &tex_desc, &view_desc));
 
-			textures[i].size.x = texture.width;
-			textures[i].size.y = texture.height;
+			textures[i].lod_bias = 0.5f * log2f(texture.width * texture.height);
 		}
 
 		ptr_textures = CUDAMemory::malloc(textures, texture_count);

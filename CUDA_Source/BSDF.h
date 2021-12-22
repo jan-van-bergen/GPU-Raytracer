@@ -19,7 +19,7 @@ struct BSDFDiffuse {
 	MaterialDiffuse material;
 	float3          albedo;
 
-    __device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+    __device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const TextureLOD & lod) {
         material = material_as_diffuse(material_id);
 		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
     }
@@ -100,7 +100,7 @@ struct BSDFPlastic {
 	// does not work with math functions, so the value has to be hardcoded.
 	static constexpr float TIR_COMPENSATION = 0.596345782f;
 
-	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const TextureLOD & lod) {
 		material = material_as_plastic(material_id);
 		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
 	}
@@ -212,7 +212,7 @@ struct BSDFDielectric {
 
 	float eta;
 
-	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const TextureLOD & lod) {
 		material = material_as_dielectric(material_id);
 
 		eta = entering_material ? 1.0f / material.ior : material.ior;
@@ -333,7 +333,7 @@ struct BSDFConductor {
 
 	MaterialConductor material;
 
-	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const LOD & lod) {
+	__device__ void init(int bounce, bool entering_material, int material_id, float2 tex_coord, const TextureLOD & lod) {
 		material = material_as_conductor(material_id);
 	}
 

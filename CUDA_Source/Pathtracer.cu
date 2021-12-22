@@ -505,11 +505,10 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	// Calculate texture level of detail
 	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
-	LOD lod;
+	TextureLOD lod;
 	if constexpr (BSDF::HAS_ALBEDO) {
 		if (config.enable_mipmapping) {
-			if (bounce == 0) {
-				// First bounce uses anisotrpoic LOD
+			if (use_anisotropic_texture_sampling(bounce)) {
 				float3 ellipse_axis_1, ellipse_axis_2;
 				ray_cone_get_ellipse_axes(ray_direction, normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
@@ -524,7 +523,6 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 					lod.aniso.gradient_1, lod.aniso.gradient_2
 				);
 			} else {
-				// Subsequent bounces use isotropic LOD
 				float lod_triangle = sqrtf(triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2));
 				float lod_ray_cone = ray_cone_get_lod(ray_direction, normal, cone_width);
 				lod.iso.lod = log2f(lod_triangle * lod_ray_cone);

@@ -69,7 +69,7 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 	Segment curr_segment = { };
 
 	for (int h = 0; h < hairs.size(); h++) {
-		Array<Vector3> & strand = hairs[h];
+		const Array<Vector3> & strand = hairs[h];
 
 		if (strand.size() < 2) {
 			WARNING(location_in_mitsuba_file, "A hair strand requires at least 2 vertices!\n");
@@ -108,7 +108,6 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 			triangles[current_triangle].tex_coord_1 = Vector2(1.0f, 0.0f);
 			triangles[current_triangle].tex_coord_2 = Vector2(0.0f, 1.0f);
 			triangles[current_triangle].init();
-
 			current_triangle++;
 
 			triangles[current_triangle].position_0  = prev_segment.end;
@@ -121,7 +120,6 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 			triangles[current_triangle].tex_coord_1 = Vector2(1.0f, 0.0f);
 			triangles[current_triangle].tex_coord_2 = Vector2(0.0f, 1.0f);
 			triangles[current_triangle].init();
-
 			current_triangle++;
 
 			prev_segment = curr_segment;

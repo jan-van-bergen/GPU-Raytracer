@@ -357,7 +357,7 @@ private:
 
 	struct CUDATexture {
 		CUtexObject texture;
-		float2 size;
+		float       lod_bias;
 	};
 
 	CUDATexture      * textures;

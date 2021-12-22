@@ -1,6 +1,6 @@
 #pragma once
 
-union LOD {
+union TextureLOD {
 	struct {
 		float2 gradient_1;
 		float2 gradient_2;
@@ -10,17 +10,16 @@ union LOD {
 	} iso;
 };
 
-__device__ inline float3 sample_albedo(int bounce, const float3 & diffuse, int texture_id, float2 tex_coord, const LOD & lod) {
-	if (config.enable_mipmapping) {
-		if (bounce == 0) {
-			// Anisotropic sampling
+__device__ inline bool use_anisotropic_texture_sampling(int bounce) {
+	return bounce == 0; // Only first bounce uses anisotropic sampling, subsequent bounces use isotropic
+}
+
+__device__ inline float3 sample_albedo(int bounce, const float3 & diffuse, int texture_id, float2 tex_coord, const TextureLOD & lod) {
+	if (config.enable_mipmapping && texture_id != INVALID) {
+		if (use_anisotropic_texture_sampling(bounce)) {
 			return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y, lod.aniso.gradient_1, lod.aniso.gradient_2);
 		} else {
-			// Trilinear sampling
-			float2 tex_size = texture_get_size(texture_id);
-			float  tex_lod = 0.5f * log2f(tex_size.x * tex_size.y); // TODO: maybe precalculate this
-			
-			return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y, lod.iso.lod + tex_lod);
+			return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y, lod.iso.lod + textures[texture_id].lod_bias);
 		}
 	} else {
 		return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y);

@@ -6,14 +6,6 @@
 
 __device__ const Texture<float4> * textures;
 
-__device__ inline float2 texture_get_size(int texture_id) {
-	if (texture_id == INVALID) {
-		return make_float2(0.0f, 0.0f);
-	} else {
-		return textures[texture_id].size;
-	}
-}
-
 enum struct MaterialType : char {
 	LIGHT,
 	DIFFUSE,
