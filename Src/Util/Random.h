@@ -18,6 +18,30 @@ struct RNG {
 		return (x >> r) | (x << ((~r + 1) & 31));
 	}
 
+	// Based on: https://www.pcg-random.org/posts/bounded-rands.html
+	uint32_t get_uint32(uint32_t max) {
+		uint32_t x = get_uint32();
+		uint64_t m = uint64_t(x) * uint64_t(max);
+		uint32_t l = uint32_t(m);
+		if (l < max) {
+			uint32_t t = ~max + 1;
+			if (t >= max) {
+				t -= max;
+				if (t >= max) t %= max;
+			}
+			while (l < t) {
+				x = get_uint32();
+				m = uint64_t(x) * uint64_t(max);
+				l = uint32_t(m);
+			}
+		}
+		return m >> 32;
+	}
+
+	uint32_t get_uint32(uint32_t min, uint32_t max) {
+		return min + get_uint32(max - min);
+	}
+
 	float get_float() {
 		return get_uint32() / float(0xffffffff);
 	}
