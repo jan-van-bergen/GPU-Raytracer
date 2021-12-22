@@ -25,6 +25,12 @@ struct Medium {
 	void set_A_and_d(const Vector3 & sigma_a, const Vector3 & sigma_s) {
 		Vector3 sigma_t = sigma_a + sigma_s;
 
+		if (sigma_t.x == 0.0f && sigma_t.y == 0.0f && sigma_t.z == 0.0f) {
+			A = Vector3(0.0f);
+			d = Vector3(100000.0f);
+			return;
+		}
+
 		Vector3 alpha = sigma_s / sigma_t; // Single scatter albedo
 		A.x = Math::invert_monotonically_increasing_function(alpha.x, A_to_alpha);
 		A.y = Math::invert_monotonically_increasing_function(alpha.y, A_to_alpha);
