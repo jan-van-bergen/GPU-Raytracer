@@ -8,7 +8,6 @@
 
 #include "Assets/MeshData.h"
 #include "Assets/Material.h"
-#include "Assets/MitsubaLoader.h"
 
 #include "Math/Vector4.h"
 

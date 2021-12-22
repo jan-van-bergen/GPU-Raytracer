@@ -82,9 +82,6 @@
     <ClCompile Include="Src\Util\Shader.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Assets\MitsubaLoader.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Assets\AssetManager.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
@@ -127,6 +124,18 @@
     <ClCompile Include="Src\Util\Mutex.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Assets\Mitsuba\MitsubaLoader.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\Mitsuba\XMLParser.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\Mitsuba\SerializedLoader.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\Mitsuba\MitshairLoader.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -152,6 +161,9 @@
     </Filter>
     <Filter Include="BVH\Builders">
       <UniqueIdentifier>{2a80c523-a358-438a-aead-602c959f8290}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Mitsuba">
+      <UniqueIdentifier>{03cc5535-b67c-49b7-b23b-c1a84fbdfccf}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -289,9 +301,6 @@
     <ClInclude Include="Src\Util\Shader.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Assets\MitsubaLoader.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Assets\AssetManager.h">
       <Filter>Assets</Filter>
     </ClInclude>
@@ -352,6 +361,18 @@
     <ClInclude Include="Src\Config.h" />
     <ClInclude Include="Src\Assets\Medium.h">
       <Filter>Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\Mitsuba\MitsubaLoader.h">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\Mitsuba\SerializedLoader.h">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\Mitsuba\XMLParser.h">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h">
+      <Filter>Assets\Mitsuba</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

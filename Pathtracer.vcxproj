@@ -206,7 +206,10 @@
     <ClCompile Include="Src\Assets\AssetManager.cpp" />
     <ClCompile Include="Src\Assets\BVHLoader.cpp" />
     <ClCompile Include="Src\Assets\MeshData.cpp" />
-    <ClCompile Include="Src\Assets\MitsubaLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\MitshairLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\MitsubaLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\SerializedLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\XMLParser.cpp" />
     <ClCompile Include="Src\Assets\OBJLoader.cpp" />
     <ClCompile Include="Src\Assets\PLYLoader.cpp" />
     <ClCompile Include="Src\Assets\Texture.cpp" />
@@ -256,7 +259,10 @@
     <ClInclude Include="Src\Assets\Material.h" />
     <ClInclude Include="Src\Assets\Medium.h" />
     <ClInclude Include="Src\Assets\MeshData.h" />
-    <ClInclude Include="Src\Assets\MitsubaLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\MitsubaLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\SerializedLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\XMLParser.h" />
     <ClInclude Include="Src\Assets\OBJLoader.h" />
     <ClInclude Include="Src\Assets\PLYLoader.h" />
     <ClInclude Include="Src\Assets\Texture.h" />

@@ -6,7 +6,7 @@
 #include "Assets/Material.h"
 #include "Assets/OBJLoader.h"
 #include "Assets/PLYLoader.h"
-#include "Assets/MitsubaLoader.h"
+#include "Assets/Mitsuba/MitsubaLoader.h"
 
 #include "Util/Util.h"
 
