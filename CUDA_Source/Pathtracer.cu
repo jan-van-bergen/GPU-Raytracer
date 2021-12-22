@@ -498,16 +498,36 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 		}
 	}
 
-	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
-	float  triangle_area_inv = 1.0f / length(geometric_normal);
-	geometric_normal *= triangle_area_inv; // Normalize
+	// Construct TBN frame
+	float3 tangent, bitangent;
+	orthonormal_basis(normal, tangent, bitangent);
+
+	float3 omega_i = world_to_local(-ray_direction, tangent, bitangent, normal);
+
+	// Initialize BSDF
+	int material_id = mesh_get_material_id(hit.mesh_id);
+
+	BSDF bsdf;
+	bsdf.pixel_index  = pixel_index;
+	bsdf.bounce       = bounce;
+	bsdf.sample_index = sample_index;
+	bsdf.tangent      = tangent;
+	bsdf.bitangent    = bitangent;
+	bsdf.normal       = normal;
+	bsdf.omega_i      = omega_i;
+	bsdf.init(bounce, entering_material, material_id);
 
 	// Calculate texture level of detail
 	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
-	TextureLOD lod;
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float  triangle_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_area_inv; // Normalize
+
 	if constexpr (BSDF::HAS_ALBEDO) {
-		if (config.enable_mipmapping) {
+		TextureLOD lod;
+
+		if (config.enable_mipmapping && bsdf.material.texture_id != INVALID) {
 			if (use_anisotropic_texture_sampling(bounce)) {
 				float3 ellipse_axis_1, ellipse_axis_2;
 				ray_cone_get_ellipse_axes(ray_direction, normal, cone_width, ellipse_axis_1, ellipse_axis_2);
@@ -528,6 +548,10 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 				lod.iso.lod = log2f(lod_triangle * lod_ray_cone);
 			}
 		}
+
+		bsdf.calc_albedo(bounce, pixel_index, throughput, tex_coord, lod);
+	} else if (bounce == 0 && (config.enable_albedo || config.enable_svgf)) {
+		frame_buffer_albedo[pixel_index] = make_float4(1.0f);
 	}
 
 	// Calulate new Ray Cone angle based on Mesh curvature
@@ -541,27 +565,6 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 
 		cone_angle -= 2.0f * curvature * fabsf(cone_width) / dot(normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 	}
-
-	// Construct TBN frame
-	float3 tangent, bitangent;
-	orthonormal_basis(normal, tangent, bitangent);
-
-	float3 omega_i = world_to_local(-ray_direction, tangent, bitangent, normal);
-
-	// Initialize BSDF
-	int material_id = mesh_get_material_id(hit.mesh_id);
-
-	BSDF bsdf;
-	bsdf.pixel_index  = pixel_index;
-	bsdf.bounce       = bounce;
-	bsdf.sample_index = sample_index;
-	bsdf.tangent      = tangent;
-	bsdf.bitangent    = bitangent;
-	bsdf.normal       = normal;
-	bsdf.omega_i      = omega_i;
-	bsdf.init(bounce, entering_material, material_id, tex_coord, lod);
-
-	bsdf.attenuate(bounce, pixel_index, throughput, hit.t);
 
 	// Emit GBuffers if SVGF is enabled
 	if (bounce == 0 && config.enable_svgf) {
