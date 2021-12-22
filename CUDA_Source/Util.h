@@ -11,7 +11,7 @@ template<typename T>
 struct Texture {
 	cudaTextureObject_t texture;
 
-	float lod_bias; // 0.5 * log(width * height), required for isotropic Mipmap LOD calculations
+	float lod_bias; // 0.5 * log2(width * height), required for isotropic Mipmap LOD calculations
 
 	__device__ inline T get(float s, float t) const {
 		return tex2D<T>(texture, s, t);
