@@ -13,10 +13,11 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 	Parser parser = { };
 	parser.init(file, file + file_length, filename);
 
-	Array<Array<Vector3>> hairs;
-	Array<Vector3>        strand;
+	Array<Vector3> hair_vertices;
+	Array<int>     hair_strand_lengths;
 
 	triangle_count = 0;
+	int strand_size = 0;
 
 	if (parser.match("BINARY_HAIR")) { // Binary format
 		unsigned num_vertices = parser.parse_binary<unsigned>();
@@ -24,34 +25,35 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 		while (parser.cur < parser.end) {
 			float x = parser.parse_binary<float>();
 			if (isinf(x)) { // +INF marks beginning of new hair strand
-				triangle_count += strand.size() - 1;
-				hairs.push_back(strand);
-				strand.clear();
+				hair_strand_lengths.push_back(strand_size);
+				triangle_count += strand_size - 1;
+				strand_size = 0;
 			} else {
 				float y = parser.parse_binary<float>();
 				float z = parser.parse_binary<float>();
-				strand.emplace_back(x, y, z);
+				hair_vertices.emplace_back(x, y, z);
+				strand_size++;
 			}
 		}
 	} else { // ASCII format
 		while (parser.cur < parser.end) {
 			if (is_newline(*parser.cur)) { // Empty line marks beginning of new hair strand
-				triangle_count += strand.size() - 1;
-				hairs.push_back(strand);
-				strand.clear();
+				hair_strand_lengths.push_back(strand_size);
+				triangle_count +=strand_size - 1;
+				strand_size = 0;
 			} else {
 				float x = parser.parse_float(); parser.skip_whitespace();
 				float y = parser.parse_float(); parser.skip_whitespace();
 				float z = parser.parse_float(); parser.skip_whitespace();
-				strand.emplace_back(x, y, z);
+				hair_vertices.emplace_back(x, y, z);
+				strand_size++;
 			}
 			parser.parse_newline();
 		}
 	}
 
-	if (strand.size() > 0) {
-		triangle_count += strand.size() - 1;
-		hairs.push_back(strand);
+	if (strand_size > 0) {
+		triangle_count += strand_size - 1;
 	}
 
 	delete [] file;
@@ -68,12 +70,17 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 	Segment prev_segment = { };
 	Segment curr_segment = { };
 
-	for (int h = 0; h < hairs.size(); h++) {
-		const Array<Vector3> & strand = hairs[h];
+	size_t hair_index = 0;
 
-		if (strand.size() < 2) {
-			WARNING(location_in_mitsuba_file, "A hair strand requires at least 2 vertices!\n");
-			triangle_count -= 2 * strand.size();
+	for (int s = 0; s < hair_strand_lengths.size(); s++) {
+		int strand_size = hair_strand_lengths[s];
+
+		const Vector3 * strand = &hair_vertices[hair_index];
+		hair_index += strand_size;
+
+		if (strand_size < 2) {
+			WARNING(location_in_mitsuba_file, "WARNING: A hair strand was defined with less than 2 vertices!\n");
+			triangle_count -= 2 * strand_size;
 			continue;
 		}
 
@@ -85,8 +92,8 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 		prev_segment.begin = strand[0] + radius * orthogonal;
 		prev_segment.end   = strand[0] - radius * orthogonal;
 
-		for (int s = 1; s < strand.size(); s++) {
-			Vector3 direction = Vector3::normalize(strand[s] - strand[s-1]);
+		for (int v = 1; v < strand_size; v++) {
+			Vector3 direction = Vector3::normalize(strand[v] - strand[v-1]);
 			Vector3 orthogonal;
 			if (isnan(direction.x + direction.y + direction.z)) {
 				orthogonal = Vector3(1.0f, 0.0f, 0.0f);
@@ -94,9 +101,9 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 				orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
 			}
 
-			float r = Math::lerp(radius, 0.0f, float(s) / float(strand.size() - 1));
-			curr_segment.begin = strand[s] + r * orthogonal;
-			curr_segment.end   = strand[s] - r * orthogonal;
+			float r = Math::lerp(radius, 0.0f, float(v) / float(strand_size - 1));
+			curr_segment.begin = strand[v] + r * orthogonal;
+			curr_segment.end   = strand[v] - r * orthogonal;
 
 			triangles[current_triangle].position_0  = prev_segment.begin;
 			triangles[current_triangle].position_1  = prev_segment.end;
