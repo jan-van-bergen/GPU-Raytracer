@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "Assets/MeshData.h"
 #include "Assets/BVHLoader.h"
 #include "Assets/OBJLoader.h"
 #include "Assets/PLYLoader.h"
@@ -13,6 +12,7 @@
 #include "BVH/Builders/CWBVHBuilder.h"
 
 #include "Pathtracer/Scene.h"
+#include "Pathtracer/MeshData.h"
 
 #include "Util/Util.h"
 #include "Util/Array.h"

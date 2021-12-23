@@ -4,14 +4,13 @@
 #include "CUDA/CUDAMemory.h"
 #include "CUDA/CUDAEvent.h"
 
-#include "Assets/Material.h"
-
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"
 #include "BVH/Builders/QBVHBuilder.h"
 #include "BVH/Builders/CWBVHBuilder.h"
 
 #include "Scene.h"
+#include "Material.h"
 
 #include "Util/PMJ.h"
 

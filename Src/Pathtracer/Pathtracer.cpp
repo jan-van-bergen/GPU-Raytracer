@@ -6,10 +6,9 @@
 
 #include "CUDA/CUDAContext.h"
 
-#include "Assets/MeshData.h"
-#include "Assets/Material.h"
-
 #include "Math/Vector4.h"
+
+#include "MeshData.h"
 
 #include "Util/BlueNoise.h"
 

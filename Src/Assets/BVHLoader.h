@@ -4,7 +4,7 @@
 #include "Config.h"
 
 #include "BVH/BVH.h"
-#include "MeshData.h"
+#include "Pathtracer/MeshData.h"
 
 namespace BVHLoader {
 	inline constexpr const char * BVH_FILE_EXTENSION = ".bvh";

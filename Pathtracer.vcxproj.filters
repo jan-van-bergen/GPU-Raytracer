@@ -19,13 +19,7 @@
     <ClCompile Include="Imgui\imgui_widgets.cpp">
       <Filter>Imgui</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Assets\MeshData.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Assets\OBJLoader.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Assets\Texture.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
     <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp">
@@ -136,6 +130,12 @@
     <ClCompile Include="Src\Assets\Mitsuba\MitshairLoader.cpp">
       <Filter>Assets\Mitsuba</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Pathtracer\Texture.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Pathtracer\MeshData.cpp">
+      <Filter>Pathtracer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CUDA">
@@ -194,16 +194,7 @@
     <ClInclude Include="CUDA_Source\Common.h">
       <Filter>CUDA</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Assets\Material.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Assets\MeshData.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Assets\OBJLoader.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Assets\Texture.h">
       <Filter>Assets</Filter>
     </ClInclude>
     <ClInclude Include="Src\BVH\BVH.h">
@@ -359,9 +350,6 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Config.h" />
-    <ClInclude Include="Src\Assets\Medium.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Assets\Mitsuba\MitsubaLoader.h">
       <Filter>Assets\Mitsuba</Filter>
     </ClInclude>
@@ -373,6 +361,18 @@
     </ClInclude>
     <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h">
       <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Texture.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Material.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\Medium.h">
+      <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Pathtracer\MeshData.h">
+      <Filter>Pathtracer</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

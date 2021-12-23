@@ -1,9 +1,9 @@
 #pragma once
-#include "Assets/MeshData.h"
-#include "Assets/Material.h"
-
 #include "Math/Quaternion.h"
 #include "Math/Matrix4.h"
+
+#include "MeshData.h"
+#include "Material.h"
 
 struct Scene;
 

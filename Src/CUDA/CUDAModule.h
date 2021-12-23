@@ -5,8 +5,6 @@
 
 #include "CUDACall.h"
 
-#include "Assets/Texture.h"
-
 struct CUDAModule {
 	CUmodule module;
 

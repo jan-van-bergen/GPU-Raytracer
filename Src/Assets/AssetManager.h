@@ -1,8 +1,8 @@
 #pragma once
-#include "MeshData.h"
-#include "Material.h"
-#include "Medium.h"
-#include "Texture.h"
+#include "Pathtracer/MeshData.h"
+#include "Pathtracer/Material.h"
+#include "Pathtracer/Medium.h"
+#include "Pathtracer/Texture.h"
 
 #include "BVHLoader.h"
 #include "BVH/BVHCollapser.h"

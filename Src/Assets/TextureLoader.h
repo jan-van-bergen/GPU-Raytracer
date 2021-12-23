@@ -1,5 +1,5 @@
 #pragma once
-#include "Texture.h"
+#include "Pathtracer/Texture.h"
 
 namespace TextureLoader {
 	bool load_dds(const char * filename, Texture & texture);

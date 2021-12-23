@@ -1,6 +1,4 @@
 #pragma once
-#include "Assets/Texture.h"
-
 #include "Math/Vector3.h"
 
 struct Sky {
