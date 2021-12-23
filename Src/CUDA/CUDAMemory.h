@@ -73,21 +73,39 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void memcpy(Ptr<T> ptr, const T * data, int count = 1) {
+	inline void memcpy(Ptr<T> dst, const T * src, int count = 1) {
 		assert(ptr.ptr);
 		assert(data);
 		assert(count > 0);
 
-		CUDACALL(cuMemcpyHtoD(ptr.ptr, data, count * sizeof(T)));
+		CUDACALL(cuMemcpyHtoD(dst.ptr, src, count * sizeof(T)));
 	}
 
 	template<typename T>
-	inline void memcpy(T * data, Ptr<T> ptr, int count = 1) {
+	inline void memcpy_async(Ptr<T> dst, const T * src, int count, CUstream stream) {
 		assert(ptr.ptr);
 		assert(data);
 		assert(count > 0);
 
-		CUDACALL(cuMemcpyDtoH(data, ptr.ptr, count * sizeof(T)));
+		CUDACALL(cuMemcpyHtoDAsync(dst.ptr, src, count * sizeof(T), stream));
+	}
+
+	template<typename T>
+	inline void memcpy(T * dst, Ptr<T> src, int count = 1) {
+		assert(ptr.ptr);
+		assert(data);
+		assert(count > 0);
+
+		CUDACALL(cuMemcpyDtoH(dst, src.ptr, count * sizeof(T)));
+	}
+
+	template<typename T>
+	inline void memcpy_async(T * dst, Ptr<T> src, int count, CUstream stream) {
+		assert(ptr.ptr);
+		assert(data);
+		assert(count > 0);
+
+		CUDACALL(cuMemcpyDtoHAsync(dst, src.ptr, count * sizeof(T), stream));
 	}
 
 	template<typename T>

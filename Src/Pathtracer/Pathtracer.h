@@ -230,7 +230,7 @@ private:
 
 	CUDAModule cuda_module;
 
-	CUstream stream_memset;
+	CUstream memory_stream;
 
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace_bvh;

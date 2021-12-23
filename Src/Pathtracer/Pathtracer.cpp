@@ -22,7 +22,7 @@ void Pathtracer::init(const SceneConfig & scene_config, unsigned frame_buffer_ha
 
 	cuda_init(frame_buffer_handle, width, height);
 
-	CUDACALL(cuStreamCreate(&stream_memset, CU_STREAM_NON_BLOCKING));
+	CUDACALL(cuStreamCreate(&memory_stream, CU_STREAM_NON_BLOCKING));
 }
 
 template<size_t BVH_STACK_ELEMENT_SIZE>
@@ -83,12 +83,12 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_taa_finalize  .occupancy_max_block_size_2d();
 	kernel_accumulate    .occupancy_max_block_size_2d();
 
-	kernel_generate        .set_block_dim(WARP_SIZE * 8, 1, 1);
-	kernel_sort            .set_block_dim(WARP_SIZE * 8, 1, 1);
-	kernel_shade_diffuse   .set_block_dim(WARP_SIZE * 8, 1, 1);
-	kernel_shade_plastic   .set_block_dim(WARP_SIZE * 8, 1, 1);
-	kernel_shade_dielectric.set_block_dim(WARP_SIZE * 8, 1, 1);
-	kernel_shade_conductor .set_block_dim(WARP_SIZE * 8, 1, 1);
+	kernel_generate        .set_block_dim(256, 1, 1);
+	kernel_sort            .set_block_dim(256, 1, 1);
+	kernel_shade_diffuse   .set_block_dim(256, 1, 1);
+	kernel_shade_plastic   .set_block_dim(256, 1, 1);
+	kernel_shade_dielectric.set_block_dim(256, 1, 1);
+	kernel_shade_conductor .set_block_dim(256, 1, 1);
 
 	// CWBVH uses a stack of int2's (8 bytes)
 	// Other BVH's use a stack of ints (4 bytes)
@@ -318,12 +318,10 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		PMJ::shuffle(i);
 	}
 
-	ptr_pmj_samples = CUDAMemory::malloc<PMJ::Point>(PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
-	CUDAMemory::memcpy(ptr_pmj_samples, PMJ::samples, PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
+	ptr_pmj_samples = CUDAMemory::malloc<PMJ::Point>(PMJ::samples, PMJ_NUM_SEQUENCES * PMJ_NUM_SAMPLES_PER_SEQUENCE);
 	cuda_module.get_global("pmj_samples").set_value(ptr_pmj_samples);
 
-	ptr_blue_noise_textures = CUDAMemory::malloc<unsigned short>(BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
-	CUDAMemory::memcpy(ptr_blue_noise_textures, reinterpret_cast<unsigned short *>(BlueNoise::textures), BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
+	ptr_blue_noise_textures = CUDAMemory::malloc<unsigned short>(&BlueNoise::textures[0][0][0], BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
 	cuda_module.get_global("blue_noise_textures").set_value(ptr_blue_noise_textures);
 
 	ray_buffer_trace_0.init(BATCH_SIZE);
@@ -544,7 +542,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 }
 
 void Pathtracer::resize_free() {
-	CUDACALL(cuStreamSynchronize(stream_memset));
+	CUDACALL(cuStreamSynchronize(memory_stream));
 
 	CUDAMemory::free(ptr_frame_buffer_albedo);
 
@@ -715,14 +713,14 @@ void Pathtracer::calc_light_power() {
 		ptr_light_indices    = CUDAMemory::malloc(light_indices,    light_triangles.size());
 		ptr_light_prob_alias = CUDAMemory::malloc(light_prob_alias, light_triangles.size());
 
-		cuda_module.get_global("light_indices")   .set_value(ptr_light_indices);
-		cuda_module.get_global("light_prob_alias").set_value(ptr_light_prob_alias);
+		cuda_module.get_global("light_indices")   .set_value_async(ptr_light_indices,    memory_stream);
+		cuda_module.get_global("light_prob_alias").set_value_async(ptr_light_prob_alias, memory_stream);
 
 		delete [] light_indices;
 		delete [] light_probabilities;
 		delete [] light_prob_alias;
 
-		cuda_module.get_global("light_mesh_count").set_value(light_mesh_count);
+		cuda_module.get_global("light_mesh_count").set_value_async(light_mesh_count, memory_stream);
 
 		if (ptr_light_mesh_prob_alias                    .ptr != NULL) CUDAMemory::free(ptr_light_mesh_prob_alias);
 		if (ptr_light_mesh_first_index_and_triangle_count.ptr != NULL) CUDAMemory::free(ptr_light_mesh_first_index_and_triangle_count);
@@ -736,9 +734,9 @@ void Pathtracer::calc_light_power() {
 		ptr_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc<int2>     (light_mesh_count);
 		ptr_light_mesh_transform_index                = CUDAMemory::malloc<int>      (light_mesh_count);
 
-		cuda_module.get_global("light_mesh_prob_alias")                    .set_value(ptr_light_mesh_prob_alias);
-		cuda_module.get_global("light_mesh_first_index_and_triangle_count").set_value(ptr_light_mesh_first_index_and_triangle_count);
-		cuda_module.get_global("light_mesh_transform_index")               .set_value(ptr_light_mesh_transform_index);
+		cuda_module.get_global("light_mesh_prob_alias")                    .set_value_async(ptr_light_mesh_prob_alias,                     memory_stream);
+		cuda_module.get_global("light_mesh_first_index_and_triangle_count").set_value_async(ptr_light_mesh_first_index_and_triangle_count, memory_stream);
+		cuda_module.get_global("light_mesh_transform_index")               .set_value_async(ptr_light_mesh_transform_index,                memory_stream);
 	}
 }
 
@@ -748,9 +746,9 @@ void Pathtracer::build_tlas() {
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  tlas = tlas_raw;                      CUDAMemory::memcpy(ptr_bvh_nodes_2, tlas.nodes._2, tlas.node_count); break;
-		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw); CUDAMemory::memcpy(ptr_bvh_nodes_4, tlas.nodes._4, tlas.node_count); break;
-		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); CUDAMemory::memcpy(ptr_bvh_nodes_8, tlas.nodes._8, tlas.node_count); break;
+		case BVHType::SBVH:  tlas = tlas_raw;                      CUDAMemory::memcpy_async(ptr_bvh_nodes_2, tlas.nodes._2, tlas.node_count, memory_stream); break;
+		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_4, tlas.nodes._4, tlas.node_count, memory_stream); break;
+		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_8, tlas.nodes._8, tlas.node_count, memory_stream); break;
 		default: abort();
 	}
 	assert(tlas.index_count == scene.meshes.size());
@@ -785,11 +783,11 @@ void Pathtracer::build_tlas() {
 		}
 	}
 
-	CUDAMemory::memcpy(ptr_mesh_bvh_root_indices,  pinned_mesh_bvh_root_indices, scene.meshes.size());
-	CUDAMemory::memcpy(ptr_mesh_material_ids,      pinned_mesh_material_ids,     scene.meshes.size());
-	CUDAMemory::memcpy(ptr_mesh_transforms,        pinned_mesh_transforms,       scene.meshes.size());
-	CUDAMemory::memcpy(ptr_mesh_transforms_inv,    pinned_mesh_transforms_inv,   scene.meshes.size());
-	CUDAMemory::memcpy(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.meshes.size());
+	CUDAMemory::memcpy_async(ptr_mesh_bvh_root_indices,  pinned_mesh_bvh_root_indices, scene.meshes.size(), memory_stream);
+	CUDAMemory::memcpy_async(ptr_mesh_material_ids,      pinned_mesh_material_ids,     scene.meshes.size(), memory_stream);
+	CUDAMemory::memcpy_async(ptr_mesh_transforms,        pinned_mesh_transforms,       scene.meshes.size(), memory_stream);
+	CUDAMemory::memcpy_async(ptr_mesh_transforms_inv,    pinned_mesh_transforms_inv,   scene.meshes.size(), memory_stream);
+	CUDAMemory::memcpy_async(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.meshes.size(), memory_stream);
 
 	if (light_mesh_count > 0) {
 		for (int i = 0; i < light_mesh_count; i++) {
@@ -797,12 +795,12 @@ void Pathtracer::build_tlas() {
 		}
 		Util::init_alias_method(light_mesh_count, light_mesh_probabilites, pinned_light_mesh_prob_alias);
 
-		CUDAMemory::memcpy(ptr_light_mesh_prob_alias,                     pinned_light_mesh_prob_alias,                     light_mesh_count);
-		CUDAMemory::memcpy(ptr_light_mesh_first_index_and_triangle_count, pinned_light_mesh_first_index_and_triangle_count, light_mesh_count);
-		CUDAMemory::memcpy(ptr_light_mesh_transform_index,                pinned_light_mesh_transform_index,                light_mesh_count);
+		CUDAMemory::memcpy_async(ptr_light_mesh_prob_alias,                     pinned_light_mesh_prob_alias,                     light_mesh_count, memory_stream);
+		CUDAMemory::memcpy_async(ptr_light_mesh_first_index_and_triangle_count, pinned_light_mesh_first_index_and_triangle_count, light_mesh_count, memory_stream);
+		CUDAMemory::memcpy_async(ptr_light_mesh_transform_index,                pinned_light_mesh_transform_index,                light_mesh_count, memory_stream);
 	}
 
-	global_lights_total_weight.set_value(float(lights_total_weight));
+	global_lights_total_weight.set_value_async(float(lights_total_weight), memory_stream);
 }
 
 void Pathtracer::update(float delta) {
@@ -854,8 +852,8 @@ void Pathtracer::update(float delta) {
 			}
 		}
 
-		CUDAMemory::memcpy(ptr_material_types, cuda_material_types, materials.size());
-		CUDAMemory::memcpy(ptr_materials,      cuda_materials,      materials.size());
+		CUDAMemory::memcpy_async(ptr_material_types, cuda_material_types, materials.size(), memory_stream);
+		CUDAMemory::memcpy_async(ptr_materials,      cuda_materials,      materials.size(), memory_stream);
 
 		delete [] cuda_material_types;
 		delete [] cuda_materials;
@@ -879,7 +877,7 @@ void Pathtracer::update(float delta) {
 			} else {
 				ray_buffer_shade_diffuse_and_plastic.free();
 			}
-			global_ray_buffer_shade_diffuse_and_plastic.set_value(ray_buffer_shade_diffuse_and_plastic);
+			global_ray_buffer_shade_diffuse_and_plastic.set_value_async(ray_buffer_shade_diffuse_and_plastic, memory_stream);
 		}
 
 		// Handle (dis)appearance of Dielectric OR Conductor materials (they share the same Material buffer)
@@ -889,7 +887,7 @@ void Pathtracer::update(float delta) {
 			} else {
 				ray_buffer_shade_dielectric_and_conductor.free();
 			}
-			global_ray_buffer_shade_dielectric_and_conductor.set_value(ray_buffer_shade_dielectric_and_conductor);
+			global_ray_buffer_shade_dielectric_and_conductor.set_value_async(ray_buffer_shade_dielectric_and_conductor, memory_stream);
 		}
 
 		// Handle (dis)appearance of Light materials
@@ -905,14 +903,14 @@ void Pathtracer::update(float delta) {
 				CUDAMemory::free(ptr_light_mesh_first_index_and_triangle_count);
 				CUDAMemory::free(ptr_light_mesh_transform_index);
 
-				global_lights_total_weight.set_value(0.0f);
+				global_lights_total_weight.set_value_async(0.0f, memory_stream);
 
 				for (int i = 0; i < scene.meshes.size(); i++) {
 					scene.meshes[i].light.weight = 0.0f;
 				}
 			}
 
-			global_ray_buffer_shadow.set_value(ray_buffer_shadow);
+			global_ray_buffer_shadow.set_value_async(ray_buffer_shadow, memory_stream);
 		}
 
 		if (had_lights) {
@@ -938,7 +936,7 @@ void Pathtracer::update(float delta) {
 				cuda_mediums[i].g = medium.g;
 			}
 
-			CUDAMemory::memcpy(ptr_media, cuda_mediums, medium_count);
+			CUDAMemory::memcpy_async(ptr_media, cuda_mediums, medium_count, memory_stream);
 
 			delete [] cuda_mediums;
 		}
@@ -989,7 +987,7 @@ void Pathtracer::update(float delta) {
 		cuda_camera.aperture_radius    = scene.camera.aperture_radius;
 		cuda_camera.focal_distance     = scene.camera.focal_distance;
 
-		global_camera.set_value(cuda_camera);
+		global_camera.set_value_async(cuda_camera, memory_stream);
 
 		if (!config.enable_svgf) {
 			frames_accumulated = 0;
@@ -999,7 +997,7 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (pixel_query_status == PixelQueryStatus::OUTPUT_READY) {
-		CUDAMemory::memcpy(&pixel_query, CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr));
+		CUDAMemory::memcpy_async(&pixel_query, CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), 1, memory_stream);
 
 		if (pixel_query.mesh_id != INVALID) {
 			pixel_query.mesh_id = tlas.indices[pixel_query.mesh_id];
@@ -1007,7 +1005,7 @@ void Pathtracer::update(float delta) {
 
 		// Reset pixel query
 		pixel_query.pixel_index = INVALID;
-		CUDAMemory::memcpy(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query);
+		CUDAMemory::memcpy_async(CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), &pixel_query, 1, memory_stream);
 
 		pixel_query_status = PixelQueryStatus::INACTIVE;
 	}
@@ -1021,13 +1019,13 @@ void Pathtracer::update(float delta) {
 		svgf_data.view_projection      = scene.camera.view_projection;
 		svgf_data.view_projection_prev = scene.camera.view_projection_prev;
 
-		global_svgf_data.set_value(svgf_data);
+		global_svgf_data.set_value_async(svgf_data, memory_stream);
 	}
 
 	if (invalidated_config) {
 		frames_accumulated = 0;
 
-		global_config.set_value(config);
+		global_config.set_value_async(config, memory_stream);
 	} else if (config.enable_svgf) {
 		frames_accumulated = (frames_accumulated + 1) & 255;
 	} else if (scene.camera.moved) {
@@ -1040,7 +1038,7 @@ void Pathtracer::update(float delta) {
 void Pathtracer::render() {
 	event_pool.reset();
 
-	CUDACALL(cuStreamSynchronize(stream_memset));
+	CUDACALL(cuStreamSynchronize(memory_stream));
 
 	int pixels_left = pixel_count;
 	int batch_size  = Math::min(BATCH_SIZE, pixel_count);
@@ -1151,9 +1149,9 @@ void Pathtracer::render() {
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	if (config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, stream_memset);
-	CUDAMemory::memset_async(ptr_frame_buffer_direct,   0, screen_pitch * screen_height, stream_memset);
-	CUDAMemory::memset_async(ptr_frame_buffer_indirect, 0, screen_pitch * screen_height, stream_memset);
+	if (config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, memory_stream);
+	CUDAMemory::memset_async(ptr_frame_buffer_direct,   0, screen_pitch * screen_height, memory_stream);
+	CUDAMemory::memset_async(ptr_frame_buffer_indirect, 0, screen_pitch * screen_height, memory_stream);
 
 	// If a pixel query was previously pending, it has just been resolved in the current frame
 	if (pixel_query_status == PixelQueryStatus::PENDING) {
@@ -1170,7 +1168,7 @@ void Pathtracer::set_pixel_query(int x, int y) {
 	pixel_query.mesh_id     = INVALID;
 	pixel_query.triangle_id = INVALID;
 	pixel_query.material_id = INVALID;
-	global_pixel_query.set_value(pixel_query);
+	global_pixel_query.set_value_async(pixel_query, memory_stream);
 
 	pixel_query_status = PixelQueryStatus::PENDING;
 }
