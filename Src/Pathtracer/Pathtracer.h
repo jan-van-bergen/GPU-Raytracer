@@ -1,8 +1,9 @@
 #pragma once
-#include "CUDA/CUDAModule.h"
-#include "CUDA/CUDAKernel.h"
-#include "CUDA/CUDAMemory.h"
-#include "CUDA/CUDAEvent.h"
+#include "Device/CUDAModule.h"
+#include "Device/CUDAKernel.h"
+#include "Device/CUDAMemory.h"
+#include "Device/CUDAEvent.h"
+#include "Device/CUDAContext.h"
 
 #include "BVH/Builders/BVHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"

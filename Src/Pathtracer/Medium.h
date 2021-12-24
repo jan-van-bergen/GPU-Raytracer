@@ -2,7 +2,7 @@
 #include "Math/Math.h"
 #include "Math/Vector3.h"
 
-#include "../CUDA_Source/Common.h"
+#include "CUDA/Common.h"
 
 struct Medium {
 	const char * name;

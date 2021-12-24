@@ -2,8 +2,6 @@
 
 #include <Imgui/imgui.h>
 
-#include "CUDA/CUDAContext.h"
-
 #include "Pathtracer/Pathtracer.h"
 
 #include "Config.h"

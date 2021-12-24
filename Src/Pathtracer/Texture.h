@@ -1,7 +1,7 @@
 #pragma once
 #include <cuda.h>
 
-#include "../CUDA_Source/Common.h"
+#include "CUDA/Common.h"
 
 struct Scene;
 

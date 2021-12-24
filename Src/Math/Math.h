@@ -3,7 +3,7 @@
 
 #include "Math/Vector3.h"
 
-#include "../CUDA_Source/Common.h"
+#include "CUDA/Common.h"
 
 // Various math util functions
 namespace Math {

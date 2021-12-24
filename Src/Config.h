@@ -1,5 +1,5 @@
 #pragma once
-#include "../CUDA_Source/Common.h"
+#include "CUDA/Common.h"
 
 #include "Util/Array.h"
 

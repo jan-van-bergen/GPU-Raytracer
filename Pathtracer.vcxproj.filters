@@ -31,15 +31,6 @@
     <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
-    <ClCompile Include="Src\CUDA\CUDAContext.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\CUDA\CUDAMemory.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\CUDA\CUDAModule.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Pathtracer\Camera.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
@@ -136,11 +127,17 @@
     <ClCompile Include="Src\Pathtracer\MeshData.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Device\CUDAMemory.cpp">
+      <Filter>Device</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Device\CUDAModule.cpp">
+      <Filter>Device</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Device\CUDAContext.cpp">
+      <Filter>Device</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="CUDA">
-      <UniqueIdentifier>{05d166cc-0368-4859-a6e2-171631634c79}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Math">
       <UniqueIdentifier>{8eb0591e-caaa-4325-b7bf-48400ec23114}</UniqueIdentifier>
     </Filter>
@@ -164,6 +161,9 @@
     </Filter>
     <Filter Include="Assets\Mitsuba">
       <UniqueIdentifier>{03cc5535-b67c-49b7-b23b-c1a84fbdfccf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Device">
+      <UniqueIdentifier>{05d166cc-0368-4859-a6e2-171631634c79}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -191,9 +191,6 @@
     <ClInclude Include="Imgui\imstb_truetype.h">
       <Filter>Imgui</Filter>
     </ClInclude>
-    <ClInclude Include="CUDA_Source\Common.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Assets\OBJLoader.h">
       <Filter>Assets</Filter>
     </ClInclude>
@@ -214,24 +211,6 @@
     </ClInclude>
     <ClInclude Include="Src\BVH\Builders\SBVHBuilder.h">
       <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDACall.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAContext.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAEvent.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAKernel.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAMemory.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAModule.h">
-      <Filter>CUDA</Filter>
     </ClInclude>
     <ClInclude Include="Src\Math\Math.h">
       <Filter>Math</Filter>
@@ -373,6 +352,24 @@
     </ClInclude>
     <ClInclude Include="Src\Pathtracer\MeshData.h">
       <Filter>Pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAEvent.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAKernel.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAMemory.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAModule.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDACall.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAContext.h">
+      <Filter>Device</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

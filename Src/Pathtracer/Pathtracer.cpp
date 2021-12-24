@@ -4,8 +4,6 @@
 
 #include "Config.h"
 
-#include "CUDA/CUDAContext.h"
-
 #include "Math/Vector4.h"
 
 #include "MeshData.h"
@@ -43,7 +41,7 @@ void kernel_trace_calc_grid_and_block_size(CUDAKernel & kernel) {
 
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	// Init CUDA Module and its Kernels
-	cuda_module.init("CUDA_Source/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
+	cuda_module.init("Src/CUDA/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
 
 	kernel_generate          .init(&cuda_module, "kernel_generate");
 	kernel_trace_bvh         .init(&cuda_module, "kernel_trace_bvh");
