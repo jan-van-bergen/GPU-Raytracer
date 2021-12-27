@@ -67,7 +67,7 @@ static void parse_face(Parser & parser, Array<Face> & faces) {
 	while (true) {
 		parser.skip_whitespace();
 
-		if (parser.reached_end() || !is_digit(*parser.cur)) break;
+		if (parser.reached_end() || !(*parser.cur == '-' || is_digit(*parser.cur))) break;
 
 		Index curr_index = parse_index(parser);
 		faces.emplace_back(index_0, prev_index, curr_index);
