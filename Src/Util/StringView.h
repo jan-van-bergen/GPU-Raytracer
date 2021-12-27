@@ -70,7 +70,7 @@ inline bool operator==(const StringView & a, const char * b) {
 		if (a[i] != b[i] || b[i] == '\0') return false;
 	}
 
-	return true;
+	return b[length] == '\0';
 }
 
 inline bool operator==(const StringView & a, const StringView & b) {
