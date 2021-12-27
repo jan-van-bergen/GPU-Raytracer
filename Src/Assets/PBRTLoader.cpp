@@ -98,9 +98,9 @@ static Param parse_param(Parser & parser) {
 		param.type = Param::Type::BOOL;
 		do {
 			bool value;
-			if (parser.match("true")) {
+			if (parser.match("\"true\"")) {
 				value = true;
-			} else if (parser.match("false")) {
+			} else if (parser.match("\"false\"")) {
 				value = false;
 			} else {
 				ERROR(parser.location, "Invalid boolean value!\n");
@@ -129,18 +129,18 @@ static Param parse_param(Parser & parser) {
 		param.type = Param::Type::FLOAT2;
 		do {
 			Vector2 value;
-			value.x = parser.parse_float(); pbrt_parser_skip(parser);
+			value.x = parser.parse_float(); parser.match(','); pbrt_parser_skip(parser);
 			value.y = parser.parse_float();
 			param.float2s.push_back(value);
 			pbrt_parser_skip(parser);
 		} while (has_brackets && !parser.match(']'));
 
-	} else if (type == "vector3" || type == "point3" || type == "normal" || type == "rgb") {
+	} else if (type == "vector3" || type == "point3" || type == "point" || type == "normal" || type == "rgb") {
 		param.type = Param::Type::FLOAT3;
 		do {
 			Vector3 value;
-			value.x = parser.parse_float(); pbrt_parser_skip(parser);
-			value.y = parser.parse_float(); pbrt_parser_skip(parser);
+			value.x = parser.parse_float(); parser.match(','); pbrt_parser_skip(parser);
+			value.y = parser.parse_float(); parser.match(','); pbrt_parser_skip(parser);
 			value.z = parser.parse_float();
 			param.float3s.push_back(value);
 			pbrt_parser_skip(parser);
@@ -778,7 +778,11 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 			const Param * scale = find_param_optional(params, "scale");
 			if (scale) {
-				material.emission *= scale->floats[0];
+				if (scale->type == Param::Type::FLOAT3) {
+					material.emission *= scale->float3s[0];
+				} else {
+					material.emission *= scale->floats[0];
+				}
 			}
 
 			attribute_stack.back().material = scene.asset_manager.add_material(material);
