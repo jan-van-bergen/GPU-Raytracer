@@ -269,12 +269,11 @@ private:
 
 	TraceBuffer     ray_buffer_trace_0;
 	TraceBuffer     ray_buffer_trace_1;
-	MaterialBuffer  ray_buffer_material_diffuse_and_plastic;
-	MaterialBuffer  ray_buffer_material_dielectric_and_conductor;
 	ShadowRayBuffer ray_buffer_shadow;
 
-	CUDAModule::Global global_ray_buffer_material_diffuse_and_plastic;
-	CUDAModule::Global global_ray_buffer_material_dielectric_and_conductor;
+	Array<MaterialBuffer>               material_ray_buffers;
+	CUDAMemory::Ptr<MaterialBuffer> ptr_material_ray_buffers;
+
 	CUDAModule::Global global_ray_buffer_shadow;
 
 	BufferSizes * pinned_buffer_sizes;

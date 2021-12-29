@@ -114,9 +114,24 @@ struct ShadowRayBuffer {
 
 __device__ __constant__ TraceBuffer     ray_buffer_trace_0;
 __device__ __constant__ TraceBuffer     ray_buffer_trace_1;
-__device__ __constant__ MaterialBuffer  ray_buffer_material_diffuse_and_plastic;
-__device__ __constant__ MaterialBuffer  ray_buffer_material_dielectric_and_conductor;
 __device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
+
+__device__ __constant__ size_t material_buffer_diffuse;
+__device__ __constant__ size_t material_buffer_plastic;
+__device__ __constant__ size_t material_buffer_dielectric;
+__device__ __constant__ size_t material_buffer_conductor;
+
+struct MaterialBufferAllocation {
+	MaterialBuffer * buffer;
+	bool             reversed;
+};
+
+__device__ inline MaterialBufferAllocation get_material_buffer(size_t packed) {
+	return MaterialBufferAllocation {
+		reinterpret_cast<MaterialBuffer *>(packed & ~1),
+		bool(packed & 1)
+	};
+}
 
 __device__ inline TraceBuffer * get_ray_buffer_trace(int bounce) {
 	if (bounce & 1) {

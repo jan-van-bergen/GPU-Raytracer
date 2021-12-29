@@ -536,6 +536,7 @@ static void draw_gui() {
 	if (ImGui::Begin("Scene")) {
 		if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::Text("Has Diffuse:    %s", pathtracer.scene.has_diffuse    ? "True" : "False");
+			ImGui::Text("Has Plastic:    %s", pathtracer.scene.has_plastic    ? "True" : "False");
 			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
 			ImGui::Text("Has Conductor:  %s", pathtracer.scene.has_conductor  ? "True" : "False");
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");

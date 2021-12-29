@@ -61,9 +61,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("ray_buffer_trace_0").set_value(ray_buffer_trace_0);
 	cuda_module.get_global("ray_buffer_trace_1").set_value(ray_buffer_trace_1);
 
-	global_ray_buffer_material_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_material_diffuse_and_plastic");
-	global_ray_buffer_material_dielectric_and_conductor = cuda_module.get_global("ray_buffer_material_dielectric_and_conductor");
-	global_ray_buffer_shadow                            = cuda_module.get_global("ray_buffer_shadow");
+	global_ray_buffer_shadow = cuda_module.get_global("ray_buffer_shadow");
 
 	global_camera      = cuda_module.get_global("camera");
 	global_config      = cuda_module.get_global("config");
@@ -481,9 +479,11 @@ void Pathtracer::cuda_free() {
 
 	ray_buffer_trace_0.free();
 	ray_buffer_trace_1.free();
-	if (scene.has_diffuse    || scene.has_plastic)   ray_buffer_material_diffuse_and_plastic.free();
-	if (scene.has_dielectric || scene.has_conductor) ray_buffer_material_dielectric_and_conductor.free();
-	if (scene.has_lights)                            ray_buffer_shadow.free();
+	if (scene.has_lights) {
+		ray_buffer_shadow.free();
+	}
+
+	CUDAMemory::free(ptr_material_ray_buffers);
 
 	tlas_bvh_builder.free();
 	if (config.bvh_type == BVHType::CWBVH) {
@@ -878,31 +878,59 @@ void Pathtracer::update(float delta) {
 
 		scene.check_materials();
 
-		bool diffuse_or_plastic_changed      = (had_diffuse    || had_plastic)   ^ (scene.has_diffuse    || scene.has_plastic);
-		bool dielectric_or_conductor_changed = (had_dielectric || had_conductor) ^ (scene.has_dielectric || scene.has_conductor);
-		bool lights_changed                  =  had_lights                       ^  scene.has_lights;
+		bool material_types_changed =
+			(had_diffuse    ^ scene.has_diffuse) |
+			(had_plastic    ^ scene.has_plastic) |
+			(had_dielectric ^ scene.has_dielectric) |
+			(had_conductor  ^ scene.has_conductor);
 
-		// Handle (dis)appearance of Diffuse materials
-		if (diffuse_or_plastic_changed) {
-			if (scene.has_diffuse || scene.has_plastic) {
-				ray_buffer_material_diffuse_and_plastic.init(BATCH_SIZE);
-			} else {
-				ray_buffer_material_diffuse_and_plastic.free();
-			}
-			global_ray_buffer_material_diffuse_and_plastic.set_value_async(ray_buffer_material_diffuse_and_plastic, memory_stream);
-		}
+		if (material_types_changed) {
+			int num_different_materials =
+				int(scene.has_diffuse) +
+				int(scene.has_plastic) +
+				int(scene.has_dielectric) +
+				int(scene.has_conductor);
+			// 2 different Materials can share the same MaterialBuffer, one growing left to right, one growing right to left
+			int num_material_buffers_needed = Math::divide_round_up(num_different_materials, 2);
 
-		// Handle (dis)appearance of Dielectric OR Conductor materials (they share the same Material buffer)
-		if (dielectric_or_conductor_changed) {
-			if (scene.has_dielectric || scene.has_conductor) {
-				ray_buffer_material_dielectric_and_conductor.init(BATCH_SIZE);
-			} else {
-				ray_buffer_material_dielectric_and_conductor.free();
+			if (num_material_buffers_needed < material_ray_buffers.size()) {
+				// Free MaterialBuffers that are not needed
+				for (int i = num_material_buffers_needed; i < material_ray_buffers.size(); i++) {
+					material_ray_buffers[i].free();
+				}
+			} else if (num_material_buffers_needed > material_ray_buffers.size()) {
+				// Allocate new required MaterialBuffers
+				for (int i = material_ray_buffers.size(); i < num_material_buffers_needed; i++) {
+					material_ray_buffers.emplace_back().init(BATCH_SIZE);
+				}
 			}
-			global_ray_buffer_material_dielectric_and_conductor.set_value_async(ray_buffer_material_dielectric_and_conductor, memory_stream);
+
+			if (ptr_material_ray_buffers.ptr) {
+				CUDAMemory::free(ptr_material_ray_buffers);
+			}
+			ptr_material_ray_buffers = CUDAMemory::malloc(material_ray_buffers);
+
+			int material_buffer_index = 0;
+
+			auto set_material_buffer = [&](const char * global_name) {
+				// Two consecutive buffers can share the same underlying allocation, every odd buffer is reversed
+				CUDAMemory::Ptr<MaterialBuffer> ptr_buffer = ptr_material_ray_buffers + material_buffer_index / 2;
+				bool reversed = material_buffer_index & 1;
+
+				assert((ptr_buffer.ptr & 1) == 0);
+				uintptr_t packed = ptr_buffer.ptr | reversed;
+				cuda_module.get_global(global_name).set_value_async(packed, memory_stream);
+
+				material_buffer_index++;
+			};
+			if (scene.has_diffuse)    set_material_buffer("material_buffer_diffuse");
+			if (scene.has_plastic)    set_material_buffer("material_buffer_plastic");
+			if (scene.has_dielectric) set_material_buffer("material_buffer_dielectric");
+			if (scene.has_conductor)  set_material_buffer("material_buffer_conductor");
 		}
 
 		// Handle (dis)appearance of Light materials
+		bool lights_changed = had_lights ^ scene.has_lights;
 		if (lights_changed) {
 			if (scene.has_lights) {
 				ray_buffer_shadow.init(BATCH_SIZE);
@@ -1074,25 +1102,18 @@ void Pathtracer::render() {
 			kernel_sort.execute(bounce, frames_accumulated);
 
 			// Process the various Material types in different Kernels
-			if (scene.has_diffuse) {
-				event_pool.record(event_desc_material_diffuse[bounce]);
-				kernel_material_diffuse.execute(bounce, frames_accumulated);
-			}
+			int material_buffer_index = 0;
 
-			if (scene.has_plastic) {
-				event_pool.record(event_desc_material_plastic[bounce]);
-				kernel_material_plastic.execute(bounce, frames_accumulated);
-			}
+			auto execute_material_kernel = [&](const CUDAEvent::Desc & event, CUDAKernel & kernel) {
+				event_pool.record(event);
+				kernel.execute(bounce, frames_accumulated, ptr_material_ray_buffers + material_buffer_index / 2, bool(material_buffer_index & 1));
 
-			if (scene.has_dielectric) {
-				event_pool.record(event_desc_material_dielectric[bounce]);
-				kernel_material_dielectric.execute(bounce, frames_accumulated);
-			}
-
-			if (scene.has_conductor) {
-				event_pool.record(event_desc_material_conductor[bounce]);
-				kernel_material_conductor.execute(bounce, frames_accumulated);
-			}
+				material_buffer_index++;
+			};
+			if (scene.has_diffuse)    execute_material_kernel(event_desc_material_diffuse   [bounce], kernel_material_diffuse);
+			if (scene.has_plastic)    execute_material_kernel(event_desc_material_plastic   [bounce], kernel_material_plastic);
+			if (scene.has_dielectric) execute_material_kernel(event_desc_material_dielectric[bounce], kernel_material_dielectric);
+			if (scene.has_conductor)  execute_material_kernel(event_desc_material_conductor [bounce], kernel_material_conductor);
 
 			// Trace shadow Rays
 			if (scene.has_lights && config.enable_next_event_estimation) {

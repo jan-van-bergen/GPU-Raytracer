@@ -139,3 +139,8 @@ namespace CUDAMemory {
 
 	CUarray resource_get_array(CUgraphicsResource resource);
 }
+
+template<typename T>
+CUDAMemory::Ptr<T> operator+(CUDAMemory::Ptr<T> ptr, size_t offset) {
+	return ptr.ptr + offset * sizeof(T);
+}
