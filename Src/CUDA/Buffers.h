@@ -114,8 +114,8 @@ struct ShadowRayBuffer {
 
 __device__ __constant__ TraceBuffer     ray_buffer_trace_0;
 __device__ __constant__ TraceBuffer     ray_buffer_trace_1;
-__device__ __constant__ MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
-__device__ __constant__ MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
+__device__ __constant__ MaterialBuffer  ray_buffer_material_diffuse_and_plastic;
+__device__ __constant__ MaterialBuffer  ray_buffer_material_dielectric_and_conductor;
 __device__ __constant__ ShadowRayBuffer ray_buffer_shadow;
 
 __device__ inline TraceBuffer * get_ray_buffer_trace(int bounce) {

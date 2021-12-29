@@ -61,9 +61,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	cuda_module.get_global("ray_buffer_trace_0").set_value(ray_buffer_trace_0);
 	cuda_module.get_global("ray_buffer_trace_1").set_value(ray_buffer_trace_1);
 
-	global_ray_buffer_shade_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_shade_diffuse_and_plastic");
-	global_ray_buffer_shade_dielectric_and_conductor = cuda_module.get_global("ray_buffer_shade_dielectric_and_conductor");
-	global_ray_buffer_shadow                         = cuda_module.get_global("ray_buffer_shadow");
+	global_ray_buffer_material_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_material_diffuse_and_plastic");
+	global_ray_buffer_material_dielectric_and_conductor = cuda_module.get_global("ray_buffer_material_dielectric_and_conductor");
+	global_ray_buffer_shadow                            = cuda_module.get_global("ray_buffer_shadow");
 
 	global_camera      = cuda_module.get_global("camera");
 	global_config      = cuda_module.get_global("config");
@@ -106,25 +106,25 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 void Pathtracer::cuda_init_module() {
 	cuda_module.init("Src/CUDA/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
 
-	kernel_generate          .init(&cuda_module, "kernel_generate");
-	kernel_trace_bvh         .init(&cuda_module, "kernel_trace_bvh");
-	kernel_trace_qbvh        .init(&cuda_module, "kernel_trace_qbvh");
-	kernel_trace_cwbvh       .init(&cuda_module, "kernel_trace_cwbvh");
-	kernel_sort              .init(&cuda_module, "kernel_sort");
-	kernel_shade_diffuse     .init(&cuda_module, "kernel_shade_diffuse");
-	kernel_shade_plastic     .init(&cuda_module, "kernel_shade_plastic");
-	kernel_shade_dielectric  .init(&cuda_module, "kernel_shade_dielectric");
-	kernel_shade_conductor   .init(&cuda_module, "kernel_shade_conductor");
-	kernel_trace_shadow_bvh  .init(&cuda_module, "kernel_trace_shadow_bvh");
-	kernel_trace_shadow_qbvh .init(&cuda_module, "kernel_trace_shadow_qbvh");
-	kernel_trace_shadow_cwbvh.init(&cuda_module, "kernel_trace_shadow_cwbvh");
-	kernel_svgf_reproject    .init(&cuda_module, "kernel_svgf_reproject");
-	kernel_svgf_variance     .init(&cuda_module, "kernel_svgf_variance");
-	kernel_svgf_atrous       .init(&cuda_module, "kernel_svgf_atrous");
-	kernel_svgf_finalize     .init(&cuda_module, "kernel_svgf_finalize");
-	kernel_taa               .init(&cuda_module, "kernel_taa");
-	kernel_taa_finalize      .init(&cuda_module, "kernel_taa_finalize");
-	kernel_accumulate        .init(&cuda_module, "kernel_accumulate");
+	kernel_generate           .init(&cuda_module, "kernel_generate");
+	kernel_trace_bvh          .init(&cuda_module, "kernel_trace_bvh");
+	kernel_trace_qbvh         .init(&cuda_module, "kernel_trace_qbvh");
+	kernel_trace_cwbvh        .init(&cuda_module, "kernel_trace_cwbvh");
+	kernel_sort               .init(&cuda_module, "kernel_sort");
+	kernel_material_diffuse   .init(&cuda_module, "kernel_material_diffuse");
+	kernel_material_plastic   .init(&cuda_module, "kernel_material_plastic");
+	kernel_material_dielectric.init(&cuda_module, "kernel_material_dielectric");
+	kernel_material_conductor .init(&cuda_module, "kernel_material_conductor");
+	kernel_trace_shadow_bvh   .init(&cuda_module, "kernel_trace_shadow_bvh");
+	kernel_trace_shadow_qbvh  .init(&cuda_module, "kernel_trace_shadow_qbvh");
+	kernel_trace_shadow_cwbvh .init(&cuda_module, "kernel_trace_shadow_cwbvh");
+	kernel_svgf_reproject     .init(&cuda_module, "kernel_svgf_reproject");
+	kernel_svgf_variance      .init(&cuda_module, "kernel_svgf_variance");
+	kernel_svgf_atrous        .init(&cuda_module, "kernel_svgf_atrous");
+	kernel_svgf_finalize      .init(&cuda_module, "kernel_svgf_finalize");
+	kernel_taa                .init(&cuda_module, "kernel_taa");
+	kernel_taa_finalize       .init(&cuda_module, "kernel_taa_finalize");
+	kernel_accumulate         .init(&cuda_module, "kernel_accumulate");
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
@@ -145,10 +145,10 @@ void Pathtracer::cuda_init_module() {
 
 	kernel_generate        .set_block_dim(256, 1, 1);
 	kernel_sort            .set_block_dim(256, 1, 1);
-	kernel_shade_diffuse   .set_block_dim(256, 1, 1);
-	kernel_shade_plastic   .set_block_dim(256, 1, 1);
-	kernel_shade_dielectric.set_block_dim(256, 1, 1);
-	kernel_shade_conductor .set_block_dim(256, 1, 1);
+	kernel_material_diffuse   .set_block_dim(256, 1, 1);
+	kernel_material_plastic   .set_block_dim(256, 1, 1);
+	kernel_material_dielectric.set_block_dim(256, 1, 1);
+	kernel_material_conductor .set_block_dim(256, 1, 1);
 
 	// CWBVH uses a stack of int2's (8 bytes)
 	// Other BVH's use a stack of ints (4 bytes)
@@ -391,13 +391,13 @@ void Pathtracer::cuda_init_events() {
 		char    * category = new char[len];
 		sprintf_s(category, len, "Bounce %i", i);
 
-		event_desc_trace           [i] = { display_order, category, "Trace" };
-		event_desc_sort            [i] = { display_order, category, "Sort" };
-		event_desc_shade_diffuse   [i] = { display_order, category, "Diffuse" };
-		event_desc_shade_plastic   [i] = { display_order, category, "Plastic" };
-		event_desc_shade_dielectric[i] = { display_order, category, "Dielectric" };
-		event_desc_shade_conductor [i] = { display_order, category, "Conductor" };
-		event_desc_shadow_trace    [i] = { display_order, category, "Shadow" };
+		event_desc_trace              [i] = { display_order, category, "Trace" };
+		event_desc_sort               [i] = { display_order, category, "Sort" };
+		event_desc_material_diffuse   [i] = { display_order, category, "Diffuse" };
+		event_desc_material_plastic   [i] = { display_order, category, "Plastic" };
+		event_desc_material_dielectric[i] = { display_order, category, "Dielectric" };
+		event_desc_material_conductor [i] = { display_order, category, "Conductor" };
+		event_desc_shadow_trace       [i] = { display_order, category, "Shadow" };
 
 		display_order++;
 	}
@@ -481,8 +481,8 @@ void Pathtracer::cuda_free() {
 
 	ray_buffer_trace_0.free();
 	ray_buffer_trace_1.free();
-	if (scene.has_diffuse    || scene.has_plastic)   ray_buffer_shade_diffuse_and_plastic.free();
-	if (scene.has_dielectric || scene.has_conductor) ray_buffer_shade_dielectric_and_conductor.free();
+	if (scene.has_diffuse    || scene.has_plastic)   ray_buffer_material_diffuse_and_plastic.free();
+	if (scene.has_dielectric || scene.has_conductor) ray_buffer_material_dielectric_and_conductor.free();
 	if (scene.has_lights)                            ray_buffer_shadow.free();
 
 	tlas_bvh_builder.free();
@@ -534,12 +534,12 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	kernel_taa_finalize  .set_grid_dim(screen_pitch / kernel_taa_finalize  .block_dim_x, Math::divide_round_up(height, kernel_taa_finalize  .block_dim_y), 1);
 	kernel_accumulate    .set_grid_dim(screen_pitch / kernel_accumulate    .block_dim_x, Math::divide_round_up(height, kernel_accumulate    .block_dim_y), 1);
 
-	kernel_generate        .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_generate        .block_dim_x), 1, 1);
-	kernel_sort            .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_sort            .block_dim_x), 1, 1);
-	kernel_shade_diffuse   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_diffuse   .block_dim_x), 1, 1);
-	kernel_shade_plastic   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_plastic   .block_dim_x), 1, 1);
-	kernel_shade_dielectric.set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_dielectric.block_dim_x), 1, 1);
-	kernel_shade_conductor .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_shade_conductor .block_dim_x), 1, 1);
+	kernel_generate           .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_generate           .block_dim_x), 1, 1);
+	kernel_sort               .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_sort               .block_dim_x), 1, 1);
+	kernel_material_diffuse   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_material_diffuse   .block_dim_x), 1, 1);
+	kernel_material_plastic   .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_material_plastic   .block_dim_x), 1, 1);
+	kernel_material_dielectric.set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_material_dielectric.block_dim_x), 1, 1);
+	kernel_material_conductor .set_grid_dim(Math::divide_round_up(BATCH_SIZE, kernel_material_conductor .block_dim_x), 1, 1);
 
 	scene.camera.resize(width, height);
 	invalidated_camera = true;
@@ -885,21 +885,21 @@ void Pathtracer::update(float delta) {
 		// Handle (dis)appearance of Diffuse materials
 		if (diffuse_or_plastic_changed) {
 			if (scene.has_diffuse || scene.has_plastic) {
-				ray_buffer_shade_diffuse_and_plastic.init(BATCH_SIZE);
+				ray_buffer_material_diffuse_and_plastic.init(BATCH_SIZE);
 			} else {
-				ray_buffer_shade_diffuse_and_plastic.free();
+				ray_buffer_material_diffuse_and_plastic.free();
 			}
-			global_ray_buffer_shade_diffuse_and_plastic.set_value_async(ray_buffer_shade_diffuse_and_plastic, memory_stream);
+			global_ray_buffer_material_diffuse_and_plastic.set_value_async(ray_buffer_material_diffuse_and_plastic, memory_stream);
 		}
 
 		// Handle (dis)appearance of Dielectric OR Conductor materials (they share the same Material buffer)
 		if (dielectric_or_conductor_changed) {
 			if (scene.has_dielectric || scene.has_conductor) {
-				ray_buffer_shade_dielectric_and_conductor.init(BATCH_SIZE);
+				ray_buffer_material_dielectric_and_conductor.init(BATCH_SIZE);
 			} else {
-				ray_buffer_shade_dielectric_and_conductor.free();
+				ray_buffer_material_dielectric_and_conductor.free();
 			}
-			global_ray_buffer_shade_dielectric_and_conductor.set_value_async(ray_buffer_shade_dielectric_and_conductor, memory_stream);
+			global_ray_buffer_material_dielectric_and_conductor.set_value_async(ray_buffer_material_dielectric_and_conductor, memory_stream);
 		}
 
 		// Handle (dis)appearance of Light materials
@@ -1075,23 +1075,23 @@ void Pathtracer::render() {
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
-				event_pool.record(event_desc_shade_diffuse[bounce]);
-				kernel_shade_diffuse.execute(bounce, frames_accumulated);
+				event_pool.record(event_desc_material_diffuse[bounce]);
+				kernel_material_diffuse.execute(bounce, frames_accumulated);
 			}
 
 			if (scene.has_plastic) {
-				event_pool.record(event_desc_shade_plastic[bounce]);
-				kernel_shade_plastic.execute(bounce, frames_accumulated);
+				event_pool.record(event_desc_material_plastic[bounce]);
+				kernel_material_plastic.execute(bounce, frames_accumulated);
 			}
 
 			if (scene.has_dielectric) {
-				event_pool.record(event_desc_shade_dielectric[bounce]);
-				kernel_shade_dielectric.execute(bounce, frames_accumulated);
+				event_pool.record(event_desc_material_dielectric[bounce]);
+				kernel_material_dielectric.execute(bounce, frames_accumulated);
 			}
 
 			if (scene.has_conductor) {
-				event_pool.record(event_desc_shade_conductor[bounce]);
-				kernel_shade_conductor.execute(bounce, frames_accumulated);
+				event_pool.record(event_desc_material_conductor[bounce]);
+				kernel_material_conductor.execute(bounce, frames_accumulated);
 			}
 
 			// Trace shadow Rays

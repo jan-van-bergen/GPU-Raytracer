@@ -361,16 +361,16 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		case MaterialType::DIFFUSE: {
 			int index_out = atomicAdd(&buffer_sizes.diffuse[bounce], 1);
 
-			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
+			ray_buffer_material_diffuse_and_plastic.direction.set(index_out, ray_direction);
 
-			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
+			if (medium_id != INVALID) ray_buffer_material_diffuse_and_plastic.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_cone;
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_material_diffuse_and_plastic.cone[index_out] = ray_cone;
 
-			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
+			ray_buffer_material_diffuse_and_plastic.hits.set(index_out, hit);
 
-			ray_buffer_shade_diffuse_and_plastic.pixel_index_and_flags[index_out] = pixel_index | flags;
-			if (bounce > 0) ray_buffer_shade_diffuse_and_plastic.throughput.set(index_out, throughput);
+			ray_buffer_material_diffuse_and_plastic.pixel_index_and_flags[index_out] = pixel_index | flags;
+			if (bounce > 0) ray_buffer_material_diffuse_and_plastic.throughput.set(index_out, throughput);
 
 			break;
 		}
@@ -379,16 +379,16 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			// Plastic Material buffer is shared with Diffuse Material buffer but grows in the opposite direction
 			int index_out = (BATCH_SIZE - 1) - atomicAdd(&buffer_sizes.plastic[bounce], 1);
 
-			ray_buffer_shade_diffuse_and_plastic.direction.set(index_out, ray_direction);
+			ray_buffer_material_diffuse_and_plastic.direction.set(index_out, ray_direction);
 
-			if (medium_id != INVALID) ray_buffer_shade_diffuse_and_plastic.medium[index_out] = medium_id;
+			if (medium_id != INVALID) ray_buffer_material_diffuse_and_plastic.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_diffuse_and_plastic.cone[index_out] = ray_cone;
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_material_diffuse_and_plastic.cone[index_out] = ray_cone;
 
-			ray_buffer_shade_diffuse_and_plastic.hits.set(index_out, hit);
+			ray_buffer_material_diffuse_and_plastic.hits.set(index_out, hit);
 
-			ray_buffer_shade_diffuse_and_plastic.pixel_index_and_flags[index_out] = pixel_index | flags;
-			if (bounce > 0) ray_buffer_shade_diffuse_and_plastic.throughput.set(index_out, throughput);
+			ray_buffer_material_diffuse_and_plastic.pixel_index_and_flags[index_out] = pixel_index | flags;
+			if (bounce > 0) ray_buffer_material_diffuse_and_plastic.throughput.set(index_out, throughput);
 
 			break;
 		}
@@ -396,16 +396,16 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		case MaterialType::DIELECTRIC: {
 			int index_out = atomicAdd(&buffer_sizes.dielectric[bounce], 1);
 
-			ray_buffer_shade_dielectric_and_conductor.direction.set(index_out, ray_direction);
+			ray_buffer_material_dielectric_and_conductor.direction.set(index_out, ray_direction);
 
-			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
+			if (medium_id != INVALID) ray_buffer_material_dielectric_and_conductor.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_cone;
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_material_dielectric_and_conductor.cone[index_out] = ray_cone;
 
-			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
+			ray_buffer_material_dielectric_and_conductor.hits.set(index_out, hit);
 
-			ray_buffer_shade_dielectric_and_conductor.pixel_index_and_flags[index_out] = pixel_index | flags;
-			if (bounce > 0) ray_buffer_shade_dielectric_and_conductor.throughput.set(index_out, throughput);
+			ray_buffer_material_dielectric_and_conductor.pixel_index_and_flags[index_out] = pixel_index | flags;
+			if (bounce > 0) ray_buffer_material_dielectric_and_conductor.throughput.set(index_out, throughput);
 
 			break;
 		}
@@ -414,16 +414,16 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			// Conductor Material buffer is shared with Dielectric Material buffer but grows in the opposite direction
 			int index_out = (BATCH_SIZE - 1) - atomicAdd(&buffer_sizes.conductor[bounce], 1);
 
-			ray_buffer_shade_dielectric_and_conductor.direction.set(index_out, ray_direction);
+			ray_buffer_material_dielectric_and_conductor.direction.set(index_out, ray_direction);
 
-			if (medium_id != INVALID) ray_buffer_shade_dielectric_and_conductor.medium[index_out] = medium_id;
+			if (medium_id != INVALID) ray_buffer_material_dielectric_and_conductor.medium[index_out] = medium_id;
 
-			if (bounce > 0 && config.enable_mipmapping) ray_buffer_shade_dielectric_and_conductor.cone[index_out] = ray_cone;
+			if (bounce > 0 && config.enable_mipmapping) ray_buffer_material_dielectric_and_conductor.cone[index_out] = ray_cone;
 
-			ray_buffer_shade_dielectric_and_conductor.hits.set(index_out, hit);
+			ray_buffer_material_dielectric_and_conductor.hits.set(index_out, hit);
 
-			ray_buffer_shade_dielectric_and_conductor.pixel_index_and_flags[index_out] = pixel_index | flags;
-			if (bounce > 0) ray_buffer_shade_dielectric_and_conductor.throughput.set(index_out, throughput);
+			ray_buffer_material_dielectric_and_conductor.pixel_index_and_flags[index_out] = pixel_index | flags;
+			if (bounce > 0) ray_buffer_material_dielectric_and_conductor.throughput.set(index_out, throughput);
 
 			break;
 		}
@@ -686,20 +686,20 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	ray_buffer_trace->last_pdf[index_out] = pdf;
 }
 
-extern "C" __global__ void kernel_shade_diffuse(int bounce, int sample_index) {
-	shade_material<BSDFDiffuse, &ray_buffer_shade_diffuse_and_plastic, false>(bounce, sample_index, buffer_sizes.diffuse[bounce]);
+extern "C" __global__ void kernel_material_diffuse(int bounce, int sample_index) {
+	shade_material<BSDFDiffuse, &ray_buffer_material_diffuse_and_plastic, false>(bounce, sample_index, buffer_sizes.diffuse[bounce]);
 }
 
-extern "C" __global__ void kernel_shade_plastic(int bounce, int sample_index) {
-	shade_material<BSDFPlastic, &ray_buffer_shade_diffuse_and_plastic, true>(bounce, sample_index, buffer_sizes.plastic[bounce]);
+extern "C" __global__ void kernel_material_plastic(int bounce, int sample_index) {
+	shade_material<BSDFPlastic, &ray_buffer_material_diffuse_and_plastic, true>(bounce, sample_index, buffer_sizes.plastic[bounce]);
 }
 
-extern "C" __global__ void kernel_shade_dielectric(int bounce, int sample_index) {
-	shade_material<BSDFDielectric, &ray_buffer_shade_dielectric_and_conductor, false>(bounce, sample_index, buffer_sizes.dielectric[bounce]);
+extern "C" __global__ void kernel_material_dielectric(int bounce, int sample_index) {
+	shade_material<BSDFDielectric, &ray_buffer_material_dielectric_and_conductor, false>(bounce, sample_index, buffer_sizes.dielectric[bounce]);
 }
 
-extern "C" __global__ void kernel_shade_conductor(int bounce, int sample_index) {
-	shade_material<BSDFConductor, &ray_buffer_shade_dielectric_and_conductor, true>(bounce, sample_index, buffer_sizes.conductor[bounce]);
+extern "C" __global__ void kernel_material_conductor(int bounce, int sample_index) {
+	shade_material<BSDFConductor, &ray_buffer_material_dielectric_and_conductor, true>(bounce, sample_index, buffer_sizes.conductor[bounce]);
 }
 
 extern "C" __global__ void kernel_accumulate(float frames_accumulated) {

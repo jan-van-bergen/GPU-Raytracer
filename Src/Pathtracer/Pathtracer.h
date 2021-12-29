@@ -243,10 +243,10 @@ private:
 	CUDAKernel kernel_trace_qbvh;
 	CUDAKernel kernel_trace_cwbvh;
 	CUDAKernel kernel_sort;
-	CUDAKernel kernel_shade_diffuse;
-	CUDAKernel kernel_shade_plastic;
-	CUDAKernel kernel_shade_dielectric;
-	CUDAKernel kernel_shade_conductor;
+	CUDAKernel kernel_material_diffuse;
+	CUDAKernel kernel_material_plastic;
+	CUDAKernel kernel_material_dielectric;
+	CUDAKernel kernel_material_conductor;
 	CUDAKernel kernel_trace_shadow_bvh;
 	CUDAKernel kernel_trace_shadow_qbvh;
 	CUDAKernel kernel_trace_shadow_cwbvh;
@@ -269,12 +269,12 @@ private:
 
 	TraceBuffer     ray_buffer_trace_0;
 	TraceBuffer     ray_buffer_trace_1;
-	MaterialBuffer  ray_buffer_shade_diffuse_and_plastic;
-	MaterialBuffer  ray_buffer_shade_dielectric_and_conductor;
+	MaterialBuffer  ray_buffer_material_diffuse_and_plastic;
+	MaterialBuffer  ray_buffer_material_dielectric_and_conductor;
 	ShadowRayBuffer ray_buffer_shadow;
 
-	CUDAModule::Global global_ray_buffer_shade_diffuse_and_plastic;
-	CUDAModule::Global global_ray_buffer_shade_dielectric_and_conductor;
+	CUDAModule::Global global_ray_buffer_material_diffuse_and_plastic;
+	CUDAModule::Global global_ray_buffer_material_dielectric_and_conductor;
 	CUDAModule::Global global_ray_buffer_shadow;
 
 	BufferSizes * pinned_buffer_sizes;
@@ -414,10 +414,10 @@ private:
 	CUDAEvent::Desc event_desc_primary;
 	CUDAEvent::Desc event_desc_trace[MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_sort [MAX_BOUNCES];
-	CUDAEvent::Desc event_desc_shade_diffuse   [MAX_BOUNCES];
-	CUDAEvent::Desc event_desc_shade_plastic   [MAX_BOUNCES];
-	CUDAEvent::Desc event_desc_shade_dielectric[MAX_BOUNCES];
-	CUDAEvent::Desc event_desc_shade_conductor [MAX_BOUNCES];
+	CUDAEvent::Desc event_desc_material_diffuse   [MAX_BOUNCES];
+	CUDAEvent::Desc event_desc_material_plastic   [MAX_BOUNCES];
+	CUDAEvent::Desc event_desc_material_dielectric[MAX_BOUNCES];
+	CUDAEvent::Desc event_desc_material_conductor [MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_shadow_trace[MAX_BOUNCES];
 	CUDAEvent::Desc event_desc_svgf_reproject;
 	CUDAEvent::Desc event_desc_svgf_variance;
