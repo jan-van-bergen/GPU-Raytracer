@@ -201,6 +201,12 @@ struct Pathtracer {
 	void init(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height);
 
 	void cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height);
+	void cuda_init_module();
+	void cuda_init_materials();
+	void cuda_init_geometry();
+	void cuda_init_sky();
+	void cuda_init_rng();
+	void cuda_init_events();
 	void cuda_free();
 
 	void resize_init(unsigned frame_buffer_handle, int width, int height); // Part of resize that initializes new size

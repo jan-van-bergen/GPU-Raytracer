@@ -40,7 +40,70 @@ void kernel_trace_calc_grid_and_block_size(CUDAKernel & kernel) {
 };
 
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
-	// Init CUDA Module and its Kernels
+	cuda_init_module();
+
+	pinned_buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
+	pinned_buffer_sizes->reset(BATCH_SIZE);
+
+	global_buffer_sizes = cuda_module.get_global("buffer_sizes");
+	global_buffer_sizes.set_value(*pinned_buffer_sizes);
+
+	resize_init(frame_buffer_handle, screen_width, screen_height);
+
+	cuda_init_materials();
+	cuda_init_geometry();
+	cuda_init_sky();
+	cuda_init_rng();
+	cuda_init_events();
+
+	ray_buffer_trace_0.init(BATCH_SIZE);
+	ray_buffer_trace_1.init(BATCH_SIZE);
+	cuda_module.get_global("ray_buffer_trace_0").set_value(ray_buffer_trace_0);
+	cuda_module.get_global("ray_buffer_trace_1").set_value(ray_buffer_trace_1);
+
+	global_ray_buffer_shade_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_shade_diffuse_and_plastic");
+	global_ray_buffer_shade_dielectric_and_conductor = cuda_module.get_global("ray_buffer_shade_dielectric_and_conductor");
+	global_ray_buffer_shadow                         = cuda_module.get_global("ray_buffer_shadow");
+
+	global_camera      = cuda_module.get_global("camera");
+	global_config      = cuda_module.get_global("config");
+	global_svgf_data   = cuda_module.get_global("svgf_data");
+	global_pixel_query = cuda_module.get_global("pixel_query");
+
+	global_lights_total_weight = cuda_module.get_global("lights_total_weight");
+	global_lights_total_weight.set_value(0.0f);
+
+	// Reallocate TLAS BVH nodes as page locked memory, this allows faster copying to the GPU
+	switch (config.bvh_type) {
+		case BVHType::BVH:
+		case BVHType::SBVH:  delete [] tlas.nodes._2; tlas.nodes._2 = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
+		case BVHType::QBVH:  delete [] tlas.nodes._4; tlas.nodes._4 = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
+		case BVHType::CWBVH: delete [] tlas.nodes._8; tlas.nodes._8 = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
+		default: abort();
+	}
+
+	scene.camera.update(0.0f);
+	scene.update(0.0f);
+
+	scene.has_diffuse    = false;
+	scene.has_plastic    = false;
+	scene.has_dielectric = false;
+	scene.has_conductor  = false;
+	scene.has_lights     = false;
+
+	invalidated_scene     = true;
+	invalidated_materials = true;
+	invalidated_mediums   = true;
+	invalidated_config    = true;
+
+	unsigned long long bytes_available = CUDAContext::get_available_memory();
+	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
+
+	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n",   bytes_allocated >> 10, bytes_allocated >> 20);
+	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n\n", bytes_available >> 10, bytes_available >> 20);
+}
+
+void Pathtracer::cuda_init_module() {
 	cuda_module.init("Src/CUDA/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
 
 	kernel_generate          .init(&cuda_module, "kernel_generate");
@@ -95,18 +158,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh);
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_qbvh);
 	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_shadow_cwbvh);
+}
 
-//	printf("\nConfiguration picked for Tracing kernels:\n    Block Size: %i x %i\n    Grid Size:  %i\n\n", block_x, block_y, grid);
-
-	pinned_buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
-	pinned_buffer_sizes->reset(BATCH_SIZE);
-
-	global_buffer_sizes = cuda_module.get_global("buffer_sizes");
-	global_buffer_sizes.set_value(*pinned_buffer_sizes);
-
-	resize_init(frame_buffer_handle, screen_width, screen_height);
-
-	// Set global Material table
+void Pathtracer::cuda_init_materials() {
 	ptr_material_types = CUDAMemory::malloc<Material::Type>(scene.asset_manager.materials.size());
 	ptr_materials      = CUDAMemory::malloc<CUDAMaterial>  (scene.asset_manager.materials.size());
 	cuda_module.get_global("material_types").set_value(ptr_material_types);
@@ -183,7 +237,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		ptr_textures = CUDAMemory::malloc(textures, texture_count);
 		cuda_module.get_global("textures").set_value(ptr_textures);
 	}
+}
 
+void Pathtracer::cuda_init_geometry() {
 	int mesh_data_count = scene.asset_manager.mesh_datas.size();
 
 	mesh_data_bvh_offsets      = new int[mesh_data_count];
@@ -304,13 +360,17 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
 	delete [] aggregated_triangles;
+}
 
+void Pathtracer::cuda_init_sky() {
 	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
 
 	cuda_module.get_global("sky_width") .set_value(scene.sky.width);
 	cuda_module.get_global("sky_height").set_value(scene.sky.height);
 	cuda_module.get_global("sky_data")  .set_value(ptr_sky_data);
+}
 
+void Pathtracer::cuda_init_rng() {
 	for (int i = 1; i < PMJ_NUM_SEQUENCES; i++) {
 		PMJ::shuffle(i);
 	}
@@ -320,25 +380,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	ptr_blue_noise_textures = CUDAMemory::malloc<unsigned short>(&BlueNoise::textures[0][0][0], BLUE_NOISE_NUM_TEXTURES * BLUE_NOISE_TEXTURE_DIM * BLUE_NOISE_TEXTURE_DIM);
 	cuda_module.get_global("blue_noise_textures").set_value(ptr_blue_noise_textures);
+}
 
-	ray_buffer_trace_0.init(BATCH_SIZE);
-	ray_buffer_trace_1.init(BATCH_SIZE);
-	cuda_module.get_global("ray_buffer_trace_0").set_value(ray_buffer_trace_0);
-	cuda_module.get_global("ray_buffer_trace_1").set_value(ray_buffer_trace_1);
-
-	global_ray_buffer_shade_diffuse_and_plastic      = cuda_module.get_global("ray_buffer_shade_diffuse_and_plastic");
-	global_ray_buffer_shade_dielectric_and_conductor = cuda_module.get_global("ray_buffer_shade_dielectric_and_conductor");
-	global_ray_buffer_shadow                         = cuda_module.get_global("ray_buffer_shadow");
-
-	global_camera      = cuda_module.get_global("camera");
-	global_config      = cuda_module.get_global("config");
-	global_svgf_data   = cuda_module.get_global("svgf_data");
-	global_pixel_query = cuda_module.get_global("pixel_query");
-
-	global_lights_total_weight = cuda_module.get_global("lights_total_weight");
-	global_lights_total_weight.set_value(0.0f);
-
-	// Initialize CUDA Events used for timing
+void Pathtracer::cuda_init_events() {
 	int display_order = 0;
 	event_desc_primary = { display_order++, "Primary", "Primary" };
 
@@ -375,35 +419,6 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	event_desc_accumulate  = { display_order, "Post", "Accumulate" };
 
 	event_desc_end = { ++display_order, "END", "END" };
-
-	// Reallocate TLAS BVH nodes as page locked memory, this allows faster copying to the GPU
-	switch (config.bvh_type) {
-		case BVHType::BVH:
-		case BVHType::SBVH:  delete [] tlas.nodes._2; tlas.nodes._2 = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
-		case BVHType::QBVH:  delete [] tlas.nodes._4; tlas.nodes._4 = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
-		case BVHType::CWBVH: delete [] tlas.nodes._8; tlas.nodes._8 = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
-		default: abort();
-	}
-
-	scene.camera.update(0.0f);
-	scene.update(0.0f);
-
-	scene.has_diffuse    = false;
-	scene.has_plastic    = false;
-	scene.has_dielectric = false;
-	scene.has_conductor  = false;
-	scene.has_lights     = false;
-
-	invalidated_scene     = true;
-	invalidated_materials = true;
-	invalidated_mediums   = true;
-	invalidated_config    = true;
-
-	unsigned long long bytes_available = CUDAContext::get_available_memory();
-	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
-
-	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n",   bytes_allocated >> 10, bytes_allocated >> 20);
-	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n\n", bytes_available >> 10, bytes_available >> 20);
 }
 
 void Pathtracer::cuda_free() {
