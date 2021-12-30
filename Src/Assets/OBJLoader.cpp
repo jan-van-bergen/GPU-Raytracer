@@ -44,11 +44,14 @@ static Index parse_index(Parser & parser) {
 	index.v = parse_int(parser);
 
 	if (parser.match('/')) {
-		if (!parser.match('/')) {
+		if (parser.match('/')) {
+			index.n = parse_int(parser);
+		} else {
 			index.t = parse_int(parser);
-			parser.expect('/');
+			if (parser.match('/')) {
+				index.n = parse_int(parser);
+			}
 		}
-		index.n = parse_int(parser);
 	}
 
 	return index;
