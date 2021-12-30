@@ -32,11 +32,11 @@ __device__ inline unsigned cwbvh_node_intersect(
 	byte e_z = extract_byte(e_imask, 2);
 
 	float3 adjusted_ray_direction_inv = make_float3(
-		uint_as_float(e_x << 23) * ray.direction_inv.x,
-		uint_as_float(e_y << 23) * ray.direction_inv.y,
-		uint_as_float(e_z << 23) * ray.direction_inv.z
+		uint_as_float(e_x << 23) / ray.direction.x,
+		uint_as_float(e_y << 23) / ray.direction.y,
+		uint_as_float(e_z << 23) / ray.direction.z
 	);
-	float3 adjusted_ray_origin = (p - ray.origin) * ray.direction_inv;
+	float3 adjusted_ray_origin = (p - ray.origin) / ray.direction;
 
 	unsigned hit_mask = 0;
 
@@ -126,7 +126,6 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 
 			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
-			ray.calc_direction_inv();
 
 			// Ray octant, encoded in 3 bits
 			unsigned oct =
@@ -217,8 +216,6 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 						matrix3x4_transform_position (transform_inv, ray.origin);
 						matrix3x4_transform_direction(transform_inv, ray.direction);
 
-						ray.calc_direction_inv();
-
 						// Ray octant, encoded in 3 bits
 						unsigned oct =
 							(ray.direction.x < 0.0f ? 0b100 : 0) |
@@ -263,7 +260,6 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 						// Reset Ray to untransformed version
 						ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 						ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
-						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
 						unsigned oct =
@@ -311,7 +307,6 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 
 			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
-			ray.calc_direction_inv();
 
 			// Ray octant, encoded in 3 bits
 			unsigned oct =
@@ -403,8 +398,6 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 						matrix3x4_transform_position (transform_inv, ray.origin);
 						matrix3x4_transform_direction(transform_inv, ray.direction);
 
-						ray.calc_direction_inv();
-
 						// Ray octant, encoded in 3 bits
 						unsigned oct =
 							(ray.direction.x < 0.0f ? 0b100 : 0) |
@@ -469,7 +462,6 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 						// Reset Ray to untransformed version
 						ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 						ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
-						ray.calc_direction_inv();
 
 						// Ray octant, encoded in 3 bits
 						unsigned oct =

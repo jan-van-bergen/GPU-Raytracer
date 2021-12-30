@@ -26,12 +26,12 @@ struct AABBHits {
 __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray & ray, float max_distance) {
 	AABBHits result;
 
-	float4 tx0 = (__ldg(&node.aabb_min_x) - ray.origin.x) * ray.direction_inv.x;
-	float4 tx1 = (__ldg(&node.aabb_max_x) - ray.origin.x) * ray.direction_inv.x;
-	float4 ty0 = (__ldg(&node.aabb_min_y) - ray.origin.y) * ray.direction_inv.y;
-	float4 ty1 = (__ldg(&node.aabb_max_y) - ray.origin.y) * ray.direction_inv.y;
-	float4 tz0 = (__ldg(&node.aabb_min_z) - ray.origin.z) * ray.direction_inv.z;
-	float4 tz1 = (__ldg(&node.aabb_max_z) - ray.origin.z) * ray.direction_inv.z;
+	float4 tx0 = (__ldg(&node.aabb_min_x) - ray.origin.x) / ray.direction.x;
+	float4 tx1 = (__ldg(&node.aabb_max_x) - ray.origin.x) / ray.direction.x;
+	float4 ty0 = (__ldg(&node.aabb_min_y) - ray.origin.y) / ray.direction.y;
+	float4 ty1 = (__ldg(&node.aabb_max_y) - ray.origin.y) / ray.direction.y;
+	float4 tz0 = (__ldg(&node.aabb_min_z) - ray.origin.z) / ray.direction.z;
+	float4 tz1 = (__ldg(&node.aabb_max_z) - ray.origin.z) / ray.direction.z;
 
 	result.t_near = make_float4(
 		vmin_max(tx0.x, tx1.x, vmin_max(ty0.x, ty1.x, vmin_max(tz0.x, tz1.x, 0.0f))),
@@ -110,7 +110,6 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 
 			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
-			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
 			ray_hit.triangle_id = INVALID;
@@ -130,7 +129,6 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 					// Reset Ray to untransformed version
 					ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 					ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
-					ray.calc_direction_inv();
 				}
 			}
 
@@ -161,8 +159,6 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 						Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
 						matrix3x4_transform_position (transform_inv, ray.origin);
 						matrix3x4_transform_direction(transform_inv, ray.direction);
-
-						ray.calc_direction_inv();
 					}
 
 					stack_push(shared_stack_qbvh, stack, stack_size, root_index);
@@ -219,7 +215,6 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 
 			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
-			ray.calc_direction_inv();
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
@@ -238,7 +233,6 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 					// Reset Ray to untransformed version
 					ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 					ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
-					ray.calc_direction_inv();
 				}
 			}
 
@@ -268,8 +262,6 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 						Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
 						matrix3x4_transform_position (transform_inv, ray.origin);
 						matrix3x4_transform_direction(transform_inv, ray.direction);
-
-						ray.calc_direction_inv();
 					}
 
 					stack_push(shared_stack_qbvh, stack, stack_size, root_index);

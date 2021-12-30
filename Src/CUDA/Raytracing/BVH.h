@@ -6,8 +6,8 @@ struct AABB {
 	float3 max;
 
 	__device__ inline bool intersects(const Ray & ray, float max_distance) const {
-		float3 t0 = (min - ray.origin) * ray.direction_inv;
-		float3 t1 = (max - ray.origin) * ray.direction_inv;
+		float3 t0 = (min - ray.origin) / ray.direction;
+		float3 t1 = (max - ray.origin) / ray.direction;
 
 		float t_near = vmin_max(t0.x, t1.x, vmin_max(t0.y, t1.y, vmin_max(t0.z, t1.z, 0.0f)));
 		float t_far  = vmax_min(t0.x, t1.x, vmax_min(t0.y, t1.y, vmax_min(t0.z, t1.z, max_distance)));
@@ -66,7 +66,6 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 
 			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
-			ray.calc_direction_inv();
 
 			ray_hit.t           = INFINITY;
 			ray_hit.triangle_id = INVALID;
@@ -86,7 +85,6 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 					// Reset Ray to untransformed version
 					ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 					ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
-					ray.calc_direction_inv();
 				}
 			}
 
@@ -108,8 +106,6 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 							Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
 							matrix3x4_transform_position (transform_inv, ray.origin);
 							matrix3x4_transform_direction(transform_inv, ray.direction);
-
-							ray.calc_direction_inv();
 						}
 
 						stack_push(shared_stack_bvh, stack, stack_size, root_index);
@@ -167,7 +163,6 @@ __device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) 
 
 			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
-			ray.calc_direction_inv();
 
 			max_distance = ray_buffer_shadow.max_distance[ray_index];
 
@@ -186,7 +181,6 @@ __device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) 
 					// Reset Ray to untransformed version
 					ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 					ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
-					ray.calc_direction_inv();
 				}
 			}
 
@@ -208,8 +202,6 @@ __device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) 
 							Matrix3x4 transform_inv = mesh_get_transform_inv(mesh_id);
 							matrix3x4_transform_position (transform_inv, ray.origin);
 							matrix3x4_transform_direction(transform_inv, ray.direction);
-
-							ray.calc_direction_inv();
 						}
 
 						stack_push(shared_stack_bvh, stack, stack_size, root_index);
