@@ -75,15 +75,6 @@ __device__ inline unsigned pcg_hash(unsigned seed) {
     return (word >> 22u) ^ word;
 }
 
-// Based on: https://github.com/blender/blender/blob/master/intern/cycles/kernel/kernel_jitter.h#L122
-__device__ inline unsigned hash_with(unsigned i, unsigned p) {
-	i = (i ^ 61) ^ p;
-	i += i << 3;
-	i ^= i >> 4;
-	i *= 0x27d4eb2d;
-	return i;
-}
-
 __device__ inline unsigned hash_combine(unsigned a, unsigned b) {
 	return a ^ (b + 0x9e3779b9 + (a << 6) + (a >> 2));
 }
