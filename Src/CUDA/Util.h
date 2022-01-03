@@ -206,6 +206,13 @@ __device__ unsigned sign_extend_s8x4(unsigned x) {
 	return result;
 }
 
+template<typename T>
+__device__ void swap(T & a, T & b) {
+	T tmp = a;
+	a = b;
+	b = tmp;
+}
+
 // Most significant bit
 __device__ unsigned msb(unsigned x) {
 	unsigned result;

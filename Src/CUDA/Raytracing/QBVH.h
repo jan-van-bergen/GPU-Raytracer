@@ -14,12 +14,8 @@ struct QBVHNode {
 __device__ __constant__ QBVHNode * qbvh_nodes;
 
 struct AABBHits {
-	union {
-		float4 t_near;
-		float  t_near_f[4];
-		int    t_near_i[4];
-	};
-	bool hit[4];
+	float t_near[4];
+	bool  hit[4];
 };
 
 // Check the Ray agains the four AABB's of the children of the given QBVH Node
@@ -33,12 +29,11 @@ __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray 
 	float4 tz0 = (__ldg(&node.aabb_min_z) - ray.origin.z) / ray.direction.z;
 	float4 tz1 = (__ldg(&node.aabb_max_z) - ray.origin.z) / ray.direction.z;
 
-	result.t_near = make_float4(
-		vmin_max(tx0.x, tx1.x, vmin_max(ty0.x, ty1.x, vmin_max(tz0.x, tz1.x, 0.0f))),
-		vmin_max(tx0.y, tx1.y, vmin_max(ty0.y, ty1.y, vmin_max(tz0.y, tz1.y, 0.0f))),
-		vmin_max(tx0.z, tx1.z, vmin_max(ty0.z, ty1.z, vmin_max(tz0.z, tz1.z, 0.0f))),
-		vmin_max(tx0.w, tx1.w, vmin_max(ty0.w, ty1.w, vmin_max(tz0.w, tz1.w, 0.0f)))
-	);
+	result.t_near[0] = vmin_max(tx0.x, tx1.x, vmin_max(ty0.x, ty1.x, vmin_max(tz0.x, tz1.x, 0.0f)));
+	result.t_near[1] = vmin_max(tx0.y, tx1.y, vmin_max(ty0.y, ty1.y, vmin_max(tz0.y, tz1.y, 0.0f)));
+	result.t_near[2] = vmin_max(tx0.z, tx1.z, vmin_max(ty0.z, ty1.z, vmin_max(tz0.z, tz1.z, 0.0f)));
+	result.t_near[3] = vmin_max(tx0.w, tx1.w, vmin_max(ty0.w, ty1.w, vmin_max(tz0.w, tz1.w, 0.0f)));
+	
 	float4 t_far = make_float4(
 		vmax_min(tx0.x, tx1.x, vmax_min(ty0.x, ty1.x, vmax_min(tz0.x, tz1.x, max_distance))),
 		vmax_min(tx0.y, tx1.y, vmax_min(ty0.y, ty1.y, vmax_min(tz0.y, tz1.y, max_distance))),
@@ -46,29 +41,24 @@ __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray 
 		vmax_min(tx0.w, tx1.w, vmax_min(ty0.w, ty1.w, vmax_min(tz0.w, tz1.w, max_distance)))
 	);
 
-	result.hit[0] = result.t_near_f[0] < t_far.x;
-	result.hit[1] = result.t_near_f[1] < t_far.y;
-	result.hit[2] = result.t_near_f[2] < t_far.z;
-	result.hit[3] = result.t_near_f[3] < t_far.w;
+	result.hit[0] = result.t_near[0] < t_far.x;
+	result.hit[1] = result.t_near[1] < t_far.y;
+	result.hit[2] = result.t_near[2] < t_far.z;
+	result.hit[3] = result.t_near[3] < t_far.w;
 
 	// Use the two least significant bits of the float to store the index
-	result.t_near_i[0] = (result.t_near_i[0] & 0xfffffffc) | 0;
-	result.t_near_i[1] = (result.t_near_i[1] & 0xfffffffc) | 1;
-	result.t_near_i[2] = (result.t_near_i[2] & 0xfffffffc) | 2;
-	result.t_near_i[3] = (result.t_near_i[3] & 0xfffffffc) | 3;
+	result.t_near[0] = __uint_as_float((__float_as_uint(result.t_near[0]) & 0xfffffffc) | 0);
+	result.t_near[1] = __uint_as_float((__float_as_uint(result.t_near[1]) & 0xfffffffc) | 1);
+	result.t_near[2] = __uint_as_float((__float_as_uint(result.t_near[2]) & 0xfffffffc) | 2);
+	result.t_near[3] = __uint_as_float((__float_as_uint(result.t_near[3]) & 0xfffffffc) | 3);
 
 	// Bubble sort to order the hit distances
 	#pragma unroll
 	for (int i = 1; i < 4; i++) {
 		#pragma unroll
 		for (int j = i - 1; j >= 0; j--) {
-			if (result.t_near_f[j] < result.t_near_f[j + 1]) {
-				// int temp             = result.t_near_i[j  ];
-				// result.t_near_i[j  ] = result.t_near_i[j+1];
-				// result.t_near_i[j+1] = temp;
-				result.t_near_i[j    ] ^= result.t_near_i[j + 1];
-				result.t_near_i[j + 1] ^= result.t_near_i[j    ];
-				result.t_near_i[j    ] ^= result.t_near_i[j + 1];
+			if (result.t_near[j] < result.t_near[j + 1]) {
+				swap(result.t_near[j], result.t_near[j + 1]);
 			}
 		}
 	}
@@ -174,7 +164,7 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
-					int id = aabb_hits.t_near_i[i] & 3;
+					int id = __float_as_uint(aabb_hits.t_near[i]) & 3;
 
 					if (aabb_hits.hit[id]) {
 						stack_push(shared_stack_qbvh, stack, stack_size, pack_qbvh_node(child, id));
@@ -289,7 +279,7 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
-					int id = aabb_hits.t_near_i[i] & 3;
+					int id = __float_as_uint(aabb_hits.t_near[i]) & 3;
 
 					if (aabb_hits.hit[id]) {
 						stack_push(shared_stack_qbvh, stack, stack_size, pack_qbvh_node(child, id));
