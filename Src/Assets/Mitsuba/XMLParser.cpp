@@ -43,6 +43,7 @@ inline XMLNode parse_tag(Parser & parser) {
 		attribute.name.end = parser.cur;
 
 		parser.expect('=');
+		while (!parser.reached_end() && *parser.cur != '"' && *parser.cur != '\'') parser.advance();
 
 		char quote_type; // Either single or double quotes
 		if (parser.match('"')) {

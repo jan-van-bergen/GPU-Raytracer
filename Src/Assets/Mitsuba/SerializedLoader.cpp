@@ -10,32 +10,39 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 	int          serialized_length;
 	const char * serialized = Util::file_read(filename, serialized_length);
 
-	uint16_t file_format_id; memcpy(&file_format_id, serialized,                    sizeof(uint16_t));
-	uint16_t file_version;   memcpy(&file_version,   serialized + sizeof(uint16_t), sizeof(uint16_t));
+	Parser parser = { };
+	parser.init(serialized, serialized + serialized_length, filename);
 
+	uint16_t file_format_id = parser.parse_binary<uint16_t>();
 	if (file_format_id != 0x041c) {
 		ERROR(location_in_mitsuba_file, "ERROR: Serialized file '%s' does not start with format ID 0x041c!\n", filename);
 	}
 
+	uint16_t file_version = parser.parse_binary<uint16_t>();
+
 	// Read the End-of-File Dictionary
-	uint32_t num_meshes; memcpy(&num_meshes, serialized + serialized_length - sizeof(uint32_t), sizeof(uint32_t));
-	uint64_t eof_dictionary_offset;
+	parser.seek(serialized_length - sizeof(uint32_t));
+	uint32_t num_meshes = parser.parse_binary<uint32_t>();
+	uint64_t eof_dictionary_offset = 0;;
 
 	uint64_t * mesh_offsets = new uint64_t[num_meshes + 1];
 
 	if (file_version <= 3) {
-		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
-
 		// Version 0.3.0 and earlier use 32 bit mesh offsets
+		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
+		parser.seek(eof_dictionary_offset);
+
 		for (int i = 0; i < num_meshes; i++) {
-			mesh_offsets[i] = 0;
-			memcpy(mesh_offsets + i, serialized + eof_dictionary_offset + i * sizeof(uint32_t), sizeof(uint32_t));
+			mesh_offsets[i] = parser.parse_binary<uint32_t>();
 		}
 	} else {
-		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
-
 		// Version 0.4.0 and later use 64 bit mesh offsets
-		memcpy(mesh_offsets, serialized + eof_dictionary_offset, num_meshes * sizeof(uint64_t));
+		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
+		parser.seek(eof_dictionary_offset);
+
+		for (int i = 0; i < num_meshes; i++) {
+			mesh_offsets[i] = parser.parse_binary<uint64_t>();
+		}
 	}
 
 	mesh_offsets[num_meshes] = eof_dictionary_offset;
@@ -43,8 +50,8 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 
 	Serialized result = { };
 	result.num_meshes     = num_meshes;
-	result.triangle_count = new int         [num_meshes];
-	result.triangles      = new Triangle   *[num_meshes];
+	result.triangle_count = new int       [num_meshes];
+	result.triangles      = new Triangle *[num_meshes];
 
 	for (uint32_t i = 0; i < num_meshes; i++) {
 		// Decompress stream for this Mesh
@@ -83,7 +90,9 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 		bool flag_single_precision = flags & 0x1000;
 		bool flag_double_precision = flags & 0x2000;
 
-		if (file_version > 3) {
+		if (file_version <= 3) {
+			flag_single_precision = true;
+		} else {
 			// Read null terminated name
 			parser.parse_c_str();
 		}

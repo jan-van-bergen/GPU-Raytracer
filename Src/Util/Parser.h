@@ -79,21 +79,19 @@ inline const char * char_to_str(char c) {
 
 struct Parser {
 	const char * cur;
+	const char * start;
 	const char * end;
 
 	SourceLocation location;
 
-	void init(const char * cur, const char * end, const char * filename = nullptr) {
-		this->cur = cur;
-		this->end = end;
-		location.file = filename;
-		location.line = 1;
-		location.col  = 0;
+	void init(const char * start, const char * end, const char * filename = nullptr) {
+		init(start, end, SourceLocation { filename, 1, 0 });
 	}
 
-	void init(const char * cur, const char * end, SourceLocation location) {
-		this->cur = cur;
-		this->end = end;
+	void init(const char * start, const char * end, SourceLocation location) {
+		this->cur   = start;
+		this->start = start;
+		this->end   = end;
 		this->location = location;
 	}
 
@@ -109,6 +107,10 @@ struct Parser {
 			location.advance(*cur);
 			cur++;
 		}
+	}
+
+	void seek(size_t offset) {
+		cur = start + offset;
 	}
 
 	void skip_whitespace() {
