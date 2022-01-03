@@ -358,15 +358,15 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	unsigned flags = (medium_id != INVALID) << 30;
 
 	auto material_buffer_write = [](
-		int                        bounce,
-		size_t                     packed_material_buffer,
-		int                      * buffer_size,
-		const float3             & ray_direction,
-		int                        medium_id,
-		float2                     ray_cone,
-		const RayHit               hit,
-		unsigned                   pixel_index_and_flags,
-		const float3             & throughput
+		int            bounce,
+		size_t         packed_material_buffer,
+		int          * buffer_size,
+		const float3 & ray_direction,
+		int            medium_id,
+		float2         ray_cone,
+		const RayHit   hit,
+		unsigned       pixel_index_and_flags,
+		const float3 & throughput
 	) {
 		MaterialBufferAllocation material_buffer = get_material_buffer(packed_material_buffer);
 
