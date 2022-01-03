@@ -1102,18 +1102,22 @@ void Pathtracer::render() {
 			kernel_sort.execute(bounce, frames_accumulated);
 
 			// Process the various Material types in different Kernels
-			int material_buffer_index = 0;
-
-			auto execute_material_kernel = [&](const CUDAEvent::Desc & event, CUDAKernel & kernel) {
-				event_pool.record(event);
-				kernel.execute(bounce, frames_accumulated, ptr_material_ray_buffers + material_buffer_index / 2, bool(material_buffer_index & 1));
-
-				material_buffer_index++;
-			};
-			if (scene.has_diffuse)    execute_material_kernel(event_desc_material_diffuse   [bounce], kernel_material_diffuse);
-			if (scene.has_plastic)    execute_material_kernel(event_desc_material_plastic   [bounce], kernel_material_plastic);
-			if (scene.has_dielectric) execute_material_kernel(event_desc_material_dielectric[bounce], kernel_material_dielectric);
-			if (scene.has_conductor)  execute_material_kernel(event_desc_material_conductor [bounce], kernel_material_conductor);
+			if (scene.has_diffuse) {
+				event_pool.record(event_desc_material_diffuse[bounce]);
+				kernel_material_diffuse.execute(bounce, frames_accumulated);
+			}
+			if (scene.has_plastic) {
+				event_pool.record(event_desc_material_plastic[bounce]);
+				kernel_material_plastic.execute(bounce, frames_accumulated);
+			}
+			if (scene.has_dielectric) {
+				event_pool.record(event_desc_material_dielectric[bounce]);
+				kernel_material_dielectric.execute(bounce, frames_accumulated);
+			}
+			if (scene.has_conductor) {
+				event_pool.record(event_desc_material_conductor[bounce]);
+				kernel_material_conductor.execute(bounce, frames_accumulated);
+			}
 
 			// Trace shadow Rays
 			if (scene.has_lights && config.enable_next_event_estimation) {
