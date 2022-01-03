@@ -111,11 +111,7 @@ __device__ inline float sign(float x) {
 }
 
 __device__ inline constexpr bool is_power_of_two(unsigned x) {
-	if (x) {
-		return (x & (x - 1)) == 0;
-	} else {
-		return false;
-	}
+	return x != 0 && (x & (x - 1)) == 0;
 }
 
 __device__ inline float square(float x) {

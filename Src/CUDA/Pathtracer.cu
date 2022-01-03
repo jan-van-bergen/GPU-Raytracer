@@ -509,10 +509,10 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	float  triangle_area_inv = 1.0f / length(geometric_normal);
 	geometric_normal *= triangle_area_inv; // Normalize
 
-	if constexpr (BSDF::HAS_ALBEDO) {
+	if (BSDF::HAS_ALBEDO) {
 		TextureLOD lod;
 
-		if (config.enable_mipmapping && bsdf.material.texture_id != INVALID) {
+		if (config.enable_mipmapping && bsdf.has_texture()) {
 			if (use_anisotropic_texture_sampling(bounce)) {
 				float3 ellipse_axis_1, ellipse_axis_2;
 				ray_cone_get_ellipse_axes(ray_direction, normal, cone_width, ellipse_axis_1, ellipse_axis_2);

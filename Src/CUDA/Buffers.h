@@ -66,10 +66,10 @@ struct HitBuffer {
 	}
 };
 
-inline constexpr unsigned FLAG_MIS_ELIGABLE  = 1u << 31; // indicates the previous Material has a BRDF that supports MIS
-inline constexpr unsigned FLAG_INSIDE_MEDIUM = 1u << 30;
+constexpr unsigned FLAG_MIS_ELIGABLE  = 1u << 31; // indicates the previous Material has a BRDF that supports MIS
+constexpr unsigned FLAG_INSIDE_MEDIUM = 1u << 30;
 
-inline constexpr unsigned FLAGS_ALL = FLAG_MIS_ELIGABLE | FLAG_INSIDE_MEDIUM;
+constexpr unsigned FLAGS_ALL = FLAG_MIS_ELIGABLE | FLAG_INSIDE_MEDIUM;
 
 // Input to the Trace and Sort Kernels in SoA layout
 struct TraceBuffer {

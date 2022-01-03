@@ -52,6 +52,10 @@ struct BSDFDiffuse {
 		return pdf_is_valid(pdf);
 	}
 
+	__device__ bool has_texture() const {
+		return material.texture_id != INVALID;
+	}
+
 	__device__ bool is_mis_eligable() const {
 		return true;
 	}
@@ -192,6 +196,10 @@ struct BSDFPlastic {
 		return pdf_is_valid(pdf);
 	}
 
+	__device__ bool has_texture() const {
+		return material.texture_id != INVALID;
+	}
+
 	__device__ bool is_mis_eligable() const {
 		return true;
 	}
@@ -218,6 +226,10 @@ struct BSDFDielectric {
 		material = material_as_dielectric(material_id);
 
 		eta = entering_material ? 1.0f / material.ior : material.ior;
+	}
+
+	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod) {
+		// NO-OP
 	}
 
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
@@ -311,6 +323,10 @@ struct BSDFDielectric {
 		return pdf_is_valid(pdf);
 	}
 
+	__device__ bool has_texture() const {
+		return false;
+	}
+
 	__device__ bool is_mis_eligable() const {
 		return material.roughness >= ROUGHNESS_CUTOFF;
 	}
@@ -333,6 +349,10 @@ struct BSDFConductor {
 
 	__device__ void init(int bounce, bool entering_material, int material_id) {
 		material = material_as_conductor(material_id);
+	}
+
+	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod) {
+		// NO-OP
 	}
 
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
@@ -382,6 +402,10 @@ struct BSDFConductor {
 		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 
 		return pdf_is_valid(pdf);
+	}
+
+	__device__ bool has_texture() const {
+		return false;
 	}
 
 	__device__ bool is_mis_eligable() const {

@@ -174,7 +174,7 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
-					int id = aabb_hits.t_near_i[i] & 0b11;
+					int id = aabb_hits.t_near_i[i] & 3;
 
 					if (aabb_hits.hit[id]) {
 						stack_push(shared_stack_qbvh, stack, stack_size, pack_qbvh_node(child, id));
@@ -289,7 +289,7 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
-					int id = aabb_hits.t_near_i[i] & 0b11;
+					int id = aabb_hits.t_near_i[i] & 3;
 
 					if (aabb_hits.hit[id]) {
 						stack_push(shared_stack_qbvh, stack, stack_size, pack_qbvh_node(child, id));

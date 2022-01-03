@@ -1,6 +1,14 @@
 #pragma once
 #include "BVHCommon.h"
 
+// Inverse of ray octant, encoded in 3 bits, duplicated for each byte
+__device__ inline unsigned ray_get_octant_inv4(const float3 ray_direction) {
+	return
+		(ray_direction.x < 0.0f ? 0 : 0x04040404) |
+		(ray_direction.y < 0.0f ? 0 : 0x02020202) |
+		(ray_direction.z < 0.0f ? 0 : 0x01010101);
+}
+
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to
 // intersect triangles we postpone the intersection test to decrease divergence within a Warp
@@ -127,13 +135,7 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
 
-			// Ray octant, encoded in 3 bits
-			unsigned oct =
-				(ray.direction.x < 0.0f ? 0b100 : 0) |
-				(ray.direction.y < 0.0f ? 0b010 : 0) |
-				(ray.direction.z < 0.0f ? 0b001 : 0);
-
-			oct_inv4 = (7 - oct) * 0x01010101;
+			oct_inv4 = ray_get_octant_inv4(ray.direction);
 
 			current_group = make_uint2(0, 0x80000000);
 
@@ -216,13 +218,7 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 						matrix3x4_transform_position (transform_inv, ray.origin);
 						matrix3x4_transform_direction(transform_inv, ray.direction);
 
-						// Ray octant, encoded in 3 bits
-						unsigned oct =
-							(ray.direction.x < 0.0f ? 0b100 : 0) |
-							(ray.direction.y < 0.0f ? 0b010 : 0) |
-							(ray.direction.z < 0.0f ? 0b001 : 0);
-
-						oct_inv4 = (7 - oct) * 0x01010101;
+						oct_inv4 = ray_get_octant_inv4(ray.direction);
 					}
 
 					current_group = make_uint2(root_index, 0x80000000);
@@ -261,13 +257,7 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 						ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
 						ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
 
-						// Ray octant, encoded in 3 bits
-						unsigned oct =
-							(ray.direction.x < 0.0f ? 0b100 : 0) |
-							(ray.direction.y < 0.0f ? 0b010 : 0) |
-							(ray.direction.z < 0.0f ? 0b001 : 0);
-
-						oct_inv4 = (7 - oct) * 0x01010101;
+						oct_inv4 = ray_get_octant_inv4(ray.direction);
 					}
 				}
 
@@ -308,13 +298,7 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 
-			// Ray octant, encoded in 3 bits
-			unsigned oct =
-				(ray.direction.x < 0.0f ? 0b100 : 0) |
-				(ray.direction.y < 0.0f ? 0b010 : 0) |
-				(ray.direction.z < 0.0f ? 0b001 : 0);
-
-			oct_inv4 = (7 - oct) * 0x01010101;
+			oct_inv4 = ray_get_octant_inv4(ray.direction);
 
 			current_group = make_uint2(0, 0x80000000);
 
@@ -398,13 +382,7 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 						matrix3x4_transform_position (transform_inv, ray.origin);
 						matrix3x4_transform_direction(transform_inv, ray.direction);
 
-						// Ray octant, encoded in 3 bits
-						unsigned oct =
-							(ray.direction.x < 0.0f ? 0b100 : 0) |
-							(ray.direction.y < 0.0f ? 0b010 : 0) |
-							(ray.direction.z < 0.0f ? 0b001 : 0);
-
-						oct_inv4 = (7 - oct) * 0x01010101;
+						oct_inv4 = ray_get_octant_inv4(ray.direction);
 					}
 
 					current_group = make_uint2(root_index, 0x80000000);
@@ -463,13 +441,7 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 						ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
 						ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
 
-						// Ray octant, encoded in 3 bits
-						unsigned oct =
-							(ray.direction.x < 0.0f ? 0b100 : 0) |
-							(ray.direction.y < 0.0f ? 0b010 : 0) |
-							(ray.direction.z < 0.0f ? 0b001 : 0);
-
-						oct_inv4 = (7 - oct) * 0x01010101;
+						oct_inv4 = ray_get_octant_inv4(ray.direction);
 					}
 				}
 

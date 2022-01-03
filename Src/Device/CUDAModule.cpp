@@ -171,7 +171,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 			char maxregcount[64]; sprintf_s(maxregcount, "--maxrregcount=%i", max_registers);
 
 			const char * options[] = {
-				"--std=c++17",
+				"--std=c++11",
 				compute,
 				maxregcount,
 				"--use_fast_math",
