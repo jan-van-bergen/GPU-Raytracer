@@ -413,6 +413,89 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	}
 }
 
+template<typename BSDF>
+__device__ void next_event_estimation(
+	int            pixel_index,
+	int            bounce,
+	int            sample_index,
+	const BSDF   & bsdf,
+	const float3 & hit_point,
+	const float3 & normal,
+	const float3 & geometric_normal,
+	float3       & throughput
+) {
+	float2 rand_light    = random<SampleDimension::NEE_LIGHT>   (pixel_index, bounce, sample_index);
+	float2 rand_triangle = random<SampleDimension::NEE_TRIANGLE>(pixel_index, bounce, sample_index);
+
+	// Pick random Light
+	int light_mesh_id;
+	int light_triangle_id = sample_light(rand_light.x, rand_light.y, light_mesh_id);
+
+	// Pick random point on the Light
+	float2 light_uv = sample_triangle(rand_triangle.x, rand_triangle.y);
+
+	// Obtain the Light's position and normal
+	TrianglePosNor light = triangle_get_positions_and_normals(light_triangle_id);
+
+	float3 light_point;
+	float3 light_normal;
+	triangle_barycentric(light, light_uv.x, light_uv.y, light_point, light_normal);
+
+	// Transform into world space
+	Matrix3x4 light_world = mesh_get_transform(light_mesh_id);
+	matrix3x4_transform_position (light_world, light_point);
+	matrix3x4_transform_direction(light_world, light_normal);
+
+	light_normal = normalize(light_normal);
+
+	float3 to_light = light_point - hit_point;
+	float distance_to_light_squared = dot(to_light, to_light);
+	float distance_to_light         = sqrtf(distance_to_light_squared);
+
+	// Normalize the vector to the light
+	to_light /= distance_to_light;
+
+	float cos_theta_light = fabsf(dot(to_light, light_normal));
+	float cos_theta_hit = dot(to_light, normal);
+
+	int light_material_id = mesh_get_material_id(light_mesh_id);
+	MaterialLight material_light = material_as_light(light_material_id);
+
+	float3 bsdf_value;
+	float  bsdf_pdf;
+	bool valid = bsdf.eval(to_light, cos_theta_hit, bsdf_value, bsdf_pdf);
+	if (!valid) return;
+
+	float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+	float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
+
+	if (!pdf_is_valid(light_pdf)) return;
+
+	float mis_weight;
+	if (config.enable_multiple_importance_sampling) {
+		mis_weight = power_heuristic(light_pdf, bsdf_pdf);
+	} else {
+		mis_weight = 1.0f;
+	}
+
+	float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
+
+	// Emit Shadow Ray
+	int shadow_ray_index = atomicAdd(&buffer_sizes.shadow[bounce], 1);
+
+	ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, geometric_normal));
+	ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
+
+	ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - 2.0f * EPSILON;
+
+	ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
+		illumination.x,
+		illumination.y,
+		illumination.z,
+		__int_as_float(pixel_index)
+	);
+}
+
 template<typename BSDF, size_t * packed_material_buffer>
 __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -565,77 +648,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 
 	// Next Event Estimation
 	if (config.enable_next_event_estimation && lights_total_weight > 0.0f && bsdf.is_mis_eligable()) {
-		float2 rand_light    = random<SampleDimension::NEE_LIGHT>   (pixel_index, bounce, sample_index);
-		float2 rand_triangle = random<SampleDimension::NEE_TRIANGLE>(pixel_index, bounce, sample_index);
-
-		// Pick random Light
-		int light_mesh_id;
-		int light_triangle_id = sample_light(rand_light.x, rand_light.y, light_mesh_id);
-
-		// Pick random point on the Light
-		float2 light_uv = sample_triangle(rand_triangle.x, rand_triangle.y);
-
-		// Obtain the Light's position and normal
-		TrianglePosNor light = triangle_get_positions_and_normals(light_triangle_id);
-
-		float3 light_point;
-		float3 light_normal;
-		triangle_barycentric(light, light_uv.x, light_uv.y, light_point, light_normal);
-
-		// Transform into world space
-		Matrix3x4 light_world = mesh_get_transform(light_mesh_id);
-		matrix3x4_transform_position (light_world, light_point);
-		matrix3x4_transform_direction(light_world, light_normal);
-
-		light_normal = normalize(light_normal);
-
-		float3 to_light = light_point - hit_point;
-		float distance_to_light_squared = dot(to_light, to_light);
-		float distance_to_light         = sqrtf(distance_to_light_squared);
-
-		// Normalize the vector to the light
-		to_light /= distance_to_light;
-
-		float cos_theta_light = fabsf(dot(to_light, light_normal));
-		float cos_theta_hit = dot(to_light, normal);
-
-		int light_material_id = mesh_get_material_id(light_mesh_id);
-		MaterialLight material_light = material_as_light(light_material_id);
-
-		float3 bsdf_value;
-		float  bsdf_pdf;
-		bool valid = bsdf.eval(to_light, cos_theta_hit, bsdf_value, bsdf_pdf);
-
-		if (valid) {
-			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
-			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
-
-			if (pdf_is_valid(light_pdf)) {
-				float mis_weight;
-				if (config.enable_multiple_importance_sampling) {
-					mis_weight = power_heuristic(light_pdf, bsdf_pdf);
-				} else {
-					mis_weight = 1.0f;
-				}
-
-				float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
-
-				// Emit Shadow Ray
-				int shadow_ray_index = atomicAdd(&buffer_sizes.shadow[bounce], 1);
-
-				ray_buffer_shadow.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, geometric_normal));
-				ray_buffer_shadow.ray_direction.set(shadow_ray_index, to_light);
-
-				ray_buffer_shadow.max_distance[shadow_ray_index] = distance_to_light - 2.0f * EPSILON;
-
-				ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
-					illumination.x,
-					illumination.y,
-					illumination.z,
-					__int_as_float(pixel_index)
-				);
-			}
-		}
+		next_event_estimation(pixel_index, bounce, sample_index, bsdf, hit_point, normal, geometric_normal, throughput);
 	}
 
 	// Sample BSDF
