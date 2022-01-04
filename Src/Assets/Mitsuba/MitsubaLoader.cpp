@@ -379,60 +379,6 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		} else {
 			material.linear_roughness = 0.0f;
 		}
-
-		const XMLNode * xml_medium = node->get_child_by_tag("medium");
-		if (xml_medium) {
-			StringView medium_type = xml_medium->get_attribute_value("type");
-
-			if (medium_type == "homogeneous") {
-				Medium medium = { };
-
-				if (const XMLAttribute * name = xml_medium->get_attribute("name")) {
-					medium.name = name->value.c_str();
-				}
-
-				const XMLNode * xml_sigma_a = xml_medium->get_child_by_name("sigmaA");
-				const XMLNode * xml_sigma_s = xml_medium->get_child_by_name("sigmaS");
-				const XMLNode * xml_sigma_t = xml_medium->get_child_by_name("sigmaT");
-				const XMLNode * xml_albedo  = xml_medium->get_child_by_name("albedo"); // Single scatter albedo
-
-				Vector3 sigma_a = { };
-				Vector3 sigma_s = { };
-
-				if (!((xml_sigma_a && xml_sigma_s) ^ (xml_sigma_t && xml_albedo))) {
-					WARNING(xml_medium->location, "WARNING: Incorrect configuration of Medium properties\nPlease provide EITHER sigmaA and sigmaS OR sigmaT and albedo\n");
-				} else if (xml_sigma_a && xml_sigma_s) {
-					sigma_a = xml_sigma_a->get_attribute_value<Vector3>("value");
-					sigma_s = xml_sigma_s->get_attribute_value<Vector3>("value");
-				} else {
-					Vector3 sigma_t = xml_sigma_t->get_attribute_value<Vector3>("value");
-					Vector3 albedo  = xml_albedo ->get_attribute_value<Vector3>("value");
-
-					sigma_s = albedo  * sigma_t;
-					sigma_a = sigma_t - sigma_s;
-				}
-
-				float scale = xml_medium->get_child_value_optional("scale", 1.0f);
-
-				medium.set_A_and_d(scale * sigma_a, scale * sigma_s);
-
-				if (const XMLNode * phase = xml_medium->get_child_by_tag("phase")) {
-					StringView phase_type = phase->get_attribute_value("type");
-
-					if (phase_type == "isotropic") {
-						medium.g = 0.0f;
-					} else if (phase_type == "hg") {
-						medium.g = phase->get_child_value_optional("g", 0.0f);
-					} else {
-						WARNING(xml_medium->location, "WARNING: Phase function type '%.*s' not supported!\n", unsigned(phase_type.length()), phase_type.start);
-					}
-				}
-
-				material.medium_handle = scene.asset_manager.add_medium(medium);
-			} else {
-				WARNING(xml_medium->location, "WARNING: Medium type '%.*s' not supported!\n", unsigned(medium_type.length()), medium_type.start);
-			}
-		}
 	} else if (inner_bsdf_type == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
 
@@ -444,6 +390,64 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	}
 
 	return scene.asset_manager.add_material(material);
+}
+
+static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
+	const XMLNode * xml_medium = node->get_child_by_tag("medium");
+	if (!xml_medium) {
+		return MediumHandle { INVALID };
+	}
+
+	StringView medium_type = xml_medium->get_attribute_value("type");
+
+	if (medium_type == "homogeneous") {
+		Medium medium = { };
+
+		if (const XMLAttribute * name = xml_medium->get_attribute("name")) {
+			medium.name = name->value.c_str();
+		}
+
+		const XMLNode * xml_sigma_a = xml_medium->get_child_by_name("sigmaA");
+		const XMLNode * xml_sigma_s = xml_medium->get_child_by_name("sigmaS");
+		const XMLNode * xml_sigma_t = xml_medium->get_child_by_name("sigmaT");
+		const XMLNode * xml_albedo  = xml_medium->get_child_by_name("albedo"); // Single scatter albedo
+
+		Vector3 sigma_a = { };
+		Vector3 sigma_s = { };
+
+		if (!((xml_sigma_a && xml_sigma_s) ^ (xml_sigma_t && xml_albedo))) {
+			WARNING(xml_medium->location, "WARNING: Incorrect configuration of Medium properties\nPlease provide EITHER sigmaA and sigmaS OR sigmaT and albedo\n");
+		} else if (xml_sigma_a && xml_sigma_s) {
+			sigma_a = xml_sigma_a->get_attribute_value<Vector3>("value");
+			sigma_s = xml_sigma_s->get_attribute_value<Vector3>("value");
+		} else {
+			Vector3 sigma_t = xml_sigma_t->get_attribute_value<Vector3>("value");
+			Vector3 albedo  = xml_albedo ->get_attribute_value<Vector3>("value");
+
+			sigma_s = albedo  * sigma_t;
+			sigma_a = sigma_t - sigma_s;
+		}
+
+		float scale = xml_medium->get_child_value_optional("scale", 1.0f);
+
+		medium.set_A_and_d(scale * sigma_a, scale * sigma_s);
+
+		if (const XMLNode * phase = xml_medium->get_child_by_tag("phase")) {
+			StringView phase_type = phase->get_attribute_value("type");
+
+			if (phase_type == "isotropic") {
+				medium.g = 0.0f;
+			} else if (phase_type == "hg") {
+				medium.g = phase->get_child_value_optional("g", 0.0f);
+			} else {
+				WARNING(xml_medium->location, "WARNING: Phase function type '%.*s' not supported!\n", unsigned(phase_type.length()), phase_type.start);
+			}
+		}
+
+		return scene.asset_manager.add_medium(medium);
+	} else {
+		WARNING(xml_medium->location, "WARNING: Medium type '%.*s' not supported!\n", unsigned(medium_type.length()), medium_type.start);
+	}
 }
 
 static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
@@ -597,6 +601,20 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			char const * name = nullptr;
 			MeshDataHandle mesh_data_handle = parse_shape(node, scene, serialized_map, path, name);
 			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
+			MediumHandle   medium_handle    = parse_medium(node, scene);
+
+			if (material_handle.handle != INVALID) {
+				Material & material = scene.asset_manager.get_material(material_handle);
+
+				if (material.medium_handle.handle != INVALID && material.medium_handle.handle != medium_handle.handle) {
+					WARNING(node->location, "Overwriting Medium handle of Material '%s'.\nPrevious handle: %i\nNew handle: %i\n",
+						material.name,
+						material.medium_handle.handle,
+						medium_handle.handle
+					);
+				}
+				material.medium_handle = medium_handle;
+			}
 
 			if (mesh_data_handle.handle != INVALID) {
 				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
