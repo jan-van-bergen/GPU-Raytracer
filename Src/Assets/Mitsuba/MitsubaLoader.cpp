@@ -115,10 +115,8 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 			Vector3 target = lookat->get_attribute_optional("target", Vector3(0.0f, 0.0f, -1.0f));
 			Vector3 up     = lookat->get_attribute_optional("up",     Vector3(0.0f, 1.0f,  0.0f));
 
-			Vector3 forward = Vector3::normalize(target - origin);
-
 			if (position) *position = origin;
-			if (rotation) *rotation = Quaternion::look_rotation(forward, up);
+			if (rotation) *rotation = Quaternion::look_rotation(origin - target, up);
 		}
 
 		const XMLNode * scale_node = transform->get_child_by_tag("scale");
@@ -624,12 +622,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				scene.camera.focal_distance  = node->get_child_value_optional("focusDistance", 10.0f);
 			}
 
-			float scale = 1.0f;
-			parse_transform(node, &scene.camera.position, &scene.camera.rotation, &scale, Vector3(0.0f, 0.0f, -1.0f));
-
-			if (scale < 0.0f) {
-//				scene.camera.rotation = Quaternion::conjugate(scene.camera.rotation);
-			}
+			parse_transform(node, &scene.camera.position, &scene.camera.rotation, nullptr, Vector3(0.0f, 0.0f, -1.0f));
 		} else {
 			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
 		}
