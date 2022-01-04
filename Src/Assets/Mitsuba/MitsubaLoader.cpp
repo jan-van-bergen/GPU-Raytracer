@@ -607,13 +607,15 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 				Material & material = scene.asset_manager.get_material(material_handle);
 
 				if (material.medium_handle.handle != INVALID && material.medium_handle.handle != medium_handle.handle) {
-					WARNING(node->location, "Overwriting Medium handle of Material '%s'.\nPrevious handle: %i\nNew handle: %i\n",
-						material.name,
-						material.medium_handle.handle,
-						medium_handle.handle
-					);
+					// This Material is already used with a different Medium
+					// Make a copy of the Material and add it as a new Material to the Scene
+					Material material_copy = material;
+					material_copy.medium_handle = medium_handle;
+
+					material_handle = scene.asset_manager.add_material(material_copy);
+				} else {
+					material.medium_handle = medium_handle;
 				}
-				material.medium_handle = medium_handle;
 			}
 
 			if (mesh_data_handle.handle != INVALID) {
