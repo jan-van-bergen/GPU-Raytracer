@@ -42,8 +42,8 @@ struct Config {
 	// Pathtracing
 	int num_bounces = 10;
 
-	int          output_frame_index = INVALID;
-	const char * output_name        = "render.ppm";
+	int          output_sample_index = INVALID;
+	const char * output_name         = "render.ppm";
 
 	bool enable_albedo                       = true;
 	bool enable_mipmapping                   = true;

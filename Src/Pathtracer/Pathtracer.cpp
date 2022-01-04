@@ -548,7 +548,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	pinned_buffer_sizes->reset(Math::min(BATCH_SIZE, pixel_count));
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	frames_accumulated = 0;
+	sample_index = 0;
 
 	if (config.enable_svgf) svgf_init();
 }
@@ -961,7 +961,7 @@ void Pathtracer::update(float delta) {
 			calc_light_power();
 		}
 
-		frames_accumulated = 0;
+		sample_index = 0;
 		invalidated_materials = false;
 	}
 
@@ -981,7 +981,7 @@ void Pathtracer::update(float delta) {
 			delete [] cuda_mediums;
 		}
 
-		frames_accumulated = 0;
+		sample_index = 0;
 		invalidated_mediums = false;
 	}
 
@@ -999,7 +999,7 @@ void Pathtracer::update(float delta) {
 		// If SVGF is enabled we can handle Scene updates using reprojection,
 		// otherwise 'frames_accumulated' needs to be reset in order to avoid ghosting
 		if (!config.enable_svgf) {
-			frames_accumulated = 0;
+			sample_index = 0;
 		}
 
 		invalidated_scene = false;
@@ -1030,7 +1030,7 @@ void Pathtracer::update(float delta) {
 		global_camera.set_value_async(cuda_camera, memory_stream);
 
 		if (!config.enable_svgf) {
-			frames_accumulated = 0;
+			sample_index = 0;
 		}
 
 		invalidated_camera = false;
@@ -1063,15 +1063,12 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (invalidated_config) {
-		frames_accumulated = 0;
-
+		sample_index = 0;
 		global_config.set_value_async(config, memory_stream);
-	} else if (config.enable_svgf) {
-		frames_accumulated = (frames_accumulated + 1) & 255;
-	} else if (scene.camera.moved) {
-		frames_accumulated = 0;
+	} else if (scene.camera.moved && !config.enable_svgf) {
+		sample_index = 0;
 	} else {
-		frames_accumulated++;
+		sample_index++;
 	}
 }
 
@@ -1091,7 +1088,7 @@ void Pathtracer::render() {
 		event_pool.record(event_desc_primary);
 
 		// Generate primary Rays from the current Camera orientation
-		kernel_generate.execute(frames_accumulated, pixel_offset, pixel_count);
+		kernel_generate.execute(sample_index, pixel_offset, pixel_count);
 
 		for (int bounce = 0; bounce < config.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
@@ -1099,24 +1096,24 @@ void Pathtracer::render() {
 			kernel_trace->execute(bounce);
 
 			event_pool.record(event_desc_sort[bounce]);
-			kernel_sort.execute(bounce, frames_accumulated);
+			kernel_sort.execute(bounce, sample_index);
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
 				event_pool.record(event_desc_material_diffuse[bounce]);
-				kernel_material_diffuse.execute(bounce, frames_accumulated);
+				kernel_material_diffuse.execute(bounce, sample_index);
 			}
 			if (scene.has_plastic) {
 				event_pool.record(event_desc_material_plastic[bounce]);
-				kernel_material_plastic.execute(bounce, frames_accumulated);
+				kernel_material_plastic.execute(bounce, sample_index);
 			}
 			if (scene.has_dielectric) {
 				event_pool.record(event_desc_material_dielectric[bounce]);
-				kernel_material_dielectric.execute(bounce, frames_accumulated);
+				kernel_material_dielectric.execute(bounce, sample_index);
 			}
 			if (scene.has_conductor) {
 				event_pool.record(event_desc_material_conductor[bounce]);
-				kernel_material_conductor.execute(bounce, frames_accumulated);
+				kernel_material_conductor.execute(bounce, sample_index);
 			}
 
 			// Trace shadow Rays
@@ -1138,7 +1135,7 @@ void Pathtracer::render() {
 	if (config.enable_svgf) {
 		// Temporal reprojection + integration
 		event_pool.record(event_desc_svgf_reproject);
-		kernel_svgf_reproject.execute(frames_accumulated);
+		kernel_svgf_reproject.execute(sample_index);
 
 		CUdeviceptr direct_in    = ptr_frame_buffer_direct    .ptr;
 		CUdeviceptr direct_out   = ptr_frame_buffer_direct_alt.ptr;
@@ -1172,12 +1169,12 @@ void Pathtracer::render() {
 		if (config.enable_taa) {
 			event_pool.record(event_desc_taa);
 
-			kernel_taa         .execute(frames_accumulated);
+			kernel_taa         .execute(sample_index);
 			kernel_taa_finalize.execute();
 		}
 	} else {
 		event_pool.record(event_desc_accumulate);
-		kernel_accumulate.execute(float(frames_accumulated));
+		kernel_accumulate.execute(float(sample_index));
 	}
 
 	event_pool.record(event_desc_end);

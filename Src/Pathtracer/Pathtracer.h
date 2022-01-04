@@ -187,7 +187,7 @@ struct Pathtracer {
 		OUTPUT_READY
 	} pixel_query_status = PixelQueryStatus::INACTIVE;
 
-	int frames_accumulated = -1;
+	int sample_index = 0;
 
 	PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
