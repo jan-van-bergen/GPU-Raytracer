@@ -451,7 +451,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, PLYLoader::load);
 		}
 
-		name = filename;
+		name = Util::remove_directory(filename.view());
 
 		return mesh_data_handle;
 	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere") {
