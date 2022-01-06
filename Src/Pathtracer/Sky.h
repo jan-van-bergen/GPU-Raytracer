@@ -1,7 +1,7 @@
 #pragma once
 #include "Math/Vector3.h"
 
-#include "Util/StringView.h"
+#include "Util/String.h"
 
 struct Sky {
 	int width;
