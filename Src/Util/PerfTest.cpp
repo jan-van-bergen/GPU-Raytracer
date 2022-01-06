@@ -51,7 +51,8 @@ bool PerfTest::frame_end(float frame_time) {
 		if (index_pov == (*povs).size()) {
 			index_pov = 0;
 
-			FILE * file; fopen_s(&file, output_file, "wb");
+			FILE * file = nullptr;
+			fopen_s(&file, output_file, "wb");
 
 			if (file == nullptr) abort();
 

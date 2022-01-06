@@ -35,6 +35,7 @@ namespace Util {
 	bool file_is_newer(StringView filename_a, StringView filename_b);
 
 	String file_read(const String & filename);
+	bool   file_write(const String & filename, StringView data);
 
 	void init_alias_method(int n, double p[], ProbAlias distribution[]);
 

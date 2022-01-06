@@ -74,7 +74,8 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 }
 
 bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, const BVH & bvh) {
-	FILE * file; fopen_s(&file, bvh_filename.data(), "wb");
+	FILE * file = nullptr;
+	fopen_s(&file, bvh_filename.data(), "wb");
 
 	if (!file) {
 		printf("WARNING: Unable to open BVH file '%.*s' for writing!\n", FMT_STRING(bvh_filename));

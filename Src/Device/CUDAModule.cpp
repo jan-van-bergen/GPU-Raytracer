@@ -191,11 +191,7 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 		NVRTC_CALL(nvrtcDestroyProgram(&program));
 
 		// Cache PTX on disk
-		FILE * file_out;
-		fopen_s(&file_out, ptx_filename.data(), "wb");
-
-		fwrite(ptx.data(), 1, ptx_size, file_out);
-		fclose(file_out);
+		Util::file_write(ptx_filename, StringView { ptx.data(), ptx.data() + ptx.size() });
 	} else {
 		printf("CUDA Module '%.*s' did not need to recompile.\n", FMT_STRING(filename));
 	}

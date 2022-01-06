@@ -21,10 +21,10 @@ bool Util::file_is_newer(StringView filename_a, StringView filename_b) {
 }
 
 String Util::file_read(const String & filename) {
-	FILE * file;
+	FILE * file = nullptr;
 	fopen_s(&file, filename.data(), "rb");
 
-	if (file == nullptr) {
+	if (!file) {
 		printf("ERROR: Unable to open '%.*s'!\n", FMT_STRING(filename));
 		abort();
 	}
@@ -40,6 +40,18 @@ String Util::file_read(const String & filename) {
 
 	fclose(file);
 	return data;
+}
+
+bool Util::file_write(const String & filename, StringView data) {
+	FILE * file = nullptr;
+	fopen_s(&file, filename.data(), "wb");
+
+	if (!file) return false;
+
+	fwrite(data.start, 1, data.length(), file);
+	fclose(file);
+
+	return true;
 }
 
 // Based on: Vose - A Linear Algorithm for Generating Random Numbers with a Given Distribution (1991)
@@ -83,7 +95,7 @@ void Util::init_alias_method(int n, double p[], ProbAlias distribution[]) {
 
 // Based on: https://rosettacode.org/wiki/Bitmap/Write_a_PPM_file
 void Util::export_ppm(const char * file_path, int width, int height, const unsigned char * data) {
-	FILE * file;
+	FILE * file = nullptr;
 	fopen_s(&file, file_path, "wb");
 
 	if (file == nullptr) {

@@ -248,7 +248,6 @@ static void parse_args(int arg_count, char ** args) {
 
 	for (int i = 1; i < arg_count; i++) {
 		const char * arg = args[i];
-
 		sprintf_s(arg_name, "Arg %i", i);
 
 		Parser parser = { };
