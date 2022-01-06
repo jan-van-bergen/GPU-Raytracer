@@ -605,7 +605,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			}
 
 			if (mesh_data_handle.handle != INVALID) {
-				Mesh & mesh = scene.add_mesh(name, mesh_data_handle, material_handle);
+				Mesh & mesh = scene.add_mesh(std::move(name), mesh_data_handle, material_handle);
 
 				// Do not apply transform to primitive shapes, since they have the transform baked into their vertices
 				bool type_is_primitive = type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere";
