@@ -73,8 +73,8 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 			}
 		}
 
-		assert(left  == split.index - first_index);
-		assert(right == index_count);
+		ASSERT(left  == split.index - first_index);
+		ASSERT(right == index_count);
 		memcpy(indices[dim] + first_index, temp, index_count * sizeof(int));
 	}
 
@@ -115,7 +115,7 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 	int node_index = 2;
 	build_bvh_recursive(builder, builder.bvh->nodes._2[0], primitives, indices, node_index, 0, primitive_count);
 
-	assert(node_index <= 2 * primitive_count);
+	ASSERT(node_index <= 2 * primitive_count);
 
 	builder.bvh->node_count  = node_index;
 	builder.bvh->index_count = primitive_count;

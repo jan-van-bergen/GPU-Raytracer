@@ -346,7 +346,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 		}
 	}
 
-	assert(parser.reached_end());
+	ASSERT(parser.reached_end());
 
 	triangle_count = tris.size();
 	triangles      = new Triangle[triangle_count];

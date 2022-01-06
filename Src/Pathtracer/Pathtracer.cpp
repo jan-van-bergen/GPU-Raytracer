@@ -763,8 +763,8 @@ void Pathtracer::build_tlas() {
 		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_8, tlas.nodes._8, tlas.node_count, memory_stream); break;
 		default: abort();
 	}
-	assert(tlas.index_count == scene.meshes.size());
-	assert(tlas.node_count <= 2 * scene.meshes.size());
+	ASSERT(tlas.index_count == scene.meshes.size());
+	ASSERT(tlas.node_count <= 2 * scene.meshes.size());
 
 	int    light_mesh_count    = 0;
 	double lights_total_weight = 0.0;
@@ -774,7 +774,7 @@ void Pathtracer::build_tlas() {
 
 		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_handle.handle] | (mesh.has_identity_transform() << 31);
 
-		assert(mesh.material_handle.handle != INVALID);
+		ASSERT(mesh.material_handle.handle != INVALID);
 		pinned_mesh_material_ids[i] = mesh.material_handle.handle;
 
 		memcpy(pinned_mesh_transforms     [i].cells, mesh.transform     .cells, sizeof(Matrix3x4));
@@ -917,7 +917,7 @@ void Pathtracer::update(float delta) {
 				CUDAMemory::Ptr<MaterialBuffer> ptr_buffer = ptr_material_ray_buffers + material_buffer_index / 2;
 				bool reversed = material_buffer_index & 1;
 
-				assert((ptr_buffer.ptr & 1) == 0);
+				ASSERT((ptr_buffer.ptr & 1) == 0);
 				uintptr_t packed = ptr_buffer.ptr | reversed;
 				cuda_module.get_global(global_name).set_value_async(packed, memory_stream);
 

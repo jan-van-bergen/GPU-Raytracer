@@ -1,6 +1,7 @@
 #pragma once
 #include <math.h>
-#include <cassert>
+
+#include "Util/Assertion.h"
 
 struct Vector4 {
 	union {
@@ -65,8 +66,8 @@ struct Vector4 {
 	inline Vector4 operator*=(float scalar) {                                   x *= scalar;     y *= scalar;     z *= scalar;     w *= scalar;     return *this; }
 	inline Vector4 operator/=(float scalar) { float inv_scalar = 1.0f / scalar; x *= inv_scalar; y *= inv_scalar; z *= inv_scalar; w *= inv_scalar; return *this; }
 
-	inline       float & operator[](int index)       { assert(index >= 0 && index < 4); return data[index]; }
-	inline const float & operator[](int index) const { assert(index >= 0 && index < 4); return data[index]; }
+	inline       float & operator[](int index)       { ASSERT(index >= 0 && index < 4); return data[index]; }
+	inline const float & operator[](int index) const { ASSERT(index >= 0 && index < 4); return data[index]; }
 };
 
 inline Vector4 operator-(const Vector4 & vector) { return Vector4(-vector.x, -vector.y, -vector.z, -vector.w); }

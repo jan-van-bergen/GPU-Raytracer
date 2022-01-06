@@ -2,6 +2,7 @@
 #include "CUDACall.h"
 
 #include "Util/Array.h"
+#include "Util/Assertion.h"
 
 namespace CUDAMemory {
 	// Type safe device pointer wrapper
@@ -23,7 +24,7 @@ namespace CUDAMemory {
 
 	template<typename T>
 	inline T * malloc_pinned(int count = 1) {
-		assert(count > 0);
+		ASSERT(count > 0);
 
 		T * ptr;
 		CUDACALL(cuMemAllocHost(reinterpret_cast<void **>(&ptr), count * sizeof(T)));
@@ -33,7 +34,7 @@ namespace CUDAMemory {
 
 	template<typename T>
 	inline Ptr<T> malloc(int count = 1) {
-		assert(count > 0);
+		ASSERT(count > 0);
 
 		CUdeviceptr ptr;
 		CUDACALL(cuMemAlloc(&ptr, count * sizeof(T)));
@@ -61,49 +62,49 @@ namespace CUDAMemory {
 
 	template<typename T>
 	inline void free_pinned(T * ptr) {
-		assert(ptr);
+		ASSERT(ptr);
 		CUDACALL(cuMemFreeHost(ptr));
 	}
 
 	template<typename T>
 	inline void free(Ptr<T> & ptr) {
-		assert(ptr.ptr);
+		ASSERT(ptr.ptr);
 		CUDACALL(cuMemFree(ptr.ptr));
 		ptr.ptr = NULL;
 	}
 
 	template<typename T>
 	inline void memcpy(Ptr<T> dst, const T * src, int count = 1) {
-		assert(src);
-		assert(dst.ptr);
-		assert(count > 0);
+		ASSERT(src);
+		ASSERT(dst.ptr);
+		ASSERT(count > 0);
 
 		CUDACALL(cuMemcpyHtoD(dst.ptr, src, count * sizeof(T)));
 	}
 
 	template<typename T>
 	inline void memcpy_async(Ptr<T> dst, const T * src, int count, CUstream stream) {
-		assert(src);
-		assert(dst.ptr);
-		assert(count > 0);
+		ASSERT(src);
+		ASSERT(dst.ptr);
+		ASSERT(count > 0);
 
 		CUDACALL(cuMemcpyHtoDAsync(dst.ptr, src, count * sizeof(T), stream));
 	}
 
 	template<typename T>
 	inline void memcpy(T * dst, Ptr<T> src, int count = 1) {
-		assert(src.ptr);
-		assert(dst);
-		assert(count > 0);
+		ASSERT(src.ptr);
+		ASSERT(dst);
+		ASSERT(count > 0);
 
 		CUDACALL(cuMemcpyDtoH(dst, src.ptr, count * sizeof(T)));
 	}
 
 	template<typename T>
 	inline void memcpy_async(T * dst, Ptr<T> src, int count, CUstream stream) {
-		assert(src.ptr);
-		assert(dst);
-		assert(count > 0);
+		ASSERT(src.ptr);
+		ASSERT(dst);
+		ASSERT(count > 0);
 
 		CUDACALL(cuMemcpyDtoHAsync(dst, src.ptr, count * sizeof(T), stream));
 	}

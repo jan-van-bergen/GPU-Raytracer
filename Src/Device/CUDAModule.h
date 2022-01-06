@@ -1,5 +1,5 @@
 #pragma once
-#include <cassert>
+#include <cASSERT>
 
 #include <cuda.h>
 

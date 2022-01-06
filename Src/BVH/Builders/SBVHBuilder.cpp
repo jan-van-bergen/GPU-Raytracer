@@ -5,6 +5,7 @@
 #include "BVHPartitions.h"
 
 #include "Util/Util.h"
+#include "Util/Assertion.h"
 #include "Util/ScopeTimer.h"
 
 int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area) {
@@ -21,7 +22,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 
 	// Object Split information
 	ObjectSplit object_split = BVHPartitions::partition_sah(indices, first_index, index_count, sah);
-	assert(object_split.index != INVALID);
+	ASSERT(object_split.index != INVALID);
 
 	// Calculate the overlap between the child bounding boxes resulting from the Object Split
 	AABB overlap = AABB::overlap(object_split.aabb_left, object_split.aabb_right);
@@ -29,7 +30,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 
 	// Divide by the surface area of the bounding box of the root Node
 	float ratio = lamba * inv_root_surface_area;
-	assert(ratio >= 0.0f && ratio <= 1.0f);
+	ASSERT(ratio >= 0.0f && ratio <= 1.0f);
 
 	SpatialSplit spatial_split;
 
@@ -40,7 +41,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 		spatial_split.cost = INFINITY;
 	}
 
-	assert(object_split.cost != INFINITY || spatial_split.cost != INFINITY);
+	ASSERT(object_split.cost != INFINITY || spatial_split.cost != INFINITY);
 
 	node.left = node_index;
 	node_index += 2;
@@ -87,16 +88,16 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 		}
 
 		// We should have made the same decision (going left/right) in every dimension
-		assert(children_left_count [0] == children_left_count [1] && children_left_count [1] == children_left_count [2]);
-		assert(children_right_count[0] == children_right_count[1] && children_right_count[1] == children_right_count[2]);
+		ASSERT(children_left_count [0] == children_left_count [1] && children_left_count [1] == children_left_count [2]);
+		ASSERT(children_right_count[0] == children_right_count[1] && children_right_count[1] == children_right_count[2]);
 
 		n_left  = children_left_count [0];
 		n_right = children_right_count[0];
 
 		// Using object split, no duplicates can occur.
 		// Thus, left + right should equal the total number of triangles
-		assert(first_index + n_left == object_split.index);
-		assert(n_left + n_right == index_count);
+		ASSERT(first_index + n_left == object_split.index);
+		ASSERT(n_left + n_right == index_count);
 
 		child_aabb_left  = object_split.aabb_left;
 		child_aabb_right = object_split.aabb_right;
@@ -144,7 +145,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 			bool goes_left  = bin_min <  spatial_split.index;
 			bool goes_right = bin_max >= spatial_split.index;
 
-			assert(goes_left || goes_right);
+			ASSERT(goes_left || goes_right);
 
 			if (goes_left && goes_right) { // Straddler
 				// Consider unsplitting
@@ -196,7 +197,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 
 				BVHPartitions::triangle_intersect_plane(vertices, spatial_split.dimension, spatial_split.plane_distance, intersections, &intersection_count);
 
-				assert(intersection_count < Util::array_count(intersections));
+				ASSERT(intersection_count < Util::array_count(intersections));
 
 				// All intersection points should be included both AABBs
 				AABB aabb_intersections = AABB::from_points(intersections, intersection_count);
@@ -242,7 +243,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 				children_right[1][children_right_count[1]++] = indices[spatial_split.dimension][i];
 				children_right[2][children_right_count[2]++] = indices[spatial_split.dimension][i];
 			} else {
-				assert(false);
+				ASSERT(false);
 			}
 		}
 
@@ -255,23 +256,23 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, Primiti
 		Util::quick_sort(children_right[2], children_right[2] + children_right_count[2], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
 		// We should have made the same decision (going left/right) in every dimension
-		assert(children_left_count [0] == children_left_count [1] && children_left_count [1] == children_left_count [2]);
-		assert(children_right_count[0] == children_right_count[1] && children_right_count[1] == children_right_count[2]);
+		ASSERT(children_left_count [0] == children_left_count [1] && children_left_count [1] == children_left_count [2]);
+		ASSERT(children_right_count[0] == children_right_count[1] && children_right_count[1] == children_right_count[2]);
 
 		n_left  = children_left_count [0];
 		n_right = children_right_count[0];
 
 		// The actual number of references going left/right should match the numbers calculated during spatial splitting
-		assert(n_left  == spatial_split.num_left  - rejected_left);
-		assert(n_right == spatial_split.num_right - rejected_right);
+		ASSERT(n_left  == spatial_split.num_left  - rejected_left);
+		ASSERT(n_right == spatial_split.num_right - rejected_right);
 
 		// A valid partition contains at least one and strictly less than all
-		assert(n_left  > 0 && n_left  < index_count);
-		assert(n_right > 0 && n_right < index_count);
+		ASSERT(n_left  > 0 && n_left  < index_count);
+		ASSERT(n_right > 0 && n_right < index_count);
 
 		// Make sure no triangles dissapeared
-		assert(n_left + n_right >= index_count);
-		assert(n_left + n_right <= index_count * 2);
+		ASSERT(n_left + n_right >= index_count);
+		ASSERT(n_left + n_right <= index_count * 2);
 
 		child_aabb_left  = spatial_split.aabb_left;
 		child_aabb_right = spatial_split.aabb_right;
@@ -366,11 +367,11 @@ void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 	sbvh->index_count = build_sbvh(sbvh->nodes._2[0], triangles, indices, node_index, 0, triangle_count, 1.0f / root_aabb.surface_area());
 	sbvh->node_count = node_index;
 
-	assert(node_index <= SBVH_OVERALLOCATION * triangle_count);
+	ASSERT(node_index <= SBVH_OVERALLOCATION * triangle_count);
 
 	for (int i = 0; i < sbvh->index_count; i++) {
 		int index = indices_x[i].index;
-		assert(index >= 0 && index < triangle_count);
+		ASSERT(index >= 0 && index < triangle_count);
 
 		sbvh->indices[i] = index;
 	}

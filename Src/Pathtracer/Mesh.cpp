@@ -31,7 +31,7 @@ void Mesh::update() {
 	// Update AABB from Transform
 	aabb = AABB::transform(aabb_untransformed, transform);
 	aabb.fix_if_needed();
-	assert(aabb.is_valid());
+	ASSERT(aabb.is_valid());
 }
 
 bool Mesh::has_identity_transform() const {

@@ -45,7 +45,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 	}
 
 	mesh_offsets[num_meshes] = eof_dictionary_offset;
-	assert(mesh_offsets[0] == 0);
+	ASSERT(mesh_offsets[0] == 0);
 
 	Serialized result = { };
 	result.num_meshes     = num_meshes;

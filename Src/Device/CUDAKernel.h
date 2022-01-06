@@ -1,5 +1,5 @@
 #pragma once
-#include <assert.h>
+#include <ASSERT.h>
 #include <math.h>
 
 #include <cuda.h>
@@ -39,7 +39,7 @@ struct CUDAKernel {
 	template<typename ... T>
 	inline void execute(const T & ... parameters) {
 		int buffer_size = fill_buffer(0, parameters...);
-		assert(buffer_size < PARAMETER_BUFFER_SIZE);
+		ASSERT(buffer_size < PARAMETER_BUFFER_SIZE);
 
 		execute_internal(buffer_size);
 	}

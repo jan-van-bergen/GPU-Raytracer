@@ -1,13 +1,13 @@
 #include "CUDAModule.h"
 
 #include <cstdio>
-#include <cassert>
 
 #include <nvrtc.h>
 
 #include "CUDAMemory.h"
 
 #include "Util/Util.h"
+#include "Util/Assertion.h"
 #include "Util/StringUtil.h"
 #include "Util/Parser.h"
 #include "Util/ScopeTimer.h"

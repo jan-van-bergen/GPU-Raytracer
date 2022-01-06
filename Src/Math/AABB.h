@@ -1,6 +1,5 @@
 #pragma once
 #include <math.h>
-#include <assert.h>
 
 #include "Math/Vector3.h"
 
@@ -35,7 +34,7 @@ struct AABB {
 	}
 
 	inline float surface_area() const {
-		assert(is_valid() || is_empty());
+		ASSERT(is_valid() || is_empty());
 
 		Vector3 diff = max - min;
 

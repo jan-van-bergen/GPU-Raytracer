@@ -298,6 +298,7 @@
     <ClInclude Include="Src\Pathtracer\Texture.h" />
     <ClInclude Include="Src\Pathtracer\Triangle.h" />
     <ClInclude Include="Src\Util\Array.h" />
+    <ClInclude Include="Src\Util\Assertion.h" />
     <ClInclude Include="Src\Util\BitArray.h" />
     <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\Geometry.h" />

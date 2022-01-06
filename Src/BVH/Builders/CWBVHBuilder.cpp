@@ -112,10 +112,10 @@ void CWBVHBuilder::get_children(int node_index, const BVHNode2 nodes[], int i, i
 	char distribute_left  = decisions[node_index * 7 + i].distribute_left;
 	char distribute_right = decisions[node_index * 7 + i].distribute_right;
 
-	assert(distribute_left  >= 0 && distribute_left  < 7);
-	assert(distribute_right >= 0 && distribute_right < 7);
+	ASSERT(distribute_left  >= 0 && distribute_left  < 7);
+	ASSERT(distribute_right >= 0 && distribute_right < 7);
 
-	assert(child_count < 8);
+	ASSERT(child_count < 8);
 
 	// Recurse on left child if it needs to distribute
 	if (decisions[node.left * 7 + distribute_left].type == Decision::Type::DISTRIBUTE) {
@@ -138,7 +138,7 @@ int CWBVHBuilder::count_primitives(int node_index, const BVHNode2 nodes[], const
 	const BVHNode2 & node = nodes[node_index];
 
 	if (node.is_leaf()) {
-		assert(node.count == 1);
+		ASSERT(node.count == 1);
 
 		for (int i = 0; i < node.count; i++) {
 			cwbvh->indices[cwbvh->index_count++] = indices[node.first + i];
@@ -208,8 +208,8 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode2 nodes[], int ch
 	for (int i = 0; i < 8; i++) children[i] = INVALID;
 
 	for (int i = 0; i < child_count; i++) {
-		assert(assignment   [i] != INVALID);
-		assert(children_copy[i] != INVALID);
+		ASSERT(assignment   [i] != INVALID);
+		ASSERT(children_copy[i] != INVALID);
 
 		children[assignment[i]] = children_copy[i];
 	}
@@ -241,9 +241,9 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 	memcpy(&u_ez, &e.z, 4);
 
 	// Only the exponent bits can be non-zero
-	assert((u_ex & 0b10000000011111111111111111111111) == 0);
-	assert((u_ey & 0b10000000011111111111111111111111) == 0);
-	assert((u_ez & 0b10000000011111111111111111111111) == 0);
+	ASSERT((u_ex & 0b10000000011111111111111111111111) == 0);
+	ASSERT((u_ey & 0b10000000011111111111111111111111) == 0);
+	ASSERT((u_ez & 0b10000000011111111111111111111111) == 0);
 
 	// Store only 8 bit exponent
 	node.e[0] = u_ex >> 23;
@@ -254,7 +254,7 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 	int children[8] = { INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID };
 	get_children(node_index_bvh, nodes_bvh, 0, child_count, children);
 
-	assert(child_count <= 8);
+	ASSERT(child_count <= 8);
 
 	order_children(node_index_bvh, nodes_bvh, children, child_count);
 
@@ -283,7 +283,7 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 		switch (decisions[child_index * 7].type) {
 			case Decision::Type::LEAF: {
 				int triangle_count = count_primitives(child_index, nodes_bvh, indices_bvh);
-				assert(triangle_count > 0 && triangle_count <= 3);
+				ASSERT(triangle_count > 0 && triangle_count <= 3);
 
 				// Three highest bits contain unary representation of triangle count
 				for (int j = 0; j < triangle_count; j++) {
@@ -293,7 +293,7 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 				node.meta[i] |= node_triangle_count;
 
 				node_triangle_count += triangle_count;
-				assert(node_triangle_count <= 24);
+				ASSERT(node_triangle_count <= 24);
 
 				break;
 			}
@@ -313,8 +313,8 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 		}
 	}
 
-	assert(node.base_index_child    + node_internal_count == cwbvh->node_count);
-	assert(node.base_index_triangle + node_triangle_count == cwbvh->index_count);
+	ASSERT(node.base_index_child    + node_internal_count == cwbvh->node_count);
+	ASSERT(node.base_index_triangle + node_triangle_count == cwbvh->index_count);
 
 	// Recurse on Internal Nodes
 	for (int i = 0; i < 8; i++) {
@@ -336,5 +336,5 @@ void CWBVHBuilder::build(const BVH & bvh) {
 
 	// Collapse SBVH into 8-way tree (top down)
 	collapse(bvh.nodes._2, bvh.indices, 0, 0);
-	assert(cwbvh->index_count == bvh.index_count);
+	ASSERT(cwbvh->index_count == bvh.index_count);
 }

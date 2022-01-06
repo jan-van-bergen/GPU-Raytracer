@@ -19,14 +19,14 @@ struct alignas(16) Matrix4 {
 	}
 
 	inline FORCEINLINE float & operator()(int row, int col) {
-		assert(row >= 0 && row < 4);
-		assert(col >= 0 && col < 4);
+		ASSERT(row >= 0 && row < 4);
+		ASSERT(col >= 0 && col < 4);
 		return cells[col + (row << 2)];
 	}
 
 	inline FORCEINLINE const float & operator()(int row, int col) const {
-		assert(row >= 0 && row < 4);
-		assert(col >= 0 && col < 4);
+		ASSERT(row >= 0 && row < 4);
+		ASSERT(col >= 0 && col < 4);
 		return cells[col + (row << 2)];
 	}
 

@@ -67,7 +67,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 	for (int i = 0; i < bvh.node_count;           i++) bvh.nodes._2       [i] = parser.parse_binary<BVHNode2>();
 	for (int i = 0; i < bvh.index_count;          i++) bvh.indices        [i] = parser.parse_binary<int>();
 
-	assert(parser.reached_end());
+	ASSERT(parser.reached_end());
 
 	printf("Loaded BVH '%.*s' from disk\n", FMT_STRING(bvh_filename));
 	return true;

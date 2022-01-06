@@ -200,7 +200,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 
 		delete [] temp;
 
-		assert(level == texture.mip_levels);
+		ASSERT(level == texture.mip_levels);
 
 		texture.mip_offsets = mip_offsets;
 	} else {
@@ -272,7 +272,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 			}
 		}
 
-		assert(compressed_data_offset == new_pixel_count * 2);
+		ASSERT(compressed_data_offset == new_pixel_count * 2);
 
 		delete [] data_rgba_u8;
 		data_rgba_u8 = compressed_data;
