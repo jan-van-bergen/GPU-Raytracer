@@ -4,5 +4,5 @@
 struct Triangle;
 
 namespace MitshairLoader {
-	void load(const char * filename, SourceLocation location_in_mitsuba_file, Triangle *& triangles, int & triangle_count, float radius);
+	void load(const String & filename, SourceLocation location_in_mitsuba_file, Triangle *& triangles, int & triangle_count, float radius);
 }

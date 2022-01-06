@@ -2,8 +2,8 @@
 
 #include "Pathtracer/Scene.h"
 
-void Mesh::init(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene) {
-	this->name = name;
+void Mesh::init(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene) {
+	this->name = std::move(name);
 	this->mesh_data_handle = mesh_data_handle;
 	this->material_handle  = material_handle;
 

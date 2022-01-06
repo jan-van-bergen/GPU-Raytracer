@@ -12,36 +12,56 @@
 
 #include "Math/Mipmap.h"
 
-bool TextureLoader::load_dds(const char * filename, Texture & texture) {
-	FILE * file; fopen_s(&file, filename, "rb");
+#include "Util/Util.h"
+#include "Util/Parser.h"
 
-	if (file == nullptr) return false;
+bool TextureLoader::load_dds(const String & filename, Texture & texture) {
+	String file = Util::file_read(filename);
 
-	bool success = false;
+	Parser parser = { };
+	parser.init(file.view(), filename.view());
 
-	fseek(file, 0, SEEK_END);
-	int file_size = ftell(file);
-	fseek(file, 0, SEEK_SET);
+	// Based on: https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dds-header
+	struct DDSHeader {
+		char     identifier[4];
+		unsigned size;
+		unsigned flags;
+		unsigned height;
+		unsigned width;
+		unsigned pitch;
+		unsigned depth;
+		unsigned num_mipmaps;
+		unsigned reserved1[11];
+		struct DDS_PIXELFORMAT {
+			unsigned size;
+			unsigned flags;
+			char     four_cc[4];
+			unsigned rgb_bitcount;
+			unsigned bimask_r;
+			unsigned bimask_g;
+			unsigned bimask_b;
+			unsigned bimask_a;
+		} spf;
+		unsigned caps;
+		unsigned caps_2;
+		unsigned caps_3;
+		unsigned caps_4;
+		unsigned reserved_2;
+	};
+	static_assert(sizeof(DDSHeader) == 128);
 
-	unsigned char header[128];
-	fread_s(header, sizeof(header), 1, 128, file);
+	DDSHeader header = parser.parse_binary<DDSHeader>();
 
 	// First four bytes should be "DDS "
-	if (memcmp(header, "DDS ", 4) != 0) goto exit;
+	if (memcmp(header.identifier, "DDS ", 4) != 0) return false;
 
-	// Get width and height
-	memcpy_s(&texture.width,      sizeof(int), header + 16, sizeof(int));
-	memcpy_s(&texture.height,     sizeof(int), header + 12, sizeof(int));
-	memcpy_s(&texture.mip_levels, sizeof(int), header + 28, sizeof(int));
+	texture.width  = Math::divide_round_up(header.width,  4u);
+	texture.height = Math::divide_round_up(header.height, 4u);
 
-	texture.width  = Math::divide_round_up(texture.width,  4);
-	texture.height = Math::divide_round_up(texture.height, 4);
-
-	if (memcmp(header + 84, "DXT", 3) != 0) goto exit;
+	if (memcmp(header.spf.four_cc, "DXT", 3) != 0) return false;
 
 	// Get format
-	// See https://en.wikipedia.org/wiki/S3_Texture_Compression
-	switch (header[87]) {
+	switch (header.spf.four_cc[3]) {
 		case '1': { // DXT1
 			texture.format = Texture::Format::BC1;
 			texture.channels = 2;
@@ -57,13 +77,13 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 			texture.channels = 4;
 			break;
 		}
-		default: goto exit; // Unsupported format
+		default: return false;
 	}
 
-	int data_size = file_size - sizeof(header);
+	int data_size = file.size() - sizeof(header);
 
 	unsigned char * data = new unsigned char[data_size];
-	fread_s(data, data_size, 1, data_size, file);
+	memcpy(data, parser.cur, data_size);
 
 	int * mip_offsets = new int[texture.mip_levels];
 
@@ -89,12 +109,7 @@ bool TextureLoader::load_dds(const char * filename, Texture & texture) {
 	texture.data = data;
 	texture.mip_offsets = mip_offsets;
 
-	success = true;
-
-exit:
-	fclose(file);
-
-	return success;
+	return true;
 }
 
 static void mip_count(int width, int height, int & mip_levels, int & pixel_count) {
@@ -117,8 +132,8 @@ static void mip_count(int width, int height, int & mip_levels, int & pixel_count
 	}
 }
 
-bool TextureLoader::load_stb(const char * filename, Texture & texture) {
-	unsigned char * data = stbi_load(filename, &texture.width, &texture.height, &texture.channels, STBI_rgb_alpha);
+bool TextureLoader::load_stb(const String & filename, Texture & texture) {
+	unsigned char * data = stbi_load(filename.data(), &texture.width, &texture.height, &texture.channels, STBI_rgb_alpha);
 
 	if (data == nullptr || texture.width == 0 || texture.height == 0) {
 		return false;

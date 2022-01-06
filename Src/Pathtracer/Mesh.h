@@ -8,7 +8,7 @@
 struct Scene;
 
 struct Mesh {
-	const char * name;
+	String name;
 
 	AABB aabb_untransformed;
 	AABB aabb;
@@ -34,7 +34,7 @@ struct Mesh {
 		int triangle_count;
 	} light;
 
-	void init(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene);
+	void init(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene);
 
 	void update();
 

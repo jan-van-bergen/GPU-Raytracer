@@ -1,27 +1,21 @@
 #pragma once
 #include <string.h>
 
+#define FMT_STRINGVIEW(str_view) unsigned(str_view.length()), str_view.start
+
 struct StringView {
 	const char * start;
 	const char * end;
 
-	inline char operator[](int index) const { return start[index]; }
+	inline char operator[](size_t index) const { return start[index]; }
 
-	int length() const { return end - start; }
+	size_t length() const { return end - start; }
 
-	char * c_str() const {
-		int    len = length();
-		char * str = new char[len + 1];
-		memcpy(str, start, len);
-		str[len] = '\0';
-		return str;
-	}
+	bool is_empty() const { return length() == 0; }
 
-	StringView substr(size_t offset, size_t len = -1) {
-		if (offset + len >= length()) {
-			len = length() - offset;
-		}
-		return { start + offset, start + offset + len };
+	template<int N>
+	constexpr static StringView from_c_str(const char (& str)[N]) {
+		return { str, str + N - 1 };
 	}
 
 	static StringView from_c_str(const char * str) {
@@ -30,9 +24,10 @@ struct StringView {
 };
 
 struct StringViewHash {
+	// Based on: https://www.geeksforgeeks.org/string-hashing-using-polynomial-rolling-hash-function/
 	size_t operator()(const StringView & str) const {
 		static constexpr int p = 31;
-		static constexpr int m = 1e9 + 9;
+		static constexpr int m = 1'000'000'009;
 
 		size_t hash = 0;
 		size_t p_pow = 1;

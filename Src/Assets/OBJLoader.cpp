@@ -87,14 +87,13 @@ struct OBJFile {
 	Array<Face> faces;
 };
 
-static OBJFile parse_obj(const char * filename) {
-	int          file_length;
-	const char * file = Util::file_read(filename, file_length);
+static OBJFile parse_obj(const String & filename) {
+	String file = Util::file_read(filename);
 
 	OBJFile obj = { };
 
 	Parser parser = { };
-	parser.init(file, file + file_length, filename);
+	parser.init(file.view(), filename.view());
 
 	while (!parser.reached_end()) {
 		if (parser.match('#') || parser.match("o ")) {
@@ -117,12 +116,10 @@ static OBJFile parse_obj(const char * filename) {
 		parser.expect('\n');
 	}
 
-	delete [] file;
-
 	return obj;
 }
 
-bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangle_count) {
+bool OBJLoader::load(const String & filename, Triangle *& triangles, int & triangle_count) {
 	OBJFile obj = parse_obj(filename);
 
 	triangle_count = obj.faces.size();
@@ -185,7 +182,7 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 		triangles[f].init();
 	}
 
-	printf("Loaded OBJ %s from disk (%i triangles)\n", filename, triangle_count);
+	printf("Loaded OBJ %.*s from disk (%i triangles)\n", FMT_STRING(filename), triangle_count);
 
 	return true;
 }

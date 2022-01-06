@@ -240,6 +240,7 @@
     <ClCompile Include="Src\Util\PerfTest.cpp" />
     <ClCompile Include="Src\Util\PMJ.cpp" />
     <ClCompile Include="Src\Util\Shader.cpp" />
+    <ClCompile Include="Src\Util\StringUtil.cpp" />
     <ClCompile Include="Src\Util\ThreadPool.cpp" />
     <ClCompile Include="Src\Util\Util.cpp" />
     <ClCompile Include="Src\Window.cpp" />
@@ -311,6 +312,7 @@
     <ClInclude Include="Src\Util\ScopeTimer.h" />
     <ClInclude Include="Src\Util\Shader.h" />
     <ClInclude Include="Src\Util\String.h" />
+    <ClInclude Include="Src\Util\StringUtil.h" />
     <ClInclude Include="Src\Util\StringView.h" />
     <ClInclude Include="Src\Util\ThreadPool.h" />
     <ClInclude Include="Src\Util\Util.h" />

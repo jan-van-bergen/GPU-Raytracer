@@ -5,79 +5,41 @@
 
 #include <filesystem>
 
-StringView Util::get_directory(const char * filename) {
-	const char * path_end      = filename;
-	const char * last_path_end = nullptr;
-
-	// Keep advancing the path_end pointer until we run out of '/' or '\\' characters in the string
-	while (path_end = strpbrk(path_end, "/\\")) {
-		path_end++;
-		last_path_end = path_end;
-	}
-
-	if (last_path_end) {
-		return { filename, last_path_end };
-	} else {
-		return StringView::from_c_str("./");
-	}
+static std::filesystem::path stringview_to_path(StringView str) {
+	return { str.start, str.end };
 }
 
-const char * Util::get_absolute_path(StringView path, StringView filename) {
-	char * filename_abs = new char[path.length() + filename.length() + 1];
-
-	memcpy(filename_abs,                 path    .start, path    .length());
-	memcpy(filename_abs + path.length(), filename.start, filename.length());
-	filename_abs[path.length() + filename.length()] = '\0';
-
-	return filename_abs;
+bool Util::file_exists(StringView filename) {
+	return std::filesystem::exists(stringview_to_path(filename));
 }
 
-bool Util::file_exists(const char * filename) {
-	return std::filesystem::exists(filename);
-}
-
-bool Util::file_is_newer(const char * filename_a, const char * filename_b) {
-	std::filesystem::file_time_type last_write_time_filename_a = std::filesystem::last_write_time(filename_a);
-	std::filesystem::file_time_type last_write_time_filename_b = std::filesystem::last_write_time(filename_b);
+bool Util::file_is_newer(StringView filename_a, StringView filename_b) {
+	std::filesystem::file_time_type last_write_time_filename_a = std::filesystem::last_write_time(stringview_to_path(filename_a));
+	std::filesystem::file_time_type last_write_time_filename_b = std::filesystem::last_write_time(stringview_to_path(filename_b));
 
 	return last_write_time_filename_a < last_write_time_filename_b;
 }
 
-char * Util::file_read(const char * filename, int & file_length) {
+String Util::file_read(const String & filename) {
 	FILE * file;
-	fopen_s(&file, filename, "rb");
+	fopen_s(&file, filename.data(), "rb");
 
 	if (file == nullptr) {
-		printf("ERROR: Unable to open '%s'!\n", filename);
+		printf("ERROR: Unable to open '%.*s'!\n", FMT_STRING(filename));
 		abort();
 	}
 
 	// Get file length
 	fseek(file, 0, SEEK_END);
-	file_length = ftell(file);
+	int file_length = ftell(file);
 	rewind(file);
 
-	// Copy file source into c string
-	char * data = new char[file_length + 1];
-	fread_s(data, file_length + 1, 1, file_length, file);
+	String data(file_length);
+	fread_s(data.data(), file_length, 1, file_length, file);
+	data.data()[file_length] = '\0';
 
 	fclose(file);
-
-	data[file_length] = NULL;
 	return data;
-}
-
-const char * Util::find_last(const char * haystack, const char * needles) {
-	const char * ptr_prev = nullptr;
-	const char * ptr_curr = haystack;
-
-	while (true) {
-		ptr_curr = strpbrk(ptr_curr, needles);
-
-		if (ptr_curr == nullptr) return ptr_prev;
-
-		ptr_prev = ++ptr_curr;
-	}
 }
 
 // Based on: Vose - A Linear Algorithm for Generating Random Numbers with a Given Distribution (1991)

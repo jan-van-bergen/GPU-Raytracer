@@ -37,16 +37,15 @@ public:
 	void init();
 
 	template<typename FallbackLoader>
-	MeshDataHandle add_mesh_data(const char * filename, FallbackLoader fallback_loader) {
-		const char * bvh_filename = BVHLoader::get_bvh_filename(filename);
+	MeshDataHandle add_mesh_data(const String & filename, FallbackLoader fallback_loader) {
+		String bvh_filename = BVHLoader::get_bvh_filename(filename.view());
 		MeshDataHandle mesh_data_handle = add_mesh_data(filename, bvh_filename, fallback_loader);
 
-		delete [] bvh_filename;
 		return mesh_data_handle;
 	}
 
 	template<typename FallbackLoader>
-	MeshDataHandle add_mesh_data(const char * filename, const char * bvh_filename, FallbackLoader fallback_loader) {
+	MeshDataHandle add_mesh_data(const String & filename, const String & bvh_filename, FallbackLoader fallback_loader) {
 		MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
 
 		if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
@@ -85,7 +84,7 @@ public:
 
 	MediumHandle add_medium(const Medium & medium);
 
-	TextureHandle add_texture(const char * filename);
+	TextureHandle add_texture(const String & filename);
 
 	void wait_until_loaded();
 

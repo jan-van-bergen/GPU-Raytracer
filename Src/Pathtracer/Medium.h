@@ -4,8 +4,10 @@
 
 #include "CUDA/Common.h"
 
+#include "Util/String.h"
+
 struct Medium {
-	const char * name;
+	String name;
 
 	// Artist friendly parameters as described in
 	// Chiang et al. - Practical and Controllable Subsurface Scattering for Production Path Tracing

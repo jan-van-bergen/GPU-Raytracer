@@ -21,14 +21,14 @@ struct XMLAttribute {
 	template<>
 	int get_value() const {
 		Parser parser = { };
-		parser.init(value.start, value.end, location_of_value);
+		parser.init(value, location_of_value);
 		return parser.parse_int();
 	}
 
 	template<>
 	float get_value() const {
 		Parser parser = { };
-		parser.init(value.start, value.end, location_of_value);
+		parser.init(value, location_of_value);
 		return parser.parse_float();
 	}
 
@@ -36,13 +36,13 @@ struct XMLAttribute {
 	bool get_value() const {
 		if (value == "true")  return true;
 		if (value == "false") return false;
-		ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", unsigned(value.length()), value.start);
+		ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", FMT_STRINGVIEW(value));
 	}
 
 	template<>
 	Vector3 get_value() const {
 		Parser parser = { };
-		parser.init(value.start, value.end, location_of_value);
+		parser.init(value, location_of_value);
 
 		Vector3 v;
 		v.x = parser.parse_float();
@@ -68,7 +68,7 @@ struct XMLAttribute {
 	template<>
 	Matrix4 get_value() const {
 		Parser parser = { };
-		parser.init(value.start, value.end, location_of_value);
+		parser.init(value, location_of_value);
 
 		int i = 0;
 		Matrix4 m;
@@ -124,7 +124,7 @@ struct XMLNode {
 		if (attribute) {
 			return attribute->get_value<T>();
 		} else {
-			ERROR(location, "Node '%.*s' does not have an attribute with name '%s'!\n", unsigned(tag.length()), tag.start, name);
+			ERROR(location, "Node '%.*s' does not have an attribute with name '%s'!\n", FMT_STRINGVIEW(tag), name);
 		}
 	}
 
@@ -157,7 +157,7 @@ struct XMLNode {
 		if (child) {
 			return child->get_attribute_value<T>("value");
 		} else {
-			ERROR(location, "Node '%.*s' does not have a child with name '%s'!\n", unsigned(tag.length()), tag.start, child_name);
+			ERROR(location, "Node '%.*s' does not have a child with name '%s'!\n", FMT_STRINGVIEW(tag), child_name);
 		}
 	}
 
@@ -173,18 +173,12 @@ struct XMLNode {
 };
 
 struct XMLParser {
-	int          source_length;
-	const char * source;
-
+	String source;
 	Parser parser;
 
-	void init(const char * filename) {
-		source = Util::file_read(filename, source_length);
-		parser.init(source, source + source_length, filename);
-	}
-
-	void free() {
-		delete [] source;
+	void init(const String & filename) {
+		source = Util::file_read(filename);
+		parser.init(source.view(), filename.view());
 	}
 
 	XMLNode parse_root();

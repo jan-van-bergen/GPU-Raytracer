@@ -13,8 +13,8 @@
 #define TAB_WIDTH 4
 
 #define WARNING(loc, msg, ...) \
-	if (loc.file) { \
-		printf("%s:%i:%i: " msg, loc.file, loc.line, loc.col, __VA_ARGS__); \
+	if (loc.file.length() > 0) { \
+		printf("%.*s:%i:%i: " msg, FMT_STRINGVIEW(loc.file), loc.line, loc.col, __VA_ARGS__); \
 	} else { \
 		printf(msg, __VA_ARGS__); \
 	}
@@ -36,9 +36,9 @@ inline bool is_newline(char c) {
 }
 
 struct SourceLocation {
-	const char * file;
-	int          line;
-	int          col;
+	StringView file;
+	int        line;
+	int        col;
 
 	void advance(char c) {
 		if (c == '\n') {
@@ -84,14 +84,14 @@ struct Parser {
 
 	SourceLocation location;
 
-	void init(const char * start, const char * end, const char * filename = nullptr) {
-		init(start, end, SourceLocation { filename, 1, 0 });
+	void init(StringView data, StringView filename = { }) {
+		init(data, SourceLocation { filename, 1, 0 });
 	}
 
-	void init(const char * start, const char * end, SourceLocation location) {
-		this->cur   = start;
-		this->start = start;
-		this->end   = end;
+	void init(StringView data, SourceLocation location) {
+		this->cur   = data.start;
+		this->start = data.start;
+		this->end   = data.end;
 		this->location = location;
 	}
 

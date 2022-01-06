@@ -1,6 +1,8 @@
 #include "PerfTest.h"
 
-void PerfTest::init(Pathtracer * pathtracer, bool enabled, const char * scene_name) {
+#include "Util/StringUtil.h"
+
+void PerfTest::init(Pathtracer * pathtracer, bool enabled, StringView scene_name) {
 	this->enabled = enabled;
 
 	index_pov    = 0;
@@ -8,11 +10,11 @@ void PerfTest::init(Pathtracer * pathtracer, bool enabled, const char * scene_na
 
 	this->pathtracer = pathtracer;
 
-	if (strstr(scene_name, "sponza")) {
+	if (Util::strstr(scene_name, StringView::from_c_str("sponza"))) {
 		povs = &povs_sponza;
-	} else if (strstr(scene_name, "San_Miguel")) {
+	} else if (Util::strstr(scene_name, StringView::from_c_str("San_Miguel"))) {
 		povs = &povs_san_miguel;
-	} else if (strstr(scene_name, "bistro")) {
+	} else if (Util::strstr(scene_name, StringView::from_c_str("bistro"))) {
 		povs = &povs_bistro;
 	} else {
 		this->enabled = false;

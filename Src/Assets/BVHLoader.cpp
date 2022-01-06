@@ -4,15 +4,11 @@
 #include <string.h>
 
 #include "Util/Util.h"
+#include "Util/Parser.h"
+#include "Util/StringUtil.h"
 
-const char * BVHLoader::get_bvh_filename(const char * filename) {
-	int    bvh_filename_size = strlen(filename) + strlen(BVH_FILE_EXTENSION) + 1;
-	char * bvh_filename      = new char[bvh_filename_size];
-
-	strcpy_s(bvh_filename, bvh_filename_size, filename);
-	strcat_s(bvh_filename, bvh_filename_size, BVH_FILE_EXTENSION);
-
-	return bvh_filename;
+String BVHLoader::get_bvh_filename(StringView filename) {
+	return Util::combine_stringviews(filename, StringView::from_c_str(BVH_FILE_EXTENSION));
 }
 
 struct BVHFileHeader {
@@ -30,28 +26,24 @@ struct BVHFileHeader {
 	int num_indices;
 };
 
-bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, MeshData & mesh_data, BVH & bvh) {
-	if (config.bvh_force_rebuild || !Util::file_exists(bvh_filename) || Util::file_is_newer(bvh_filename, filename)) {
+bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH & bvh) {
+	if (config.bvh_force_rebuild || !Util::file_exists(bvh_filename.view()) || Util::file_is_newer(bvh_filename.view(), filename.view())) {
 		return false;
 	}
 
-	FILE * file; fopen_s(&file, bvh_filename, "rb");
+	String file = Util::file_read(bvh_filename);
 
-	BVHFileHeader header = { };
-	bool success = false;
+	Parser parser = { };
+	parser.init(file.view(), bvh_filename.view());
 
-	if (!file) {
-		printf("WARNING: Unable to open BVH file '%s'!\n", bvh_filename);
+	BVHFileHeader header = parser.parse_binary<BVHFileHeader>();
+
+	if (strcmp(header.filetype_identifier, "BVH") != 0) {
+		printf("WARNING: BVH file '%.*s' has an invalid header!\n", FMT_STRING(bvh_filename));
 		return false;
 	}
 
-	size_t num_read = fread(reinterpret_cast<char *>(&header), sizeof(header), 1, file);
-	if (num_read != 1 || strcmp(header.filetype_identifier, "BVH") != 0) {
-		printf("WARNING: BVH file '%s' has an invalid header!\n", bvh_filename);
-		goto exit;
-	}
-
-	if (header.filetype_version != BVH_FILETYPE_VERSION) goto exit;
+	if (header.filetype_version != BVH_FILETYPE_VERSION) return false;
 
 	// Check if the settings used to create the BVH file are the same as the current settings
 	if (header.underlying_bvh_type    != char(BVH::underlying_bvh_type()) ||
@@ -59,8 +51,8 @@ bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, Me
 		header.sah_cost_node          != config.sah_cost_node ||
 		header.sah_cost_leaf          != config.sah_cost_leaf
 	) {
-		printf("BVH file '%s' was created with different settings, rebuiling BVH from scratch.\n", bvh_filename);
-		goto exit;
+		printf("BVH file '%.*s' was created with different settings, rebuiling BVH from scratch.\n", FMT_STRING(bvh_filename));
+		return false;
 	}
 
 	mesh_data.triangle_count = header.num_triangles;
@@ -71,29 +63,21 @@ bool BVHLoader::try_to_load(const char * filename, const char * bvh_filename, Me
 	bvh.nodes._2        = new BVHNode2[bvh.node_count];
 	bvh.indices         = new int     [bvh.index_count];
 
-	size_t num_triangles_read = fread(reinterpret_cast<char *>(mesh_data.triangles), sizeof(Triangle), mesh_data.triangle_count, file);
-	size_t num_bvh_nodes_read = fread(reinterpret_cast<char *>(bvh.nodes._2),        sizeof(BVHNode2), bvh.node_count,           file);
-	size_t num_indices_read   = fread(reinterpret_cast<char *>(bvh.indices),         sizeof(int),      bvh.index_count,          file);
+	for (int i = 0; i < mesh_data.triangle_count; i++) mesh_data.triangles[i] = parser.parse_binary<Triangle>();
+	for (int i = 0; i < bvh.node_count;           i++) bvh.nodes._2       [i] = parser.parse_binary<BVHNode2>();
+	for (int i = 0; i < bvh.index_count;          i++) bvh.indices        [i] = parser.parse_binary<int>();
 
-	if (num_triangles_read < mesh_data.triangle_count || num_bvh_nodes_read < bvh.node_count || num_indices_read < bvh.index_count) {
-		printf("WARNING: Unable to fully read BVH file '%s'!\n", bvh_filename);
-		goto exit;
-	}
+	assert(parser.reached_end());
 
-	printf("Loaded BVH %s from disk\n", bvh_filename);
-
-	success = true;
-
-exit:
-	fclose(file);
-	return success;
+	printf("Loaded BVH '%.*s' from disk\n", FMT_STRING(bvh_filename));
+	return true;
 }
 
-bool BVHLoader::save(const char * bvh_filename, const MeshData & mesh_data, const BVH & bvh) {
-	FILE * file; fopen_s(&file, bvh_filename, "wb");
+bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, const BVH & bvh) {
+	FILE * file; fopen_s(&file, bvh_filename.data(), "wb");
 
 	if (!file) {
-		printf("WARNING: Unable to open BVH file '%s' for writing!\n", bvh_filename);
+		printf("WARNING: Unable to open BVH file '%.*s' for writing!\n", FMT_STRING(bvh_filename));
 		return false;
 	}
 
@@ -122,7 +106,7 @@ bool BVHLoader::save(const char * bvh_filename, const MeshData & mesh_data, cons
 	fclose(file);
 
 	if (!header_written || num_triangles_written < mesh_data.triangle_count || num_bvh_nodes_written < bvh.node_count || num_indices_written < bvh.index_count) {
-		printf("WARNING: Unable to successfully write to BVH file '%s'!\n", bvh_filename);
+		printf("WARNING: Unable to successfully write to BVH file '%.*s'!\n", FMT_STRING(bvh_filename));
 		return false;
 	}
 

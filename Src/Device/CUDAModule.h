@@ -5,6 +5,8 @@
 
 #include "CUDACall.h"
 
+#include "Util/String.h"
+
 struct CUDAModule {
 	CUmodule module;
 
@@ -30,7 +32,7 @@ struct CUDAModule {
 		}
 	};
 
-	void init(const char * filename, int compute_capability, int max_registers);
+	void init(const String & filename, int compute_capability, int max_registers);
 	void free();
 
 	Global get_global(const char * variable_name) const;

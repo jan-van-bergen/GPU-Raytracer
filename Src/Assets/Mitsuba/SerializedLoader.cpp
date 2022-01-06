@@ -6,22 +6,21 @@
 
 #include "XMLParser.h"
 
-Serialized SerializedLoader::load(const char * filename, SourceLocation location_in_mitsuba_file) {
-	int          serialized_length;
-	const char * serialized = Util::file_read(filename, serialized_length);
+Serialized SerializedLoader::load(const String & filename, SourceLocation location_in_mitsuba_file) {
+	String serialized = Util::file_read(filename);
 
 	Parser parser = { };
-	parser.init(serialized, serialized + serialized_length, filename);
+	parser.init(serialized.view(), filename.view());
 
 	uint16_t file_format_id = parser.parse_binary<uint16_t>();
 	if (file_format_id != 0x041c) {
-		ERROR(location_in_mitsuba_file, "ERROR: Serialized file '%s' does not start with format ID 0x041c!\n", filename);
+		ERROR(location_in_mitsuba_file, "ERROR: Serialized file '%.*s' does not start with format ID 0x041c!\n", FMT_STRING(filename));
 	}
 
 	uint16_t file_version = parser.parse_binary<uint16_t>();
 
 	// Read the End-of-File Dictionary
-	parser.seek(serialized_length - sizeof(uint32_t));
+	parser.seek(serialized.size() - sizeof(uint32_t));
 	uint32_t num_meshes = parser.parse_binary<uint32_t>();
 	uint64_t eof_dictionary_offset = 0;;
 
@@ -29,7 +28,7 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 
 	if (file_version <= 3) {
 		// Version 0.3.0 and earlier use 32 bit mesh offsets
-		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
+		eof_dictionary_offset = serialized.size() - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
 		parser.seek(eof_dictionary_offset);
 
 		for (int i = 0; i < num_meshes; i++) {
@@ -37,7 +36,7 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 		}
 	} else {
 		// Version 0.4.0 and later use 64 bit mesh offsets
-		eof_dictionary_offset = serialized_length - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
+		eof_dictionary_offset = serialized.size() - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
 		parser.seek(eof_dictionary_offset);
 
 		for (int i = 0; i < num_meshes; i++) {
@@ -58,28 +57,27 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 		mz_ulong num_bytes = mesh_offsets[i+1] - mesh_offsets[i] - 4;
 
 		mz_ulong deserialized_length = 3 * num_bytes;
-		char   * deserialized = nullptr;
+		String   deserialized = { };
 
 		while (true) {
-			deserialized = new char[deserialized_length];
+			deserialized = String(deserialized_length);
 
 			int status = uncompress(
-				reinterpret_cast<      unsigned char *>(deserialized), &deserialized_length,
-				reinterpret_cast<const unsigned char *>(serialized + mesh_offsets[i] + 4), num_bytes
+				reinterpret_cast<      unsigned char *>(deserialized.data()), &deserialized_length,
+				reinterpret_cast<const unsigned char *>(serialized.data() + mesh_offsets[i] + 4), num_bytes
 			);
 
 			if (status == MZ_BUF_ERROR) {
-				delete [] deserialized;
 				deserialized_length *= 2;
 			} else if (status == MZ_OK) {
 				break;
 			} else {
-				ERROR(location_in_mitsuba_file, "ERROR: Failed to decompress serialized mesh #%u in file '%s'!\n%s", i, filename, mz_error(status));
+				ERROR(location_in_mitsuba_file, "ERROR: Failed to decompress serialized mesh #%u in file '%.*s'!\n%s", i, FMT_STRING(filename), mz_error(status));
 			}
 		}
 
 		Parser parser = { };
-		parser.init(deserialized, deserialized + deserialized_length, filename);
+		parser.init(deserialized.view(), filename.view());
 
 		// Read flags field
 		uint32_t flags = parser.parse_binary<uint32_t>();
@@ -107,7 +105,6 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 
 			WARNING(location_in_mitsuba_file, "WARNING: Serialized Mesh defined without vertices or triangles, skipping\n");
 
-			delete [] deserialized;
 			continue;
 		}
 
@@ -217,12 +214,9 @@ Serialized SerializedLoader::load(const char * filename, SourceLocation location
 
 		result.triangle_count[i] = num_triangles;
 		result.triangles     [i] = triangles;
-
-		delete [] deserialized;
 	}
 
 	delete [] mesh_offsets;
-	delete [] serialized;
 
 	return result;
 }

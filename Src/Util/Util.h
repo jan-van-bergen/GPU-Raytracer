@@ -2,6 +2,7 @@
 #include <malloc.h>
 #include <utility>
 
+#include "String.h"
 #include "StringView.h"
 
 #define DATA_PATH(file_name) "./Data/" file_name
@@ -29,17 +30,11 @@ struct alignas(8) ProbAlias {
 };
 
 namespace Util {
-	StringView get_directory(const char * filename);
+	bool file_exists(StringView filename);
 
-	const char * get_absolute_path(StringView path, StringView filename);
+	bool file_is_newer(StringView filename_a, StringView filename_b);
 
-	bool file_exists(const char * filename);
-
-	bool file_is_newer(const char * filename_a, const char * filename_b);
-
-	char * file_read(const char * filename, int & file_length);
-
-	const char * find_last(const char * haystack, const char * needles);
+	String file_read(const String & filename);
 
 	void init_alias_method(int n, double p[], ProbAlias distribution[]);
 

@@ -3,10 +3,12 @@
 
 #include "CUDA/Common.h"
 
+#include "Util/String.h"
+
 struct Scene;
 
 struct Texture {
-	const char * name = "Texture";
+	String name = "Texture";
 
 	const unsigned char * data = nullptr;
 

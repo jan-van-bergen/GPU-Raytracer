@@ -30,37 +30,33 @@ struct ShapeGroup {
 	MaterialHandle material_handle;
 };
 
-using ShapeGroupMap = HashMap<StringView, ShapeGroup,     StringViewHash>;
-using SerializedMap = HashMap<StringView, Serialized,     StringViewHash>;
-using MaterialMap   = HashMap<StringView, MaterialHandle, StringViewHash>;
-using TextureMap    = HashMap<StringView, TextureHandle,  StringViewHash>;
+using ShapeGroupMap = HashMap<String, ShapeGroup,     StringHash>;
+using SerializedMap = HashMap<String, Serialized,     StringHash>;
+using MaterialMap   = HashMap<String, MaterialHandle, StringHash>;
+using TextureMap    = HashMap<String, TextureHandle,  StringHash>;
 
-static void parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene, TextureHandle & texture) {
+static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene) {
 	StringView type = node->get_attribute_value("type");
 
 	if (type == "bitmap") {
-		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
+		StringView filename_rel = node->get_child_value<StringView>("filename");
+		String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
-		texture = scene.asset_manager.add_texture(filename_abs);
+		TextureHandle texture_handle = scene.asset_manager.add_texture(filename_abs);
 
-		StringView texture_id = { };
-		const XMLAttribute * id = node->get_attribute("id");
-		if (id) {
-			texture_id = id->value;
-		} else {
-			texture_id = filename_rel;
+		if (const XMLAttribute * id = node->get_attribute("id")) {
+			texture_map.insert(String(id->value), texture_handle);
 		}
-		texture_map[texture_id] = texture;
 
-		delete [] filename_abs;
-		return;
+		return texture_handle;
 	} else {
 		WARNING(node->location, "Only bitmap textures are supported!\n");
 	}
+
+	return TextureHandle { INVALID };
 }
 
-static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
+static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb, TextureHandle & texture_handle) {
 	const XMLNode * reflectance = node->get_child_by_name(name);
 	if (reflectance) {
 		if (reflectance->tag == "rgb") {
@@ -71,17 +67,17 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 			rgb.y = Math::gamma_to_linear(rgb.y);
 			rgb.z = Math::gamma_to_linear(rgb.z);
 		} else if (reflectance->tag == "texture") {
-			parse_texture(reflectance, texture_map, path, scene, texture);
+			texture_handle = parse_texture(reflectance, texture_map, path, scene);
 
 			const XMLNode * scale = reflectance->get_child_by_name("scale");
 			if (scale) {
 				rgb = scale->get_attribute_optional("value", Vector3(1.0f));
 			}
 		} else if (reflectance->tag == "ref") {
-			const StringView & texture_name = reflectance->get_attribute_value<StringView>("id");
-			bool found = texture_map.try_get(texture_name, texture);
+			StringView texture_name = reflectance->get_attribute_value<StringView>("id");
+			bool found = texture_map.try_get(texture_name, texture_handle);
 			if (!found) {
-				WARNING(reflectance->location, "Invalid texture ref '%.*s'!\n", unsigned(texture_name.length()), texture_name.start);
+				WARNING(reflectance->location, "Invalid texture ref '%.*s'!\n", FMT_STRINGVIEW(texture_name));
 			}
 		}
 	} else {
@@ -189,12 +185,12 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		// Check if an existing Material is referenced
 		const XMLNode * ref = node->get_child_by_tag("ref");
 		if (ref) {
-			const StringView & material_name = ref->get_attribute_value<StringView>("id");
+			StringView material_name = ref->get_attribute_value<StringView>("id");
 
 			MaterialHandle material_id;
 			bool found = material_map.try_get(material_name, material_id);
 			if (!found) {
-				WARNING(ref->location, "Invalid material Ref '%.*s'!\n", unsigned(material_name.length()), material_name.start);
+				WARNING(ref->location, "Invalid material Ref '%.*s'!\n", FMT_STRINGVIEW(material_name));
 
 				return MaterialHandle::get_default();
 			}
@@ -236,7 +232,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 				if (material_map.try_get(id, material_handle)) {
 					return material_handle;
 				} else {
-					WARNING(ref->location, "Invalid material Ref '%.*s'!\n", unsigned(id.length()), id.start);
+					WARNING(ref->location, "Invalid material Ref '%.*s'!\n", FMT_STRINGVIEW(id));
 					return MaterialHandle::get_default();
 				}
 			} else {
@@ -251,7 +247,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		}
 	}
 	if (name) {
-		material.name = name->value.c_str();
+		material.name = name->value;
 	} else {
 		material.name = "Material";
 	}
@@ -345,7 +341,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (child_int_ior && child_int_ior->tag == "string") {
 			StringView int_ior_name = child_int_ior->get_attribute_value("value");
 			if (!lookup_known_ior(int_ior_name, int_ior)) {
-				ERROR(child_int_ior->location, "Index of refraction not known for '%.*s'\n", unsigned(int_ior_name.length()), int_ior_name.start);
+				ERROR(child_int_ior->location, "Index of refraction not known for '%.*s'\n", FMT_STRINGVIEW(int_ior_name));
 			}
 		} else {
 			int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
@@ -355,7 +351,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (child_ext_ior && child_ext_ior->tag == "string") {
 			StringView ext_ior_name = child_ext_ior->get_attribute_value("value");
 			if (!lookup_known_ior(ext_ior_name, ext_ior)) {
-				ERROR(child_ext_ior->location, "Index of refraction not known for '%.*s'\n", unsigned(ext_ior_name.length()), ext_ior_name.start);
+				ERROR(child_ext_ior->location, "Index of refraction not known for '%.*s'\n", FMT_STRINGVIEW(ext_ior_name));
 			}
 		} else {
 			ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
@@ -374,7 +370,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else {
-		WARNING(inner_bsdf->location, "WARNING: BSDF type '%.*s' not supported!\n", unsigned(inner_bsdf_type.length()), inner_bsdf_type.start);
+		WARNING(inner_bsdf->location, "WARNING: BSDF type '%.*s' not supported!\n", FMT_STRINGVIEW(inner_bsdf_type));
 
 		return MaterialHandle::get_default();
 	}
@@ -394,7 +390,7 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 		Medium medium = { };
 
 		if (const XMLAttribute * name = xml_medium->get_attribute("name")) {
-			medium.name = name->value.c_str();
+			medium.name = name->value;
 		}
 
 		const XMLNode * xml_sigma_a = xml_medium->get_child_by_name("sigmaA");
@@ -430,32 +426,32 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 			} else if (phase_type == "hg") {
 				medium.g = phase->get_child_value_optional("g", 0.0f);
 			} else {
-				WARNING(xml_medium->location, "WARNING: Phase function type '%.*s' not supported!\n", unsigned(phase_type.length()), phase_type.start);
+				WARNING(xml_medium->location, "WARNING: Phase function type '%.*s' not supported!\n", FMT_STRINGVIEW(phase_type));
 			}
 		}
 
 		return scene.asset_manager.add_medium(medium);
 	} else {
-		WARNING(xml_medium->location, "WARNING: Medium type '%.*s' not supported!\n", unsigned(medium_type.length()), medium_type.start);
+		WARNING(xml_medium->location, "WARNING: Medium type '%.*s' not supported!\n", FMT_STRINGVIEW(medium_type));
 	}
+
+	return MediumHandle { INVALID };
 }
 
-static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, StringView path, const char *& name) {
+static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, StringView path, String & name) {
 	StringView type = node->get_attribute_value<StringView>("type");
 
 	if (type == "obj" || type == "ply") {
-		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
+		String filename = Util::combine_stringviews(path, node->get_child_value<StringView>("filename"));
 
 		MeshDataHandle mesh_data_handle;
 		if (type == "obj") {
-			mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, OBJLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, OBJLoader::load);
 		} else {
-			mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, PLYLoader::load);
 		}
-		delete [] filename_abs;
 
-		name = filename_rel.c_str();
+		name = filename;
 
 		return mesh_data_handle;
 	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere") {
@@ -496,21 +492,21 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			abort(); // Unreachable
 		}
 
-		name = type.c_str();
+		name = type;
 
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
 	} else if (type == "serialized") {
-		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
+		StringView filename_rel = node->get_child_value<StringView>("filename");
+		String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
 		char bvh_filename[512] = { };
-		sprintf_s(bvh_filename, "%s.shape_%i.bvh", filename_abs, shape_index);
+		sprintf_s(bvh_filename, "%s.shape_%i.bvh", filename_abs.data(), shape_index); //////////////////////////////////////////////////////////
 
-		auto fallback_loader = [&](const char * filename, Triangle *& triangles, int & triangle_count) {
+		auto fallback_loader = [&](const String & filename, Triangle *& triangles, int & triangle_count) {
 			Serialized serialized;
-			bool found = serialized_map.try_get(filename_rel, serialized);
+			bool found = serialized_map.try_get(filename_abs, serialized);
 			if (!found) {
 				serialized = SerializedLoader::load(filename_abs, node->location);
 				serialized_map[filename_rel] = serialized;
@@ -519,45 +515,43 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			triangles      = serialized.triangles     [shape_index];
 			triangle_count = serialized.triangle_count[shape_index];
 		};
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, fallback_loader);
+
+		String str_bvh_filename = String(bvh_filename);
+		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(str_bvh_filename, str_bvh_filename, fallback_loader);
 
 		char * shape_name = new char[filename_rel.length() + 32];
-		sprintf_s(shape_name, filename_rel.length() + 32, "%.*s_%i", unsigned(filename_rel.length()), filename_rel.start, shape_index);
+		sprintf_s(shape_name, filename_rel.length() + 32, "%.*s_%i", FMT_STRINGVIEW(filename_rel), shape_index);
 		name = shape_name;
 
-		delete [] filename_abs;
 		return mesh_data_handle;
 	} else if (type == "hair") {
-		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
+		StringView filename_rel = node->get_child_value<StringView>("filename");
+		String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
 		float radius = node->get_child_value_optional("radius", 0.0025f);
 
-		auto fallback_loader = [&](const char * filename, Triangle *& triangles, int & triangle_count) {
+		auto fallback_loader = [&](const String & filename, Triangle *& triangles, int & triangle_count) {
 			MitshairLoader::load(filename, node->location, triangles, triangle_count, radius);
 		};
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
 
-		name = filename_rel.c_str();
+		name = filename_rel;
 
-		delete [] filename_abs;
 		return mesh_data_handle;
 	} else {
-		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", unsigned(type.length()), type.start);
+		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", FMT_STRINGVIEW(type));
 		return MeshDataHandle { INVALID };
 	}
 }
 
 static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	if (node->tag == "bsdf") {
-		MaterialHandle   material_handle = parse_material(node, scene, material_map, texture_map, path);
+		MaterialHandle material_handle = parse_material(node, scene, material_map, texture_map, path);
 		const Material & material = scene.asset_manager.get_material(material_handle);
 
-		StringView str = { material.name, material.name + strlen(material.name) };
-		material_map[str] = material_handle;
+		material_map.insert(material.name, material_handle);
 	} else if (node->tag == "texture") {
-		TextureHandle texture;
-		parse_texture(node, texture_map, path, scene, texture);
+		parse_texture(node, texture_map, path, scene);
 	} else if (node->tag == "shape") {
 		StringView type = node->get_attribute_value<StringView>("type");
 		if (type == "shapegroup") {
@@ -567,11 +561,12 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 					ERROR(node->location, "Shapegroup needs a <shape> child!\n");
 				}
 
-				const char * name = nullptr;
+				String name = { };
+
 				MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
 				MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
 
-				const StringView & id = node->get_attribute_value<StringView>("id");
+				StringView id = node->get_attribute_value<StringView>("id");
 				shape_group_map[id] = { mesh_data_handle, material_handle };
 			}
 		} else if (type == "instance") {
@@ -584,11 +579,12 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 			ShapeGroup shape_group;
 			if (shape_group_map.try_get(id, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
-				Mesh & mesh = scene.add_mesh(id.c_str(), shape_group.mesh_data_handle, shape_group.material_handle);
+				Mesh & mesh = scene.add_mesh(id, shape_group.mesh_data_handle, shape_group.material_handle);
 				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 			}
 		} else {
-			char const * name = nullptr;
+			String name = { };
+
 			MeshDataHandle mesh_data_handle = parse_shape(node, scene, serialized_map, path, name);
 			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
 			MediumHandle   medium_handle    = parse_medium(node, scene);
@@ -619,7 +615,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			}
 		}
 	} else if (node->tag == "sensor") {
-		const StringView & camera_type = node->get_attribute_value<StringView>("type");
+		StringView camera_type = node->get_attribute_value<StringView>("type");
 
 		if (camera_type == "perspective" || camera_type == "perspective_rdist" || camera_type == "thinlens") {
 			float fov = node->get_child_value_optional("fov", 110.0f);
@@ -634,26 +630,24 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, nullptr, Vector3(0.0f, 0.0f, -1.0f));
 		} else {
-			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", unsigned(camera_type.length()), camera_type.start);
+			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", FMT_STRINGVIEW(camera_type));
 		}
 	} else if (node->tag == "emitter") {
-		const StringView & emitter_type = node->get_attribute_value<StringView>("type");
+		StringView emitter_type = node->get_attribute_value<StringView>("type");
 
 		if (emitter_type == "area") {
 			WARNING(node->location, "Area emitter defined without geometry!\n");
 		} else if (emitter_type == "envmap") {
-			const char * filename_rel = node->get_child_value<StringView>("filename").c_str();
+			StringView filename_rel = node->get_child_value<StringView>("filename");
 
-			const char * extension = Util::find_last(filename_rel, ".");
-			if (!extension) {
-				WARNING(node->location, "Environment Map '%s' has no file extension!\n", filename_rel);
-			} else if (strcmp(extension, "hdr") != 0) {
-				WARNING(node->location, "Environment Map '%s' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
+			StringView extension = Util::get_file_extension(filename_rel);
+			if (extension.is_empty()) {
+				WARNING(node->location, "Environment Map '%.*s' has no file extension!\n", FMT_STRINGVIEW(filename_rel));
+			} else if (extension != "hdr") {
+				WARNING(node->location, "Environment Map '%.*s' has unsupported file extension. Only HDR Environment Maps are supported!\n", FMT_STRINGVIEW(filename_rel));
 			} else {
-				scene_config.sky = Util::get_absolute_path(path, StringView::from_c_str(filename_rel));
+				scene_config.sky_filename = Util::combine_stringviews(path, filename_rel);
 			}
-
-			delete [] filename_rel;
 		} else if (emitter_type == "point") {
 			Material material = { };
 			material.type = Material::Type::LIGHT;
@@ -672,21 +666,19 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 			scene.add_mesh("PointLight", mesh_data_handle, material_handle);
 		} else {
-			WARNING(node->location, "Emitter type '%.*s' is not supported!\n", unsigned(emitter_type.length()), emitter_type.start);
+			WARNING(node->location, "Emitter type '%.*s' is not supported!\n", FMT_STRINGVIEW(emitter_type));
 		}
 	} else if (node->tag == "include") {
-		const StringView & filename_rel = node->get_attribute_value<StringView>("filename");
-		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
+		StringView filename_rel = node->get_attribute_value<StringView>("filename");
+		String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
 		MitsubaLoader::load(filename_abs, scene);
-
-		delete [] filename_abs;
 	} else for (int i = 0; i < node->children.size(); i++) {
 		walk_xml_tree(&node->children[i], scene, shape_group_map, serialized_map, material_map, texture_map, path);
 	}
 }
 
-void MitsubaLoader::load(const char * filename, Scene & scene) {
+void MitsubaLoader::load(const String & filename, Scene & scene) {
 	XMLParser xml_parser = { };
 	xml_parser.init(filename);
 
@@ -701,7 +693,7 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 		StringView version = scene_node->get_attribute_value<StringView>("version");
 
 		Parser version_parser = { };
-		version_parser.init(version.start, version.end);
+		version_parser.init(version);
 
 		int major = version_parser.parse_int(); version_parser.expect('.');
 		int minor = version_parser.parse_int(); version_parser.expect('.');
@@ -717,7 +709,5 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 	SerializedMap serialized_map;
 	MaterialMap   material_map;
 	TextureMap    texture_map;
-	walk_xml_tree(scene_node, scene, shape_group_map, serialized_map, material_map, texture_map, Util::get_directory(filename));
-
-	xml_parser.free();
+	walk_xml_tree(scene_node, scene, shape_group_map, serialized_map, material_map, texture_map, Util::get_directory(filename.view()));
 }

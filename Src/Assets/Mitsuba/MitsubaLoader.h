@@ -1,7 +1,8 @@
 #pragma once
+#include "Util/StringUtil.h"
 
 struct Scene;
 
 namespace MitsubaLoader {
-	void load(const char * filename, Scene & scene);
+	void load(const String & filename, Scene & scene);
 }

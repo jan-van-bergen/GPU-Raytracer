@@ -20,7 +20,7 @@ struct Scene {
 
 	void init(const SceneConfig & scene_config);
 
-	Mesh & add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
+	Mesh & add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
 
 	void check_materials();
 

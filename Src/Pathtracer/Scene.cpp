@@ -10,40 +10,40 @@
 #include "Material.h"
 
 #include "Util/Util.h"
+#include "Util/StringUtil.h"
 
 void Scene::init(const SceneConfig & scene_config) {
 	camera.init(DEG_TO_RAD(85.0f));
 
 	asset_manager.init();
 
-	for (int i = 0; i < scene_config.scenes.size(); i++) {
-		const char * scene_name = scene_config.scenes[i];
+	for (int i = 0; i < scene_config.scene_filenames.size(); i++) {
+		const String & scene_filename = scene_config.scene_filenames[i];
 
-		const char * file_extension = Util::find_last(scene_name, ".");
-		if (!file_extension) {
-			printf("ERROR: File '%s' has no file extension, cannot deduce file format!\n", scene_name);
+		StringView file_extension = Util::get_file_extension(scene_filename.view());
+		if (file_extension.is_empty()) {
+			printf("ERROR: File '%.*s' has no file extension, cannot deduce file format!\n", FMT_STRING(scene_filename));
 			abort();
 		}
 
-		if (strcmp(file_extension, "obj") == 0) {
-			add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, OBJLoader::load));
-		} else if (strcmp(file_extension, "ply") == 0) {
-			add_mesh(scene_name, asset_manager.add_mesh_data(scene_name, PLYLoader::load));
-		} else if (strcmp(file_extension, "xml") == 0) {
-			MitsubaLoader::load(scene_name, *this);
+		if (file_extension == "obj") {
+			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, OBJLoader::load));
+		} else if (file_extension == "ply") {
+			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, PLYLoader::load));
+		} else if (file_extension == "xml") {
+			MitsubaLoader::load(scene_filename, *this);
 		} else {
-			printf("ERROR: '%s' file format is not supported!\n", file_extension);
+			printf("ERROR: '%.*s' file format is not supported!\n", FMT_STRINGVIEW(file_extension));
 			abort();
 		}
 	}
 
-	// Initialize Sky
-	sky.init(scene_config.sky);
+	sky.init(scene_config.sky_filename);
 }
 
-Mesh & Scene::add_mesh(const char * name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
+Mesh & Scene::add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
 	Mesh & mesh = meshes.emplace_back();
-	mesh.init(name, mesh_data_handle, material_handle, *this);
+	mesh.init(std::move(name), mesh_data_handle, material_handle, *this);
 
 	return mesh;
 }

@@ -3,6 +3,8 @@
 
 #include "StringView.h"
 
+#define FMT_STRING(str) unsigned(str.size()), str.data()
+
 struct String {
 	static constexpr size_t SSO_SIZE = 16;
 
@@ -13,6 +15,13 @@ struct String {
 	};
 
 	constexpr String() : length(0), ptr(nullptr) { }
+
+	constexpr String(size_t length) : length(length), ptr(nullptr) {
+		if (length >= SSO_SIZE) {
+			ptr = new char[length + 1];
+		}
+		data()[0] = '\0';
+	}
 
 	constexpr String(const char * str) : length(strlen(str)), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
@@ -103,6 +112,10 @@ struct String {
 
 	constexpr const char * c_str() const { return data(); }
 
+	StringView view() const { return { data(), data() + size() }; }
+
+	bool is_empty() const { return length == 0; }
+
 	char & operator[](size_t index)       { return data()[index]; }
 	char   operator[](size_t index) const { return data()[index]; }
 
@@ -144,19 +157,7 @@ inline bool operator!=(const String & a, const String & b) {
 }
 
 struct StringHash {
-	// Based on: https://www.geeksforgeeks.org/string-hashing-using-polynomial-rolling-hash-function/
 	size_t operator()(const String & str) {
-		constexpr int P = 31;
-		constexpr int M = 1000000009;
-
-		size_t hash  = 0;
-		size_t pow_p = 1;
-
-		for (size_t i = 0; i < str.size(); i++) {
-			hash  = (hash + (str[i] - 'a' + 1) * pow_p) % M;
-			pow_p = (pow_p * P) % M;
-		}
-
-		return hash;
+		return StringViewHash()(str.view());
 	}
 };

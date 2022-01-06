@@ -11,6 +11,7 @@
 #include "BVH/BVHOptimizer.h"
 
 #include "Util/Util.h"
+#include "Util/StringUtil.h"
 #include "Util/ScopeTimer.h"
 #include "Util/ThreadPool.h"
 
@@ -92,33 +93,29 @@ MediumHandle AssetManager::add_medium(const Medium & medium) {
 	return medium_id;
 }
 
-TextureHandle AssetManager::add_texture(const char * filename) {
+TextureHandle AssetManager::add_texture(const String & filename) {
 	TextureHandle & texture_id = texture_cache[filename];
 
 	// If the cache already contains this Texture simply return its index
 	if (texture_id.handle != INVALID) return texture_id;
 
 	// Otherwise, create new Texture and load it from disk
-
 	textures_mutex.lock();
 	texture_id.handle = textures.size();
 	textures.emplace_back();
 	textures_mutex.unlock();
 
-	thread_pool->submit([this, filename = _strdup(filename), texture_id]() {
-		const char * name = Util::find_last(filename, "/\\");
-		if (!name) {
-			name = "Texture";
-		}
+	thread_pool->submit([this, filename, texture_id]() {
+		StringView name = Util::remove_directory(filename.view());
 
 		Texture texture = { };
 		texture.name = name;
 
 		bool success = false;
 
-		const char * file_extension = Util::find_last(filename, ".");
-		if (file_extension) {
-			if (strcmp(file_extension, "dds") == 0) {
+		StringView file_extension = Util::get_file_extension(filename.view());
+		if (!file_extension.is_empty()) {
+			if (file_extension == "dds") {
 				success = TextureLoader::load_dds(filename, texture); // DDS is loaded using custom code
 			} else {
 				success = TextureLoader::load_stb(filename, texture); // other file formats use stb_image
@@ -126,7 +123,7 @@ TextureHandle AssetManager::add_texture(const char * filename) {
 		}
 
 		if (!success) {
-			printf("WARNING: Failed to load Texture '%s'!\n", filename);
+			printf("WARNING: Failed to load Texture '%.*s'!\n", FMT_STRING(filename));
 
 			if (texture.data) delete [] texture.data;
 

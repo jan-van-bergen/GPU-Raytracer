@@ -6,12 +6,11 @@
 
 #include "Util/Array.h"
 
-void MitshairLoader::load(const char * filename, SourceLocation location_in_mitsuba_file, Triangle *& triangles, int & triangle_count, float radius) {
-	int          file_length;
-	const char * file = Util::file_read(filename, file_length);
+void MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, Triangle *& triangles, int & triangle_count, float radius) {
+	String file = Util::file_read(filename);
 
 	Parser parser = { };
-	parser.init(file, file + file_length, filename);
+	parser.init(file.view(), filename.view());
 
 	Array<Vector3> hair_vertices;
 	Array<int>     hair_strand_lengths;
@@ -55,8 +54,6 @@ void MitshairLoader::load(const char * filename, SourceLocation location_in_mits
 	if (strand_size > 0) {
 		triangle_count += strand_size - 1;
 	}
-
-	delete [] file;
 
 	triangle_count *= 2;
 	triangles       = new Triangle[triangle_count];

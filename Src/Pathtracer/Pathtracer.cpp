@@ -102,7 +102,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 }
 
 void Pathtracer::cuda_init_module() {
-	cuda_module.init("Src/CUDA/Pathtracer.cu", CUDAContext::compute_capability, MAX_REGISTERS);
+	cuda_module.init(String("Src/CUDA/Pathtracer.cu"), CUDAContext::compute_capability, MAX_REGISTERS);
 
 	kernel_generate           .init(&cuda_module, "kernel_generate");
 	kernel_trace_bvh          .init(&cuda_module, "kernel_trace_bvh");

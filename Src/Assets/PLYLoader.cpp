@@ -148,12 +148,11 @@ static T parse_property_value(Parser & parser, Property::Type::Kind kind, Format
 	}
 }
 
-void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangle_count) {
-	int          file_length;
-	const char * file = Util::file_read(filename, file_length);
+void PLYLoader::load(const String & filename, Triangle *& triangles, int & triangle_count) {
+	String file = Util::file_read(filename);
 
 	Parser parser;
-	parser.init(file, file + file_length, filename);
+	parser.init(file.view(), filename.view());
 
 	parser.expect("ply");
 	parser.skip_whitespace();
@@ -199,7 +198,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 				element.type.kind = Element::Type::Kind::FACE;
 			} else {
 				StringView element_name = parser.parse_identifier();
-				ERROR(parser.location, "Unsupported element type '%.*s'!\n", unsigned(element_name.length()), element_name.start);
+				ERROR(parser.location, "Unsupported element type '%.*s'!\n", FMT_STRINGVIEW(element_name));
 			}
 			parser.skip_whitespace();
 
@@ -241,7 +240,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 				property.kind = Property::Kind::VERTEX_INDEX;
 			} else {
 				property.kind = Property::Kind::IGNORED;
-				WARNING(parser.location, "Unknown property '%.*s'!\n", unsigned(name.length()), name.c_str());
+				WARNING(parser.location, "Unknown property '%.*s'!\n", FMT_STRINGVIEW(name));
 			}
 		}
 
@@ -348,8 +347,6 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 	}
 
 	assert(parser.reached_end());
-
-	delete [] file;
 
 	triangle_count = tris.size();
 	triangles      = new Triangle[triangle_count];

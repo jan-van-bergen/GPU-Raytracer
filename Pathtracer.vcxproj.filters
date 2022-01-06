@@ -136,6 +136,9 @@
     <ClCompile Include="Src\Device\CUDAContext.cpp">
       <Filter>Device</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Util\StringUtil.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -370,6 +373,9 @@
     </ClInclude>
     <ClInclude Include="Src\Device\CUDAContext.h">
       <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\StringUtil.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

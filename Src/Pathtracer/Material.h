@@ -4,8 +4,10 @@
 #include "Medium.h"
 #include "Texture.h"
 
+#include "Util/String.h"
+
 struct Material {
-	const char * name;
+	String name;
 
 	enum struct Type : char {
 		LIGHT,

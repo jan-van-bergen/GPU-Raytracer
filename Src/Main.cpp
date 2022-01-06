@@ -59,11 +59,11 @@ static void draw_gui();
 int main(int arg_count, char ** args) {
 	parse_args(arg_count, args);
 
-	if (scene_config.scenes.size() == 0) {
-		scene_config.scenes.push_back("Data/cornellbox/scene.xml");
+	if (scene_config.scene_filenames.size() == 0) {
+		scene_config.scene_filenames.push_back("Data/cornellbox/scene.xml");
 	}
-	if (scene_config.sky == nullptr) {
-		scene_config.sky = "Data/Skies/sky_15.hdr";
+	if (scene_config.sky_filename.is_empty()) {
+		scene_config.sky_filename = "Data/Skies/sky_15.hdr";
 	}
 
 	{
@@ -75,7 +75,7 @@ int main(int arg_count, char ** args) {
 		CUDAContext::init();
 		pathtracer.init(scene_config, window.frame_buffer_handle, config.initial_width, config.initial_height);
 
-		perf_test.init(&pathtracer, false, scene_config.scenes[0]);
+		perf_test.init(&pathtracer, false, scene_config.scene_filenames[0].view());
 	}
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
@@ -183,8 +183,8 @@ static void parse_args(int arg_count, char ** args) {
 		Option { "N", "samples", "Sets a target number of samples to use",           1, [](int arg_count, char ** args, int i) { config.output_sample_index = atoi(args[i + 1]); } },
 		Option { "o", "output",  "Sets path to output file. Supported formats: ppm", 1, [](int arg_count, char ** args, int i) { config.output_name         = args[i + 1]; } },
 
-		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { scene_config.scenes.push_back(args[i + 1]); } },
-		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { scene_config.sky = args[i + 1]; } },
+		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { scene_config.scene_filenames.push_back(args[i + 1]); } },
+		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { scene_config.sky_filename = args[i + 1]; } },
 
 		Option { "b", "bvh", "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh", 1, [](int arg_count, char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
@@ -247,13 +247,12 @@ static void parse_args(int arg_count, char ** args) {
 	char arg_name[32] = { };
 
 	for (int i = 1; i < arg_count; i++) {
-		const char * arg     = args[i];
-		int          arg_len = strlen(arg);
+		const char * arg = args[i];
 
 		sprintf_s(arg_name, "Arg %i", i);
 
 		Parser parser = { };
-		parser.init(arg, arg + arg_len, arg_name);
+		parser.init(StringView::from_c_str(arg), StringView::from_c_str(arg_name));
 
 		if (parser.match('-')) {
 			bool use_full_name = parser.match('-');
@@ -287,7 +286,7 @@ static void parse_args(int arg_count, char ** args) {
 			}
 		} else {
 			// Without explicit option, assume scene name
-			scene_config.scenes.push_back(arg);
+			scene_config.scene_filenames.push_back(arg);
 		}
 	}
 }
@@ -572,7 +571,7 @@ static void draw_gui() {
 				bool is_selected = pathtracer.pixel_query.mesh_id == m;
 
 				ImGui::PushID(m);
-				if (ImGui::Selectable(mesh.name ? mesh.name : "(null)", &is_selected)) {
+				if (ImGui::Selectable(mesh.name.data(), &is_selected)) {
 					pathtracer.pixel_query.mesh_id     = m;
 					pathtracer.pixel_query.triangle_id = INVALID;
 					pathtracer.pixel_query.material_id = mesh.material_handle.handle;
@@ -587,7 +586,7 @@ static void draw_gui() {
 			Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
 
 			if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen)) {
-				ImGui::TextUnformatted(mesh.name);
+				ImGui::TextUnformatted(mesh.name.data());
 
 				bool mesh_changed = false;
 				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
@@ -621,7 +620,7 @@ static void draw_gui() {
 			Material & material = pathtracer.scene.asset_manager.get_material(MaterialHandle { pathtracer.pixel_query.material_id });
 
 			if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
-				ImGui::Text("Name: %s", material.name);
+				ImGui::Text("Name: %s", material.name.data());
 
 				bool material_changed = false;
 
@@ -634,7 +633,7 @@ static void draw_gui() {
 				const char * texture_name = "None";
 				if (material.texture_id.handle != INVALID) {
 					const Texture & texture = pathtracer.scene.asset_manager.get_texture(material.texture_id);
-					texture_name = texture.name;
+					texture_name = texture.name.data();
 				}
 
 				switch (material.type) {

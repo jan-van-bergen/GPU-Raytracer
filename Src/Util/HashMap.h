@@ -54,10 +54,10 @@ struct HashMap {
 	}
 
 	constexpr Value & insert(const Key & key, const Value & value) {
-		return insert(Hash()(key), key, value);
+		return insert_by_hash(Hash()(key), key, value);
 	}
 
-	constexpr Value & insert(size_t hash, const Key & key, const Value & value) {
+	constexpr Value & insert_by_hash(size_t hash, const Key & key, const Value & value) {
 		if (2 * map.count >= map.capacity) {
 			grow(2 * map.capacity);
 		}
@@ -65,9 +65,13 @@ struct HashMap {
 	}
 
 	constexpr bool try_get(const Key & key, Value & value) const {
+		return try_get_by_hash(Hash()(key), key, value);
+	}
+
+	constexpr bool try_get_by_hash(size_t hash, const Key & key, Value & value) const {
 		if (map.count == 0) return false;
 
-		Value * value_ptr = get(map, Hash()(key), key);
+		Value * value_ptr = get(map, hash, key);
 
 		if (value_ptr) {
 			value = *value_ptr;
@@ -83,7 +87,7 @@ struct HashMap {
 
 		if (value) return *value;
 
-		return insert(hash, key, Value { });
+		return insert_by_hash(hash, key, Value { });
 	}
 
 	constexpr void clear() {
@@ -97,9 +101,6 @@ struct HashMap {
 
 		Key   & get_key()   const { return map->get_keys  ()[index]; }
 		Value & get_value() const { return map->get_values()[index]; }
-
-//		Value & operator* () { return  map->values[index]; }
-//		Value * operator->() { return &map->values[index]; }
 
 		void operator++() {
 			if (map) {
