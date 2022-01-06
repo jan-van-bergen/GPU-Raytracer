@@ -2,6 +2,8 @@
 #include <malloc.h>
 #include <utility>
 
+#include "StringView.h"
+
 #define DATA_PATH(file_name) "./Data/" file_name
 
 #define DEG_TO_RAD(angle) ((angle) * PI / 180.0f)
@@ -27,7 +29,9 @@ struct alignas(8) ProbAlias {
 };
 
 namespace Util {
-	void get_path(const char * filename, char * path);
+	StringView get_directory(const char * filename);
+
+	const char * get_absolute_path(StringView path, StringView filename);
 
 	bool file_exists(const char * filename);
 

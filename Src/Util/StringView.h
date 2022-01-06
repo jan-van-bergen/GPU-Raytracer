@@ -23,6 +23,10 @@ struct StringView {
 		}
 		return { start + offset, start + offset + len };
 	}
+
+	static StringView from_c_str(const char * str) {
+		return { str, str + strlen(str) };
+	}
 };
 
 struct StringViewHash {

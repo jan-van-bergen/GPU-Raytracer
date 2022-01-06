@@ -5,7 +5,7 @@
 
 #include <filesystem>
 
-void Util::get_path(const char * filename, char * path) {
+StringView Util::get_directory(const char * filename) {
 	const char * path_end      = filename;
 	const char * last_path_end = nullptr;
 
@@ -15,16 +15,21 @@ void Util::get_path(const char * filename, char * path) {
 		last_path_end = path_end;
 	}
 
-	if (last_path_end == nullptr) {
-		path[0] = NULL;
-
-		return;
+	if (last_path_end) {
+		return { filename, last_path_end };
+	} else {
+		return StringView::from_c_str("./");
 	}
+}
 
-	// Copy the right amount over
-	int path_length = last_path_end - filename;
-	memcpy(path, filename, path_length);
-	path[path_length] = NULL;
+const char * Util::get_absolute_path(StringView path, StringView filename) {
+	char * filename_abs = new char[path.length() + filename.length() + 1];
+
+	memcpy(filename_abs,                 path    .start, path    .length());
+	memcpy(filename_abs + path.length(), filename.start, filename.length());
+	filename_abs[path.length() + filename.length()] = '\0';
+
+	return filename_abs;
 }
 
 bool Util::file_exists(const char * filename) {

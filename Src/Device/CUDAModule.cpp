@@ -8,6 +8,7 @@
 #include "CUDAMemory.h"
 
 #include "Util/Util.h"
+#include "Util/Parser.h"
 #include "Util/ScopeTimer.h"
 
 #define NVRTC_CALL(result) check_nvrtc_call(result, __FILE__, __LINE__);
@@ -22,96 +23,75 @@ static void check_nvrtc_call(nvrtcResult result, const char * file, int line) {
 	}
 }
 
-struct Include {
-	const char * filename;
-	const char * source;
-};
-
 // Recursively walks include tree
 // Collects filename and source of included files in 'includes'
 // Also check whether any included file has been modified since last compilation and if so sets 'should_recompile'
 // Returns source code of 'filename'
-static const char * scan_includes_recursive(const char * filename, const char * directory, Array<Include> & includes, const char * ptx_filename, bool & should_recompile) {
+static const char * scan_includes_recursive(const char * filename, StringView directory, Array<const char *> & include_names, Array<const char *> & include_sources, const char * ptx_filename, bool & should_recompile) {
 	int    source_length;
 	char * source = Util::file_read(filename, source_length);
 
-	// Look for first #include of the file
-	const char * include_ptr = strstr(source, "#include");
+	Parser parser = { };
+	parser.init(source, source + source_length, filename);
 
-	while (include_ptr) {
-		int include_start_index = include_ptr - source + 8;
+	while (!parser.reached_end()) {
+		if (parser.match("#include")) {
+			parser.skip_whitespace();
 
-		// Locate next < or " char
-		const char * delimiter_lt_ptr = strchr(source + include_start_index, '<');
-		const char * delimiter_qt_ptr = strchr(source + include_start_index, '\"');
-
-		// Get the index of the next < and " chars, if they were found
-		int delimiter_lt_index = delimiter_lt_ptr ? delimiter_lt_ptr - source : INT_MAX;
-		int delimiter_qt_index = delimiter_qt_ptr ? delimiter_qt_ptr - source : INT_MAX;
-
-		// Check whether < or " occurs first
-		int include_filename_start_index = delimiter_lt_index < delimiter_qt_index ?
-			delimiter_lt_index + 1 :
-			delimiter_qt_index + 1;
-
-		// Find the index of the next > or " char, depending on whether we previously saw a < or "
-		int include_filename_end_index = delimiter_lt_index < delimiter_qt_index ?
-			(strchr(source + include_filename_start_index, '>')  - source) :
-			(strchr(source + include_filename_start_index, '\"') - source);
-
-		// Allocate and copy over the filename of the include
-		int    include_filename_length = include_filename_end_index - include_filename_start_index;
-		char * include_filename = new char[include_filename_length + 1];
-
-		memcpy_s(include_filename, include_filename_length, source + include_filename_start_index, include_filename_length);
-		include_filename[include_filename_length] = NULL;
-
-		// Check whether the include has been processed before
-		bool unseen_include = true;
-
-		for (const Include & include : includes) {
-			if (strcmp(include.filename, include_filename) == 0) {
-				unseen_include = false;
-
-				break;
+			StringView include_filename = { };
+			if (parser.match('<')) {
+				include_filename.start = parser.cur;
+				while (!parser.match('>')) {
+					parser.advance();
+				}
+				include_filename.end = parser.cur - 1;
+			} else if (parser.match('"')) {
+				include_filename.start = parser.cur;
+				while (!parser.match('"')) {
+					parser.advance();
+				}
+				include_filename.end = parser.cur - 1;
+			} else {
+				ERROR(parser.location, "Invalid include token '%c', expected '\"' or '<'", *parser.cur);
 			}
-		}
 
-		// If we haven't seen this include before, recurse
-		if (unseen_include) {
-			int directory_length = strlen(directory);
+			// Check whether the include has been processed before
+			bool unseen_include = true;
 
-			int    include_full_path_length = directory_length + include_filename_length + 1;
-			char * include_full_path = MALLOCA(char, include_full_path_length);
+			for (int i = 0; i < include_names.size(); i++) {
+				if (include_filename == include_names[i]) {
+					unseen_include = false;
 
-			memcpy_s(include_full_path,                    include_full_path_length,                    directory,               directory_length);
-			memcpy_s(include_full_path + directory_length, include_full_path_length - directory_length, include_filename, include_filename_length);
-			include_full_path[include_full_path_length - 1] = NULL;
+					break;
+				}
+			}
 
-			if (Util::file_exists(include_full_path)) {
-				if (!should_recompile && Util::file_is_newer(ptx_filename, include_full_path)) {
-					should_recompile = true;
+			// If we haven't seen this include before, recurse
+			if (unseen_include) {
+				const char * include_full_path = Util::get_absolute_path(directory, include_filename);
 
-					printf("Recompilation required %s because included file %s changed.\n", filename, include_filename);
+				if (Util::file_exists(include_full_path)) {
+					if (!should_recompile && Util::file_is_newer(ptx_filename, include_full_path)) {
+						should_recompile = true;
+
+						printf("CUDA Module '%s': Recompilation required because included file '%.*s' changed.\n", filename, unsigned(include_filename.length()), include_filename.start);
+					}
+
+					StringView path = Util::get_directory(include_full_path);
+
+					int index = include_names.size();
+					include_names  .emplace_back();
+					include_sources.emplace_back();
+
+					include_names  [index] = include_filename.c_str();
+					include_sources[index] = scan_includes_recursive(include_full_path, path, include_names, include_sources, ptx_filename, should_recompile);
 				}
 
-				char * path = MALLOCA(char, include_full_path_length);
-				Util::get_path(include_full_path, path);
-
-				int index = includes.size();
-
-				includes.emplace_back();
-				includes[index].filename = include_filename;
-				includes[index].source   = scan_includes_recursive(include_full_path, path, includes, ptx_filename, should_recompile);
-
-				FREEA(path);
+				delete [] include_full_path;
 			}
-
-			FREEA(include_full_path);
+		} else {
+			parser.advance();
 		}
-
-		// Look for next #include, after the end of the current include
-		include_ptr = strstr(source + include_filename_end_index, "#include");
 	}
 
 	return source;
@@ -141,30 +121,30 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 		should_recompile = Util::file_is_newer(ptx_filename, filename);
 	}
 
-	char path[512]; Util::get_path(filename, path);
+	StringView path = Util::get_directory(filename);
 
-	Array<Include> includes;
-	const char * source = scan_includes_recursive(filename, path, includes, ptx_filename, should_recompile);
+	Array<const char *> include_names;
+	Array<const char *> include_sources;
+	const char * source = scan_includes_recursive(filename, path, include_names, include_sources, ptx_filename, should_recompile);
+	assert(include_names.size() == include_sources.size());
 
 	if (should_recompile) {
 		nvrtcProgram program;
 
 		while (true) {
-			int num_includes = includes.size();
-
-			const char ** include_names   = MALLOCA(const char *, num_includes);
-			const char ** include_sources = MALLOCA(const char *, num_includes);
-
-			for (int i = 0; i < num_includes; i++) {
-				include_names  [i] = includes[i].filename;
-				include_sources[i] = includes[i].source;
-			}
+			int num_includes = include_names.size();
 
 			// Create NVRTC Program from the source and all includes
-			NVRTC_CALL(nvrtcCreateProgram(&program, source, "Pathtracer", num_includes, include_sources, include_names));
+			NVRTC_CALL(nvrtcCreateProgram(&program, source, "Pathtracer", num_includes, include_sources.data(), include_names.data()));
 
-			FREEA(include_names);
-			FREEA(include_sources);
+			for (int i = 0; i < num_includes; i++) {
+				delete [] include_names[i];
+				delete [] include_sources[i];
+			}
+			include_names  .clear();
+			include_sources.clear();
+
+			delete [] source;
 
 			// Configure options
 			char compute    [64]; sprintf_s(compute,     "--gpu-architecture=compute_%i", compute_capability);
@@ -202,9 +182,7 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 			__debugbreak(); // Compile error
 
 			// Reload file and try again
-			delete [] source;
-			includes.clear();
-			source = scan_includes_recursive(filename, path, includes, ptx_filename, should_recompile);
+			source = scan_includes_recursive(filename, path, include_names, include_sources, ptx_filename, should_recompile);
 		}
 
 		// Obtain PTX from NVRTC
@@ -224,13 +202,6 @@ void CUDAModule::init(const char * filename, int compute_capability, int max_reg
 	} else {
 		printf("CUDA Module %s did not need to recompile.\n", filename);
 	}
-
-	for (int i = 0; i < includes.size(); i++) {
-		delete [] includes[i].filename;
-		delete [] includes[i].source;
-	}
-
-	delete [] source;
 
 	char log_buffer[8192];
 	log_buffer[0] = NULL;

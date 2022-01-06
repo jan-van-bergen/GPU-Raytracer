@@ -93,12 +93,14 @@ inline XMLNode parse_tag(Parser & parser) {
 }
 
 XMLNode XMLParser::parse_root() {
-	XMLNode node;
+	XMLNode root = { };
+	root.location = parser.location;
 
-	do {
+	while (!parser.reached_end()) {
 		parser_skip(parser);
-		node = parse_tag(parser);
-	} while (node.is_question_mark);
+		root.children.push_back(parse_tag(parser));
+		parser_skip(parser);
+	}
 
-	return node;
+	return root;
 }

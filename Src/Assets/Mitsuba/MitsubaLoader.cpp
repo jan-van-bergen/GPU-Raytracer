@@ -35,22 +35,12 @@ using SerializedMap = HashMap<StringView, Serialized,     StringViewHash>;
 using MaterialMap   = HashMap<StringView, MaterialHandle, StringViewHash>;
 using TextureMap    = HashMap<StringView, TextureHandle,  StringViewHash>;
 
-static const char * get_absolute_filename(const char * path, int len_path, const char * filename, int len_filename) {
-	char * filename_abs = new char[len_path + len_filename + 1];
-
-	memcpy(filename_abs,            path,     len_path);
-	memcpy(filename_abs + len_path, filename, len_filename);
-	filename_abs[len_path + len_filename] = '\0';
-
-	return filename_abs;
-}
-
-static void parse_texture(const XMLNode * node, TextureMap & texture_map, const char * path, Scene & scene, TextureHandle & texture) {
+static void parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene, TextureHandle & texture) {
 	StringView type = node->get_attribute_value("type");
 
 	if (type == "bitmap") {
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
 
 		texture = scene.asset_manager.add_texture(filename_abs);
 
@@ -70,7 +60,7 @@ static void parse_texture(const XMLNode * node, TextureMap & texture_map, const 
 	}
 }
 
-static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, const char * path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
+static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb, TextureHandle & texture) {
 	const XMLNode * reflectance = node->get_child_by_name(name);
 	if (reflectance) {
 		if (reflectance->tag == "rgb") {
@@ -180,7 +170,7 @@ static Matrix4 parse_transform_matrix(const XMLNode * node) {
 	return Matrix4::create_translation(translation) * Matrix4::create_rotation(rotation) * Matrix4::create_scale(scale);
 }
 
-static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, const char * path) {
+static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	Material material = { };
 
 	const XMLNode * bsdf;
@@ -450,12 +440,12 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 	}
 }
 
-static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, const char * path, const char *& name) {
+static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, StringView path, const char *& name) {
 	StringView type = node->get_attribute_value<StringView>("type");
 
 	if (type == "obj" || type == "ply") {
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
 
 		MeshDataHandle mesh_data_handle;
 		if (type == "obj") {
@@ -511,7 +501,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
 	} else if (type == "serialized") {
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
@@ -539,7 +529,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		return mesh_data_handle;
 	} else if (type == "hair") {
 		const StringView & filename_rel = node->get_child_value<StringView>("filename");
-		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
 
 		float radius = node->get_child_value_optional("radius", 0.0025f);
 
@@ -558,7 +548,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 	}
 }
 
-static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, const char * path) {
+static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	if (node->tag == "bsdf") {
 		MaterialHandle   material_handle = parse_material(node, scene, material_map, texture_map, path);
 		const Material & material = scene.asset_manager.get_material(material_handle);
@@ -660,7 +650,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			} else if (strcmp(extension, "hdr") != 0) {
 				WARNING(node->location, "Environment Map '%s' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
 			} else {
-				scene_config.sky = get_absolute_filename(path, strlen(path), filename_rel, strlen(filename_rel));
+				scene_config.sky = Util::get_absolute_path(path, StringView::from_c_str(filename_rel));
 			}
 
 			delete [] filename_rel;
@@ -686,7 +676,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		}
 	} else if (node->tag == "include") {
 		const StringView & filename_rel = node->get_attribute_value<StringView>("filename");
-		const char       * filename_abs = get_absolute_filename(path, strlen(path), filename_rel.start, filename_rel.length());
+		const char       * filename_abs = Util::get_absolute_path(path, filename_rel);
 
 		MitsubaLoader::load(filename_abs, scene);
 
@@ -702,12 +692,32 @@ void MitsubaLoader::load(const char * filename, Scene & scene) {
 
 	XMLNode root = xml_parser.parse_root();
 
+	const XMLNode * scene_node = root.get_child_by_tag("scene");
+	if (!scene_node) {
+		ERROR(root.location, "File does not contain a <scene> tag!\n");
+	}
+
+	{
+		StringView version = scene_node->get_attribute_value<StringView>("version");
+
+		Parser version_parser = { };
+		version_parser.init(version.start, version.end);
+
+		int major = version_parser.parse_int(); version_parser.expect('.');
+		int minor = version_parser.parse_int(); version_parser.expect('.');
+		int patch = version_parser.parse_int();
+
+		int version_number = major * 100 + minor * 10 + patch;
+		if (version_number >= 200) {
+			ERROR(scene_node->location, "Mitsuba 2 files are not supported!\n");
+		}
+	}
+
 	ShapeGroupMap shape_group_map;
 	SerializedMap serialized_map;
 	MaterialMap   material_map;
 	TextureMap    texture_map;
-	char path[512];	Util::get_path(filename, path);
-	walk_xml_tree(&root, scene, shape_group_map, serialized_map, material_map, texture_map, path);
+	walk_xml_tree(scene_node, scene, shape_group_map, serialized_map, material_map, texture_map, Util::get_directory(filename));
 
 	xml_parser.free();
 }
