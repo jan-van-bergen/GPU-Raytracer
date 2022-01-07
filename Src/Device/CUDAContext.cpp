@@ -70,9 +70,13 @@ void CUDAContext::init() {
 	unsigned long long bytes_free;
 	CUDACALL(cuMemGetInfo(&bytes_free, &total_memory));
 
+	int driver_version = 0;
+	CUDACALL(cuDriverGetVersion(&driver_version));
+
 	puts("CUDA Info:");
-	printf("Memory available: %llu MB\n", total_memory >> 20);
+	printf("CUDA Version: %i.%i\n", driver_version / 1000, (driver_version % 1000) / 10);
 	printf("Compute Capability: %i\n", compute_capability);
+	printf("Memory available: %llu MB\n", total_memory >> 20);
 
 	switch (config_cache) {
 		case CU_FUNC_CACHE_PREFER_NONE:   puts("Cache Config: Prefer None");   break;

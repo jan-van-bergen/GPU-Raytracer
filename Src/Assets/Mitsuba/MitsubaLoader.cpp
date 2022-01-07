@@ -502,7 +502,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
 		char bvh_filename[512] = { };
-		sprintf_s(bvh_filename, "%s.shape_%i.bvh", filename_abs.data(), shape_index); //////////////////////////////////////////////////////////
+		sprintf_s(bvh_filename, "%s.shape_%i.bvh", filename_abs.data(), shape_index);
 
 		auto fallback_loader = [&](const String & filename, Triangle *& triangles, int & triangle_count) {
 			Serialized serialized;
