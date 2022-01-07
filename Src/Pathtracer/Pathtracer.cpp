@@ -74,9 +74,9 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	// Reallocate TLAS BVH nodes as page locked memory, this allows faster copying to the GPU
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  delete [] tlas.nodes._2; tlas.nodes._2 = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
-		case BVHType::QBVH:  delete [] tlas.nodes._4; tlas.nodes._4 = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
-		case BVHType::CWBVH: delete [] tlas.nodes._8; tlas.nodes._8 = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
+		case BVHType::SBVH:  delete [] tlas_raw.nodes._2; tlas_raw.nodes._2 = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
+		case BVHType::QBVH:  delete [] tlas    .nodes._4; tlas    .nodes._4 = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
+		case BVHType::CWBVH: delete [] tlas    .nodes._8; tlas    .nodes._8 = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
 		default: abort();
 	}
 
