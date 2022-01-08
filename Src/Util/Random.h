@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+#include "Assertion.h"
+
 // Based on: https://github.com/imneme/pcg-c
 struct RNG {
 	uint64_t state;
@@ -56,9 +58,11 @@ namespace Util {
 				*dst_first++ = *it;
 
 				if (dst_first == dst_last) {
-					break; // Done
+					return; // Done
 				}
 			}
 		}
+
+		ASSERT(false);
 	}
 }

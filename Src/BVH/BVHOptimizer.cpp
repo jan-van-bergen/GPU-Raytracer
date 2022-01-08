@@ -232,7 +232,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 
 	static_assert(P_T >= P_R);
 
-	int   batch_size = bvh.node_count / k;
+	int   batch_size = Math::max(bvh.node_count / k, 8);
 	int * batch_indices = new int[bvh.node_count];
 
 	int batch_count = 0;
