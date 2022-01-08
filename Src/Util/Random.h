@@ -52,8 +52,7 @@ namespace Util {
 	template<typename T>
 	void sample(const T * src_first, const T * src_last, T * dst_first, T * dst_last, RNG & rng) {
 		for (const T * it = src_first; it < src_last; it++) {
-			float u = float(src_last - it) * rng.get_float();
-			if (u < dst_last - dst_first) {
+			if (rng.get_uint32(src_last - it) < dst_last - dst_first) {
 				*dst_first++ = *it;
 
 				if (dst_first == dst_last) {
