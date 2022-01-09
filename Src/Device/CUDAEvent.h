@@ -8,8 +8,8 @@ struct CUDAEvent {
 
 	struct Desc {
 		int display_order;
-		const char * category;
-		const char * name;
+		String category;
+		String name;
 	} desc;
 
 	inline static float time_elapsed_between(const CUDAEvent & start, const CUDAEvent & end) {

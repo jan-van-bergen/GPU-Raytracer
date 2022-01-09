@@ -30,13 +30,6 @@ struct alignas(8) ProbAlias {
 };
 
 namespace Util {
-	bool file_exists(StringView filename);
-
-	bool file_is_newer(StringView filename_a, StringView filename_b);
-
-	String file_read(const String & filename);
-	bool   file_write(const String & filename, StringView data);
-
 	void init_alias_method(int n, double p[], ProbAlias distribution[]);
 
 	template<typename T>
@@ -44,6 +37,13 @@ namespace Util {
 		T temp = a;
 		a = b;
 		b = temp;
+	}
+
+	template<typename T>
+	void reverse(T * array, size_t length) {
+		for (size_t i = 0; i < length / 2; i++) {
+			Util::swap(array[i], array[length - i - 1]);
+		}
 	}
 
 	template<typename T, typename Cmp>
@@ -127,5 +127,5 @@ namespace Util {
 		return N;
 	}
 
-	void export_ppm(const char * file_path, int width, int height, const unsigned char * data);
+	void export_ppm(const String & filename, int width, int height, const unsigned char * data);
 }

@@ -1,4 +1,6 @@
 #pragma once
+#include <stdint.h>
+
 #include "String.h"
 #include "StringView.h"
 
@@ -15,4 +17,9 @@ namespace Util {
 	const char * find_last_after(StringView haystack, StringView needles);
 
 	const char * strstr(StringView haystack, StringView needle);
+
+	String to_string(bool     value);
+	String to_string(int64_t  value, int64_t  base = 10);
+	String to_string(uint64_t value, uint64_t base = 10);
+	String to_string(double   value);
 }

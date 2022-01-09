@@ -2,8 +2,7 @@
 #include <string.h>
 
 #include "StringView.h"
-
-#define FMT_STRING(str) unsigned(str.size()), str.data()
+#include "Array.h"
 
 struct String {
 	static constexpr size_t SSO_SIZE = 16;
@@ -46,6 +45,23 @@ struct String {
 			ptr = new char[length + 1];
 		}
 		memcpy(data(), str, length + 1);
+	}
+
+	constexpr String(Array<char> && array) : length(0), ptr(nullptr) {
+		bool is_null_terminated = array.size() > 0 && array.back() == '\0';
+		if (!is_null_terminated) {
+			array.push_back('\0');
+		}
+
+		length = array.size() - 1;
+		if (length >= SSO_SIZE) {
+			ptr = array.buffer;
+			array.buffer = nullptr;
+			return;
+		} else {
+			memcpy(data(), array.data(), length);
+			data()[length] = '\0';
+		}
 	}
 
 	~String() {

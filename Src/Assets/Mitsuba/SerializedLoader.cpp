@@ -7,14 +7,14 @@
 #include "XMLParser.h"
 
 Serialized SerializedLoader::load(const String & filename, SourceLocation location_in_mitsuba_file) {
-	String serialized = Util::file_read(filename);
+	String serialized = IO::file_read(filename);
 
 	Parser parser = { };
 	parser.init(serialized.view(), filename.view());
 
 	uint16_t file_format_id = parser.parse_binary<uint16_t>();
 	if (file_format_id != 0x041c) {
-		ERROR(location_in_mitsuba_file, "ERROR: Serialized file '%.*s' does not start with format ID 0x041c!\n", FMT_STRING(filename));
+		ERROR(location_in_mitsuba_file, "ERROR: Serialized file '{}' does not start with format ID 0x041c!\n", filename);
 	}
 
 	uint16_t file_version = parser.parse_binary<uint16_t>();
@@ -72,7 +72,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 			} else if (status == MZ_OK) {
 				break;
 			} else {
-				ERROR(location_in_mitsuba_file, "ERROR: Failed to decompress serialized mesh #%u in file '%.*s'!\n%s", i, FMT_STRING(filename), mz_error(status));
+				ERROR(location_in_mitsuba_file, "ERROR: Failed to decompress serialized mesh #{} in file '{}'!\n{}\n", i, filename, mz_error(status));
 			}
 		}
 

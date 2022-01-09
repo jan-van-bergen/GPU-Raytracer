@@ -3,6 +3,7 @@
 #include "Config.h"
 
 #include "Util/Util.h"
+#include "Util/IO.h"
 #include "Util/Random.h"
 #include "Util/Array.h"
 #include "Util/MinHeap.h"
@@ -34,7 +35,7 @@ static void init_parent_indices(const BVH & bvh, int parent_indices[], int node_
 
 	if (node.is_leaf()) {
 		if (node.count != 1) {
-			puts("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!");
+			IO::print("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!\n"sv);
 			abort();
 		}
 		return;
@@ -398,7 +399,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			break;
 		}
 
-		printf("%i: SAH=%f best=%f last_reduction=%i     \r", batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
+		IO::print("{}: SAH={} best={} last_reduction={}     \r"sv, batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
 		batch_count++;
 	}
 
@@ -410,5 +411,5 @@ void BVHOptimizer::optimize(BVH & bvh) {
 
 	// Report the improvement of the SAH cost
 	float cost_after = bvh_sah_cost(bvh);
-	printf("\ncost: %f -> %f\n", cost_before, cost_after);
+	IO::print("\ncost: {} -> {}\n"sv, cost_before, cost_after);
 }

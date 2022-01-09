@@ -8,6 +8,7 @@
 
 #include "Util/Util.h"
 #include "Util/Assertion.h"
+#include "Util/IO.h"
 #include "Util/StringUtil.h"
 #include "Util/Parser.h"
 #include "Util/ScopeTimer.h"
@@ -16,10 +17,7 @@
 
 static void check_nvrtc_call(nvrtcResult result, const char * file, int line) {
 	if (result != NVRTC_SUCCESS) {
-		const char * error_string = nvrtcGetErrorString(result);
-
-		printf("NVRTC call at %s line %i failed with error %s!\n", file, line, error_string);
-
+		IO::print("{}:{}: NVRTC call failed with error {}!\n"sv, file, line, nvrtcGetErrorString(result));
 		__debugbreak();
 	}
 }
@@ -34,7 +32,7 @@ struct Include {
 // Also check whether any included file has been modified since last compilation and if so sets 'should_recompile'
 // Returns source code of 'filename'
 static String scan_includes_recursive(const String & filename, StringView directory, Array<Include> & includes, StringView ptx_filename, bool & should_recompile) {
-	String source = Util::file_read(filename);
+	String source = IO::file_read(filename);
 
 	Parser parser = { };
 	parser.init(source.view(), filename.view());
@@ -75,11 +73,11 @@ static String scan_includes_recursive(const String & filename, StringView direct
 			if (unseen_include) {
 				String include_full_path = Util::combine_stringviews(directory, include_filename);
 
-				if (Util::file_exists(include_full_path.view())) {
-					if (!should_recompile && Util::file_is_newer(ptx_filename, include_full_path.view())) {
+				if (IO::file_exists(include_full_path.view())) {
+					if (!should_recompile && IO::file_is_newer(ptx_filename, include_full_path.view())) {
 						should_recompile = true;
 
-						printf("CUDA Module '%.*s': Recompilation required because included file '%.*s' changed.\n", FMT_STRING(filename), FMT_STRINGVIEW(include_filename));
+						IO::print("CUDA Module '{}': Recompilation required because included file '{}' changed.\n"sv, filename, include_filename);
 					}
 
 					StringView path = Util::get_directory(include_full_path.view());
@@ -102,23 +100,23 @@ static String scan_includes_recursive(const String & filename, StringView direct
 void CUDAModule::init(const String & filename, int compute_capability, int max_registers) {
 	ScopeTimer timer("CUDA Module Init");
 
-	if (!Util::file_exists(filename.view())) {
-		printf("ERROR: File %.*s does not exist!\n", FMT_STRING(filename));
+	if (!IO::file_exists(filename.view())) {
+		IO::print("ERROR: File '{}' does not exist!\n"sv, filename);
 		abort();
 	}
 
 #ifdef _DEBUG
-	String ptx_filename = Util::combine_stringviews(filename.view(), StringView::from_c_str(".debug.ptx"));
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"sv);
 #else
-	String ptx_filename = Util::combine_stringviews(filename.view(), StringView::from_c_str(".release.ptx"));
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"sv);
 #endif
 
 	bool should_recompile = true;
 
 	// If the binary does not exists we definately need to compile
-	if (Util::file_exists(ptx_filename.view())) {
+	if (IO::file_exists(ptx_filename.view())) {
 		// Recompile if the source file is newer than the binary
-		should_recompile = Util::file_is_newer(ptx_filename.view(), filename.view());
+		should_recompile = IO::file_is_newer(ptx_filename.view(), filename.view());
 	}
 
 	StringView path = Util::get_directory(filename.view());
@@ -146,13 +144,13 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 			includes.clear();
 
 			// Configure options
-			char compute    [64]; sprintf_s(compute,     "--gpu-architecture=compute_%i", compute_capability);
-			char maxregcount[64]; sprintf_s(maxregcount, "--maxrregcount=%i", max_registers);
+			String option_compute = Format().format("--gpu-architecture=compute_{}"sv, compute_capability);
+			String option_maxregs = Format().format("--maxrregcount={}"sv, max_registers);
 
 			const char * options[] = {
 				"--std=c++11",
-				compute,
-				maxregcount,
+				option_compute.data(),
+				option_maxregs.data(),
 				"--use_fast_math",
 				"--extra-device-vectorization",
 				//"--device-debug",
@@ -167,13 +165,10 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 			NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
 
 			if (log_size > 1) {
-				char * log = new char[log_size];
-				NVRTC_CALL(nvrtcGetProgramLog(program, log));
+				String log(log_size);
+				NVRTC_CALL(nvrtcGetProgramLog(program, log.data()));
 
-				puts("NVRTC output:");
-				puts(log);
-
-				delete [] log;
+				IO::print("NVRTC output:\n{}\n"sv, log);
 			}
 
 			if (result == NVRTC_SUCCESS) break;
@@ -191,9 +186,9 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 		NVRTC_CALL(nvrtcDestroyProgram(&program));
 
 		// Cache PTX on disk
-		Util::file_write(ptx_filename, StringView { ptx.data(), ptx.data() + ptx.size() });
+		IO::file_write(ptx_filename, StringView { ptx.data(), ptx.data() + ptx.size() });
 	} else {
-		printf("CUDA Module '%.*s' did not need to recompile.\n", FMT_STRING(filename));
+		IO::print("CUDA Module '{}' did not need to recompile.\n"sv, filename);
 	}
 
 	char log_buffer[8192];
@@ -224,8 +219,10 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 
 	CUDACALL(cuLinkDestroy(link_state));
 
-	if (should_recompile) puts(log_buffer);
-	puts("");
+	if (should_recompile) {
+		IO::print(StringView::from_c_str(log_buffer));
+	}
+	IO::print('\n');
 }
 
 void CUDAModule::free() {
@@ -238,7 +235,7 @@ CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {
 	size_t size;
 	CUresult result = cuModuleGetGlobal(&global.ptr, &size, module, variable_name);
 	if (result == CUDA_ERROR_NOT_FOUND) {
-		printf("ERROR: Global CUDA variable '%s' not found!\n", variable_name);
+		IO::print("ERROR: Global CUDA variable '{}' not found!\n"sv, variable_name);
 	}
 	CUDACALL(result);
 

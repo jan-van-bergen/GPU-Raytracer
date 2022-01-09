@@ -17,6 +17,7 @@
 #include "Util/Util.h"
 #include "Util/Array.h"
 #include "Util/HashMap.h"
+#include "Util/Format.h"
 #include "Util/Parser.h"
 #include "Util/Geometry.h"
 #include "Util/StringView.h"
@@ -77,7 +78,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 			StringView texture_name = reflectance->get_attribute_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture_handle);
 			if (!found) {
-				WARNING(reflectance->location, "Invalid texture ref '%.*s'!\n", FMT_STRINGVIEW(texture_name));
+				WARNING(reflectance->location, "Invalid texture ref '{}'!\n", texture_name);
 			}
 		}
 	} else {
@@ -190,7 +191,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			MaterialHandle material_id;
 			bool found = material_map.try_get(material_name, material_id);
 			if (!found) {
-				WARNING(ref->location, "Invalid material Ref '%.*s'!\n", FMT_STRINGVIEW(material_name));
+				WARNING(ref->location, "Invalid material Ref '{}'!\n", material_name);
 
 				return MaterialHandle::get_default();
 			}
@@ -232,7 +233,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 				if (material_map.try_get(id, material_handle)) {
 					return material_handle;
 				} else {
-					WARNING(ref->location, "Invalid material Ref '%.*s'!\n", FMT_STRINGVIEW(id));
+					WARNING(ref->location, "Invalid material Ref '{}'!\n", id);
 					return MaterialHandle::get_default();
 				}
 			} else {
@@ -341,7 +342,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (child_int_ior && child_int_ior->tag == "string") {
 			StringView int_ior_name = child_int_ior->get_attribute_value("value");
 			if (!lookup_known_ior(int_ior_name, int_ior)) {
-				ERROR(child_int_ior->location, "Index of refraction not known for '%.*s'\n", FMT_STRINGVIEW(int_ior_name));
+				ERROR(child_int_ior->location, "Index of refraction not known for '{}'\n", int_ior_name);
 			}
 		} else {
 			int_ior = inner_bsdf->get_child_value_optional("intIOR", 1.33f);
@@ -351,7 +352,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (child_ext_ior && child_ext_ior->tag == "string") {
 			StringView ext_ior_name = child_ext_ior->get_attribute_value("value");
 			if (!lookup_known_ior(ext_ior_name, ext_ior)) {
-				ERROR(child_ext_ior->location, "Index of refraction not known for '%.*s'\n", FMT_STRINGVIEW(ext_ior_name));
+				ERROR(child_ext_ior->location, "Index of refraction not known for '{}'\n", ext_ior_name);
 			}
 		} else {
 			ext_ior = inner_bsdf->get_child_value_optional("extIOR", 1.0f);
@@ -370,7 +371,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 
 		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else {
-		WARNING(inner_bsdf->location, "WARNING: BSDF type '%.*s' not supported!\n", FMT_STRINGVIEW(inner_bsdf_type));
+		WARNING(inner_bsdf->location, "WARNING: BSDF type '{}' not supported!\n", inner_bsdf_type);
 
 		return MaterialHandle::get_default();
 	}
@@ -426,13 +427,13 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 			} else if (phase_type == "hg") {
 				medium.g = phase->get_child_value_optional("g", 0.0f);
 			} else {
-				WARNING(xml_medium->location, "WARNING: Phase function type '%.*s' not supported!\n", FMT_STRINGVIEW(phase_type));
+				WARNING(xml_medium->location, "WARNING: Phase function type '{}' not supported!\n", phase_type);
 			}
 		}
 
 		return scene.asset_manager.add_medium(medium);
 	} else {
-		WARNING(xml_medium->location, "WARNING: Medium type '%.*s' not supported!\n", FMT_STRINGVIEW(medium_type));
+		WARNING(xml_medium->location, "WARNING: Medium type '{}' not supported!\n", medium_type);
 	}
 
 	return MediumHandle { INVALID };
@@ -501,8 +502,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
-		char bvh_filename[512] = { };
-		sprintf_s(bvh_filename, "%s.shape_%i.bvh", filename_abs.data(), shape_index);
+		String bvh_filename = Format().format("{}.shape_{}.bvh"sv, filename_abs, shape_index);
 
 		auto fallback_loader = [&](const String & filename, Triangle *& triangles, int & triangle_count) {
 			Serialized serialized;
@@ -516,12 +516,9 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 			triangle_count = serialized.triangle_count[shape_index];
 		};
 
-		String str_bvh_filename = String(bvh_filename);
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(str_bvh_filename, str_bvh_filename, fallback_loader);
+		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, fallback_loader);
 
-		char * shape_name = new char[filename_rel.length() + 32];
-		sprintf_s(shape_name, filename_rel.length() + 32, "%.*s_%i", FMT_STRINGVIEW(filename_rel), shape_index);
-		name = shape_name;
+		name = Format().format("{}_{}"sv, filename_rel, shape_index);
 
 		return mesh_data_handle;
 	} else if (type == "hair") {
@@ -539,7 +536,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		return mesh_data_handle;
 	} else {
-		WARNING(node->location, "WARNING: Shape type '%.*s' not supported!\n", FMT_STRINGVIEW(type));
+		WARNING(node->location, "WARNING: Shape type '{}' not supported!\n", type);
 		return MeshDataHandle { INVALID };
 	}
 }
@@ -630,7 +627,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 			parse_transform(node, &scene.camera.position, &scene.camera.rotation, nullptr, Vector3(0.0f, 0.0f, -1.0f));
 		} else {
-			WARNING(node->location, "WARNING: Camera type '%.*s' not supported!\n", FMT_STRINGVIEW(camera_type));
+			WARNING(node->location, "WARNING: Camera type '{}' not supported!\n", camera_type);
 		}
 	} else if (node->tag == "emitter") {
 		StringView emitter_type = node->get_attribute_value<StringView>("type");
@@ -642,9 +639,9 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 			StringView extension = Util::get_file_extension(filename_rel);
 			if (extension.is_empty()) {
-				WARNING(node->location, "Environment Map '%.*s' has no file extension!\n", FMT_STRINGVIEW(filename_rel));
+				WARNING(node->location, "Environment Map '{}' has no file extension!\n", filename_rel);
 			} else if (extension != "hdr") {
-				WARNING(node->location, "Environment Map '%.*s' has unsupported file extension. Only HDR Environment Maps are supported!\n", FMT_STRINGVIEW(filename_rel));
+				WARNING(node->location, "Environment Map '{}' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
 			} else {
 				scene_config.sky_filename = Util::combine_stringviews(path, filename_rel);
 			}
@@ -666,7 +663,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 			scene.add_mesh("PointLight", mesh_data_handle, material_handle);
 		} else {
-			WARNING(node->location, "Emitter type '%.*s' is not supported!\n", FMT_STRINGVIEW(emitter_type));
+			WARNING(node->location, "Emitter type '{}' is not supported!\n", emitter_type);
 		}
 	} else if (node->tag == "include") {
 		StringView filename_rel = node->get_attribute_value<StringView>("filename");

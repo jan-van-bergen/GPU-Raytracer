@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "Util/Util.h"
+#include "Util/IO.h"
 #include "Util/Parser.h"
 #include "Util/StringUtil.h"
 
@@ -27,11 +28,11 @@ struct BVHFileHeader {
 };
 
 bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH & bvh) {
-	if (config.bvh_force_rebuild || !Util::file_exists(bvh_filename.view()) || Util::file_is_newer(bvh_filename.view(), filename.view())) {
+	if (config.bvh_force_rebuild || !IO::file_exists(bvh_filename.view()) || IO::file_is_newer(bvh_filename.view(), filename.view())) {
 		return false;
 	}
 
-	String file = Util::file_read(bvh_filename);
+	String file = IO::file_read(bvh_filename);
 
 	Parser parser = { };
 	parser.init(file.view(), bvh_filename.view());
@@ -39,7 +40,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 	BVHFileHeader header = parser.parse_binary<BVHFileHeader>();
 
 	if (strcmp(header.filetype_identifier, "BVH") != 0) {
-		printf("WARNING: BVH file '%.*s' has an invalid header!\n", FMT_STRING(bvh_filename));
+		IO::print("WARNING: BVH file '{}' has an invalid header!\n"sv, bvh_filename);
 		return false;
 	}
 
@@ -51,7 +52,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 		header.sah_cost_node          != config.sah_cost_node ||
 		header.sah_cost_leaf          != config.sah_cost_leaf
 	) {
-		printf("BVH file '%.*s' was created with different settings, rebuiling BVH from scratch.\n", FMT_STRING(bvh_filename));
+		IO::print("BVH file '{}' was created with different settings, rebuiling BVH from scratch.\n"sv, bvh_filename);
 		return false;
 	}
 
@@ -69,7 +70,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 
 	ASSERT(parser.reached_end());
 
-	printf("Loaded BVH '%.*s' from disk\n", FMT_STRING(bvh_filename));
+	IO::print("Loaded BVH '{}' from disk\n"sv, bvh_filename);
 	return true;
 }
 
@@ -78,7 +79,7 @@ bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, co
 	fopen_s(&file, bvh_filename.data(), "wb");
 
 	if (!file) {
-		printf("WARNING: Unable to open BVH file '%.*s' for writing!\n", FMT_STRING(bvh_filename));
+		IO::print("WARNING: Unable to open BVH file '{}' for writing!\n"sv, bvh_filename);
 		return false;
 	}
 
@@ -107,7 +108,7 @@ bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, co
 	fclose(file);
 
 	if (!header_written || num_triangles_written < mesh_data.triangle_count || num_bvh_nodes_written < bvh.node_count || num_indices_written < bvh.index_count) {
-		printf("WARNING: Unable to successfully write to BVH file '%.*s'!\n", FMT_STRING(bvh_filename));
+		IO::print("WARNING: Unable to successfully write to BVH file '{}'!\n"sv, bvh_filename);
 		return false;
 	}
 

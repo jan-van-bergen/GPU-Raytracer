@@ -3,6 +3,7 @@
 
 #include "Util/Array.h"
 #include "Util/Assertion.h"
+#include "Util/IO.h"
 
 namespace CUDAMemory {
 	// Type safe device pointer wrapper
@@ -15,7 +16,7 @@ namespace CUDAMemory {
 
 		void operator=(Ptr other) {
 			if (ptr != NULL) {
-				puts("WARNING: CUDA memory leak detected!");
+				IO::print("WARNING: CUDA memory leak detected!\n"sv);
 				__debugbreak();
 			}
 			ptr = other.ptr;

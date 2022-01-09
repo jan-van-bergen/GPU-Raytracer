@@ -28,7 +28,7 @@ inline XMLNode parse_tag(Parser & parser) {
 	if (node.tag.length() == 0) {
 		ERROR(parser.location, "Empty open tag!\n");
 	} else if (node.tag.start[0] == '/') {
-		ERROR(parser.location, "Unexpected closing tag '%.*s', expected open tag!\n", FMT_STRINGVIEW(node.tag));
+		ERROR(parser.location, "Unexpected closing tag '{}', expected open tag!\n", node.tag);
 	}
 
 	parser_skip(parser);
@@ -84,7 +84,7 @@ inline XMLNode parse_tag(Parser & parser) {
 	int i = 0;
 	while (!parser.reached_end() && !parser.match('>')) {
 		if (*parser.cur != node.tag.start[i++]) {
-			ERROR(parser.location, "Non matching closing tag for '%.*s'!\n", FMT_STRINGVIEW(node.tag));
+			ERROR(parser.location, "Non matching closing tag for '{}'!\n", node.tag);
 		}
 		parser.advance();
 	}

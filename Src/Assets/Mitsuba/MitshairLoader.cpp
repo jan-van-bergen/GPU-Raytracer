@@ -7,7 +7,7 @@
 #include "Util/Array.h"
 
 void MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, Triangle *& triangles, int & triangle_count, float radius) {
-	String file = Util::file_read(filename);
+	String file = IO::file_read(filename);
 
 	Parser parser = { };
 	parser.init(file.view(), filename.view());

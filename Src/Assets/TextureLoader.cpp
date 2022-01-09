@@ -16,7 +16,7 @@
 #include "Util/Parser.h"
 
 bool TextureLoader::load_dds(const String & filename, Texture & texture) {
-	String file = Util::file_read(filename);
+	String file = IO::file_read(filename);
 
 	Parser parser = { };
 	parser.init(file.view(), filename.view());

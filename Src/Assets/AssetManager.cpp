@@ -11,12 +11,13 @@
 #include "BVH/BVHOptimizer.h"
 
 #include "Util/Util.h"
+#include "Util/IO.h"
 #include "Util/StringUtil.h"
 #include "Util/ScopeTimer.h"
 #include "Util/ThreadPool.h"
 
 BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
-	printf("Constructing BVH...\r");
+	IO::print("Constructing BVH...\r"sv);
 	BVH bvh;
 
 	// Only the SBVH uses SBVH as its starting point,
@@ -123,7 +124,7 @@ TextureHandle AssetManager::add_texture(const String & filename) {
 		}
 
 		if (!success) {
-			printf("WARNING: Failed to load Texture '%.*s'!\n", FMT_STRING(filename));
+			IO::print("WARNING: Failed to load Texture '{}'!\n"sv, filename);
 
 			if (texture.data) delete [] texture.data;
 

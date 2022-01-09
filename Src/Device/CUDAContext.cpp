@@ -6,6 +6,7 @@
 #include <cudaGL.h>
 
 #include "Util/Util.h"
+#include "Util/IO.h"
 
 static CUdevice  device;
 static CUcontext context;
@@ -24,8 +25,7 @@ void CUDAContext::init() {
 	CUDACALL(cuDeviceGetCount(&device_count));
 
 	if (device_count == 0) {
-		puts("ERROR: No suitable Device found!");
-
+		IO::print("ERROR: No suitable Device found!\n"sv);
 		abort();
 	}
 
@@ -35,8 +35,7 @@ void CUDAContext::init() {
 	CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
 
 	if (gl_device_count == 0) {
-		puts("ERROR: No suitable GL Device found!");
-
+		IO::print("ERROR: No suitable GL Device found!\n"sv);
 		abort();
 	}
 
@@ -73,25 +72,25 @@ void CUDAContext::init() {
 	int driver_version = 0;
 	CUDACALL(cuDriverGetVersion(&driver_version));
 
-	puts("CUDA Info:");
-	printf("CUDA Version: %i.%i\n", driver_version / 1000, (driver_version % 1000) / 10);
-	printf("Compute Capability: %i\n", compute_capability);
-	printf("Memory available: %llu MB\n", total_memory >> 20);
+	IO::print("CUDA Info:\n"sv);
+	IO::print("CUDA Version: {}.{}\n"sv, driver_version / 1000, (driver_version % 1000) / 10);
+	IO::print("Compute Capability: {}\n"sv, compute_capability);
+	IO::print("Memory available: {} MB\n"sv, total_memory >> 20);
 
 	switch (config_cache) {
-		case CU_FUNC_CACHE_PREFER_NONE:   puts("Cache Config: Prefer None");   break;
-		case CU_FUNC_CACHE_PREFER_SHARED: puts("Cache Config: Prefer Shared"); break;
-		case CU_FUNC_CACHE_PREFER_L1:     puts("Cache Config: Prefer L1");     break;
-		case CU_FUNC_CACHE_PREFER_EQUAL:  puts("Cache Config: Prefer Equal");  break;
+		case CU_FUNC_CACHE_PREFER_NONE:   IO::print("Cache Config: Prefer None\n"sv);   break;
+		case CU_FUNC_CACHE_PREFER_SHARED: IO::print("Cache Config: Prefer Shared\n"sv); break;
+		case CU_FUNC_CACHE_PREFER_L1:     IO::print("Cache Config: Prefer L1\n"sv);     break;
+		case CU_FUNC_CACHE_PREFER_EQUAL:  IO::print("Cache Config: Prefer Equal\n"sv);  break;
 	}
 
 	switch (config_shared) {
-		case CU_SHARED_MEM_CONFIG_DEFAULT_BANK_SIZE:    puts("Shared Memory Config: Default"); break;
-		case CU_SHARED_MEM_CONFIG_FOUR_BYTE_BANK_SIZE:  puts("Shared Memory Config: 4 Bytes"); break;
-		case CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE: puts("Shared Memory Config: 8 Bytes"); break;
+		case CU_SHARED_MEM_CONFIG_DEFAULT_BANK_SIZE:    IO::print("Shared Memory Config: Default\n"sv); break;
+		case CU_SHARED_MEM_CONFIG_FOUR_BYTE_BANK_SIZE:  IO::print("Shared Memory Config: 4 Bytes\n"sv); break;
+		case CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE: IO::print("Shared Memory Config: 8 Bytes\n"sv); break;
 	}
 
-	puts("");
+	IO::print('\n');
 }
 
 void CUDAContext::free() {

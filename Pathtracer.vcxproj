@@ -236,7 +236,9 @@
     <ClCompile Include="Src\Pathtracer\Texture.cpp" />
     <ClCompile Include="Src\Util\BitArray.cpp" />
     <ClCompile Include="Src\Util\BlueNoise.cpp" />
+    <ClCompile Include="Src\Util\Format.cpp" />
     <ClCompile Include="Src\Util\Geometry.cpp" />
+    <ClCompile Include="Src\Util\IO.cpp" />
     <ClCompile Include="Src\Util\Mutex.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />
     <ClCompile Include="Src\Util\PMJ.cpp" />
@@ -302,8 +304,10 @@
     <ClInclude Include="Src\Util\Assertion.h" />
     <ClInclude Include="Src\Util\BitArray.h" />
     <ClInclude Include="Src\Util\BlueNoise.h" />
+    <ClInclude Include="Src\Util\Format.h" />
     <ClInclude Include="Src\Util\Geometry.h" />
     <ClInclude Include="Src\Util\HashMap.h" />
+    <ClInclude Include="Src\Util\IO.h" />
     <ClInclude Include="Src\Util\Mutex.h" />
     <ClInclude Include="Src\Util\Parser.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />

@@ -36,7 +36,7 @@ struct XMLAttribute {
 	bool get_value() const {
 		if (value == "true")  return true;
 		if (value == "false") return false;
-		ERROR(location_of_value, "Unable to parse '%.*s' as boolean!\n", FMT_STRINGVIEW(value));
+		ERROR(location_of_value, "Unable to parse '{}' as boolean!\n", value);
 	}
 
 	template<>
@@ -124,7 +124,7 @@ struct XMLNode {
 		if (attribute) {
 			return attribute->get_value<T>();
 		} else {
-			ERROR(location, "Node '%.*s' does not have an attribute with name '%s'!\n", FMT_STRINGVIEW(tag), name);
+			ERROR(location, "Node '{}' does not have an attribute with name '{}'!\n", tag, name);
 		}
 	}
 
@@ -157,7 +157,7 @@ struct XMLNode {
 		if (child) {
 			return child->get_attribute_value<T>("value");
 		} else {
-			ERROR(location, "Node '%.*s' does not have a child with name '%s'!\n", FMT_STRINGVIEW(tag), child_name);
+			ERROR(location, "Node '{}' does not have a child with name '{}'!\n", tag, child_name);
 		}
 	}
 
@@ -177,7 +177,7 @@ struct XMLParser {
 	Parser parser;
 
 	void init(const String & filename) {
-		source = Util::file_read(filename);
+		source = IO::file_read(filename);
 		parser.init(source.view(), filename.view());
 	}
 

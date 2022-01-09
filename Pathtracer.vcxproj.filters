@@ -139,6 +139,12 @@
     <ClCompile Include="Src\Util\StringUtil.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Util\IO.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Util\Format.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -378,6 +384,12 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Util\Assertion.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\Format.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\IO.h">
       <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>

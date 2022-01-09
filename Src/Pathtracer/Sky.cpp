@@ -6,6 +6,7 @@
 
 #include <stb_image.h>
 
+#include "Util/IO.h"
 #include "Util/String.h"
 
 void Sky::init(const String & filename) {
@@ -13,7 +14,7 @@ void Sky::init(const String & filename) {
 	float * hdr = stbi_loadf(filename.data(), &width, &height, &channels, STBI_rgb);
 
 	if (!hdr || width == 0 || height == 0) {
-		printf("Unable to load hdr Sky from file '%.*s'!\n", FMT_STRING(filename));
+		IO::print("Unable to load hdr Sky from file '{}'!\n"sv, filename);
 		abort();
 	}
 

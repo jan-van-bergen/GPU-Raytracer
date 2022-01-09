@@ -1,5 +1,6 @@
 #include "PerfTest.h"
 
+#include "Util/IO.h"
 #include "Util/StringUtil.h"
 
 void PerfTest::init(Pathtracer * pathtracer, bool enabled, StringView scene_name) {
@@ -10,11 +11,11 @@ void PerfTest::init(Pathtracer * pathtracer, bool enabled, StringView scene_name
 
 	this->pathtracer = pathtracer;
 
-	if (Util::strstr(scene_name, StringView::from_c_str("sponza"))) {
+	if (Util::strstr(scene_name, "sponza"sv)) {
 		povs = &povs_sponza;
-	} else if (Util::strstr(scene_name, StringView::from_c_str("San_Miguel"))) {
+	} else if (Util::strstr(scene_name, "San_Miguel"sv)) {
 		povs = &povs_san_miguel;
-	} else if (Util::strstr(scene_name, StringView::from_c_str("bistro"))) {
+	} else if (Util::strstr(scene_name, "bistro"sv)) {
 		povs = &povs_bistro;
 	} else {
 		this->enabled = false;
@@ -32,7 +33,7 @@ void PerfTest::frame_begin() {
 		pathtracer->invalidated_camera = true;
 		pathtracer->sample_index = 0;
 
-		printf("POV %i\n", index_pov);
+		IO::print("POV {}\n"sv, index_pov);
 	}
 }
 

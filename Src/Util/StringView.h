@@ -1,8 +1,6 @@
 #pragma once
 #include <string.h>
 
-#define FMT_STRINGVIEW(str_view) unsigned(str_view.length()), str_view.start
-
 struct StringView {
 	const char * start;
 	const char * end;
@@ -18,10 +16,18 @@ struct StringView {
 		return { str, str + N - 1 };
 	}
 
-	static StringView from_c_str(const char * str) {
-		return { str, str + strlen(str) };
+	constexpr static StringView from_c_str(const char * str) {
+		return from_c_str(str, strlen(str));
+	}
+
+	constexpr static StringView from_c_str(const char * str, size_t length) {
+		return { str, str + length };
 	}
 };
+
+inline constexpr StringView operator "" sv(const char * str, size_t length) {
+	return StringView::from_c_str(str, length);
+}
 
 struct StringViewHash {
 	// Based on: https://www.geeksforgeeks.org/string-hashing-using-polynomial-rolling-hash-function/

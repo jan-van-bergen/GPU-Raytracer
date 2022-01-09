@@ -1,7 +1,7 @@
 #pragma once
-#include <cstdio>
-
 #include <cuda.h>
+
+#include "Util/IO.h"
 
 #define CHECK_CUDA_CALLS true
 
@@ -16,8 +16,7 @@ inline void check_cuda_call(CUresult result, const char * file, int line) {
 		cuGetErrorName  (result, &error_name);
 		cuGetErrorString(result, &error_string);
 
-		printf("CUDA call at %s line %i failed with error %s!\n%s\n", file, line, error_name, error_string);
-
+		IO::print("{}:{}: CUDA call failed with error {}!\n{}\n"sv, file, line, error_name, error_string);
 		__debugbreak();
 	}
 }

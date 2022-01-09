@@ -7,9 +7,10 @@
 #include <Imgui/imgui_impl_opengl3.h>
 
 #include "Util/Util.h"
+#include "Util/IO.h"
 
-static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * user_param) {
-	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", type, severity, message);
+static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char * message, const void * user_param) {
+	IO::print("GL CALLBACK: {} type = 0x{:x}, severity = 0x{:x}, message = {}\n"sv, type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **"sv : ""sv, type, severity, message);
 }
 
 void Window::init(const char * title, int width, int height) {
@@ -36,16 +37,16 @@ void Window::init(const char * title, int width, int height) {
 
 	GLenum status = glewInit();
 	if (status != GLEW_OK) {
-		printf("Glew failed to initialize!\n");
+		IO::print("Glew failed to initialize!\n"sv);
 		abort();
 	}
 
-	puts("OpenGL Info:");
-	printf("Version:  %s\n", glGetString(GL_VERSION));
-	printf("GLSL:     %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-	printf("Vendor:   %s\n", glGetString(GL_VENDOR));
-	printf("Renderer: %s\n", glGetString(GL_RENDERER));
-	puts("");
+	IO::print("OpenGL Info:\n"sv);
+	IO::print("Version:  {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+	IO::print("GLSL:     {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
+	IO::print("Vendor:   {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
+	IO::print("Renderer: {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
+	IO::print('\n');
 
 #if false
 	glEnable(GL_DEBUG_OUTPUT);

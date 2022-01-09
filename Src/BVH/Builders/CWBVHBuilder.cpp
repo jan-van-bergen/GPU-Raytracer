@@ -1,7 +1,8 @@
 #include "CWBVHBuilder.h"
 
-#include <stdio.h>
 #include <string.h>
+
+#include "Util/IO.h"
 
 int CWBVHBuilder::calculate_cost(int node_index, const BVHNode2 nodes[]) {
 	const BVHNode2 & node = nodes[node_index];
@@ -11,7 +12,7 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode2 nodes[]) {
 	if (node.is_leaf()) {
 		num_primitives = node.count;
 		if (num_primitives != 1) {
-			puts("ERROR: CWBVH Builder expects BVH with leaf Nodes containing only 1 primitive!");
+			IO::print("ERROR: CWBVH Builder expects BVH with leaf Nodes containing only 1 primitive!\n"sv);
 			abort();
 		}
 

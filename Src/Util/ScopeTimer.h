@@ -1,6 +1,8 @@
 #pragma once
 #include <chrono>
 
+#include "IO.h"
+
 // Timer that records the time between its construction and destruction
 struct ScopeTimer {
 private:
@@ -17,13 +19,13 @@ public:
 		unsigned long long      duration  = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
 
 		if (duration >= 60000000) {
-			printf("%s took: %llu s (%llu min)\n", name, duration / 1000000, duration / 60000000);
+			IO::print("{} took: {} s ({} min)\n"sv, name, duration / 1000000, duration / 60000000);
 		} else if (duration >= 1000000) {
-			printf("%s took: %llu us (%llu s)\n", name, duration, duration / 1000000);
+			IO::print("{} took: {} us ({} s)\n"sv, name, duration, duration / 1000000);
 		} else if (duration >= 1000) {
-			printf("%s took: %llu us (%llu ms)\n", name, duration, duration / 1000);
+			IO::print("{} took: {} us ({} ms)\n"sv, name, duration, duration / 1000);
 		} else {
-			printf("%s took: %llu us\n", name, duration);
+			IO::print("{} took: {} us\n"sv, name, duration);
 		}
 	}
 };

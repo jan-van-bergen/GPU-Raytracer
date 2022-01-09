@@ -88,7 +88,7 @@ struct OBJFile {
 };
 
 static OBJFile parse_obj(const String & filename) {
-	String file = Util::file_read(filename);
+	String file = IO::file_read(filename);
 
 	OBJFile obj = { };
 
@@ -182,7 +182,7 @@ bool OBJLoader::load(const String & filename, Triangle *& triangles, int & trian
 		triangles[f].init();
 	}
 
-	printf("Loaded OBJ %.*s from disk (%i triangles)\n", FMT_STRING(filename), triangle_count);
+	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"sv, filename, triangle_count);
 
 	return true;
 }

@@ -4,7 +4,7 @@
 #include "Util/Parser.h"
 #include "Util/StringView.h"
 
-enum struct Format {
+enum struct PLYFormat {
 	ASCII,
 	BINARY_LITTLE_ENDIAN,
 	BINARY_BIG_ENDIAN
@@ -99,7 +99,7 @@ static Property::Type parse_property_type(Parser & parser) {
 }
 
 template<typename T>
-static T parse_value(Parser & parser, Format format) {
+static T parse_value(Parser & parser, PLYFormat format) {
 	const char * start = parser.cur;
 	parser.cur += sizeof(T);
 
@@ -107,8 +107,8 @@ static T parse_value(Parser & parser, Format format) {
 
 	// NOTE: Assumes machine is little endian!
 	switch (format) {
-		case Format::BINARY_LITTLE_ENDIAN: memcpy(&value, start, sizeof(T)); break;
-		case Format::BINARY_BIG_ENDIAN: {
+		case PLYFormat::BINARY_LITTLE_ENDIAN: memcpy(&value, start, sizeof(T)); break;
+		case PLYFormat::BINARY_BIG_ENDIAN: {
 			char       * dst = reinterpret_cast<char *>(&value);
 			const char * src = start;
 			for (int i = 0; i < sizeof(T); i++) {
@@ -123,8 +123,8 @@ static T parse_value(Parser & parser, Format format) {
 }
 
 template<typename T>
-static T parse_property_value(Parser & parser, Property::Type::Kind kind, Format format) {
-	if (format == Format::ASCII) {
+static T parse_property_value(Parser & parser, Property::Type::Kind kind, PLYFormat format) {
+	if (format == PLYFormat::ASCII) {
 		parser.skip_whitespace();
 		if (kind == Property::Type::Kind::FLOAT32 || kind == Property::Type::Kind::FLOAT64) {
 			return parser.parse_float();
@@ -149,7 +149,7 @@ static T parse_property_value(Parser & parser, Property::Type::Kind kind, Format
 }
 
 void PLYLoader::load(const String & filename, Triangle *& triangles, int & triangle_count) {
-	String file = Util::file_read(filename);
+	String file = IO::file_read(filename);
 
 	Parser parser;
 	parser.init(file.view(), filename.view());
@@ -160,14 +160,14 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 	parser.expect("format");
 	parser.skip_whitespace();
 
-	Format format;
+	PLYFormat format;
 
 	if (parser.match("ascii")) {
-		format = Format::ASCII;
+		format = PLYFormat::ASCII;
 	} else if (parser.match("binary_little_endian")) {
-		format = Format::BINARY_LITTLE_ENDIAN;
+		format = PLYFormat::BINARY_LITTLE_ENDIAN;
 	} else if (parser.match("binary_big_endian")) {
-		format = Format::BINARY_BIG_ENDIAN;
+		format = PLYFormat::BINARY_BIG_ENDIAN;
 	} else {
 		ERROR(parser.location, "Invalid PLY format!\n");
 	}
@@ -198,7 +198,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 				element.type.kind = Element::Type::Kind::FACE;
 			} else {
 				StringView element_name = parser.parse_identifier();
-				ERROR(parser.location, "Unsupported element type '%.*s'!\n", FMT_STRINGVIEW(element_name));
+				ERROR(parser.location, "Unsupported element type '{}'!\n", element_name);
 			}
 			parser.skip_whitespace();
 
@@ -213,7 +213,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 			Element & element = elements.back();
 
 			if (element.property_count == Element::MAX_PROPERTIES) {
-				ERROR(parser.location, "Maximum number of properties (%i) exceeded!\n", Element::MAX_PROPERTIES);
+				ERROR(parser.location, "Maximum number of properties ({}) exceeded!\n", Element::MAX_PROPERTIES);
 			}
 			Property & property = element.properties[element.property_count++];
 
@@ -240,7 +240,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 				property.kind = Property::Kind::VERTEX_INDEX;
 			} else {
 				property.kind = Property::Kind::IGNORED;
-				WARNING(parser.location, "Unknown property '%.*s'!\n", FMT_STRINGVIEW(name));
+				WARNING(parser.location, "Unknown property '{}'!\n", name);
 			}
 		}
 
@@ -275,7 +275,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 					normals   .emplace_back(vertex[3], vertex[4], vertex[5]);
 					tex_coords.emplace_back(vertex[6], 1.0f - vertex[7]);
 
-					if (format == Format::ASCII) {
+					if (format == PLYFormat::ASCII) {
 						parser.skip_whitespace();
 						parser.parse_newline();
 					}
@@ -333,7 +333,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 						}
 					}
 
-					if (format == Format::ASCII && !parser.reached_end()) {
+					if (format == PLYFormat::ASCII && !parser.reached_end()) {
 						parser.skip_whitespace();
 						parser.parse_newline();
 					}

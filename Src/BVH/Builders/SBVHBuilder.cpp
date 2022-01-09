@@ -5,6 +5,7 @@
 #include "BVHPartitions.h"
 
 #include "Util/Util.h"
+#include "Util/IO.h"
 #include "Util/Assertion.h"
 #include "Util/ScopeTimer.h"
 
@@ -330,7 +331,7 @@ void SBVHBuilder::free() {
 }
 
 void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
-	puts("Construcing SBVH, this may take a few seconds for large Meshes...");
+	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\r"sv);
 
 	AABB root_aabb = AABB::create_empty();
 

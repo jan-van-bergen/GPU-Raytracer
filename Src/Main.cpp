@@ -50,14 +50,14 @@ struct Timing {
 static int last_pixel_query_x;
 static int last_pixel_query_y;
 
-static void parse_args(int arg_count, char ** args);
-static void capture_screen(const Window & window, const char * file_name);
+static void parse_args(int arg_count, const char ** args);
+static void capture_screen(const Window & window, const String & filename);
 static void window_resize(unsigned frame_buffer_handle, int width, int height);
 static void calc_timing();
 static void draw_gui();
 
 int main(int arg_count, char ** args) {
-	parse_args(arg_count, args);
+	parse_args(arg_count, const_cast<const char **>(args));
 
 	if (scene_config.scene_filenames.size() == 0) {
 		scene_config.scene_filenames.push_back("Data/cornellbox/scene.xml");
@@ -96,9 +96,7 @@ int main(int arg_count, char ** args) {
 			break; // Exit game loop and terimate
 		}
 		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
-			char screenshot_name[32] = { };
-			sprintf_s(screenshot_name, "screenshot_%i.ppm", pathtracer.sample_index);
-
+			String screenshot_name = Format().format("screenshot_{}.ppm"sv, pathtracer.sample_index);
 			capture_screen(window, screenshot_name);
 
 			timing.time_of_last_screenshot = timing.now;
@@ -159,12 +157,12 @@ static bool atob(const char * str) {
 		strcmp(str, "0")     == 0) {
 		return false;
 	} else {
-		printf("Invalid boolean argument '%s'!\n", str);
+		IO::print("Invalid boolean argument '{}'!\n"sv, str);
 		return true;
 	}
 };
 
-static void parse_args(int arg_count, char ** args) {
+static void parse_args(int arg_count, const char ** args) {
 	struct Option {
 		const char * name_short;
 		const char * name_full;
@@ -173,20 +171,20 @@ static void parse_args(int arg_count, char ** args) {
 
 		int num_args;
 
-		void (* action)(int arg_count, char ** args, int i);
+		void (* action)(int arg_count, const char ** args, int i);
 	};
 
 	static Array<Option> options = {
-		Option { "W", "width",   "Sets the width of the window",                     1, [](int arg_count, char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
-		Option { "H", "height",  "Sets the height of the window",                    1, [](int arg_count, char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  "Sets the number of pathtracing bounces",           1, [](int arg_count, char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", "Sets a target number of samples to use",           1, [](int arg_count, char ** args, int i) { config.output_sample_index = atoi(args[i + 1]); } },
-		Option { "o", "output",  "Sets path to output file. Supported formats: ppm", 1, [](int arg_count, char ** args, int i) { config.output_name         = args[i + 1]; } },
+		Option { "W", "width",   "Sets the width of the window",                     1, [](int arg_count, const char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
+		Option { "H", "height",  "Sets the height of the window",                    1, [](int arg_count, const char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
+		Option { "b", "bounce",  "Sets the number of pathtracing bounces",           1, [](int arg_count, const char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N", "samples", "Sets a target number of samples to use",           1, [](int arg_count, const char ** args, int i) { config.output_sample_index = atoi(args[i + 1]); } },
+		Option { "o", "output",  "Sets path to output file. Supported formats: ppm", 1, [](int arg_count, const char ** args, int i) { config.output_name         = args[i + 1]; } },
 
-		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, char ** args, int i) { scene_config.scene_filenames.push_back(args[i + 1]); } },
-		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, char ** args, int i) { scene_config.sky_filename = args[i + 1]; } },
+		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, const char ** args, int i) { scene_config.scene_filenames.push_back(args[i + 1]); } },
+		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, const char ** args, int i) { scene_config.sky_filename = args[i + 1]; } },
 
-		Option { "b", "bvh", "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh", 1, [](int arg_count, char ** args, int i) {
+		Option { "b", "bvh", "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh", 1, [](int arg_count, const char ** args, int i) {
 			if (strcmp(args[i + 1], "bvh") == 0) {
 				config.bvh_type = BVHType::BVH;
 			} else if (strcmp(args[i + 1], "sbvh") == 0) {
@@ -196,27 +194,27 @@ static void parse_args(int arg_count, char ** args) {
 			} else if (strcmp(args[i + 1], "cwbvh") == 0) {
 				config.bvh_type = BVHType::CWBVH;
 			} else {
-				printf("'%s' is not a recognized BVH type!\n", args[i + 1]);
+				IO::print("'{}' is not a recognized BVH type!\n"sv, args[i + 1]);
 				abort();
 			}
 		} },
 
-		Option { nullptr, "albedo", "Enables or disables albedo",                       1, [](int arg_count, char ** args, int i) { config.enable_albedo                       = atob(args[i + 1]); } },
-		Option { nullptr, "nee",    "Enables or disables Next Event Estimation",        1, [](int arg_count, char ** args, int i) { config.enable_next_event_estimation        = atob(args[i + 1]); } },
-		Option { nullptr, "mis",    "Enables or disables Multiple Importance Sampling", 1, [](int arg_count, char ** args, int i) { config.enable_multiple_importance_sampling = atob(args[i + 1]); } },
+		Option { nullptr, "albedo", "Enables or disables albedo",                       1, [](int arg_count, const char ** args, int i) { config.enable_albedo                       = atob(args[i + 1]); } },
+		Option { nullptr, "nee",    "Enables or disables Next Event Estimation",        1, [](int arg_count, const char ** args, int i) { config.enable_next_event_estimation        = atob(args[i + 1]); } },
+		Option { nullptr, "mis",    "Enables or disables Multiple Importance Sampling", 1, [](int arg_count, const char ** args, int i) { config.enable_multiple_importance_sampling = atob(args[i + 1]); } },
 
-		Option { nullptr, "force-rebuild", "BVH will not be loaded from disk but rebuild from scratch",                                           0, [](int arg_count, char ** args, int i) { config.bvh_force_rebuild             = true; } },
+		Option { nullptr, "force-rebuild", "BVH will not be loaded from disk but rebuild from scratch",                                           0, [](int arg_count, const char ** args, int i) { config.bvh_force_rebuild             = true; } },
 
-		Option { "O",  "optimize",    "Enables or disables BVH optimzation post-processing step",               1, [](int arg_count, char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
-		Option { "Ot", "opt-time",    "Sets time limit (in seconds) for BVH optimization",                      1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
-		Option { "Ob", "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization", 1, [](int arg_count, char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
+		Option { "O",  "optimize",    "Enables or disables BVH optimzation post-processing step",               1, [](int arg_count, const char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
+		Option { "Ot", "opt-time",    "Sets time limit (in seconds) for BVH optimization",                      1, [](int arg_count, const char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
+		Option { "Ob", "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization", 1, [](int arg_count, const char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
 
-		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
-		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
-		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
+		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, const char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
+		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, const char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
+		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, const char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
 
-		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                     1, [](int arg_count, char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
-		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser", 1, [](int arg_count, char ** args, int i) {
+		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                     1, [](int arg_count, const char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
+		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser", 1, [](int arg_count, const char ** args, int i) {
 			if (strcmp(args[i + 1], "box") == 0) {
 				config.mipmap_filter = Config::MipmapFilter::BOX;
 			} else if (strcmp(args[i + 1], "lanczos") == 0) {
@@ -224,34 +222,32 @@ static void parse_args(int arg_count, char ** args) {
 			} else if (strcmp(args[i + 1], "kaiser") == 0) {
 				config.mipmap_filter = Config::MipmapFilter::KAISER;
 			} else {
-				printf("'%s' is not a recognized Mipmap Filter!\n", args[i + 1]);
+				IO::print("'{}' is not a recognized Mipmap Filter!\n"sv, args[i + 1]);
 				abort();
 			}
 		} },
-		Option { "c", "compress", "Enables or disables texture block compression", 1, [](int arg_count, char ** args, int i) { config.enable_block_compression = atob(args[i + 1]); } },
+		Option { "c", "compress", "Enables or disables texture block compression", 1, [](int arg_count, const char ** args, int i) { config.enable_block_compression = atob(args[i + 1]); } },
 	};
 
-	options.emplace_back("h", "help", "Displays this message", 0, [](int arg_count, char ** args, int i) {
+	options.emplace_back("h", "help", "Displays this message", 0, [](int arg_count, const char ** args, int i) {
 		for (int o = 0; o < options.size(); o++) {
 			const Option & option = options[o];
 
 			if (option.name_short) {
-				printf("-%s,\t--%-16s%s\n", option.name_short, option.name_full, option.help_text);
+				IO::print("-{},\t--{:16}{}\n"sv, option.name_short, option.name_full, option.help_text);
 			} else {
-				printf("\t--%-16s%s\n", option.name_full, option.help_text);
+				IO::print("\t--{:16}{}\n"sv, option.name_full, option.help_text);
 			}
 		}
 		exit(EXIT_SUCCESS);
 	});
 
-	char arg_name[32] = { };
-
 	for (int i = 1; i < arg_count; i++) {
-		const char * arg = args[i];
-		sprintf_s(arg_name, "Arg %i", i);
+		StringView arg = StringView::from_c_str(args[i]);
+		String arg_name = Format().format("Arg {} ({})"sv, i, arg);
 
 		Parser parser = { };
-		parser.init(StringView::from_c_str(arg), StringView::from_c_str(arg_name));
+		parser.init(arg, arg_name.view());
 
 		if (parser.match('-')) {
 			bool use_full_name = parser.match('-');
@@ -269,7 +265,7 @@ static void parse_args(int arg_count, char ** args) {
 
 				if (match) {
 					if (i + option.num_args >= arg_count) {
-						printf("Not enough arguments provided to option '%s'!\n", option.name_full);
+						IO::print("Not enough arguments provided to option '{}'!\n"sv, option.name_full);
 						return;
 					}
 
@@ -281,7 +277,7 @@ static void parse_args(int arg_count, char ** args) {
 			}
 
 			if (!match) {
-				printf("Unrecognized command line option '%s'\nUse --help for a list of valid options\n", parser.cur);
+				IO::print("Unrecognized command line option '{}'\nUse --help for a list of valid options\n"sv, parser.cur);
 			}
 		} else {
 			// Without explicit option, assume scene name
@@ -290,7 +286,7 @@ static void parse_args(int arg_count, char ** args) {
 	}
 }
 
-static void capture_screen(const Window & window, const char * file_name) {
+static void capture_screen(const Window & window, const String & filename) {
 	ScopeTimer timer("Screenshot");
 
 	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
@@ -316,7 +312,7 @@ static void capture_screen(const Window & window, const char * file_name) {
 		memmove(data + j * window.width * 3, data + j * window_pitch, window.width * 3);
 	}
 
-	Util::export_ppm(file_name, window.width, window.height, data);
+	Util::export_ppm(filename, window.width, window.height, data);
 
 	delete [] temp;
 	delete [] data;
@@ -418,7 +414,7 @@ static void draw_gui() {
 
 			Util::stable_sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
 				if (a.desc.display_order == b.desc.display_order) {
-					return strcmp(a.desc.category, b.desc.category) < 0;
+					return strcmp(a.desc.category.data(), b.desc.category.data()) < 0;
 				}
 				return a.desc.display_order < b.desc.display_order;
 			});
@@ -436,15 +432,15 @@ static void draw_gui() {
 
 					int j;
 					for (j = i; j < event_timing_count; j++) {
-						int length = strlen(event_timings[j].desc.name);
+						int length = event_timings[j].desc.name.size();
 						if (length > padding) padding = length;
 
 						time_sum += event_timings[j].timing;
 
-						if (j < event_timing_count - 1 && strcmp(event_timings[j].desc.category, event_timings[j + 1].desc.category) != 0) break;
+						if (j < event_timing_count - 1 && strcmp(event_timings[j].desc.category.data(), event_timings[j + 1].desc.category.data()) != 0) break;
 					}
 
-					bool category_visible = ImGui::TreeNode(event_timings[i].desc.category, "%s: %.2f ms", event_timings[i].desc.category, time_sum);
+					bool category_visible = ImGui::TreeNode(event_timings[i].desc.category.data(), "%s: %.2f ms", event_timings[i].desc.category.data(), time_sum);
 					if (!category_visible) {
 						// Skip ahead to next category
 						i = j;
@@ -459,19 +455,19 @@ static void draw_gui() {
 				while (true) {
 					timing += event_timings[i].timing;
 
-					if (i == event_timing_count - 1 || strcmp(event_timings[i].desc.name, event_timings[i+1].desc.name) != 0) break;
+					if (i == event_timing_count - 1 || strcmp(event_timings[i].desc.name.data(), event_timings[i+1].desc.name.data()) != 0) break;
 
 					i++;
 				};
 
-				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name, 5 + padding - strlen(event_timings[i].desc.name), timing);
+				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name, 5 + padding - event_timings[i].desc.name.size(), timing);
 
 				if (i == event_timing_count - 1) {
 					ImGui::TreePop();
 					break;
 				}
 
-				category_changed = strcmp(event_timings[i].desc.category, event_timings[i + 1].desc.category);
+				category_changed = strcmp(event_timings[i].desc.category.data(), event_timings[i + 1].desc.category.data());
 				if (category_changed) {
 					ImGui::TreePop();
 				}

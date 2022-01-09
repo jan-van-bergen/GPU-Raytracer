@@ -97,8 +97,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
 
-	printf("CUDA Memory allocated: %8llu KB (%6llu MB)\n",   bytes_allocated >> 10, bytes_allocated >> 20);
-	printf("CUDA Memory free:      %8llu KB (%6llu MB)\n\n", bytes_available >> 10, bytes_available >> 20);
+	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"sv,   bytes_allocated >> 10, bytes_allocated >> 20);
+	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"sv, bytes_available >> 10, bytes_available >> 20);
 }
 
 void Pathtracer::cuda_init_module() {
@@ -385,17 +385,15 @@ void Pathtracer::cuda_init_events() {
 	event_desc_primary = { display_order++, "Primary", "Primary" };
 
 	for (int i = 0; i < MAX_BOUNCES; i++) {
-		const int len = 16;
-		char    * category = new char[len];
-		sprintf_s(category, len, "Bounce %i", i);
+		String category = Format().format("Bounce {}"sv, i);
 
-		event_desc_trace              [i] = { display_order, category, "Trace" };
-		event_desc_sort               [i] = { display_order, category, "Sort" };
-		event_desc_material_diffuse   [i] = { display_order, category, "Diffuse" };
-		event_desc_material_plastic   [i] = { display_order, category, "Plastic" };
-		event_desc_material_dielectric[i] = { display_order, category, "Dielectric" };
-		event_desc_material_conductor [i] = { display_order, category, "Conductor" };
-		event_desc_shadow_trace       [i] = { display_order, category, "Shadow" };
+		event_desc_trace              [i] = CUDAEvent::Desc { display_order, category, "Trace" };
+		event_desc_sort               [i] = CUDAEvent::Desc { display_order, category, "Sort" };
+		event_desc_material_diffuse   [i] = CUDAEvent::Desc { display_order, category, "Diffuse" };
+		event_desc_material_plastic   [i] = CUDAEvent::Desc { display_order, category, "Plastic" };
+		event_desc_material_dielectric[i] = CUDAEvent::Desc { display_order, category, "Dielectric" };
+		event_desc_material_conductor [i] = CUDAEvent::Desc { display_order, category, "Conductor" };
+		event_desc_shadow_trace       [i] = CUDAEvent::Desc { display_order, category, "Shadow" };
 
 		display_order++;
 	}
@@ -404,11 +402,8 @@ void Pathtracer::cuda_init_events() {
 	event_desc_svgf_variance  = { display_order, "SVGF", "Variance" };
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
-		const int len = 16;
-		char    * name = new char[len];
-		sprintf_s(name, len, "A Trous %i", i);
-
-		event_desc_svgf_atrous[i] = { display_order, "SVGF", name };
+		String name = Format().format("A Trous {}"sv, i);
+		event_desc_svgf_atrous[i] = { display_order, "SVGF", std::move(name) };
 	}
 	event_desc_svgf_finalize = { display_order++, "SVGF", "Finalize" };
 
@@ -817,8 +812,9 @@ void Pathtracer::build_tlas() {
 
 void Pathtracer::update(float delta) {
 	if (invalidated_config && config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
-		puts("WARNING: SVGF and DoF cannot simultaneously be enabled!");
+		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"sv);
 		scene.camera.aperture_radius = 0.0f;
+		invalidated_camera = true;
 	}
 
 	if (invalidated_materials) {

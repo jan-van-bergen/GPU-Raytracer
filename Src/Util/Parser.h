@@ -4,6 +4,7 @@
 
 #include "StringView.h"
 #include "Util.h"
+#include "IO.h"
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
@@ -14,9 +15,9 @@
 
 #define WARNING(loc, msg, ...) \
 	if (loc.file.length() > 0) { \
-		printf("%.*s:%i:%i: " msg, FMT_STRINGVIEW(loc.file), loc.line, loc.col, __VA_ARGS__); \
+		IO::print("{}:{}:{}: " msg ""sv, loc.file, loc.line, loc.col, __VA_ARGS__); \
 	} else { \
-		printf(msg, __VA_ARGS__); \
+		IO::print(msg ""sv, __VA_ARGS__); \
 	}
 
 #define ERROR(loc, msg, ...) \
@@ -99,14 +100,19 @@ struct Parser {
 		return cur >= end;
 	}
 
-	void advance(int n = 1) {
+	char advance(int n = 1) {
 		if (cur + n > end) {
 			ERROR(location, "Unexpected end of file!\n");
 		}
+
+		char c = *cur;
+
 		for (int i = 0; i < n; i++) {
 			location.advance(*cur);
 			cur++;
 		}
+
+		return c;
 	}
 
 	void seek(size_t offset) {
@@ -119,6 +125,13 @@ struct Parser {
 
 	void skip_whitespace_or_newline() {
 		while (cur < end && (is_whitespace(*cur) || is_newline(*cur))) advance();
+	}
+
+	char peek(int offset = 0) {
+		if (cur + offset < end) {
+			return cur[offset];
+		}
+		ERROR(location, "Unexpected end of file!\n");
 	}
 
 	bool match(char target) {
@@ -153,10 +166,10 @@ struct Parser {
 
 	void expect(char expected) {
 		if (reached_end()) {
-			ERROR(location, "Unexpected end of file, expected '%s'!\n", char_to_str(expected));
+			ERROR(location, "Unexpected end of file, expected '{}'!\n", char_to_str(expected));
 		}
 		if (*cur != expected) {
-			ERROR(location, "Unexpected char '%s', expected '%s'!\n", char_to_str(*cur), char_to_str(expected))
+			ERROR(location, "Unexpected char '{}', expected '{}'!\n", char_to_str(*cur), char_to_str(expected))
 		}
 		advance();
 	}
@@ -218,7 +231,7 @@ struct Parser {
 		}
 
 		if (!has_integer_part && !has_fractional_part) {
-			ERROR(location, "Expected float, got '%s'", char_to_str(*cur));
+			ERROR(location, "Expected float, got '{}'", char_to_str(*cur));
 		}
 
 		// Parse exponent
@@ -237,7 +250,7 @@ struct Parser {
 		}
 
 		if (!is_digit(*cur)) {
-			ERROR(location, "Expected integer digit, got '%s'", char_to_str(*cur));
+			ERROR(location, "Expected integer digit, got '{}'", char_to_str(*cur));
 		}
 
 		int value = 0;

@@ -1,10 +1,11 @@
 #pragma once
-#include <ASSERT.h>
 #include <math.h>
 
 #include <cuda.h>
 
 #include "CUDAModule.h"
+
+#include "Util/IO.h"
 
 struct CUDAKernel {
 	static constexpr int PARAMETER_BUFFER_SIZE = 256; // In bytes
@@ -21,7 +22,7 @@ struct CUDAKernel {
 	inline void init(const CUDAModule * module, const char * kernel_name) {
 		CUresult result = cuModuleGetFunction(&kernel, module->module, kernel_name);
 		if (result == CUDA_ERROR_NOT_FOUND) {
-			printf("No Kernel with name '%s' was found in the Module!\n", kernel_name);
+			IO::print("No Kernel with name '{}' was found in the Module!\n"sv, kernel_name);
 			abort();
 		}
 		CUDACALL(result);

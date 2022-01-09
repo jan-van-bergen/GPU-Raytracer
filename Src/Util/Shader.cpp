@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "Util.h"
+#include "Util/IO.h"
 
 static GLuint load_shader(const char * source, int source_len, GLuint shader_type) {
 	GLuint shader = glCreateShader(shader_type);
@@ -14,9 +15,10 @@ static GLuint load_shader(const char * source, int source_len, GLuint shader_typ
 	GLint success; glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 
 	if (!success) {
-		GLchar info_log[1024]; glGetShaderInfoLog(shader, sizeof(info_log), nullptr, info_log);
+		char info_log[1024] = { };
+		glGetShaderInfoLog(shader, sizeof(info_log), nullptr, info_log);
 
-		printf("Error compiling shader type %d: '%s'\n", shader_type, info_log);
+		IO::print("Error compiling shader type {}: '{}'\n"sv, shader_type, info_log);
  		__debugbreak();
 	}
 
@@ -40,12 +42,14 @@ Shader Shader::load(const char * vertex_filename, int vertex_len, const char * f
 	glLinkProgram(shader.program_id);
 
 	// Check if linking succeeded
-	GLint success; glGetProgramiv(shader.program_id, GL_LINK_STATUS, &success);
+	GLint success;
+	glGetProgramiv(shader.program_id, GL_LINK_STATUS, &success);
 
 	if (!success) {
-		GLchar info_log[1024]; glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
+		char info_log[1024] = { };
+		glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
 
-		printf("Error linking shader program: '%s'\n", info_log);
+		IO::print("Error linking shader program: '{}'\n"sv, info_log);
 		__debugbreak();
 	}
 
@@ -56,9 +60,10 @@ Shader Shader::load(const char * vertex_filename, int vertex_len, const char * f
 	GLint valid; glGetProgramiv(shader.program_id, GL_VALIDATE_STATUS, &valid);
 
 	if (!valid) {
-		GLchar info_log[1024]; glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
+		char info_log[1024] = { };
+		glGetProgramInfoLog(shader.program_id, sizeof(info_log), nullptr, info_log);
 
-		printf("Error validating shader program: '%s'\n", info_log);
+		IO::print("Error validating shader program: '{}'\n"sv, info_log);
 		__debugbreak();
 	}
 
