@@ -26,7 +26,7 @@ static CollapseCost calc_collapse_cost(const BVH & bvh, BitArray & collapse, int
 		) / node.aabb.surface_area();
 
 		if (sah_leaf < sah_node) {
-			assert(!collapse[node_index]);
+			ASSERT(!collapse[node_index]);
 			collapse[node_index] = true;
 
 			return { total_primtive_count, sah_leaf };
@@ -70,19 +70,19 @@ static void bvh_collapse(const BVH & bvh, BVH & new_bvh, int new_index, BitArray
 			new_bvh.indices[new_bvh.index_count++] = bvh.indices[node.first + i];
 		}
 
-		assert(new_node.is_leaf());
+		ASSERT(new_node.is_leaf());
 	} else {
 		// Check if this internal Node needs to collapse its subtree into a leaf
 		if (collapse[node_index]) {
 			new_node.count = collapse_subtree(bvh, new_bvh, node_index);
 			new_node.first = new_bvh.index_count - new_node.count;
 
-			assert(new_node.is_leaf());
+			ASSERT(new_node.is_leaf());
 		} else {
 			new_node.left = new_bvh.node_count;
 			new_bvh.node_count += 2;
 
-			assert(!new_node.is_leaf());
+			ASSERT(!new_node.is_leaf());
 
 			bvh_collapse(bvh, new_bvh, new_node.left,     collapse, node.left);
 			bvh_collapse(bvh, new_bvh, new_node.left + 1, collapse, node.left + 1);
@@ -106,8 +106,8 @@ void BVHCollapser::collapse(BVH & bvh) {
 
 	bvh_collapse(bvh, collapsed_bvh, 0, collapse);
 
-	assert(collapsed_bvh.node_count  <= bvh.node_count);
-	assert(collapsed_bvh.index_count == bvh.index_count);
+	ASSERT(collapsed_bvh.node_count  <= bvh.node_count);
+	ASSERT(collapsed_bvh.index_count == bvh.index_count);
 
 	delete [] bvh.nodes._2;
 	delete [] bvh.indices;

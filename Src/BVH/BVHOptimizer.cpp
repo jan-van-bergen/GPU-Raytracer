@@ -40,7 +40,7 @@ static void init_parent_indices(const BVH & bvh, int parent_indices[], int node_
 		}
 		return;
 	}
-	assert((node.left & 1) == 0);
+	ASSERT((node.left & 1) == 0);
 
 	parent_indices[node.left    ] = node_index;
 	parent_indices[node.left + 1] = node_index;
@@ -149,7 +149,7 @@ static void find_reinsertion(const BVH & bvh, const BVHNode2 & node_reinsert, fl
 
 // Update AABBs bottom up, until the root of the tree is reached
 static void update_aabbs_bottom_up(BVH & bvh, int parent_indices[], int node_index) {
-	assert(node_index >= 0);
+	ASSERT(node_index >= 0);
 
 	do {
 		BVHNode2 & node = bvh.nodes._2[node_index];
@@ -188,7 +188,7 @@ static void bvh_node_calc_axis(const BVH & bvh, int parent_indices[], int displa
 		}
 	}
 
-	assert(max_axis != -1);
+	ASSERT(max_axis != -1);
 
 	// Swap left and right children if needed
 	if (center_left[max_axis] > center_right[max_axis]) {
@@ -329,7 +329,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 				int      unused   = nodes_unused  [j];
 				Reinsert reinsert = nodes_reinsert[j];
 
-				assert((unused & 1) == 0);
+				ASSERT((unused & 1) == 0);
 
 				// Find the best position to reinsert the given Node
 				float min_cost  = INFINITY;
@@ -367,7 +367,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 
 				bvh_node_calc_axis(bvh, parent_indices, displacement, originated, bvh.nodes._2[min_index]);
 
-				assert(!bvh.nodes._2[min_index].is_leaf());
+				ASSERT(!bvh.nodes._2[min_index].is_leaf());
 			}
 		}
 

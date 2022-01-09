@@ -70,8 +70,8 @@ namespace BVHPartitions {
 				}
 			}
 
-			assert(!aabb_left .is_empty());
-			assert(!aabb_right.is_empty());
+			ASSERT(!aabb_left .is_empty());
+			ASSERT(!aabb_right.is_empty());
 		}
 
 		// Calculate left AABB, right AABB was already calculated above
@@ -176,7 +176,7 @@ namespace BVHPartitions {
 					float bin_left_plane  = bounds_min + float(b) * bounds_step;
 					float bin_right_plane = bin_left_plane + bounds_step;
 
-					assert(bin.aabb.is_valid() || bin.aabb.is_empty());
+					ASSERT(bin.aabb.is_valid() || bin.aabb.is_empty());
 
 					// If all vertices lie outside the bin we don't care about this triangle
 					if (triangle_aabb_min >= bin_right_plane || triangle_aabb_max <= bin_left_plane) {
@@ -196,7 +196,7 @@ namespace BVHPartitions {
 						if (triangle_aabb_min <= bin_left_plane  && bin_left_plane  <= triangle_aabb_max) triangle_intersect_plane(vertices, dimension, bin_left_plane,  intersections, &intersection_count);
 						if (triangle_aabb_min <= bin_right_plane && bin_right_plane <= triangle_aabb_max) triangle_intersect_plane(vertices, dimension, bin_right_plane, intersections, &intersection_count);
 
-						assert(intersection_count < Util::array_count(intersections));
+						ASSERT(intersection_count < Util::array_count(intersections));
 
 						if (intersection_count == 0) {
 							triangle_aabb_clipped_against_bin = triangle_aabb;
@@ -223,17 +223,17 @@ namespace BVHPartitions {
 					bin.aabb.fix_if_needed();
 
 					// AABB must be valid
-					assert(bin.aabb.is_valid() || bin.aabb.is_empty());
+					ASSERT(bin.aabb.is_valid() || bin.aabb.is_empty());
 
 					// The AABB of the current Bin cannot exceed the planes of the current Bin
 					const float epsilon = 0.01f;
-					assert(bin.aabb.min[dimension] > bin_left_plane  - epsilon);
-					assert(bin.aabb.max[dimension] < bin_right_plane + epsilon);
+					ASSERT(bin.aabb.min[dimension] > bin_left_plane  - epsilon);
+					ASSERT(bin.aabb.max[dimension] < bin_right_plane + epsilon);
 
 					// The AABB of the current Bin cannot exceed the bounds of the Node's AABB
-					assert(bin.aabb.min[0] > bounds.min[0] - epsilon && bin.aabb.max[0] < bounds.max[0] + epsilon);
-					assert(bin.aabb.min[1] > bounds.min[1] - epsilon && bin.aabb.max[1] < bounds.max[1] + epsilon);
-					assert(bin.aabb.min[2] > bounds.min[2] - epsilon && bin.aabb.max[2] < bounds.max[2] + epsilon);
+					ASSERT(bin.aabb.min[0] > bounds.min[0] - epsilon && bin.aabb.max[0] < bounds.max[0] + epsilon);
+					ASSERT(bin.aabb.min[1] > bounds.min[1] - epsilon && bin.aabb.max[1] < bounds.max[1] + epsilon);
+					ASSERT(bin.aabb.min[2] > bounds.min[2] - epsilon && bin.aabb.max[2] < bounds.max[2] + epsilon);
 				}
 			}
 
@@ -256,7 +256,7 @@ namespace BVHPartitions {
 				bounds_left[b] = bounds_left[b-1];
 				bounds_left[b].expand(bins[b-1].aabb);
 
-				assert(bounds_left[b].is_valid() || bounds_left[b].is_empty());
+				ASSERT(bounds_left[b].is_valid() || bounds_left[b].is_empty());
 
 				count_left[b] = count_left[b-1] + bins[b-1].entries;
 
@@ -272,7 +272,7 @@ namespace BVHPartitions {
 				bounds_right[b] = bounds_right[b+1];
 				bounds_right[b].expand(bins[b].aabb);
 
-				assert(bounds_right[b].is_valid() || bounds_right[b].is_empty());
+				ASSERT(bounds_right[b].is_valid() || bounds_right[b].is_empty());
 
 				count_right[b] = count_right[b+1] + bins[b].exits;
 
@@ -283,8 +283,8 @@ namespace BVHPartitions {
 				}
 			}
 
-			assert(count_left [SBVH_BIN_COUNT - 1] + bins[SBVH_BIN_COUNT - 1].entries == index_count);
-			assert(count_right[1]                  + bins[0].exits                    == index_count);
+			ASSERT(count_left [SBVH_BIN_COUNT - 1] + bins[SBVH_BIN_COUNT - 1].entries == index_count);
+			ASSERT(count_right[1]                  + bins[0].exits                    == index_count);
 
 			// Find the splitting plane that yields the lowest SAH cost along the current dimension
 			for (int b = 1; b < SBVH_BIN_COUNT; b++) {

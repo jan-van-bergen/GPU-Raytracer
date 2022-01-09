@@ -1,10 +1,11 @@
 #pragma once
-#include <assert.h>
 #include <string.h>
 
 #include <new>
 #include <utility>
 #include <initializer_list>
+
+#include "Assertion.h"
 
 template<typename T>
 struct Array {
@@ -168,12 +169,12 @@ struct Array {
 	}
 
 	constexpr T & operator[](size_t index) {
-		assert(0 <= index && index < count);
+		ASSERT(0 <= index && index < count);
 		return data()[index];
 	}
 
 	constexpr const T & operator[](size_t index) const {
-		assert(0 <= index && index < count);
+		ASSERT(0 <= index && index < count);
 		return data()[index];
 	}
 
