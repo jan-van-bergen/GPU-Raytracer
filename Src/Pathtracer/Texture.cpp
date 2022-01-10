@@ -3,11 +3,6 @@
 #include "Math/Math.h"
 #include "Math/Vector4.h"
 
-void Texture::free() {
-	delete [] data;
-	delete [] mip_offsets;
-}
-
 CUarray_format Texture::get_cuda_array_format() const {
 	switch (format) {
 		case Format::BC1:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;

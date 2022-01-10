@@ -187,18 +187,18 @@ void Pathtracer::cuda_init_materials() {
 				texture.height,
 				texture.channels,
 				texture.get_cuda_array_format(),
-				texture.mip_levels
+				texture.mip_levels()
 			);
 
 			// Upload each level of the mipmap
-			for (int level = 0; level < texture.mip_levels; level++) {
+			for (int level = 0; level < texture.mip_levels(); level++) {
 				CUarray level_array;
 				CUDACALL(cuMipmappedArrayGetLevel(&level_array, texture_arrays[i], level));
 
 				int level_width_in_bytes = texture.get_width_in_bytes(level);
 				int level_height         = Math::max(texture.height >> level, 1);
 
-				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data + texture.mip_offsets[level]);
+				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data.data() + texture.mip_offsets[level]);
 			}
 
 			// Describe the Array to read from
@@ -216,7 +216,7 @@ void Pathtracer::cuda_init_materials() {
 			tex_desc.mipmapLevelBias = 0;
 			tex_desc.maxAnisotropy = max_aniso;
 			tex_desc.minMipmapLevelClamp = 0;
-			tex_desc.maxMipmapLevelClamp = texture.mip_levels - 1;
+			tex_desc.maxMipmapLevelClamp = texture.mip_levels() - 1;
 			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
 			// Describe the Texture View
@@ -225,7 +225,7 @@ void Pathtracer::cuda_init_materials() {
 			view_desc.width  = texture.get_cuda_resource_view_width();
 			view_desc.height = texture.get_cuda_resource_view_height();
 			view_desc.firstMipmapLevel = 0;
-			view_desc.lastMipmapLevel  = texture.mip_levels - 1;
+			view_desc.lastMipmapLevel  = texture.mip_levels() - 1;
 
 			CUDACALL(cuTexObjectCreate(&textures[i].texture, &res_desc, &tex_desc, &view_desc));
 

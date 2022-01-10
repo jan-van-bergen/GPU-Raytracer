@@ -126,16 +126,16 @@ TextureHandle AssetManager::add_texture(const String & filename) {
 		if (!success) {
 			IO::print("WARNING: Failed to load Texture '{}'!\n"sv, filename);
 
-			if (texture.data) delete [] texture.data;
-
 			// Use a default 1x1 pink Texture
-			texture.data = reinterpret_cast<const unsigned char *>(new Vector4(1.0f, 0.0f, 1.0f, 1.0f));
+			Vector4 pink = Vector4(1.0f, 0.0f, 1.0f, 1.0f);
+			texture.data.resize(sizeof(Vector4));
+			memcpy(texture.data.data(), &pink, sizeof(Vector4));
+
 			texture.format = Texture::Format::RGBA;
 			texture.width  = 1;
 			texture.height = 1;
 			texture.channels = 4;
-			texture.mip_levels  = 1;
-			texture.mip_offsets = new int(0);
+			texture.mip_offsets = { 0 };
 		}
 
 		textures_mutex.lock();

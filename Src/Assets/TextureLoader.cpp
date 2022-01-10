@@ -82,10 +82,8 @@ bool TextureLoader::load_dds(const String & filename, Texture & texture) {
 
 	int data_size = file.size() - sizeof(header);
 
-	unsigned char * data = new unsigned char[data_size];
-	memcpy(data, parser.cur, data_size);
-
-	int * mip_offsets = new int[texture.mip_levels];
+	texture.data.resize(data_size);
+	memcpy(texture.data.data(), parser.cur, data_size);
 
 	int block_size = texture.channels * 4;
 
@@ -93,21 +91,17 @@ bool TextureLoader::load_dds(const String & filename, Texture & texture) {
 	int level_height = texture.height;
 	int level_offset = 0;
 
-	for (int level = 0; level < texture.mip_levels; level++) {
+	for (int level = 0; level < header.num_mipmaps; level++) {
 		if (level_width == 0 || level_height == 0) {
-			texture.mip_levels = level;
 			break;
 		}
 
-		mip_offsets[level] = level_offset;
+		texture.mip_offsets.push_back(level_offset);
 		level_offset += level_width * level_height * block_size;
 
 		level_width  /= 2;
 		level_height /= 2;
 	}
-
-	texture.data = data;
-	texture.mip_offsets = mip_offsets;
 
 	return true;
 }
@@ -141,10 +135,11 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 
 	texture.channels = 4;
 
+	int mip_levels  = 0;
 	int pixel_count = 0;
-	mip_count(texture.width, texture.height, texture.mip_levels, pixel_count);
+	mip_count(texture.width, texture.height, mip_levels, pixel_count);
 
-	Vector4 * data_rgba = new Vector4[pixel_count];
+	Array<Vector4> data_rgba(pixel_count);
 
 	// Copy the data over into Mipmap level 0, and convert it to linear colour space
 	for (int i = 0; i < texture.width * texture.height; i++) {
@@ -158,10 +153,9 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 
 	stbi_image_free(data);
 
-	if (config.enable_mipmapping) {
-		int * mip_offsets = new int[texture.mip_levels];
-		mip_offsets[0] = 0;
+	texture.mip_offsets.push_back(0);
 
+	if (config.enable_mipmapping) {
 		int offset      = texture.width * texture.height;
 		int offset_prev = 0;
 
@@ -173,18 +167,18 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 
 		int level = 1;
 
-		Vector4 * temp = new Vector4[(texture.width / 2) * texture.height]; // Intermediate storage used when performing seperable filtering
+		Array<Vector4> temp((texture.width / 2) * texture.height); // Intermediate storage used when performing seperable filtering
 
 		while (true) {
 			if (config.mipmap_filter == Config::MipmapFilter::BOX) {
 				// Box filter can downsample the previous Mip level
-				Mipmap::downsample(level_width_prev, level_height_prev, level_width, level_height, data_rgba + offset_prev, data_rgba + offset, temp);
+				Mipmap::downsample(level_width_prev, level_height_prev, level_width, level_height, data_rgba.data() + offset_prev, data_rgba.data() + offset, temp.data());
 			} else {
 				// Other filters downsample the original Texture for better quality
-				Mipmap::downsample(texture.width, texture.height, level_width, level_height, data_rgba, data_rgba + offset, temp);
+				Mipmap::downsample(texture.width, texture.height, level_width, level_height, data_rgba.data(), data_rgba.data() + offset, temp.data());
 			}
 
-			mip_offsets[level++] = offset * sizeof(unsigned);
+			texture.mip_offsets.push_back(offset * sizeof(unsigned));
 
 			if (level_width == 1 && level_height == 1) break;
 
@@ -198,26 +192,17 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 			if (level_height > 1) level_height /= 2;
 		}
 
-		delete [] temp;
-
-		ASSERT(level == texture.mip_levels);
-
-		texture.mip_offsets = mip_offsets;
-	} else {
-		texture.mip_levels  = 1;
-		texture.mip_offsets = new int(0);
+		ASSERT(texture.mip_offsets.size() == mip_levels);
 	}
 
 	// Convert floating point pixels to unsigned bytes
-	unsigned * data_rgba_u8 = new unsigned[pixel_count];
+	Array<unsigned char> data_rgba_u8(pixel_count * 4);
 	for (int i = 0; i < pixel_count; i++) {
-		data_rgba_u8[i] =
-			unsigned(Math::clamp(data_rgba[i].w * 255.0f, 0.0f, 255.0f)) << 24 |
-			unsigned(Math::clamp(data_rgba[i].z * 255.0f, 0.0f, 255.0f)) << 16 |
-			unsigned(Math::clamp(data_rgba[i].y * 255.0f, 0.0f, 255.0f)) << 8 |
-			unsigned(Math::clamp(data_rgba[i].x * 255.0f, 0.0f, 255.0f));
+		data_rgba_u8[4*i + 0] = Math::clamp(data_rgba[i].x * 255.0f, 0.0f, 255.0f);
+		data_rgba_u8[4*i + 1] = Math::clamp(data_rgba[i].y * 255.0f, 0.0f, 255.0f);
+		data_rgba_u8[4*i + 2] = Math::clamp(data_rgba[i].z * 255.0f, 0.0f, 255.0f);
+		data_rgba_u8[4*i + 3] = Math::clamp(data_rgba[i].w * 255.0f, 0.0f, 255.0f);
 	}
-	delete [] data_rgba;
 
 	if (config.enable_block_compression && Math::is_power_of_two(texture.width) && Math::is_power_of_two(texture.height)) {
 		// Block Compression
@@ -228,15 +213,17 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 		int new_pixel_count = 0;
 		mip_count(new_width, new_height, new_mip_levels, new_pixel_count);
 
-		int * new_mip_offsets = new int[new_mip_levels];
+		Array<int> new_mip_offsets;
 
-		unsigned * compressed_data = new unsigned[new_pixel_count * 2];
-		int        compressed_data_offset = 0;
+		constexpr int COMPRESSED_BLOCK_SIZE = 8;
+
+		Array<unsigned char> compressed_data(new_pixel_count * COMPRESSED_BLOCK_SIZE);
+		int                  compressed_data_offset = 0;
 
 		for (int l = 0; l < new_mip_levels; l++) {
-			new_mip_offsets[l] = compressed_data_offset * sizeof(unsigned);
+			new_mip_offsets.push_back(compressed_data_offset);
 
-			unsigned * level_data = data_rgba_u8 + texture.mip_offsets[l] / sizeof(unsigned);
+			unsigned char * level_data = data_rgba_u8.data() + texture.mip_offsets[l];
 
 			int level_width  = Math::max(texture.width  >> l, 1);
 			int level_height = Math::max(texture.height >> l, 1);
@@ -246,7 +233,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 
 			for (int y = 0; y < new_level_height; y++) {
 				for (int x = 0; x < new_level_width; x++) {
-					unsigned block[4 * 4] = { };
+					unsigned char block[4 * 4 * 4] = { };
 
 					for (int j = 0; j < 4; j++) {
 						int pixel_y = 4*y + j;
@@ -254,41 +241,40 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 							for (int i = 0; i < 4; i++) {
 								int pixel_x = 4*x + i;
 								if (pixel_x < level_width) {
-									block[i + j * 4] = level_data[pixel_x + pixel_y * level_width];
+									int block_index = i + j * 4;
+									int pixel_index = pixel_x + pixel_y * level_width;
+
+									block[4*block_index + 0] = level_data[4*pixel_index + 0];
+									block[4*block_index + 1] = level_data[4*pixel_index + 1];
+									block[4*block_index + 2] = level_data[4*pixel_index + 2];
+									block[4*block_index + 3] = level_data[4*pixel_index + 3];
 								}
 							}
 						}
 					}
 
-					unsigned compressed[2] = { };
-					stb_compress_dxt_block(
-						reinterpret_cast<      unsigned char *>(compressed),
-						reinterpret_cast<const unsigned char *>(block),
-						false, STB_DXT_HIGHQUAL
-					);
-					compressed_data[compressed_data_offset++] = compressed[0];
-					compressed_data[compressed_data_offset++] = compressed[1];
+					unsigned char compressed_block[COMPRESSED_BLOCK_SIZE] = { };
+					stb_compress_dxt_block(compressed_block, block, false, STB_DXT_HIGHQUAL);
+
+					for (int i = 0; i < COMPRESSED_BLOCK_SIZE; i++) {
+						compressed_data[compressed_data_offset++] = compressed_block[i];
+					}
 				}
 			}
 		}
 
-		ASSERT(compressed_data_offset == new_pixel_count * 2);
-
-		delete [] data_rgba_u8;
-		data_rgba_u8 = compressed_data;
+		ASSERT(compressed_data_offset == new_pixel_count * COMPRESSED_BLOCK_SIZE);
+		data_rgba_u8 = std::move(compressed_data);
 
 		texture.format   = Texture::Format::BC1;
 		texture.channels = 2;
 		texture.width    = new_width;
 		texture.height   = new_height;
 
-		delete [] texture.mip_offsets;
-
-		texture.mip_levels  = new_mip_levels;
-		texture.mip_offsets = new_mip_offsets;
+		texture.mip_offsets = std::move(new_mip_offsets);
 	}
 
-	texture.data = reinterpret_cast<const unsigned char *>(data_rgba_u8);
+	texture.data = std::move(data_rgba_u8);
 
 	return true;
 }

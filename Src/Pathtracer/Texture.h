@@ -3,6 +3,7 @@
 
 #include "CUDA/Common.h"
 
+#include "Util/Array.h"
 #include "Util/String.h"
 
 struct Scene;
@@ -10,7 +11,7 @@ struct Scene;
 struct Texture {
 	String name = "Texture";
 
-	const unsigned char * data = nullptr;
+	Array<unsigned char> data;
 
 	enum struct Format {
 		BC1,
@@ -22,10 +23,7 @@ struct Texture {
 	int channels;
 	int width, height;
 
-	int         mip_levels;
-	const int * mip_offsets; // Offsets in bytes
-
-	void free();
+	Array<int> mip_offsets; // Offsets in bytes
 
 	CUarray_format       get_cuda_array_format()         const;
 	CUresourceViewFormat get_cuda_resource_view_format() const;
@@ -34,6 +32,8 @@ struct Texture {
 	int get_cuda_resource_view_height() const;
 
 	int get_width_in_bytes(int mip_level = 0) const;
+
+	inline int mip_levels() const { return mip_offsets.size(); }
 };
 
 struct TextureHandle { int handle = INVALID; };
