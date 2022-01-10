@@ -10,7 +10,7 @@ void Mesh::init(String name, MeshDataHandle mesh_data_handle, MaterialHandle mat
 	const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
 
 	aabb_untransformed = AABB::create_empty();
-	for (int i = 0; i < mesh_data.triangle_count; i++) {
+	for (int i = 0; i < mesh_data.triangles.size(); i++) {
 		aabb_untransformed.expand(mesh_data.triangles[i].aabb);
 	}
 }

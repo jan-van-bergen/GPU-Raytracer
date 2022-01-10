@@ -9,7 +9,7 @@
 #include "Util/Assertion.h"
 #include "Util/ScopeTimer.h"
 
-int SBVHBuilder::build_sbvh(BVHNode2 & node, const Triangle * triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area) {
+int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
 		// We do not terminate based on the SAH termination criterion, so that the
@@ -330,12 +330,12 @@ void SBVHBuilder::free() {
 	indices_going_right.free();
 }
 
-void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
+void SBVHBuilder::build(const Array<Triangle> & triangles) {
 	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\r"sv);
 
 	AABB root_aabb = AABB::create_empty();
 
-	for (int i = 0; i < triangle_count; i++) {
+	for (size_t i = 0; i < triangles.size(); i++) {
 		indices_x[i].index = i;
 		indices_y[i].index = i;
 		indices_z[i].index = i;
@@ -354,9 +354,9 @@ void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 		root_aabb.expand(aabb);
 	}
 
-	Util::quick_sort(indices_x, indices_x + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-	Util::quick_sort(indices_y, indices_y + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-	Util::quick_sort(indices_z, indices_z + triangle_count, [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+	Util::quick_sort(indices_x, indices_x + triangles.size(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+	Util::quick_sort(indices_y, indices_y + triangles.size(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+	Util::quick_sort(indices_z, indices_z + triangles.size(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
 	indices_going_right_offset = 0;
 
@@ -365,14 +365,14 @@ void SBVHBuilder::build(const Triangle * triangles, int triangle_count) {
 	sbvh->nodes._2[0].aabb = root_aabb;
 
 	int node_index = 2;
-	sbvh->index_count = build_sbvh(sbvh->nodes._2[0], triangles, indices, node_index, 0, triangle_count, 1.0f / root_aabb.surface_area());
+	sbvh->index_count = build_sbvh(sbvh->nodes._2[0], triangles, indices, node_index, 0, triangles.size(), 1.0f / root_aabb.surface_area());
 	sbvh->node_count = node_index;
 
-	ASSERT(node_index <= SBVH_OVERALLOCATION * triangle_count);
+	ASSERT(node_index <= SBVH_OVERALLOCATION * triangles.size());
 
 	for (int i = 0; i < sbvh->index_count; i++) {
 		int index = indices_x[i].index;
-		ASSERT(index >= 0 && index < triangle_count);
+		ASSERT(index >= 0 && index < triangles.size());
 
 		sbvh->indices[i] = index;
 	}

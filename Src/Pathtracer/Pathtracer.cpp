@@ -244,9 +244,9 @@ void Pathtracer::cuda_init_geometry() {
 	mesh_data_triangle_offsets = new int[mesh_data_count];
 	int * mesh_data_index_offsets = MALLOCA(int, mesh_data_count);
 
-	int aggregated_bvh_node_count = 2 * scene.meshes.size(); // Reserve 2 times Mesh count for TLAS
-	int aggregated_triangle_count = 0;
-	int aggregated_index_count    = 0;
+	size_t aggregated_bvh_node_count = 2 * scene.meshes.size(); // Reserve 2 times Mesh count for TLAS
+	size_t aggregated_triangle_count = 0;
+	size_t aggregated_index_count    = 0;
 
 	for (int i = 0; i < mesh_data_count; i++) {
 		mesh_data_bvh_offsets     [i] = aggregated_bvh_node_count;
@@ -254,7 +254,7 @@ void Pathtracer::cuda_init_geometry() {
 		mesh_data_index_offsets   [i] = aggregated_index_count;
 
 		aggregated_bvh_node_count += scene.asset_manager.mesh_datas[i].bvh.node_count;
-		aggregated_triangle_count += scene.asset_manager.mesh_datas[i].triangle_count;
+		aggregated_triangle_count += scene.asset_manager.mesh_datas[i].triangles.size();
 		aggregated_index_count    += scene.asset_manager.mesh_datas[i].bvh.index_count;
 	}
 
@@ -654,8 +654,8 @@ void Pathtracer::calc_light_power() {
 	Array<LightTriangle> light_triangles;
 
 	struct LightMeshData {
-		int first_triangle_index;
-		int triangle_count;
+		size_t first_triangle_index;
+		size_t triangle_count;
 
 		double total_area;
 	};
@@ -671,10 +671,10 @@ void Pathtracer::calc_light_power() {
 
 		LightMeshData & light_mesh_data = light_mesh_datas.emplace_back();
 		light_mesh_data.first_triangle_index = light_triangles.size();
-		light_mesh_data.triangle_count = mesh_data.triangle_count;
+		light_mesh_data.triangle_count = mesh_data.triangles.size();
 		light_mesh_data.total_area = 0.0f;
 
-		for (int t = 0; t < mesh_data.triangle_count; t++) {
+		for (int t = 0; t < mesh_data.triangles.size(); t++) {
 			const Triangle & triangle = mesh_data.triangles[t];
 
 			float area = 0.5f * Vector3::length(Vector3::cross(
@@ -749,7 +749,7 @@ void Pathtracer::calc_light_power() {
 
 // Construct Top Level Acceleration Structure (TLAS) over the Meshes in the Scene
 void Pathtracer::build_tlas() {
-	tlas_bvh_builder.build(scene.meshes.data(), scene.meshes.size());
+	tlas_bvh_builder.build(scene.meshes);
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:

@@ -148,7 +148,7 @@ static T parse_property_value(Parser & parser, Property::Type::Kind kind, PLYFor
 	}
 }
 
-void PLYLoader::load(const String & filename, Triangle *& triangles, int & triangle_count) {
+Array<Triangle> PLYLoader::load(const String & filename) {
 	String file = IO::file_read(filename);
 
 	Parser parser;
@@ -255,7 +255,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 	Array<Vector2> tex_coords;
 	Array<Vector3> normals;
 
-	Array<Triangle> tris;
+	Array<Triangle> triangles;
 
 	for (int e = 0; e < elements.size(); e++) {
 		const Element & element = elements[e];
@@ -285,7 +285,6 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 			}
 
 			case Element::Type::Kind::FACE: {
-				tris.reserve(element.count); // Expect as many triangles as there are faces, but there could be more (if faces have more than 3 vertices)
 				for (int i = 0; i < element.count; i++) {
 					for (int p = 0; p < element.property_count; p++) {
 						const Property & property = element.properties[p];
@@ -325,7 +324,7 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 							triangle.normal_2    = nor[2];
 							triangle.init();
 
-							tris.push_back(triangle);
+							triangles.push_back(triangle);
 
 							pos[1] = pos[2];
 							tex[1] = tex[2];
@@ -348,7 +347,5 @@ void PLYLoader::load(const String & filename, Triangle *& triangles, int & trian
 
 	ASSERT(parser.reached_end());
 
-	triangle_count = tris.size();
-	triangles      = new Triangle[triangle_count];
-	memcpy(triangles, tris.data(), triangle_count * sizeof(Triangle));
+	return triangles;
 }

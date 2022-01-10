@@ -535,26 +535,26 @@ static void draw_gui() {
 			ImGui::Text("Has Conductor:  %s", pathtracer.scene.has_conductor  ? "True" : "False");
 			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
 
-			int triangle_count       = 0;
-			int light_mesh_count     = 0;
-			int light_triangle_count = 0;
+			size_t triangle_count       = 0;
+			size_t light_mesh_count     = 0;
+			size_t light_triangle_count = 0;
 
 			for (int i = 0; i < pathtracer.scene.meshes.size(); i++) {
 				const Mesh     & mesh      = pathtracer.scene.meshes[i];
 				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
-				triangle_count += mesh_data.triangle_count;
+				triangle_count += mesh_data.triangles.size();
 
 				if (mesh.light.weight > 0.0f) {
 					light_mesh_count++;
-					light_triangle_count += mesh_data.triangle_count;
+					light_triangle_count += mesh_data.triangles.size();
 				}
 			}
 
-			ImGui::Text("Meshes:          %i", int(pathtracer.scene.meshes.size()));
-			ImGui::Text("Triangles:       %i", triangle_count);
-			ImGui::Text("Light Meshes:    %i", light_mesh_count);
-			ImGui::Text("Light Triangles: %i", light_triangle_count);
+			ImGui::Text("Meshes:          %zu", pathtracer.scene.meshes.size());
+			ImGui::Text("Triangles:       %zu", triangle_count);
+			ImGui::Text("Light Meshes:    %zu", light_mesh_count);
+			ImGui::Text("Light Triangles: %zu", light_triangle_count);
 		}
 
 		if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {

@@ -18,6 +18,6 @@ struct BVHBuilder {
 	void init(BVH * bvh, int primitive_count);
 	void free();
 
-	void build(const Triangle * triangles, int triangle_count);
-	void build(const Mesh     * meshes,    int mesh_count);
+	void build(const Array<Triangle> & triangles);
+	void build(const Array<Mesh>     & meshes);
 };

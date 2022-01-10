@@ -1,6 +1,6 @@
 #include "Geometry.h"
 
-void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matrix4 & transform) {
+Array<Triangle> Geometry::rectangle(const Matrix4 & transform) {
 	Vector3 vertex_0 = Matrix4::transform_position(transform, Vector3(-1.0f, +1.0f, 0.0f));
 	Vector3 vertex_1 = Matrix4::transform_position(transform, Vector3(+1.0f, +1.0f, 0.0f));
 	Vector3 vertex_2 = Matrix4::transform_position(transform, Vector3(+1.0f, -1.0f, 0.0f));
@@ -13,8 +13,7 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	Vector2 tex_coord_2 = Vector2(1.0f, 1.0f);
 	Vector2 tex_coord_3 = Vector2(0.0f, 1.0f);
 
-	triangle_count = 2;
-	triangles = new Triangle[triangle_count];
+	Array<Triangle> triangles(2);
 
 	triangles[0].position_0 = vertex_0;
 	triangles[0].position_1 = vertex_1;
@@ -37,11 +36,13 @@ void Geometry::rectangle(Triangle *& triangles, int & triangle_count, const Matr
 	triangles[1].tex_coord_1 = tex_coord_2;
 	triangles[1].tex_coord_2 = tex_coord_3;
 	triangles[1].init();
+
+	return triangles;
 }
 
-void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 & transform) {
-	triangle_count = 12;
-	triangles = new Triangle[triangle_count];
+Array<Triangle> Geometry::cube(const Matrix4 & transform) {
+	size_t triangle_count = 12;
+	Array<Triangle> triangles(triangle_count);
 
 	Matrix4 transform_cofactor = Matrix4::cofactor(transform);
 
@@ -109,11 +110,13 @@ void Geometry::cube(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		triangles[2*face + 1].tex_coord_2 = cube_tex_coords[3];
 		triangles[2*face + 1].init();
 	}
+
+	return triangles;
 }
 
-void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 & transform, int num_segments) {
-	triangle_count = num_segments;
-	triangles = new Triangle[triangle_count];
+Array<Triangle> Geometry::disk(const Matrix4 & transform, int num_segments) {
+	size_t triangle_count = num_segments;
+	Array<Triangle> triangles(triangle_count);
 
 	Vector3 vertex_center = Matrix4::transform_position(transform, Vector3(0.0f, 0.0f, 0.0f));
 	Vector3 vertex_prev   = Matrix4::transform_position(transform, Vector3(1.0f, 0.0f, 0.0f));
@@ -149,11 +152,13 @@ void Geometry::disk(Triangle *& triangles, int & triangle_count, const Matrix4 &
 		vertex_prev = vertex_curr;
 		uv_prev = uv_curr;
 	}
+
+	return triangles;
 }
 
-void Geometry::cylinder(Triangle *& triangles, int & triangle_count, const Matrix4 & transform, const Vector3 & p0, const Vector3 & p1, float radius, int num_segments) {
-	triangle_count = 2 * num_segments;
-	triangles = new Triangle[triangle_count];
+Array<Triangle> Geometry::cylinder(const Matrix4 & transform, const Vector3 & p0, const Vector3 & p1, float radius, int num_segments) {
+	size_t triangle_count = 2 * num_segments;
+	Array<Triangle> triangles(triangle_count);
 
 	Vector3 p0_world = Matrix4::transform_position(transform, p0);
 	Vector3 p1_world = Matrix4::transform_position(transform, p1);
@@ -208,9 +213,11 @@ void Geometry::cylinder(Triangle *& triangles, int & triangle_count, const Matri
 		normal_prev        = normal_curr;
 		u_prev             = u_curr;
 	}
+
+	return triangles;
 }
 
-void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4 & transform, int num_subdivisions) {
+Array<Triangle> Geometry::sphere(const Matrix4 & transform, int num_subdivisions) {
 	constexpr float x = 0.525731112119133606f;
 	constexpr float z = 0.850650808352039932f;
 
@@ -227,12 +234,12 @@ void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4
 	};
 
 	// Icosahedron has 20 faces, each subdivision turns a single triangle into four
-	triangle_count = 20;
+	size_t triangle_count = 20;
 	for (int i = 0; i < num_subdivisions; i++) {
 		triangle_count *= 4;
 	}
 
-	triangles = new Triangle[triangle_count];
+	Array<Triangle> triangles(triangle_count);
 
 	// Initialize with Icosahedron
 	for (int i = 0; i < 20; i++) {
@@ -273,7 +280,7 @@ void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4
 		current_triangle_count *= 4;
 	}
 
-	assert(current_triangle_count == triangle_count);
+	ASSERT(current_triangle_count == triangle_count);
 
 	Matrix4 transform_cofactor = Matrix4::cofactor(transform);
 
@@ -303,4 +310,6 @@ void Geometry::sphere(Triangle *& triangles, int & triangle_count, const Matrix4
 
 		triangles[i].init();
 	}
+
+	return triangles;
 }

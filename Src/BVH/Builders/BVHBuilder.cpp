@@ -38,7 +38,7 @@ void BVHBuilder::free() {
 }
 
 template<typename Primitive>
-static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Primitive * primitives, int * indices[3], int & node_index, int first_index, int index_count) {
+static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Array<Primitive> & primitives, int * indices[3], int & node_index, int first_index, int index_count) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
 		// We do not terminate based on the SAH termination criterion, so that the
@@ -95,16 +95,16 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Pri
 }
 
 template<typename Primitive>
-static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, int primitive_count) {
+static void build_bvh_impl(BVHBuilder & builder, const Array<Primitive> & primitives) {
 	AABB root_aabb = AABB::create_empty();
-	for (int i = 0; i < primitive_count; i++) {
+	for (size_t i = 0; i < primitives.size(); i++) {
 		root_aabb.expand(primitives[i].aabb);
 	}
 	builder.bvh->nodes._2[0].aabb = root_aabb;
 
-	Util::quick_sort(builder.indices_x, builder.indices_x + primitive_count, [primitives](int a, int b) { return primitives[a].get_center().x < primitives[b].get_center().x; });
-	Util::quick_sort(builder.indices_y, builder.indices_y + primitive_count, [primitives](int a, int b) { return primitives[a].get_center().y < primitives[b].get_center().y; });
-	Util::quick_sort(builder.indices_z, builder.indices_z + primitive_count, [primitives](int a, int b) { return primitives[a].get_center().z < primitives[b].get_center().z; });
+	Util::quick_sort(builder.indices_x, builder.indices_x + primitives.size(), [&primitives](int a, int b) { return primitives[a].get_center().x < primitives[b].get_center().x; });
+	Util::quick_sort(builder.indices_y, builder.indices_y + primitives.size(), [&primitives](int a, int b) { return primitives[a].get_center().y < primitives[b].get_center().y; });
+	Util::quick_sort(builder.indices_z, builder.indices_z + primitives.size(), [&primitives](int a, int b) { return primitives[a].get_center().z < primitives[b].get_center().z; });
 
 	int * indices[3] = {
 		builder.indices_x,
@@ -113,18 +113,18 @@ static void build_bvh_impl(BVHBuilder & builder, const Primitive * primitives, i
 	};
 
 	int node_index = 2;
-	build_bvh_recursive(builder, builder.bvh->nodes._2[0], primitives, indices, node_index, 0, primitive_count);
+	build_bvh_recursive(builder, builder.bvh->nodes._2[0], primitives, indices, node_index, 0, primitives.size());
 
-	ASSERT(node_index <= 2 * primitive_count);
+	ASSERT(node_index <= 2 * primitives.size());
 
 	builder.bvh->node_count  = node_index;
-	builder.bvh->index_count = primitive_count;
+	builder.bvh->index_count = primitives.size();
 }
 
-void BVHBuilder::build(const Triangle * triangles, int triangle_count) {
-	return build_bvh_impl(*this, triangles, triangle_count);
+void BVHBuilder::build(const Array<Triangle> & triangles) {
+	return build_bvh_impl(*this, triangles);
 }
 
-void BVHBuilder::build(const Mesh * meshes, int mesh_count) {
-	return build_bvh_impl(*this, meshes, mesh_count);
+void BVHBuilder::build(const Array<Mesh> & meshes) {
+	return build_bvh_impl(*this, meshes);
 }

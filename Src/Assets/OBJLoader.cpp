@@ -119,11 +119,10 @@ static OBJFile parse_obj(const String & filename) {
 	return obj;
 }
 
-bool OBJLoader::load(const String & filename, Triangle *& triangles, int & triangle_count) {
+Array<Triangle> OBJLoader::load(const String & filename) {
 	OBJFile obj = parse_obj(filename);
 
-	triangle_count = obj.faces.size();
-	triangles      = new Triangle[triangle_count];
+	Array<Triangle> triangles(obj.faces.size());
 
 	for (int f = 0; f < obj.faces.size(); f++) {
 		const Face & face = obj.faces[f];
@@ -182,7 +181,7 @@ bool OBJLoader::load(const String & filename, Triangle *& triangles, int & trian
 		triangles[f].init();
 	}
 
-	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"sv, filename, triangle_count);
+	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"sv, filename, triangles.size());
 
-	return true;
+	return triangles;
 }

@@ -31,7 +31,7 @@ private:
 
 	bool assets_loaded = false;
 
-	BVH build_bvh(const Triangle * triangles, int triangle_count);
+	BVH build_bvh(const Array<Triangle> & triangles);
 
 public:
 	void init();
@@ -55,13 +55,13 @@ public:
 
 		bool bvh_loaded = BVHLoader::try_to_load(filename, bvh_filename, mesh_data, bvh);
 		if (!bvh_loaded) {
-			fallback_loader(filename, mesh_data.triangles, mesh_data.triangle_count);
+			mesh_data.triangles = fallback_loader(filename);
 
-			if (mesh_data.triangle_count == 0) {
+			if (mesh_data.triangles.size() == 0) {
 				return { INVALID };
 			}
 
-			bvh = build_bvh(mesh_data.triangles, mesh_data.triangle_count);
+			bvh = build_bvh(mesh_data.triangles);
 			BVHLoader::save(bvh_filename, mesh_data, bvh);
 		}
 
@@ -78,7 +78,7 @@ public:
 	}
 
 	MeshDataHandle add_mesh_data(const MeshData & mesh_data);
-	MeshDataHandle add_mesh_data(Triangle * triangles, int triangle_count);
+	MeshDataHandle add_mesh_data(Array<Triangle> triangles);
 
 	MaterialHandle add_material(const Material & material);
 

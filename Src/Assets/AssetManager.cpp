@@ -16,7 +16,7 @@
 #include "Util/ScopeTimer.h"
 #include "Util/ThreadPool.h"
 
-BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
+BVH AssetManager::build_bvh(const Array<Triangle> & triangles) {
 	IO::print("Constructing BVH...\r"sv);
 	BVH bvh;
 
@@ -26,15 +26,15 @@ BVH AssetManager::build_bvh(const Triangle * triangles, int triangle_count) {
 		ScopeTimer timer("SBVH Construction");
 
 		SBVHBuilder sbvh_builder = { };
-		sbvh_builder.init(&bvh, triangle_count);
-		sbvh_builder.build(triangles, triangle_count);
+		sbvh_builder.init(&bvh, triangles.size());
+		sbvh_builder.build(triangles);
 		sbvh_builder.free();
 	} else  {
 		ScopeTimer timer("BVH Construction");
 
 		BVHBuilder bvh_builder = { };
-		bvh_builder.init(&bvh, triangle_count);
-		bvh_builder.build(triangles, triangle_count);
+		bvh_builder.init(&bvh, triangles.size());
+		bvh_builder.build(triangles);
 		bvh_builder.free();
 	}
 
@@ -69,12 +69,11 @@ MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
 	return mesh_data_id;
 }
 
-MeshDataHandle AssetManager::add_mesh_data(Triangle * triangles, int triangle_count) {
-	BVH bvh = build_bvh(triangles, triangle_count);
+MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
+	BVH bvh = build_bvh(triangles);
 
 	MeshData mesh_data = { };
-	mesh_data.triangles      = triangles;
-	mesh_data.triangle_count = triangle_count;
+	mesh_data.triangles = std::move(triangles);
 	mesh_data.init_bvh(bvh);
 
 	return add_mesh_data(mesh_data);

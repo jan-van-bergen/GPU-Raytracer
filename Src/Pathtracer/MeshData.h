@@ -3,9 +3,10 @@
 
 #include "BVH/BVH.h"
 
+#include "Util/Array.h"
+
 struct MeshData {
-	int        triangle_count;
-	Triangle * triangles;
+	Array<Triangle> triangles;
 
 	BVH bvh;
 
