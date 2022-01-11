@@ -15,6 +15,6 @@ namespace BVHLoader {
 
 	String get_bvh_filename(StringView filename);
 
-	bool try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH & bvh);
-	bool save(const String & bvh_filename, const MeshData & mesh_data, const BVH & bvh);
+	bool try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH2 & bvh);
+	bool save(const String & bvh_filename, const MeshData & mesh_data, const BVH2 & bvh);
 }

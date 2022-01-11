@@ -4,7 +4,7 @@
 
 #include "Util/IO.h"
 
-int CWBVHBuilder::calculate_cost(int node_index, const BVHNode2 nodes[]) {
+int CWBVHBuilder::calculate_cost(int node_index, const Array<BVHNode2> & nodes) {
 	const BVHNode2 & node = nodes[node_index];
 
 	int num_primitives;
@@ -101,7 +101,7 @@ int CWBVHBuilder::calculate_cost(int node_index, const BVHNode2 nodes[]) {
 	return num_primitives;
 }
 
-void CWBVHBuilder::get_children(int node_index, const BVHNode2 nodes[], int i, int & child_count, int children[8]) {
+void CWBVHBuilder::get_children(int node_index, const Array<BVHNode2> & nodes, int i, int & child_count, int children[8]) {
 	const BVHNode2 & node = nodes[node_index];
 
 	if (node.is_leaf()) {
@@ -135,14 +135,14 @@ void CWBVHBuilder::get_children(int node_index, const BVHNode2 nodes[], int i, i
 
 // Recursively count triangles in subtree of the given Node
 // Simultaneously fills the indices buffer of the CWBVH
-int CWBVHBuilder::count_primitives(int node_index, const BVHNode2 nodes[], const int indices[]) {
+int CWBVHBuilder::count_primitives(int node_index, const Array<BVHNode2> & nodes, const Array<int> & indices) {
 	const BVHNode2 & node = nodes[node_index];
 
 	if (node.is_leaf()) {
 		ASSERT(node.count == 1);
 
 		for (int i = 0; i < node.count; i++) {
-			cwbvh->indices[cwbvh->index_count++] = indices[node.first + i];
+			cwbvh->indices.push_back(indices[node.first + i]);
 		}
 
 		return node.count;
@@ -153,7 +153,7 @@ int CWBVHBuilder::count_primitives(int node_index, const BVHNode2 nodes[], const
 		count_primitives(node.left + 1, nodes, indices);
 }
 
-void CWBVHBuilder::order_children(int node_index, const BVHNode2 nodes[], int children[8], int child_count) {
+void CWBVHBuilder::order_children(int node_index, const Array<BVHNode2> & nodes, int children[8], int child_count) {
 	Vector3 p = nodes[node_index].aabb.get_center();
 
 	float cost[8][8] = { };
@@ -216,8 +216,8 @@ void CWBVHBuilder::order_children(int node_index, const BVHNode2 nodes[], int ch
 	}
 }
 
-void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[], int node_index_cwbvh, int node_index_bvh) {
-	BVHNode8 & node = cwbvh->nodes._8[node_index_cwbvh];
+void CWBVHBuilder::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_cwbvh, int node_index_bvh) {
+	BVHNode8 & node = cwbvh->nodes[node_index_cwbvh];
 	const AABB & aabb = nodes_bvh[node_index_bvh].aabb;
 
 	memset(&node, 0, sizeof(BVHNode8));
@@ -261,8 +261,8 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 
 	node.imask = 0;
 
-	node.base_index_child    = cwbvh->node_count;
-	node.base_index_triangle = cwbvh->index_count;
+	node.base_index_triangle = cwbvh->indices.size();
+	node.base_index_child    = cwbvh->nodes  .size();
 
 	int node_internal_count = 0;
 	int node_triangle_count = 0;
@@ -303,8 +303,6 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 				node.meta[i] = (node_internal_count + 24) | 0b00100000;
 
 				node.imask |= (1 << node_internal_count);
-
-				cwbvh->node_count++;
 				node_internal_count++;
 
 				break;
@@ -314,8 +312,13 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 		}
 	}
 
-	ASSERT(node.base_index_child    + node_internal_count == cwbvh->node_count);
-	ASSERT(node.base_index_triangle + node_triangle_count == cwbvh->index_count);
+	for (int i = 0; i < node_internal_count; i++) {
+		cwbvh->nodes.emplace_back();
+	}
+	node = cwbvh->nodes[node_index_cwbvh]; // NOTE: 'node' may have been invalidated by emplace_back on previous line
+
+	ASSERT(node.base_index_child    + node_internal_count == cwbvh->nodes  .size());
+	ASSERT(node.base_index_triangle + node_triangle_count == cwbvh->indices.size());
 
 	// Recurse on Internal Nodes
 	for (int i = 0; i < 8; i++) {
@@ -328,14 +331,20 @@ void CWBVHBuilder::collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[],
 	}
 }
 
-void CWBVHBuilder::build(const BVH & bvh) {
-	cwbvh->index_count = 0;
-	cwbvh->node_count  = 1;
+void CWBVHBuilder::build(const BVH2 & bvh) {
+	cwbvh->indices.clear();
+	cwbvh->indices.reserve(bvh.indices.size());
+
+	cwbvh->nodes.clear();
+	cwbvh->nodes.emplace_back(); // Root
+
+	cost     .resize(bvh.nodes.size() * 7);
+	decisions.resize(bvh.nodes.size() * 7);
 
 	// Fill cost table using dynamic programming (bottom up)
-	calculate_cost(0, bvh.nodes._2);
+	calculate_cost(0, bvh.nodes);
 
 	// Collapse SBVH into 8-way tree (top down)
-	collapse(bvh.nodes._2, bvh.indices, 0, 0);
-	ASSERT(cwbvh->index_count == bvh.index_count);
+	collapse(bvh.nodes, bvh.indices, 0, 0);
+	ASSERT(cwbvh->indices.size() == bvh.indices.size());
 }

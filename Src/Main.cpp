@@ -742,7 +742,7 @@ static void draw_gui() {
 		if (pathtracer.pixel_query.triangle_id != INVALID) {
 			const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
-			int              index    = mesh_data.bvh.indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
+			int              index    = mesh_data.bvh->indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
 			const Triangle & triangle = mesh_data.triangles[index];
 
 			int mouse_x, mouse_y;

@@ -3,20 +3,17 @@
 
 struct QBVHBuilder {
 private:
-	BVH * qbvh;
+	BVH4 * qbvh;
 
 	void collapse(int node_index);
 
 public:
-	inline void init(BVH * qbvh, const BVH & bvh) {
+	inline void init(BVH4 * qbvh, const BVH2 & bvh) {
 		this->qbvh = qbvh;
 
-		qbvh->index_count = bvh.index_count;
-		qbvh->indices     = bvh.indices; // Indices array can be reused
-
-		qbvh->node_count = bvh.node_count;
-		qbvh->nodes._4   = new BVHNode4[bvh.node_count];
+		qbvh->indices = bvh.indices;
+		qbvh->nodes.resize(bvh.nodes.size());
 	}
 
-	void build(const BVH & bvh);
+	void build(const BVH2 & bvh);
 };

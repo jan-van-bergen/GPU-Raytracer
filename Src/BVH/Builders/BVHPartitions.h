@@ -91,8 +91,8 @@ namespace BVHPartitions {
 		return partition_sah(get_aabb, first_index, index_count, sah);
 	}
 
-	inline ObjectSplit partition_sah(PrimitiveRef * primitive_refs[3], int first_index, int index_count, float * sah) {
-		auto get_aabb = [primitive_refs](int dimension, int index) {
+	inline ObjectSplit partition_sah(Array<PrimitiveRef> primitive_refs[3], int first_index, int index_count, float * sah) {
+		auto get_aabb = [&primitive_refs](int dimension, int index) {
 			return primitive_refs[dimension][index].aabb;
 		};
 		return partition_sah(get_aabb, first_index, index_count, sah);
@@ -122,7 +122,7 @@ namespace BVHPartitions {
 		}
 	}
 
-	inline SpatialSplit partition_spatial(const Array<Triangle> & triangles, PrimitiveRef * indices[3], int first_index, int index_count, float * sah, AABB bounds) {
+	inline SpatialSplit partition_spatial(const Array<Triangle> & triangles, const Array<PrimitiveRef> indices[3], int first_index, int index_count, float * sah, AABB bounds) {
 		SpatialSplit split = { };
 		split.cost = INFINITY;
 		split.index     = -1;

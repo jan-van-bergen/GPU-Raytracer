@@ -31,7 +31,7 @@ private:
 
 	bool assets_loaded = false;
 
-	BVH build_bvh(const Array<Triangle> & triangles);
+	BVH2 build_bvh(const Array<Triangle> & triangles);
 
 public:
 	void init();
@@ -50,7 +50,7 @@ public:
 
 		if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
 
-		BVH      bvh       = { };
+		BVH2     bvh       = { };
 		MeshData mesh_data = { };
 
 		bool bvh_loaded = BVHLoader::try_to_load(filename, bvh_filename, mesh_data, bvh);
@@ -69,7 +69,7 @@ public:
 			BVHCollapser::collapse(bvh);
 		}
 
-		mesh_data.init_bvh(bvh);
+		mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
 
 		mesh_data_handle.handle = mesh_datas.size();
 		mesh_datas.push_back(mesh_data);

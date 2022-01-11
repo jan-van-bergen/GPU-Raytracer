@@ -16,9 +16,9 @@
 #include "Util/ScopeTimer.h"
 #include "Util/ThreadPool.h"
 
-BVH AssetManager::build_bvh(const Array<Triangle> & triangles) {
+BVH2 AssetManager::build_bvh(const Array<Triangle> & triangles) {
 	IO::print("Constructing BVH...\r"sv);
-	BVH bvh;
+	BVH2 bvh;
 
 	// Only the SBVH uses SBVH as its starting point,
 	// all other BVH types use the standard BVH as their starting point
@@ -70,11 +70,11 @@ MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
 }
 
 MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
-	BVH bvh = build_bvh(triangles);
+	BVH2 bvh = build_bvh(triangles);
 
 	MeshData mesh_data = { };
 	mesh_data.triangles = std::move(triangles);
-	mesh_data.init_bvh(bvh);
+	mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
 
 	return add_mesh_data(mesh_data);
 }
@@ -138,7 +138,7 @@ TextureHandle AssetManager::add_texture(const String & filename) {
 		}
 
 		textures_mutex.lock();
-		textures[texture_id.handle] = texture;
+		textures[texture_id.handle] = std::move(texture);
 		textures_mutex.unlock();
 	});
 

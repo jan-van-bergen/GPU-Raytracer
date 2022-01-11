@@ -7,10 +7,7 @@
 
 struct MeshData {
 	Array<Triangle> triangles;
-
-	BVH bvh;
-
-	void init_bvh(BVH & bvh);
+	BVH           * bvh;
 };
 
 struct MeshDataHandle { int handle = INVALID; };

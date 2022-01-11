@@ -229,7 +229,6 @@
     <ClCompile Include="Src\Math\Mipmap.cpp" />
     <ClCompile Include="Src\Pathtracer\Camera.cpp" />
     <ClCompile Include="Src\Pathtracer\Mesh.cpp" />
-    <ClCompile Include="Src\Pathtracer\MeshData.cpp" />
     <ClCompile Include="Src\Pathtracer\Pathtracer.cpp" />
     <ClCompile Include="Src\Pathtracer\Scene.cpp" />
     <ClCompile Include="Src\Pathtracer\Sky.cpp" />

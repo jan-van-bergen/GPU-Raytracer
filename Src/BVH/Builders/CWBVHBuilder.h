@@ -2,8 +2,18 @@
 #include "BVH/BVH.h"
 
 struct CWBVHBuilder {
+	inline void init(BVH8 * cwbvh, const BVH2 & bvh) {
+		this->cwbvh = cwbvh;
+
+		cwbvh->indices.reserve(bvh.indices.size());
+		cwbvh->nodes  .reserve(bvh.nodes  .size());
+		cwbvh->nodes.emplace_back();
+	}
+
+	void build(const BVH2 & bvh);
+
 private:
-	BVH * cwbvh;
+	BVH8 * cwbvh;
 
 	struct Decision {
 		enum struct Type : char {
@@ -16,35 +26,15 @@ private:
 		char distribute_right = INVALID;
 	};
 
-	float    * cost;
-	Decision * decisions;
+	Array<float>    cost;
+	Array<Decision> decisions;
 
-	int calculate_cost(int node_index, const BVHNode2 nodes[]);
+	int calculate_cost(int node_index, const Array<BVHNode2> & nodes);
 
-	void get_children  (int node_index, const BVHNode2 nodes[], int i, int & child_count, int children[8]);
-	void order_children(int node_index, const BVHNode2 nodes[], int children[8], int child_count);
+	void get_children  (int node_index, const Array<BVHNode2> & nodes, int i, int & child_count, int children[8]);
+	void order_children(int node_index, const Array<BVHNode2> & nodes, int children[8], int child_count);
 
-	int count_primitives(int node_index, const BVHNode2 nodes[], const int indices_sbvh[]);
+	int count_primitives(int node_index, const Array<BVHNode2> & nodes, const Array<int> & indices_sbvh);
 
-	void collapse(const BVHNode2 nodes_bvh[], const int indices_bvh[], int node_index_cwbvh, int node_index_bvh);
-
-public:
-	inline void init(BVH * cwbvh, const BVH & bvh) {
-		this->cwbvh = cwbvh;
-
-		cost      = new float   [bvh.node_count * 7];
-		decisions = new Decision[bvh.node_count * 7];
-
-		cwbvh->index_count = 0;
-		cwbvh->indices     = new int[bvh.index_count];
-		cwbvh->node_count  = 1;
-		cwbvh->nodes._8    = new BVHNode8[bvh.node_count];
-	}
-
-	inline void free() {
-		delete [] cost;
-		delete [] decisions;
-	}
-
-	void build(const BVH & bvh);
+	void collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_cwbvh, int node_index_bvh);
 };

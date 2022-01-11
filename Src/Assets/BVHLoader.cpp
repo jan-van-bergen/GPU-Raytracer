@@ -27,7 +27,7 @@ struct BVHFileHeader {
 	int num_indices;
 };
 
-bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH & bvh) {
+bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH2 & bvh) {
 	if (config.bvh_force_rebuild || !IO::file_exists(bvh_filename.view()) || IO::file_is_newer(bvh_filename.view(), filename.view())) {
 		return false;
 	}
@@ -56,16 +56,13 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 		return false;
 	}
 
-	bvh.node_count  = header.num_nodes;
-	bvh.index_count = header.num_indices;
-
 	mesh_data.triangles.resize(header.num_triangles);
-	bvh.nodes._2 = new BVHNode2[bvh.node_count];
-	bvh.indices  = new int     [bvh.index_count];
+	bvh.nodes          .resize(header.num_nodes);
+	bvh.indices        .resize(header.num_indices);
 
 	for (int i = 0; i < mesh_data.triangles.size(); i++) mesh_data.triangles[i] = parser.parse_binary<Triangle>();
-	for (int i = 0; i < bvh.node_count;             i++) bvh.nodes._2       [i] = parser.parse_binary<BVHNode2>();
-	for (int i = 0; i < bvh.index_count;            i++) bvh.indices        [i] = parser.parse_binary<int>();
+	for (int i = 0; i < bvh.nodes  .size(); i++) bvh.nodes  [i] = parser.parse_binary<BVHNode2>();
+	for (int i = 0; i < bvh.indices.size(); i++) bvh.indices[i] = parser.parse_binary<int>();
 
 	ASSERT(parser.reached_end());
 
@@ -73,7 +70,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 	return true;
 }
 
-bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, const BVH & bvh) {
+bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, const BVH2 & bvh) {
 	FILE * file = nullptr;
 	fopen_s(&file, bvh_filename.data(), "wb");
 
@@ -95,18 +92,18 @@ bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, co
 	header.sah_cost_leaf          = config.sah_cost_leaf;
 
 	header.num_triangles = mesh_data.triangles.size();
-	header.num_nodes     = bvh.node_count;
-	header.num_indices   = bvh.index_count;
+	header.num_nodes     = bvh.nodes  .size();
+	header.num_indices   = bvh.indices.size();
 
-	size_t header_written = fwrite(reinterpret_cast<const char *>(&header), sizeof(header), 1, file);
+	size_t header_written = fwrite(&header, sizeof(header), 1, file);
 
-	size_t num_triangles_written = fwrite(reinterpret_cast<const char *>(mesh_data.triangles.data()), sizeof(Triangle), mesh_data.triangles.size(), file);
-	size_t num_bvh_nodes_written = fwrite(reinterpret_cast<const char *>(bvh.nodes._2),               sizeof(BVHNode2), bvh.node_count,             file);
-	size_t num_indices_written   = fwrite(reinterpret_cast<const char *>(bvh.indices),                sizeof(int),      bvh.index_count,            file);
+	size_t num_triangles_written = fwrite(mesh_data.triangles.data(), sizeof(Triangle), mesh_data.triangles.size(), file);
+	size_t num_bvh_nodes_written = fwrite(bvh.nodes  .data(),         sizeof(BVHNode2), bvh.nodes  .size(),         file);
+	size_t num_indices_written   = fwrite(bvh.indices.data(),         sizeof(int),      bvh.indices.size(),         file);
 
 	fclose(file);
 
-	if (!header_written || num_triangles_written < mesh_data.triangles.size() || num_bvh_nodes_written < bvh.node_count || num_indices_written < bvh.index_count) {
+	if (!header_written || num_triangles_written < mesh_data.triangles.size() || num_bvh_nodes_written < bvh.nodes.size() || num_indices_written < bvh.indices.size()) {
 		IO::print("WARNING: Unable to successfully write to BVH file '{}'!\n"sv, bvh_filename);
 		return false;
 	}

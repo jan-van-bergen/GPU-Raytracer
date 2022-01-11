@@ -9,7 +9,7 @@
 #include "Util/Assertion.h"
 #include "Util/ScopeTimer.h"
 
-int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, PrimitiveRef * indices[3], int & node_index, int first_index, int index_count, float inv_root_surface_area) {
+int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, int first_index, int index_count) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
 		// We do not terminate based on the SAH termination criterion, so that the
@@ -44,22 +44,16 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 
 	ASSERT(object_split.cost != INFINITY || spatial_split.cost != INFINITY);
 
-	node.left = node_index;
-	node_index += 2;
+	node.left = sbvh->nodes.size();
+	sbvh->nodes.emplace_back(); // Left child
+	sbvh->nodes.emplace_back(); // Right child
 
-	PrimitiveRef * children_left [3] {
-		indices[0] + first_index,
-		indices[1] + first_index,
-		indices[2] + first_index
-	};
-	PrimitiveRef * children_right[3] {
-		indices_going_right_x + indices_going_right_offset,
-		indices_going_right_y + indices_going_right_offset,
-		indices_going_right_z + indices_going_right_offset
-	};
-
-	int children_left_count [3] = { 0, 0, 0 };
-	int children_right_count[3] = { 0, 0, 0 };
+	Array<PrimitiveRef> children_left [3];
+	Array<PrimitiveRef> children_right[3];
+	for (int i = 0; i < 3; i++) {
+		children_left [i].reserve(index_count);
+		children_right[i].reserve(index_count);
+	}
 
 	int n_left, n_right;
 
@@ -81,19 +75,19 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 				bool goes_left = indices_going_left[indices[dimension][i].index];
 
 				if (goes_left) {
-					children_left[dimension][children_left_count[dimension]++] = indices[dimension][i];
+					children_left[dimension].push_back(indices[dimension][i]);
 				} else {
-					children_right[dimension][children_right_count[dimension]++] = indices[dimension][i];
+					children_right[dimension].push_back(indices[dimension][i]);
 				}
 			}
 		}
 
 		// We should have made the same decision (going left/right) in every dimension
-		ASSERT(children_left_count [0] == children_left_count [1] && children_left_count [1] == children_left_count [2]);
-		ASSERT(children_right_count[0] == children_right_count[1] && children_right_count[1] == children_right_count[2]);
+		ASSERT(children_left [0].size() == children_left [1].size() && children_left [1].size() == children_left [2].size());
+		ASSERT(children_right[0].size() == children_right[1].size() && children_right[1].size() == children_right[2].size());
 
-		n_left  = children_left_count [0];
-		n_right = children_right_count[0];
+		n_left  = children_left [0].size();
+		n_right = children_right[0].size();
 
 		// Using object split, no duplicates can occur.
 		// Thus, left + right should equal the total number of triangles
@@ -224,44 +218,44 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 				spatial_split.aabb_left .expand(aabb_left);
 				spatial_split.aabb_right.expand(aabb_right);
 
-				children_left[0][children_left_count[0]++] = { indices[spatial_split.dimension][i].index, aabb_left };
-				children_left[1][children_left_count[1]++] = { indices[spatial_split.dimension][i].index, aabb_left };
-				children_left[2][children_left_count[2]++] = { indices[spatial_split.dimension][i].index, aabb_left };
+				children_left[0].emplace_back(indices[spatial_split.dimension][i].index, aabb_left);
+				children_left[1].emplace_back(indices[spatial_split.dimension][i].index, aabb_left);
+				children_left[2].emplace_back(indices[spatial_split.dimension][i].index, aabb_left);
 
-				children_right[0][children_right_count[0]++] = { indices[spatial_split.dimension][i].index, aabb_right };
-				children_right[1][children_right_count[1]++] = { indices[spatial_split.dimension][i].index, aabb_right };
-				children_right[2][children_right_count[2]++] = { indices[spatial_split.dimension][i].index, aabb_right };
+				children_right[0].emplace_back(indices[spatial_split.dimension][i].index, aabb_right);
+				children_right[1].emplace_back(indices[spatial_split.dimension][i].index, aabb_right);
+				children_right[2].emplace_back(indices[spatial_split.dimension][i].index, aabb_right);
 			} else if (goes_left) {
 				spatial_split.aabb_left.expand(triangle_aabb);
 
-				children_left[0][children_left_count[0]++] = indices[spatial_split.dimension][i];
-				children_left[1][children_left_count[1]++] = indices[spatial_split.dimension][i];
-				children_left[2][children_left_count[2]++] = indices[spatial_split.dimension][i];
+				children_left[0].push_back(indices[spatial_split.dimension][i]);
+				children_left[1].push_back(indices[spatial_split.dimension][i]);
+				children_left[2].push_back(indices[spatial_split.dimension][i]);
 			} else if (goes_right) {
 				spatial_split.aabb_right.expand(triangle_aabb);
 
-				children_right[0][children_right_count[0]++] = indices[spatial_split.dimension][i];
-				children_right[1][children_right_count[1]++] = indices[spatial_split.dimension][i];
-				children_right[2][children_right_count[2]++] = indices[spatial_split.dimension][i];
+				children_right[0].push_back(indices[spatial_split.dimension][i]);
+				children_right[1].push_back(indices[spatial_split.dimension][i]);
+				children_right[2].push_back(indices[spatial_split.dimension][i]);
 			} else {
 				ASSERT(false);
 			}
 		}
 
-		Util::quick_sort(children_left[0], children_left[0] + children_left_count[0], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		Util::quick_sort(children_left[1], children_left[1] + children_left_count[1], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		Util::quick_sort(children_left[2], children_left[2] + children_left_count[2], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+		Util::quick_sort(children_left[0].begin(), children_left[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+		Util::quick_sort(children_left[1].begin(), children_left[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+		Util::quick_sort(children_left[2].begin(), children_left[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
-		Util::quick_sort(children_right[0], children_right[0] + children_right_count[0], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		Util::quick_sort(children_right[1], children_right[1] + children_right_count[1], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		Util::quick_sort(children_right[2], children_right[2] + children_right_count[2], [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+		Util::quick_sort(children_right[0].begin(), children_right[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+		Util::quick_sort(children_right[1].begin(), children_right[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+		Util::quick_sort(children_right[2].begin(), children_right[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
 		// We should have made the same decision (going left/right) in every dimension
-		ASSERT(children_left_count [0] == children_left_count [1] && children_left_count [1] == children_left_count [2]);
-		ASSERT(children_right_count[0] == children_right_count[1] && children_right_count[1] == children_right_count[2]);
+		ASSERT(children_left [0].size() == children_left [1].size() && children_left [1].size() == children_left [2].size());
+		ASSERT(children_right[0].size() == children_right[1].size() && children_right[1].size() == children_right[2].size());
 
-		n_left  = children_left_count [0];
-		n_right = children_right_count[0];
+		n_left  = children_left [0].size();
+		n_right = children_right[0].size();
 
 		// The actual number of references going left/right should match the numbers calculated during spatial splitting
 		ASSERT(n_left  == spatial_split.num_left  - rejected_left);
@@ -279,66 +273,64 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 		child_aabb_right = spatial_split.aabb_right;
 	}
 
-	sbvh->nodes._2[node.left    ].aabb = child_aabb_left;
-	sbvh->nodes._2[node.left + 1].aabb = child_aabb_right;
+	sbvh->nodes[node.left    ].aabb = child_aabb_left;
+	sbvh->nodes[node.left + 1].aabb = child_aabb_right;
 
-	indices_going_right_offset += n_right;
+	indices[0].resize_if_smaller(first_index + n_left);
+	indices[1].resize_if_smaller(first_index + n_left);
+	indices[2].resize_if_smaller(first_index + n_left);
+
+	memcpy(indices[0].data() + first_index, children_left[0].data(), n_left * sizeof(PrimitiveRef));
+	memcpy(indices[1].data() + first_index, children_left[1].data(), n_left * sizeof(PrimitiveRef));
+	memcpy(indices[2].data() + first_index, children_left[2].data(), n_left * sizeof(PrimitiveRef));
+
+	children_left[0] = { };
+	children_left[1] = { };
+	children_left[2] = { };
 
 	// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
-	int num_leaves_left = build_sbvh(sbvh->nodes._2[node.left], triangles, indices, node_index, first_index, n_left, inv_root_surface_area);
+	int num_leaves_left = build_sbvh(sbvh->nodes[node.left], triangles, first_index, n_left);
+
+	indices[0].resize_if_smaller(first_index + num_leaves_left + n_right);
+	indices[1].resize_if_smaller(first_index + num_leaves_left + n_right);
+	indices[2].resize_if_smaller(first_index + num_leaves_left + n_right);
 
 	// Using the depth first offset, we can now copy over the right references
-	memcpy(indices[0] + first_index + num_leaves_left, children_right[0], n_right * sizeof(PrimitiveRef));
-	memcpy(indices[1] + first_index + num_leaves_left, children_right[1], n_right * sizeof(PrimitiveRef));
-	memcpy(indices[2] + first_index + num_leaves_left, children_right[2], n_right * sizeof(PrimitiveRef));
+	memcpy(indices[0].data() + first_index + num_leaves_left, children_right[0].data(), n_right * sizeof(PrimitiveRef));
+	memcpy(indices[1].data() + first_index + num_leaves_left, children_right[1].data(), n_right * sizeof(PrimitiveRef));
+	memcpy(indices[2].data() + first_index + num_leaves_left, children_right[2].data(), n_right * sizeof(PrimitiveRef));
 
 	// Now recurse on the right side
-	int num_leaves_right = build_sbvh(sbvh->nodes._2[node.left + 1], triangles, indices, node_index, first_index + num_leaves_left, n_right, inv_root_surface_area);
-
-	indices_going_right_offset -= n_right;
+	int num_leaves_right = build_sbvh(sbvh->nodes[node.left + 1], triangles, first_index + num_leaves_left, n_right);
 
 	return num_leaves_left + num_leaves_right;
 }
 
-void SBVHBuilder::init(BVH * sbvh, int triangle_count) {
+void SBVHBuilder::init(BVH2 * sbvh, int triangle_count) {
 	this->sbvh = sbvh;
-
-	PrimitiveRef * indices_xyz = new PrimitiveRef[3 * SBVH_OVERALLOCATION * triangle_count];
-	indices_x = indices_xyz;
-	indices_y = indices_xyz + SBVH_OVERALLOCATION * triangle_count;
-	indices_z = indices_xyz + SBVH_OVERALLOCATION * triangle_count * 2;
-
-	PrimitiveRef * indices_going_right_xyz = new PrimitiveRef[3 * SBVH_OVERALLOCATION * triangle_count];
-	indices_going_right_x = indices_going_right_xyz;
-	indices_going_right_y = indices_going_right_xyz + SBVH_OVERALLOCATION * triangle_count;
-	indices_going_right_z = indices_going_right_xyz + SBVH_OVERALLOCATION * triangle_count * 2;
 
 	sah = new float[triangle_count];
 	indices_going_left .init(triangle_count);
-	indices_going_right.init(triangle_count);
-
-	sbvh->indices  = new int     [SBVH_OVERALLOCATION * triangle_count];
-	sbvh->nodes._2 = new BVHNode2[SBVH_OVERALLOCATION * triangle_count];
 }
 
 void SBVHBuilder::free() {
-	delete [] indices_x;
-	delete [] indices_going_right_x;
-
 	delete [] sah;
 	indices_going_left .free();
-	indices_going_right.free();
 }
 
 void SBVHBuilder::build(const Array<Triangle> & triangles) {
-	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\r"sv);
+	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\n"sv);
 
 	AABB root_aabb = AABB::create_empty();
 
+	indices[0].resize(triangles.size());
+	indices[1].resize(triangles.size());
+	indices[2].resize(triangles.size());
+
 	for (size_t i = 0; i < triangles.size(); i++) {
-		indices_x[i].index = i;
-		indices_y[i].index = i;
-		indices_z[i].index = i;
+		indices[0][i].index = i;
+		indices[1][i].index = i;
+		indices[2][i].index = i;
 
 		Vector3 vertices[3] = {
 			triangles[i].position_0,
@@ -347,31 +339,30 @@ void SBVHBuilder::build(const Array<Triangle> & triangles) {
 		};
 		AABB aabb = AABB::from_points(vertices, 3);
 
-		indices_x[i].aabb = aabb;
-		indices_y[i].aabb = aabb;
-		indices_z[i].aabb = aabb;
+		indices[0][i].aabb = aabb;
+		indices[1][i].aabb = aabb;
+		indices[2][i].aabb = aabb;
 
 		root_aabb.expand(aabb);
 	}
 
-	Util::quick_sort(indices_x, indices_x + triangles.size(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-	Util::quick_sort(indices_y, indices_y + triangles.size(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-	Util::quick_sort(indices_z, indices_z + triangles.size(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+	inv_root_surface_area = 1.0f / root_aabb.surface_area();
 
-	indices_going_right_offset = 0;
+	Util::quick_sort(indices[0].begin(), indices[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+	Util::quick_sort(indices[1].begin(), indices[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+	Util::quick_sort(indices[2].begin(), indices[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
-	PrimitiveRef * indices[3] = { indices_x, indices_y, indices_z };
+	sbvh->nodes.clear();
+	sbvh->nodes.reserve(2 * triangles.size());
+	sbvh->nodes.emplace_back(); // Root
+	sbvh->nodes.emplace_back(); // Dummy
+	sbvh->nodes[0].aabb = root_aabb;
 
-	sbvh->nodes._2[0].aabb = root_aabb;
+	int index_count = build_sbvh(sbvh->nodes[0], triangles, 0, triangles.size());
 
-	int node_index = 2;
-	sbvh->index_count = build_sbvh(sbvh->nodes._2[0], triangles, indices, node_index, 0, triangles.size(), 1.0f / root_aabb.surface_area());
-	sbvh->node_count = node_index;
-
-	ASSERT(node_index <= SBVH_OVERALLOCATION * triangles.size());
-
-	for (int i = 0; i < sbvh->index_count; i++) {
-		int index = indices_x[i].index;
+	sbvh->indices.resize(index_count);
+	for (int i = 0; i < index_count; i++) {
+		int index = indices[0][i].index;
 		ASSERT(index >= 0 && index < triangles.size());
 
 		sbvh->indices[i] = index;

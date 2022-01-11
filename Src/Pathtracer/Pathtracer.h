@@ -227,8 +227,8 @@ private:
 
 	int pixel_count;
 
-	BVH        tlas_raw;
-	BVH        tlas;
+	BVH2       tlas_raw;
+	BVH      * tlas;
 	BVHBuilder tlas_bvh_builder;
 
 	QBVHBuilder  tlas_converter_qbvh;

@@ -6,16 +6,16 @@ struct Triangle;
 struct Mesh;
 
 struct BVHBuilder {
-	BVH * bvh = nullptr;
+	BVH2 * bvh = nullptr;
 
-	int * indices_x = nullptr;
-	int * indices_y = nullptr;
-	int * indices_z = nullptr;
+	Array<int> indices_x;
+	Array<int> indices_y;
+	Array<int> indices_z;
 
 	char * scratch = nullptr; // Used to store intermediate SAH results and reorder indices
 	BitArray indices_going_left;
 
-	void init(BVH * bvh, int primitive_count);
+	void init(BVH2 * bvh, int primitive_count);
 	void free();
 
 	void build(const Array<Triangle> & triangles);

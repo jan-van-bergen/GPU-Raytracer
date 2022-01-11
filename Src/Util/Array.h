@@ -93,6 +93,8 @@ struct Array {
 	}
 
 	constexpr void resize(size_t new_count) {
+		if (new_count == count) return;
+
 		char * new_buffer = new char[new_count * sizeof(T)];
 
 		if (buffer) {
@@ -125,6 +127,12 @@ struct Array {
 
 		count    = new_count;
 		capacity = new_count;
+	}
+
+	constexpr void resize_if_smaller(size_t new_count) {
+		if (count < new_count) {
+			resize(new_count);
+		}
 	}
 
 	constexpr void reserve(size_t new_capacity) {

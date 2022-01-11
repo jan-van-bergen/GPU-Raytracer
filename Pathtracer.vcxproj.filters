@@ -124,9 +124,6 @@
     <ClCompile Include="Src\Pathtracer\Texture.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Pathtracer\MeshData.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Device\CUDAMemory.cpp">
       <Filter>Device</Filter>
     </ClCompile>
