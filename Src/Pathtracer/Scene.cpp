@@ -40,7 +40,7 @@ void Scene::init(const SceneConfig & scene_config) {
 		}
 	}
 
-	sky.init(scene_config.sky_filename);
+	sky.load(scene_config.sky_filename);
 }
 
 Mesh & Scene::add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {

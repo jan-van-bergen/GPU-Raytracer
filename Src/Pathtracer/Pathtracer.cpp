@@ -418,7 +418,7 @@ void Pathtracer::cuda_init_geometry() {
 }
 
 void Pathtracer::cuda_init_sky() {
-	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
+	ptr_sky_data = CUDAMemory::malloc(scene.sky.data);
 
 	cuda_module.get_global("sky_width") .set_value(scene.sky.width);
 	cuda_module.get_global("sky_height").set_value(scene.sky.height);
@@ -750,9 +750,9 @@ void Pathtracer::calc_light_power() {
 	}
 
 	if (light_triangles.size() > 0) {
-		int       * light_indices       = new int      [light_triangles.size()];
-		double    * light_probabilities = new double   [light_triangles.size()];
-		ProbAlias * light_prob_alias    = new ProbAlias[light_triangles.size()];
+		Array<int>       light_indices      (light_triangles.size());
+		Array<double>    light_probabilities(light_triangles.size());
+		Array<ProbAlias> light_prob_alias   (light_triangles.size());
 
 		for (int m = 0; m < light_mesh_datas.size(); m++) {
 			const LightMeshData & light_mesh_data = light_mesh_datas[m];
@@ -764,20 +764,16 @@ void Pathtracer::calc_light_power() {
 
 			Util::init_alias_method(
 				light_mesh_data.triangle_count,
-				light_probabilities + light_mesh_data.first_triangle_index,
-				light_prob_alias    + light_mesh_data.first_triangle_index
+				light_probabilities.data() + light_mesh_data.first_triangle_index,
+				light_prob_alias   .data() + light_mesh_data.first_triangle_index
 			);
 		}
 
-		ptr_light_indices    = CUDAMemory::malloc(light_indices,    light_triangles.size());
-		ptr_light_prob_alias = CUDAMemory::malloc(light_prob_alias, light_triangles.size());
+		ptr_light_indices    = CUDAMemory::malloc(light_indices);
+		ptr_light_prob_alias = CUDAMemory::malloc(light_prob_alias);
 
 		cuda_module.get_global("light_indices")   .set_value_async(ptr_light_indices,    memory_stream);
 		cuda_module.get_global("light_prob_alias").set_value_async(ptr_light_prob_alias, memory_stream);
-
-		delete [] light_indices;
-		delete [] light_probabilities;
-		delete [] light_prob_alias;
 
 		cuda_module.get_global("light_mesh_count").set_value_async(light_mesh_count, memory_stream);
 
@@ -1010,19 +1006,17 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (invalidated_mediums) {
-		int medium_count = scene.asset_manager.media.size();
+		size_t medium_count = scene.asset_manager.media.size();
 		if (medium_count > 0) {
-			CUDAMedium * cuda_mediums = new CUDAMedium[medium_count];
+			Array<CUDAMedium> cuda_mediums(medium_count);
 
-			for (int i = 0; i < medium_count; i++) {
+			for (size_t i = 0; i < medium_count; i++) {
 				const Medium & medium = scene.asset_manager.media[i];
 				medium.get_sigmas(cuda_mediums[i].sigma_a, cuda_mediums[i].sigma_s);
 				cuda_mediums[i].g = medium.g;
 			}
 
-			CUDAMemory::memcpy_async(ptr_media, cuda_mediums, medium_count, memory_stream);
-
-			delete [] cuda_mediums;
+			CUDAMemory::memcpy_async(ptr_media, cuda_mediums.data(), medium_count, memory_stream);
 		}
 
 		sample_index = 0;

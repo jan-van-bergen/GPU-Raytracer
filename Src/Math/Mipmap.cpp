@@ -38,9 +38,9 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 	int window_size_x = int(ceilf(filter_width_x * 2.0f)) + 1;
 	int window_size_y = int(ceilf(filter_width_y * 2.0f)) + 1;
 
-	float * kernels = new float[window_size_x + window_size_y];
-	float * kernel_x = kernels;
-	float * kernel_y = kernels + window_size_x;
+	Array<float> kernels(window_size_x + window_size_y);
+	float * kernel_x = kernels.data();
+	float * kernel_y = kernels.data() + window_size_x;
 
 	memset(kernel_x, 0, window_size_x * sizeof(float));
 	memset(kernel_y, 0, window_size_y * sizeof(float));
@@ -105,8 +105,6 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 			texture_dst[x + y * width_dst] = sum;
 		}
 	}
-
-	delete [] kernels;
 }
 
 void Mipmap::downsample(int width_src, int height_src, int width_dst, int height_dst, const Vector4 texture_src[], Vector4 texture_dst[], Vector4 temp[]) {

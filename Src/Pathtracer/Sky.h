@@ -6,8 +6,7 @@
 struct Sky {
 	int width;
 	int height;
-	Vector3 * data;
+	Array<Vector3> data;
 
-	void init(const String & file_name);
-	void free();
+	void load(const String & file_name);
 };
