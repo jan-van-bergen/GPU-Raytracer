@@ -29,10 +29,10 @@ void CUDAContext::init() {
 		abort();
 	}
 
-	CUdevice * devices = MALLOCA(CUdevice, device_count);
+	Array<CUdevice> devices(device_count);
 
 	unsigned gl_device_count;
-	CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
+	CUDACALL(cuGLGetDevices(&gl_device_count, devices.data(), device_count, CU_GL_DEVICE_LIST_ALL));
 
 	if (gl_device_count == 0) {
 		IO::print("ERROR: No suitable GL Device found!\n"sv);
@@ -52,8 +52,6 @@ void CUDAContext::init() {
 			best_compute_capability = device_compute_capability;
 		}
 	}
-
-	FREEA(devices);
 
 	compute_capability = best_compute_capability;
 

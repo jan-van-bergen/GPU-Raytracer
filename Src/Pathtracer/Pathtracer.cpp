@@ -242,7 +242,7 @@ void Pathtracer::cuda_init_geometry() {
 
 	mesh_data_bvh_offsets      = new int[mesh_data_count];
 	mesh_data_triangle_offsets = new int[mesh_data_count];
-	int * mesh_data_index_offsets = MALLOCA(int, mesh_data_count);
+	Array<int> mesh_data_index_offsets(mesh_data_count);
 
 	size_t aggregated_bvh_node_count = 2 * scene.meshes.size(); // Reserve 2 times Mesh count for TLAS
 	size_t aggregated_triangle_count = 0;
@@ -288,8 +288,6 @@ void Pathtracer::cuda_init_geometry() {
 	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
 	delete [] aggregated_triangles;
-
-	FREEA(mesh_data_index_offsets);
 
 	pinned_mesh_bvh_root_indices                     = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 	pinned_mesh_material_ids                         = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
