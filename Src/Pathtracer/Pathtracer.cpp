@@ -750,15 +750,12 @@ void Pathtracer::build_tlas() {
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:
-			*static_cast<BVH2 *>(tlas) = tlas_raw;
-			CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas)->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::SBVH: *static_cast<BVH2 *>(tlas) = tlas_raw; CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas)->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas)->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas)->nodes.data(), tlas->node_count(), memory_stream); break;
 		default: abort();
 	}
-//	ASSERT(tlas.index_count == scene.meshes.size());
-//	ASSERT(tlas.node_count <= 2 * scene.meshes.size());
+	ASSERT(tlas->indices.data());
 
 	int    light_mesh_count    = 0;
 	double lights_total_weight = 0.0;

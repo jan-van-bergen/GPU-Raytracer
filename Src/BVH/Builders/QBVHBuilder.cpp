@@ -1,7 +1,7 @@
 #include "QBVHBuilder.h"
 
 void QBVHBuilder::collapse(int node_index) {
-	BVHNode4 & node = qbvh->nodes[node_index];
+   	BVHNode4 & node = qbvh->nodes[node_index];
 
 	while (true) {
 		int child_count = node.get_child_count();
@@ -71,6 +71,8 @@ void QBVHBuilder::collapse(int node_index) {
 }
 
 void QBVHBuilder::build(const BVH2 & bvh) {
+	qbvh->nodes.resize(bvh.nodes.size());
+
 	for (size_t i = 0; i < qbvh->nodes.size(); i++) {
 		// We use index 1 as a starting point, such that it points to the first child of the root
 		if (i == 1) {
@@ -141,4 +143,6 @@ void QBVHBuilder::build(const BVH2 & bvh) {
 		// Collapse tree top-down, starting from the root
 		collapse(0);
 	}
+
+	qbvh->indices = bvh.indices; // NOTE: copy
 }
