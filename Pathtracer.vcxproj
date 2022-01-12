@@ -233,7 +233,6 @@
     <ClCompile Include="Src\Pathtracer\Scene.cpp" />
     <ClCompile Include="Src\Pathtracer\Sky.cpp" />
     <ClCompile Include="Src\Pathtracer\Texture.cpp" />
-    <ClCompile Include="Src\Util\BitArray.cpp" />
     <ClCompile Include="Src\Util\BlueNoise.cpp" />
     <ClCompile Include="Src\Util\Format.cpp" />
     <ClCompile Include="Src\Util\Geometry.cpp" />

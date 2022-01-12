@@ -309,12 +309,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 void SBVHBuilder::init(BVH2 * sbvh, int triangle_count) {
 	this->sbvh = sbvh;
 
-	sah = Array<float>(triangle_count);
-	indices_going_left.init(triangle_count);
-}
-
-void SBVHBuilder::free() {
-	indices_going_left.free();
+	sah                = Array<float>(triangle_count);
+	indices_going_left = BitArray(triangle_count);
 }
 
 void SBVHBuilder::build(const Array<Triangle> & triangles) {

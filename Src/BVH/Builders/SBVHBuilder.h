@@ -23,7 +23,6 @@ private:
 
 public:
 	void init(BVH2 * sbvh, int triangle_count);
-	void free();
 
 	void build(const Array<Triangle> & triangles); // SAH-based object + spatial splits, Stich et al. 2009 (Triangles only)
 };

@@ -537,8 +537,6 @@ void Pathtracer::cuda_free() {
 
 	CUDAMemory::free(ptr_material_ray_buffers);
 
-	tlas_bvh_builder.free();
-
 	reverse_indices.clear();
 
 	mesh_data_bvh_offsets     .clear();

@@ -46,9 +46,6 @@
     <ClCompile Include="Src\Pathtracer\Sky.cpp">
       <Filter>Pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Util\BitArray.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Util\PerfTest.cpp">
       <Filter>Util</Filter>
     </ClCompile>

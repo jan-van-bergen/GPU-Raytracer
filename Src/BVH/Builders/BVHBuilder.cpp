@@ -21,14 +21,9 @@ void BVHBuilder::init(BVH2 * bvh, int primitive_count) {
 	}
 
 	scratch = Array<char>(primitive_count * Math::max(sizeof(float), sizeof(int)));
-
-	indices_going_left.init(primitive_count);
+	indices_going_left = BitArray(primitive_count);
 
 	bvh->nodes.reserve(2 * primitive_count);
-}
-
-void BVHBuilder::free() {
-	indices_going_left.free();
 }
 
 template<typename Primitive>

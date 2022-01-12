@@ -93,8 +93,7 @@ static void bvh_collapse(const BVH2 & bvh, BVH2 & new_bvh, int new_index, BitArr
 
 void BVHCollapser::collapse(BVH2 & bvh) {
 	// Calculate costs of collapse, and fill array with the decision to collapse, yes or no
-	BitArray collapse = { };
-	collapse.init(bvh.nodes.size());
+	BitArray collapse(bvh.nodes.size());
 	collapse.set_all(false);
 	calc_collapse_cost(bvh, collapse);
 
@@ -112,6 +111,4 @@ void BVHCollapser::collapse(BVH2 & bvh) {
 	ASSERT(collapsed_bvh.nodes  .size() <= bvh.nodes  .size());
 
 	bvh = std::move(collapsed_bvh);
-
-	collapse.free();
 }
