@@ -8,7 +8,7 @@
 struct PrimitiveRef;
 
 struct SBVHBuilder {
-private:
+
 	BVH2 * sbvh = nullptr;
 
 	Array<PrimitiveRef> indices[3];
@@ -19,10 +19,10 @@ private:
 
 	float inv_root_surface_area;
 
-	int build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, int first_index, int index_count);
-
-public:
-	void init(BVH2 * sbvh, int triangle_count);
+	SBVHBuilder(BVH2 * sbvh, size_t triangle_count) : sbvh(sbvh), sah(triangle_count), indices_going_left(triangle_count) { }
 
 	void build(const Array<Triangle> & triangles); // SAH-based object + spatial splits, Stich et al. 2009 (Triangles only)
+
+private:
+	int build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, int first_index, int index_count);
 };

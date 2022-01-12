@@ -312,7 +312,7 @@ void Pathtracer::cuda_init_geometry() {
 	cuda_module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
 	cuda_module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 
-	tlas_bvh_builder.init(&tlas_raw, scene.meshes.size());
+	tlas_bvh_builder = new BVHBuilder(&tlas_raw, scene.meshes.size());
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
@@ -801,7 +801,7 @@ void Pathtracer::calc_light_power() {
 
 // Construct Top Level Acceleration Structure (TLAS) over the Meshes in the Scene
 void Pathtracer::build_tlas() {
-	tlas_bvh_builder.build(scene.meshes);
+	tlas_bvh_builder->build(scene.meshes);
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:

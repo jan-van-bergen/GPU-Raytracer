@@ -7,25 +7,6 @@
 
 #include "Pathtracer/Mesh.h"
 
-void BVHBuilder::init(BVH2 * bvh, int primitive_count) {
-	this->bvh = bvh;
-
-	indices_x.resize(primitive_count);
-	indices_y.resize(primitive_count);
-	indices_z.resize(primitive_count);
-
-	for (int i = 0; i < primitive_count; i++) {
-		indices_x[i] = i;
-		indices_y[i] = i;
-		indices_z[i] = i;
-	}
-
-	scratch = Array<char>(primitive_count * Math::max(sizeof(float), sizeof(int)));
-	indices_going_left = BitArray(primitive_count);
-
-	bvh->nodes.reserve(2 * primitive_count);
-}
-
 template<typename Primitive>
 static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Array<Primitive> & primitives, int * indices[3], int first_index, int index_count) {
 	if (index_count == 1) {

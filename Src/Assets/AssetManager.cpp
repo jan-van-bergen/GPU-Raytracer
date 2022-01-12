@@ -25,14 +25,12 @@ BVH2 AssetManager::build_bvh(const Array<Triangle> & triangles) {
 	if (config.bvh_type == BVHType::SBVH) {
 		ScopeTimer timer("SBVH Construction");
 
-		SBVHBuilder sbvh_builder = { };
-		sbvh_builder.init(&bvh, triangles.size());
+		SBVHBuilder sbvh_builder(&bvh, triangles.size());
 		sbvh_builder.build(triangles);
 	} else  {
 		ScopeTimer timer("BVH Construction");
 
-		BVHBuilder bvh_builder = { };
-		bvh_builder.init(&bvh, triangles.size());
+		BVHBuilder bvh_builder(&bvh, triangles.size());
 		bvh_builder.build(triangles);
 	}
 

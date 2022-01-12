@@ -306,13 +306,6 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	return num_leaves_left + num_leaves_right;
 }
 
-void SBVHBuilder::init(BVH2 * sbvh, int triangle_count) {
-	this->sbvh = sbvh;
-
-	sah                = Array<float>(triangle_count);
-	indices_going_left = BitArray(triangle_count);
-}
-
 void SBVHBuilder::build(const Array<Triangle> & triangles) {
 	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\n"sv);
 
