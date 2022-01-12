@@ -47,10 +47,10 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 	if (header.filetype_version != BVH_FILETYPE_VERSION) return false;
 
 	// Check if the settings used to create the BVH file are the same as the current settings
-	if (header.underlying_bvh_type    != char(BVH::underlying_bvh_type()) ||
-		header.bvh_is_optimized       != config.enable_bvh_optimization ||
-		header.sah_cost_node          != config.sah_cost_node ||
-		header.sah_cost_leaf          != config.sah_cost_leaf
+	if (header.underlying_bvh_type != char(BVH::underlying_bvh_type()) ||
+		header.bvh_is_optimized    != config.enable_bvh_optimization ||
+		header.sah_cost_node       != config.sah_cost_node ||
+		header.sah_cost_leaf       != config.sah_cost_leaf
 	) {
 		IO::print("BVH file '{}' was created with different settings, rebuiling BVH from scratch.\n"sv, bvh_filename);
 		return false;
