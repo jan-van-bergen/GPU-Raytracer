@@ -1,12 +1,13 @@
 #pragma once
+#include "OwnPtr.h"
 
 // Wrapper around std::mutex
 // Avoids having to include <mutex> everywhere, which slows down compile times
 struct Mutex {
-	struct Impl * impl;
+	OwnPtr<struct Impl> impl;
 
-	void init();
-	void free();
+	Mutex();
+	~Mutex();
 
 	void lock();
 	void unlock();

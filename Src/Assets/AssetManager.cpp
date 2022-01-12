@@ -8,46 +8,11 @@
 #include "BVHLoader.h"
 #include "TextureLoader.h"
 
-#include "BVH/Builders/BVHBuilder.h"
-#include "BVH/Builders/SBVHBuilder.h"
-#include "BVH/BVHCollapser.h"
-#include "BVH/BVHOptimizer.h"
-
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 #include "Util/ThreadPool.h"
 
-BVH2 AssetManager::build_bvh(const Array<Triangle> & triangles) {
-	IO::print("Constructing BVH...\r"sv);
-	BVH2 bvh = { };
-
-	// Only the SBVH uses SBVH as its starting point,
-	// all other BVH types use the standard BVH as their starting point
-	if (config.bvh_type == BVHType::SBVH) {
-		ScopeTimer timer("SBVH Construction");
-
-		SBVHBuilder sbvh_builder(&bvh, triangles.size());
-		sbvh_builder.build(triangles);
-	} else  {
-		ScopeTimer timer("BVH Construction");
-
-		BVHBuilder bvh_builder(&bvh, triangles.size());
-		bvh_builder.build(triangles);
-	}
-
-	if (config.enable_bvh_optimization) {
-		BVHOptimizer::optimize(bvh);
-	}
-
-	return bvh;
-}
-
-AssetManager::AssetManager() {
-	thread_pool = OwnPtr<ThreadPool>::make();
-
-	textures_mutex.init();
-	mesh_datas_mutex.init();
-
+AssetManager::AssetManager() : thread_pool(OwnPtr<ThreadPool>::make()) {
 	Material default_material = { };
 	default_material.name    = "Default";
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
@@ -70,7 +35,7 @@ MeshDataHandle AssetManager::add_mesh_data(MeshData mesh_data) {
 }
 
 MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
-	BVH2 bvh = build_bvh(triangles);
+	BVH2 bvh = BVH::create_from_triangles(triangles);
 
 	MeshData mesh_data = { };
 	mesh_data.triangles = std::move(triangles);
@@ -150,9 +115,6 @@ void AssetManager::wait_until_loaded() {
 
 	thread_pool->sync();
 	thread_pool.release();
-
-	textures_mutex.free();
-	mesh_datas_mutex.free();
 
 	mesh_data_cache.clear();
 	texture_cache  .clear();

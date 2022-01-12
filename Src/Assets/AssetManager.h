@@ -35,8 +35,6 @@ private:
 
 	bool assets_loaded = false;
 
-	BVH2 build_bvh(const Array<Triangle> & triangles);
-
 public:
 	template<typename FallbackLoader>
 	MeshDataHandle add_mesh_data(const String & filename, FallbackLoader fallback_loader) {
@@ -63,7 +61,7 @@ public:
 				return { INVALID };
 			}
 
-			bvh = build_bvh(mesh_data.triangles);
+			bvh = BVH::create_from_triangles(mesh_data.triangles);
 			BVHLoader::save(bvh_filename, mesh_data, bvh);
 		}
 

@@ -1,7 +1,38 @@
 #include "BVH.h"
 
+#include "Core/IO.h"
+#include "Core/ScopeTimer.h"
+
+#include "BVH/Builders/BVHBuilder.h"
+#include "BVH/Builders/SBVHBuilder.h"
 #include "BVH/Builders/QBVHBuilder.h"
 #include "BVH/Builders/CWBVHBuilder.h"
+
+#include "BVH/BVHOptimizer.h"
+
+BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
+	IO::print("Constructing BVH...\r"sv);
+
+	BVH2 bvh = { };
+
+	// Only the SBVH uses SBVH as its starting point,
+	// all other BVH types use the standard BVH as their starting point
+	if (config.bvh_type == BVHType::SBVH) {
+		ScopeTimer timer("SBVH Construction");
+
+		SBVHBuilder(&bvh, triangles.size()).build(triangles);
+	} else  {
+		ScopeTimer timer("BVH Construction");
+
+		BVHBuilder(&bvh, triangles.size()).build(triangles);
+	}
+
+	if (config.enable_bvh_optimization) {
+		BVHOptimizer::optimize(bvh);
+	}
+
+	return bvh;
+}
 
 OwnPtr<BVH> BVH::create_from_bvh2(BVH2 bvh) {
 	switch (config.bvh_type) {

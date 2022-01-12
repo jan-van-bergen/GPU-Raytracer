@@ -4,18 +4,11 @@
 
 struct Impl { std::mutex mutex; };
 
-void Mutex::init() {
-	impl = new Impl();
+Mutex::Mutex() {
+	impl = OwnPtr<Impl>::make();
 }
 
-void Mutex::free() {
-	delete impl;
-}
+Mutex::~Mutex() { }
 
-void Mutex::lock() {
-	impl->mutex.lock();
-}
-
-void Mutex::unlock() {
-	impl->mutex.unlock();
-}
+void Mutex::lock()   { impl->mutex.lock(); }
+void Mutex::unlock() { impl->mutex.unlock(); }

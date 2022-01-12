@@ -86,6 +86,8 @@ struct BVH {
 
 	virtual size_t node_count() const = 0;
 
+	static BVH2 create_from_triangles(const Array<Triangle> & triangles);
+
 	static OwnPtr<BVH> create_from_bvh2(BVH2 bvh);
 
 	static BVHType underlying_bvh_type() {
