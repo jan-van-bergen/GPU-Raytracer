@@ -7,18 +7,28 @@ struct OwnPtr {
 
 	OwnPtr() : ptr(nullptr) { }
 
-	OwnPtr(T * ptr) : ptr(ptr) { }
+	explicit OwnPtr(T * ptr) : ptr(ptr) { }
 
 	OwnPtr(const OwnPtr & other) = delete;
 
 	OwnPtr(OwnPtr && other) {
-		release();
+		ptr = other.ptr;
+		other.ptr = nullptr;
+	}
+
+	template<typename U>
+	OwnPtr(OwnPtr<U> && other) {
 		ptr = other.ptr;
 		other.ptr = nullptr;
 	}
 
 	~OwnPtr() {
 		release();
+	}
+
+	template<typename ... Args>
+	static OwnPtr<T> make(Args ... args) {
+		return OwnPtr(new T(std::forward<Args>(args) ...));
 	}
 
 	void release() {
@@ -29,12 +39,16 @@ struct OwnPtr {
 		}
 	}
 
+	      T * get()       { return ptr; }
+	const T * get() const { return ptr; }
+
 	OwnPtr & operator=(const OwnPtr & other) = delete;
 
 	OwnPtr & operator=(OwnPtr && other) {
 		release();
 		ptr = other.ptr;
 		other.ptr = nullptr;
+		return *this;
 	}
 
 	T * operator->() {
@@ -46,9 +60,6 @@ struct OwnPtr {
 		ASSERT(ptr);
 		return ptr;
 	}
-
-	operator const T*() const { return ptr; }
-    operator       T*()       { return ptr; }
 
 	operator bool() { return ptr != nullptr; }
 };

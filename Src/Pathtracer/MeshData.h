@@ -4,10 +4,11 @@
 #include "BVH/BVH.h"
 
 #include "Util/Array.h"
+#include "Util/OwnPtr.h"
 
 struct MeshData {
 	Array<Triangle> triangles;
-	BVH           * bvh;
+	OwnPtr<BVH>     bvh;
 };
 
 struct MeshDataHandle { int handle = INVALID; };

@@ -58,9 +58,9 @@ void AssetManager::init() {
 	add_medium(default_medium);
 }
 
-MeshDataHandle AssetManager::add_mesh_data(const MeshData & mesh_data) {
+MeshDataHandle AssetManager::add_mesh_data(MeshData mesh_data) {
 	MeshDataHandle mesh_data_id = { int(mesh_datas.size()) };
-	mesh_datas.push_back(mesh_data);
+	mesh_datas.push_back(std::move(mesh_data));
 
 	return mesh_data_id;
 }
@@ -72,7 +72,7 @@ MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
 	mesh_data.triangles = std::move(triangles);
 	mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
 
-	return add_mesh_data(mesh_data);
+	return add_mesh_data(std::move(mesh_data));
 }
 
 MaterialHandle AssetManager::add_material(const Material & material) {

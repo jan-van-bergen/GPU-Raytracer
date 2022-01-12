@@ -312,7 +312,7 @@ void Pathtracer::cuda_init_geometry() {
 	cuda_module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
 	cuda_module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 
-	tlas_bvh_builder = new BVHBuilder(&tlas_raw, scene.meshes.size());
+	tlas_bvh_builder = OwnPtr<BVHBuilder>::make(&tlas_raw, scene.meshes.size());
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
@@ -323,7 +323,7 @@ void Pathtracer::cuda_init_geometry() {
 			// The procedure to do this is different for each BVH type
 			for (int m = 0; m < mesh_data_count; m++) {
 				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
-				const BVH2 * bvh = static_cast<BVH2 *>(mesh_data.bvh);
+				const BVH2 * bvh = static_cast<const BVH2 *>(mesh_data.bvh.get());
 
 				int index_offset = mesh_data_index_offsets[m];
 				int bvh_offset   = mesh_data_bvh_offsets[m];
@@ -345,7 +345,7 @@ void Pathtracer::cuda_init_geometry() {
 			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes_2);
 
-			tlas = new BVH2();
+			tlas = OwnPtr<BVH2>::make();
 			break;
 		}
 		case BVHType::QBVH: {
@@ -355,7 +355,7 @@ void Pathtracer::cuda_init_geometry() {
 			// The procedure to do this is different for each BVH type
 			for (int m = 0; m < mesh_data_count; m++) {
 				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
-				const BVH4 * bvh = static_cast<BVH4 *>(mesh_data.bvh);
+				const BVH4 * bvh = static_cast<const BVH4 *>(mesh_data.bvh.get());
 
 				int index_offset = mesh_data_index_offsets[m];
 				int bvh_offset   = mesh_data_bvh_offsets[m];
@@ -380,8 +380,8 @@ void Pathtracer::cuda_init_geometry() {
 			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes);
 			cuda_module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes_4);
 
-			tlas = new BVH4();
-			tlas_converter_qbvh.init(static_cast<BVH4 *>(tlas), tlas_raw);
+			tlas = OwnPtr<BVH4>::make();
+			tlas_converter_qbvh.init(static_cast<BVH4 *>(tlas.get()), tlas_raw);
 			break;
 		}
 		case BVHType::CWBVH: {
@@ -391,7 +391,7 @@ void Pathtracer::cuda_init_geometry() {
 			// The procedure to do this is different for each BVH type
 			for (int m = 0; m < mesh_data_count; m++) {
 				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
-				const BVH8 * bvh = static_cast<BVH8 *>(mesh_data.bvh);
+				const BVH8 * bvh = static_cast<const BVH8 *>(mesh_data.bvh.get());
 
 				int index_offset = mesh_data_index_offsets[m];
 				int bvh_offset   = mesh_data_bvh_offsets[m];
@@ -410,8 +410,8 @@ void Pathtracer::cuda_init_geometry() {
 			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes);
 			cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes_8);
 
-			tlas = new BVH8();
-			tlas_converter_cwbvh.init(static_cast<BVH8 *>(tlas), tlas_raw);
+			tlas = OwnPtr<BVH8>::make();
+			tlas_converter_cwbvh.init(static_cast<BVH8 *>(tlas.get()), tlas_raw);
 			break;
 		}
 	}
@@ -805,9 +805,9 @@ void Pathtracer::build_tlas() {
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH: *static_cast<BVH2 *>(tlas) = tlas_raw; CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas)->nodes.data(), tlas->node_count(), memory_stream); break;
-		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas)->nodes.data(), tlas->node_count(), memory_stream); break;
-		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas)->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::SBVH: *static_cast<BVH2 *>(tlas.get()) = tlas_raw; CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw);       CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw);       CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		default: abort();
 	}
 	ASSERT(tlas->indices.data());

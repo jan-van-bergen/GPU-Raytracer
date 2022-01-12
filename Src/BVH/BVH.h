@@ -7,6 +7,7 @@
 #include "Pathtracer/Triangle.h"
 
 #include "Util/Array.h"
+#include "Util/OwnPtr.h"
 
 typedef unsigned char byte;
 
@@ -88,7 +89,7 @@ struct BVH {
 
 	virtual size_t node_count() const = 0;
 
-	static BVH * create_from_bvh2(BVH2 bvh);
+	static OwnPtr<BVH> create_from_bvh2(BVH2 bvh);
 
 	static BVHType underlying_bvh_type() {
 		// All BVH use standard BVH as underlying type, only SBVH uses SBVH

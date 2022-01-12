@@ -72,12 +72,12 @@ public:
 		mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
 
 		mesh_data_handle.handle = mesh_datas.size();
-		mesh_datas.push_back(mesh_data);
+		mesh_datas.push_back(std::move(mesh_data));
 
 		return mesh_data_handle;
 	}
 
-	MeshDataHandle add_mesh_data(const MeshData & mesh_data);
+	MeshDataHandle add_mesh_data(MeshData mesh_data);
 	MeshDataHandle add_mesh_data(Array<Triangle> triangles);
 
 	MaterialHandle add_material(const Material & material);
