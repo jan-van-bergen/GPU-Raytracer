@@ -3,6 +3,7 @@
 #include "Core/HashMap.h"
 #include "Core/String.h"
 #include "Core/Mutex.h"
+#include "Core/OwnPtr.h"
 
 #include "Pathtracer/MeshData.h"
 #include "Pathtracer/Material.h"
@@ -12,7 +13,7 @@
 #include "BVHLoader.h"
 #include "BVH/BVHCollapser.h"
 
-struct ThreadPool;
+#include "Util/ThreadPool.h"
 
 struct AssetManager {
 	Array<MeshData> mesh_datas;
@@ -27,7 +28,7 @@ private:
 	Mutex mesh_datas_mutex;
 	Mutex textures_mutex;
 
-	ThreadPool * thread_pool;
+	OwnPtr<ThreadPool> thread_pool;
 
 	bool assets_loaded = false;
 

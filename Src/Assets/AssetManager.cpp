@@ -43,8 +43,7 @@ BVH2 AssetManager::build_bvh(const Array<Triangle> & triangles) {
 }
 
 void AssetManager::init() {
-	thread_pool = new ThreadPool();
-	thread_pool->init();
+	thread_pool = OwnPtr<ThreadPool>::make();
 
 	textures_mutex.init();
 	mesh_datas_mutex.init();
@@ -146,8 +145,7 @@ void AssetManager::wait_until_loaded() {
 	if (assets_loaded) return; // Only necessary (and valid) to do this once
 
 	thread_pool->sync();
-	thread_pool->free();
-	delete thread_pool;
+	thread_pool.release();
 
 	textures_mutex.free();
 	mesh_datas_mutex.free();

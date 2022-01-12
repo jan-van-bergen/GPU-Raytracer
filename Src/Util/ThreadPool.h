@@ -3,14 +3,14 @@
 #include <mutex>
 #include <functional>
 
+#include "Core/Array.h"
 #include "Core/Queue.h"
 
 struct ThreadPool {
 	using Work = std::function<void()>;
 
 private:
-	std::thread * threads;
-	int           thread_count;
+	Array<std::thread> threads;
 
 	Queue<Work> work_queue;
 
@@ -28,8 +28,8 @@ private:
 	std::atomic<bool> is_done;
 
 public:
-	void init(int thread_count = std::thread::hardware_concurrency());
-	void free();
+	ThreadPool(int thread_count = std::thread::hardware_concurrency());
+	~ThreadPool();
 
 	void submit(Work && work);
 
