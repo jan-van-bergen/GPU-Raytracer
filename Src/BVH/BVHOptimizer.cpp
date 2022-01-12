@@ -31,7 +31,7 @@ static float bvh_sah_cost(const BVH2 & bvh) {
 }
 
 // Initialize array of parent indices by traversing the tree recursively
-static void init_parent_indices(const BVH2 & bvh, int parent_indices[], int node_index = 0) {
+static void init_parent_indices(const BVH2 & bvh, Array<int> & parent_indices, int node_index = 0) {
 	const BVHNode2 & node = bvh.nodes[node_index];
 
 	if (node.is_leaf()) {
@@ -51,7 +51,7 @@ static void init_parent_indices(const BVH2 & bvh, int parent_indices[], int node
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
-static void select_nodes_random(const BVH2 & bvh, const int parent_indices[], int batch_size, int batch_indices[], RNG & rng) {
+static void select_nodes_random(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Array<int> & batch_indices, RNG & rng) {
 	size_t offset = 0;
 	Array<int> temp(bvh.nodes.size());
 
@@ -62,12 +62,12 @@ static void select_nodes_random(const BVH2 & bvh, const int parent_indices[], in
 		}
 	}
 
-	Util::sample(temp.data(), temp.data() + offset, batch_indices, batch_indices + batch_size, rng);
+	Util::sample(temp.data(), temp.data() + offset, batch_indices.data(), batch_indices.data() + batch_size, rng);
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on which Nodes have the highest inefficiency measure
-static void select_nodes_measure(const BVH2 & bvh, const int parent_indices[], int batch_size, int batch_indices[]) {
-	float * costs = new float[bvh.nodes.size()];
+static void select_nodes_measure(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Array<int> & batch_indices) {
+	Array<float> costs(bvh.nodes.size());
 
 	int offset = 0;
 
@@ -100,8 +100,6 @@ static void select_nodes_measure(const BVH2 & bvh, const int parent_indices[], i
 	for (int i = 0; i < batch_size; i++) {
 		batch_indices[i] = heap.pop();
 	}
-
-	delete [] costs;
 }
 
 // Finds the global minimum of where best to insert the reinsertion node by traversing the tree using Branch and Bound
@@ -147,7 +145,7 @@ static void find_reinsertion(const BVH2 & bvh, const BVHNode2 & node_reinsert, f
 }
 
 // Update AABBs bottom up, until the root of the tree is reached
-static void update_aabbs_bottom_up(BVH2 & bvh, int parent_indices[], int node_index) {
+static void update_aabbs_bottom_up(BVH2 & bvh, const Array<int> & parent_indices, int node_index) {
 	ASSERT(node_index >= 0);
 
 	do {
@@ -168,7 +166,7 @@ static void update_aabbs_bottom_up(BVH2 & bvh, int parent_indices[], int node_in
 // The axis on which the Node was originally split on becomes invalidated after reinsertion,
 // which causes performance problems during traversal.
 // This method selects a new split axis and swaps the child nodes such that the left child is also the leftmost node on that axis.
-static void bvh_node_calc_axis(BVH2 & bvh, int parent_indices[], int displacement[], int originated[], BVHNode2 & node) {
+static void bvh_node_calc_axis(BVH2 & bvh, Array<int> & parent_indices, Array<int> & displacement, const Array<int> & originated, BVHNode2 & node) {
 	int   max_axis = -1;
 	float max_dist = 0.0f;
 
@@ -222,7 +220,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 	if (bvh.nodes.size() < 8) return; // Tree too small to optimize
 
-	int * parent_indices = new int[bvh.nodes.size()];
+	Array<int> parent_indices(bvh.nodes.size());
 	parent_indices[0] = -1; // Root has no parent
 	init_parent_indices(bvh, parent_indices);
 
@@ -232,8 +230,8 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 	static_assert(P_T >= P_R);
 
-	int   batch_size = Math::max<int>(bvh.nodes.size() / k, 8);
-	int * batch_indices = new int[bvh.nodes.size()];
+	int        batch_size = Math::max<int>(bvh.nodes.size() / k, 8);
+	Array<int> batch_indices(bvh.nodes.size());
 
 	int batch_count = 0;
 	int batches_since_last_cost_reduction = 0;
@@ -245,8 +243,8 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 		MEASURE
 	} node_selection_method = NodeSelectionMethod::MEASURE;
 
-	int * originated   = new int[bvh.nodes.size()];
-	int * displacement = new int[bvh.nodes.size()];
+	Array<int> originated  (bvh.nodes.size());
+	Array<int> displacement(bvh.nodes.size());
 
 	RNG rng = { };
 	rng.init(time(nullptr));
@@ -401,12 +399,6 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 		IO::print("{}: SAH={} best={} last_reduction={}     \r"sv, batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
 		batch_count++;
 	}
-
-	delete [] originated;
-	delete [] displacement;
-
-	delete [] batch_indices;
-	delete [] parent_indices;
 
 	// Report the improvement of the SAH cost
 	float cost_after = bvh_sah_cost(bvh);
