@@ -26,10 +26,7 @@ String IO::file_read(const String & filename) {
 		abort();
 	}
 
-	// Get file length
-	fseek(file, 0, SEEK_END);
-	int file_length = ftell(file);
-	rewind(file);
+	size_t file_length = std::filesystem::file_size(stringview_to_path(filename.view()));
 
 	String data(file_length);
 	fread_s(data.data(), file_length, 1, file_length, file);
