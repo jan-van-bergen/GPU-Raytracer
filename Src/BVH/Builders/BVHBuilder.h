@@ -12,7 +12,7 @@ struct BVHBuilder {
 	Array<int> indices_y;
 	Array<int> indices_z;
 
-	char * scratch = nullptr; // Used to store intermediate SAH results and reorder indices
+	Array<char> scratch; // Used to store intermediate SAH results and reorder indices
 	BitArray indices_going_left;
 
 	void init(BVH2 * bvh, int primitive_count);

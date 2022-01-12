@@ -191,10 +191,10 @@ struct Pathtracer {
 
 	PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
-	int * reverse_indices;
+	Array<int> reverse_indices;
 
-	int * mesh_data_bvh_offsets;
-	int * mesh_data_triangle_offsets;
+	Array<int> mesh_data_bvh_offsets;
+	Array<int> mesh_data_triangle_offsets;
 
 	CUDAEventPool event_pool;
 
@@ -323,7 +323,7 @@ private:
 	int2      * pinned_light_mesh_first_index_and_triangle_count;
 	int       * pinned_light_mesh_transform_index;
 
-	double * light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
+	Array<double> light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
 
 	union alignas(float4) CUDAMaterial {
 		struct {
@@ -365,8 +365,8 @@ private:
 		float       lod_bias;
 	};
 
-	CUDATexture      * textures;
-	CUmipmappedArray * texture_arrays;
+	Array<CUDATexture     > textures;
+	Array<CUmipmappedArray> texture_arrays;
 
 	CUDAMemory::Ptr<CUDATexture>  ptr_textures;
 

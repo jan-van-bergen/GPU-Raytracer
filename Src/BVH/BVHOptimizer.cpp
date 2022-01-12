@@ -51,8 +51,8 @@ static void init_parent_indices(const BVH2 & bvh, int parent_indices[], int node
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
 static void select_nodes_random(const BVH2 & bvh, const int parent_indices[], int batch_size, int batch_indices[], RNG & rng) {
-	int offset = 0;
-	int * temp = new int[bvh.nodes.size()];
+	size_t offset = 0;
+	Array<int> temp(bvh.nodes.size());
 
 	// Identify Nodes that are valid for selection
 	for (size_t i = 2; i < bvh.nodes.size(); i++) {
@@ -61,9 +61,7 @@ static void select_nodes_random(const BVH2 & bvh, const int parent_indices[], in
 		}
 	}
 
-	Util::sample(temp, temp + offset, batch_indices, batch_indices + batch_size, rng);
-
-	delete [] temp;
+	Util::sample(temp.data(), temp.data() + offset, batch_indices, batch_indices + batch_size, rng);
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on which Nodes have the highest inefficiency measure

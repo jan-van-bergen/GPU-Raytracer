@@ -22,7 +22,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	}
 
 	// Object Split information
-	ObjectSplit object_split = BVHPartitions::partition_sah(indices, first_index, index_count, sah);
+	ObjectSplit object_split = BVHPartitions::partition_sah(indices, first_index, index_count, sah.data());
 	ASSERT(object_split.index != INVALID);
 
 	// Calculate the overlap between the child bounding boxes resulting from the Object Split
@@ -37,7 +37,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 
 	// If ratio between overlap area and root area is large enough, consider a Spatial Split
 	if (ratio > config.sbvh_alpha) {
-		spatial_split = BVHPartitions::partition_spatial(triangles, indices, first_index, index_count, sah, node.aabb);
+		spatial_split = BVHPartitions::partition_spatial(triangles, indices, first_index, index_count, sah.data(), node.aabb);
 	} else {
 		spatial_split.cost = INFINITY;
 	}
@@ -309,13 +309,12 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 void SBVHBuilder::init(BVH2 * sbvh, int triangle_count) {
 	this->sbvh = sbvh;
 
-	sah = new float[triangle_count];
-	indices_going_left .init(triangle_count);
+	sah = Array<float>(triangle_count);
+	indices_going_left.init(triangle_count);
 }
 
 void SBVHBuilder::free() {
-	delete [] sah;
-	indices_going_left .free();
+	indices_going_left.free();
 }
 
 void SBVHBuilder::build(const Array<Triangle> & triangles) {

@@ -1,7 +1,4 @@
 #pragma once
-#include <malloc.h>
-#include <utility>
-
 #include "String.h"
 #include "StringView.h"
 

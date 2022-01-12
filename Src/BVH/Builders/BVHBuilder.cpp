@@ -20,7 +20,7 @@ void BVHBuilder::init(BVH2 * bvh, int primitive_count) {
 		indices_z[i] = i;
 	}
 
-	scratch = new char[primitive_count * Math::max(sizeof(float), sizeof(int))];
+	scratch = Array<char>(primitive_count * Math::max(sizeof(float), sizeof(int)));
 
 	indices_going_left.init(primitive_count);
 
@@ -28,8 +28,6 @@ void BVHBuilder::init(BVH2 * bvh, int primitive_count) {
 }
 
 void BVHBuilder::free() {
-	delete [] scratch;
-
 	indices_going_left.free();
 }
 
@@ -46,7 +44,7 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Arr
 		return;
 	}
 
-	ObjectSplit split = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, new(builder.scratch) float[index_count]);
+	ObjectSplit split = BVHPartitions::partition_sah(primitives, indices, first_index, index_count, new(builder.scratch.data()) float[index_count]);
 
 	for (int i = first_index; i < split.index;               i++) builder.indices_going_left[indices[split.dimension][i]] = true;
 	for (int i = split.index; i < first_index + index_count; i++) builder.indices_going_left[indices[split.dimension][i]] = false;
@@ -56,7 +54,7 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Arr
 
 		int left  = 0;
 		int right = split.index - first_index;
-		int * temp = new(builder.scratch) int[index_count];
+		int * temp = new(builder.scratch.data()) int[index_count];
 
 		for (int i = first_index; i < first_index + index_count; i++) {
 			int index = indices[dim][i];

@@ -14,7 +14,7 @@ private:
 	Array<PrimitiveRef> indices[3];
 
 	// Scatch memory
-	float * sah = nullptr;
+	Array<float> sah;
 	BitArray indices_going_left;
 
 	float inv_root_surface_area;

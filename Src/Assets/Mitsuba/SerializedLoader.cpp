@@ -24,7 +24,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 	uint32_t num_meshes = parser.parse_binary<uint32_t>();
 	uint64_t eof_dictionary_offset = 0;;
 
-	uint64_t * mesh_offsets = new uint64_t[num_meshes + 1];
+	Array<uint64_t> mesh_offsets(num_meshes + 1);
 
 	if (file_version <= 3) {
 		// Version 0.3.0 and earlier use 32 bit mesh offsets
@@ -208,8 +208,6 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 
 		result.meshes[i] = std::move(triangles);
 	}
-
-	delete [] mesh_offsets;
 
 	return result;
 }

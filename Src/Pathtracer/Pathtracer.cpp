@@ -170,10 +170,10 @@ void Pathtracer::cuda_init_materials() {
 	cuda_module.get_global("media").set_value(ptr_media);
 
 	// Set global Texture table
-	int texture_count = scene.asset_manager.textures.size();
+	size_t texture_count = scene.asset_manager.textures.size();
 	if (texture_count > 0) {
-		textures       = new CUDATexture     [texture_count];
-		texture_arrays = new CUmipmappedArray[texture_count];
+		textures      .resize(texture_count);
+		texture_arrays.resize(texture_count);
 
 		// Get maximum anisotropy from OpenGL
 		int max_aniso; glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso);
@@ -232,23 +232,24 @@ void Pathtracer::cuda_init_materials() {
 			textures[i].lod_bias = 0.5f * log2f(texture.width * texture.height);
 		}
 
-		ptr_textures = CUDAMemory::malloc(textures, texture_count);
+		ptr_textures = CUDAMemory::malloc(textures);
 		cuda_module.get_global("textures").set_value(ptr_textures);
 	}
 }
 
 void Pathtracer::cuda_init_geometry() {
-	int mesh_data_count = scene.asset_manager.mesh_datas.size();
+	size_t mesh_data_count = scene.asset_manager.mesh_datas.size();
 
-	mesh_data_bvh_offsets      = new int[mesh_data_count];
-	mesh_data_triangle_offsets = new int[mesh_data_count];
+	mesh_data_bvh_offsets     .resize(mesh_data_count);
+	mesh_data_triangle_offsets.resize(mesh_data_count);
+
 	Array<int> mesh_data_index_offsets(mesh_data_count);
 
 	size_t aggregated_bvh_node_count = 2 * scene.meshes.size(); // Reserve 2 times Mesh count for TLAS
 	size_t aggregated_triangle_count = 0;
 	size_t aggregated_index_count    = 0;
 
-	for (int i = 0; i < mesh_data_count; i++) {
+	for (size_t i = 0; i < mesh_data_count; i++) {
 		mesh_data_bvh_offsets     [i] = aggregated_bvh_node_count;
 		mesh_data_triangle_offsets[i] = aggregated_triangle_count;
 		mesh_data_index_offsets   [i] = aggregated_index_count;
@@ -258,9 +259,9 @@ void Pathtracer::cuda_init_geometry() {
 		aggregated_index_count    += scene.asset_manager.mesh_datas[i].bvh->indices.size();;
 	}
 
-	CUDATriangle * aggregated_triangles = new CUDATriangle[aggregated_index_count];
+	Array<CUDATriangle> aggregated_triangles(aggregated_index_count);
 
-	reverse_indices = new int[aggregated_triangle_count];
+	reverse_indices.resize(aggregated_triangle_count);
 
 	for (int m = 0; m < mesh_data_count; m++) {
 		const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
@@ -285,9 +286,8 @@ void Pathtracer::cuda_init_geometry() {
 		}
 	}
 
-	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
+	ptr_triangles = CUDAMemory::malloc(aggregated_triangles);
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
-	delete [] aggregated_triangles;
 
 	pinned_mesh_bvh_root_indices                     = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 	pinned_mesh_material_ids                         = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
@@ -298,7 +298,7 @@ void Pathtracer::cuda_init_geometry() {
 	pinned_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc_pinned<int2>     (scene.meshes.size());
 	pinned_light_mesh_transform_index                = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 
-	light_mesh_probabilites = new double[scene.meshes.size()];
+	light_mesh_probabilites.resize(scene.meshes.size());
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.meshes.size());
 	ptr_mesh_material_ids     = CUDAMemory::malloc<int>      (scene.meshes.size());
@@ -485,8 +485,8 @@ void Pathtracer::cuda_free() {
 			CUDAMemory::free_texture(textures[i].texture);
 		}
 
-		delete [] textures;
-		delete [] texture_arrays;
+		textures      .clear();
+		texture_arrays.clear();
 	}
 
 	CUDAMemory::free_pinned(pinned_buffer_sizes);
@@ -498,7 +498,7 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free_pinned(pinned_light_mesh_prob_alias);
 	CUDAMemory::free_pinned(pinned_light_mesh_transform_index);
 
-	delete [] light_mesh_probabilites;
+	light_mesh_probabilites.clear();
 
 	CUDAMemory::free(ptr_mesh_bvh_root_indices);
 	CUDAMemory::free(ptr_mesh_material_ids);
@@ -539,10 +539,10 @@ void Pathtracer::cuda_free() {
 
 	tlas_bvh_builder.free();
 
-	delete [] reverse_indices;
+	reverse_indices.clear();
 
-	delete [] mesh_data_bvh_offsets;
-	delete [] mesh_data_triangle_offsets;
+	mesh_data_bvh_offsets     .clear();
+	mesh_data_triangle_offsets.clear();
 
 	resize_free();
 
@@ -853,7 +853,7 @@ void Pathtracer::build_tlas() {
 		for (int i = 0; i < light_mesh_count; i++) {
 			light_mesh_probabilites[i] /= lights_total_weight;
 		}
-		Util::init_alias_method(light_mesh_count, light_mesh_probabilites, pinned_light_mesh_prob_alias);
+		Util::init_alias_method(light_mesh_count, light_mesh_probabilites.data(), pinned_light_mesh_prob_alias);
 
 		CUDAMemory::memcpy_async(ptr_light_mesh_prob_alias,                     pinned_light_mesh_prob_alias,                     light_mesh_count, memory_stream);
 		CUDAMemory::memcpy_async(ptr_light_mesh_first_index_and_triangle_count, pinned_light_mesh_first_index_and_triangle_count, light_mesh_count, memory_stream);
@@ -873,8 +873,8 @@ void Pathtracer::update(float delta) {
 	if (invalidated_materials) {
 		const Array<Material> & materials = scene.asset_manager.materials;
 
-		Material::Type * cuda_material_types = reinterpret_cast<Material::Type *>(new unsigned char[materials.size() * sizeof(Material::Type)]);
-		CUDAMaterial   * cuda_materials      = reinterpret_cast<CUDAMaterial   *>(new unsigned char[materials.size() * sizeof(CUDAMaterial)]);
+		Array<Material::Type> cuda_material_types(materials.size());
+		Array<CUDAMaterial>   cuda_materials     (materials.size());
 
 		for (int i = 0; i < materials.size(); i++) {
 			const Material & material = materials[i];
@@ -913,11 +913,8 @@ void Pathtracer::update(float delta) {
 			}
 		}
 
-		CUDAMemory::memcpy_async(ptr_material_types, cuda_material_types, materials.size(), memory_stream);
-		CUDAMemory::memcpy_async(ptr_materials,      cuda_materials,      materials.size(), memory_stream);
-
-		delete [] cuda_material_types;
-		delete [] cuda_materials;
+		CUDAMemory::memcpy_async(ptr_material_types, cuda_material_types.data(), materials.size(), memory_stream);
+		CUDAMemory::memcpy_async(ptr_materials,      cuda_materials     .data(), materials.size(), memory_stream);
 
 		bool had_diffuse    = scene.has_diffuse;
 		bool had_plastic    = scene.has_plastic;
