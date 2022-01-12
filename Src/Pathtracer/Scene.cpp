@@ -17,8 +17,6 @@
 void Scene::init(const SceneConfig & scene_config) {
 	camera.init(Math::deg_to_rad(85.0f));
 
-	asset_manager.init();
-
 	for (int i = 0; i < scene_config.scene_filenames.size(); i++) {
 		const String & scene_filename = scene_config.scene_filenames[i];
 

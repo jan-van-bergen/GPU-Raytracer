@@ -19,7 +19,7 @@
 
 BVH2 AssetManager::build_bvh(const Array<Triangle> & triangles) {
 	IO::print("Constructing BVH...\r"sv);
-	BVH2 bvh;
+	BVH2 bvh = { };
 
 	// Only the SBVH uses SBVH as its starting point,
 	// all other BVH types use the standard BVH as their starting point
@@ -42,7 +42,7 @@ BVH2 AssetManager::build_bvh(const Array<Triangle> & triangles) {
 	return bvh;
 }
 
-void AssetManager::init() {
+AssetManager::AssetManager() {
 	thread_pool = OwnPtr<ThreadPool>::make();
 
 	textures_mutex.init();
@@ -57,6 +57,10 @@ void AssetManager::init() {
 	default_medium.name = "Default";
 	add_medium(default_medium);
 }
+
+// NOTE: Seemingly pointless desctructor needed here since ThreadPool is
+// forward declared, so its destructor is not available in the header file
+AssetManager::~AssetManager() { }
 
 MeshDataHandle AssetManager::add_mesh_data(MeshData mesh_data) {
 	MeshDataHandle mesh_data_id = { int(mesh_datas.size()) };

@@ -13,13 +13,16 @@
 #include "BVHLoader.h"
 #include "BVH/BVHCollapser.h"
 
-#include "Util/ThreadPool.h"
+struct ThreadPool;
 
 struct AssetManager {
 	Array<MeshData> mesh_datas;
 	Array<Material> materials;
 	Array<Medium>   media;
 	Array<Texture>  textures;
+
+	AssetManager();
+	~AssetManager();
 
 private:
 	HashMap<String, MeshDataHandle, StringHash> mesh_data_cache;
@@ -35,8 +38,6 @@ private:
 	BVH2 build_bvh(const Array<Triangle> & triangles);
 
 public:
-	void init();
-
 	template<typename FallbackLoader>
 	MeshDataHandle add_mesh_data(const String & filename, FallbackLoader fallback_loader) {
 		String bvh_filename = BVHLoader::get_bvh_filename(filename.view());
