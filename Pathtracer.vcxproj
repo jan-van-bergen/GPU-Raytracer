@@ -307,6 +307,7 @@
     <ClInclude Include="Src\Util\HashMap.h" />
     <ClInclude Include="Src\Util\IO.h" />
     <ClInclude Include="Src\Util\Mutex.h" />
+    <ClInclude Include="Src\Util\OwnPtr.h" />
     <ClInclude Include="Src\Util\Parser.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\PMJ.h" />

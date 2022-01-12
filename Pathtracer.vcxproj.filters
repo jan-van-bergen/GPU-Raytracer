@@ -386,5 +386,8 @@
     <ClInclude Include="Src\Util\IO.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Util\OwnPtr.h">
+      <Filter>Util</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
