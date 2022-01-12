@@ -31,7 +31,7 @@ struct Window {
 
 	void swap();
 
-	void read_frame_buffer(unsigned char * data) const;
+	Array<unsigned char> Window::read_frame_buffer(int & window_pitch) const;
 
 	ResizeHandler resize_handler = nullptr;
 };

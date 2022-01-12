@@ -8,6 +8,7 @@
 
 #include "Core/IO.h"
 
+#include "Math/Math.h"
 #include "Util/Util.h"
 
 static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char * message, const void * user_param) {
@@ -206,7 +207,15 @@ void Window::swap() {
 	}
 }
 
-void Window::read_frame_buffer(unsigned char * data) const {
+Array<unsigned char> Window::read_frame_buffer(int & window_pitch) const {
+	int pack_alignment;
+	glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+
+	window_pitch = Math::round_up(width * 3, pack_alignment);
+	Array<unsigned char> data(window_pitch * height);
+
 	glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
-	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+
+	return data;
 }

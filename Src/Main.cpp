@@ -289,33 +289,26 @@ static void parse_args(int arg_count, const char ** args) {
 static void capture_screen(const Window & window, const String & filename) {
 	ScopeTimer timer("Screenshot");
 
-	int pack_alignment; glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
-	int window_pitch = Math::round_up(window.width * 3, pack_alignment);
-
-	unsigned char * data = new unsigned char[window_pitch * window.height];
-	unsigned char * temp = new unsigned char[window_pitch];
-
-	window.read_frame_buffer(data);
+	int window_pitch = 0;
+	Array<unsigned char> data = window.read_frame_buffer(window_pitch);
+	Array<unsigned char> temp(window_pitch);
 
 	// Flip image vertically
 	for (int j = 0; j < window.height / 2; j++) {
-		unsigned char * row_top    = data +                  j      * window_pitch;
-		unsigned char * row_bottom = data + (window.height - j - 1) * window_pitch;
+		unsigned char * row_top    = data.data() +                  j      * window_pitch;
+		unsigned char * row_bottom = data.data() + (window.height - j - 1) * window_pitch;
 
-		memcpy(temp,       row_top,    window_pitch);
-		memcpy(row_top,    row_bottom, window_pitch);
-		memcpy(row_bottom, temp,       window_pitch);
+		memcpy(temp.data(), row_top,     window_pitch);
+		memcpy(row_top,     row_bottom,  window_pitch);
+		memcpy(row_bottom,  temp.data(), window_pitch);
 	}
 
 	// Remove pack alignment
 	for (int j = 1; j < window.height; j++) {
-		memmove(data + j * window.width * 3, data + j * window_pitch, window.width * 3);
+		memmove(data.data() + j * window.width * 3, data.data() + j * window_pitch, window.width * 3);
 	}
 
-	Util::export_ppm(filename, window.width, window.height, data);
-
-	delete [] temp;
-	delete [] data;
+	Util::export_ppm(filename, window.width, window.height, data.data());
 }
 
 static void window_resize(unsigned frame_buffer_handle, int width, int height) {
