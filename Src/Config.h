@@ -1,8 +1,8 @@
 #pragma once
 #include "CUDA/Common.h"
 
-#include "Util/Array.h"
-#include "Util/String.h"
+#include "Core/Array.h"
+#include "Core/String.h"
 
 inline Config config = { };
 

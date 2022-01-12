@@ -1,8 +1,8 @@
 #include "PLYLoader.h"
 
-#include "Util/Array.h"
-#include "Util/Parser.h"
-#include "Util/StringView.h"
+#include "Core/Array.h"
+#include "Core/Parser.h"
+#include "Core/StringView.h"
 
 enum struct PLYFormat {
 	ASCII,

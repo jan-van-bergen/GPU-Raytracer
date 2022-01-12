@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "Core/IO.h"
 #include "Util.h"
-#include "Util/IO.h"
 
 static GLuint load_shader(const char * source, int source_len, GLuint shader_type) {
 	GLuint shader = glCreateShader(shader_type);

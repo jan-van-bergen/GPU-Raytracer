@@ -1,7 +1,7 @@
 #pragma once
-#include "Pathtracer/Texture.h"
+#include "Core/StringView.h"
 
-#include "Util/StringView.h"
+#include "Pathtracer/Texture.h"
 
 namespace TextureLoader {
 	bool load_dds(const String & filename, Texture & texture);

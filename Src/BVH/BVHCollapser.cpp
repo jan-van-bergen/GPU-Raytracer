@@ -1,6 +1,6 @@
 #include "BVHCollapser.h"
 
-#include "Util/BitArray.h"
+#include "Core/BitArray.h"
 
 struct CollapseCost {
 	int   primitive_count;

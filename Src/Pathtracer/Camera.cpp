@@ -3,8 +3,8 @@
 #include <cstdio>
 #include <cstdint>
 
+#include "Core/IO.h"
 #include "Input.h"
-#include "Util/IO.h"
 
 void Camera::resize(int width, int height) {
 	screen_width  = float(width);

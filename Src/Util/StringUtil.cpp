@@ -1,6 +1,8 @@
 #include "StringUtil.h"
 
-#include "Assertion.h"
+#include "Core/Assertion.h"
+#include "Core/StringView.h"
+
 #include "Util.h"
 
 StringView Util::get_directory(StringView filename) {

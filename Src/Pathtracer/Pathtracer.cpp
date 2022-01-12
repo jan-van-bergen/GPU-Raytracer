@@ -4,15 +4,15 @@
 
 #include "Config.h"
 
+#include "Core/HashMap.h"
+#include "Core/ScopeTimer.h"
+
 #include "Math/Vector4.h"
 
 #include "MeshData.h"
 
-#include "Util/BlueNoise.h"
-
 #include "Util/Util.h"
-#include "Util/HashMap.h"
-#include "Util/ScopeTimer.h"
+#include "Util/BlueNoise.h"
 
 void Pathtracer::init(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height) {
 	scene.init(scene_config);

@@ -2,8 +2,8 @@
 #include "Math/Vector3.h"
 #include "Math/Matrix4.h"
 
-#include "Util/Array.h"
-#include "Util/Parser.h"
+#include "Core/Array.h"
+#include "Core/Parser.h"
 
 struct XMLAttribute {
 	StringView name;

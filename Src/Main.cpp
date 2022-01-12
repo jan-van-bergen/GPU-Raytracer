@@ -6,14 +6,14 @@
 
 #include "Config.h"
 
+#include "Core/Parser.h"
+#include "Core/ScopeTimer.h"
+
 #include "Input.h"
 #include "Window.h"
 
 #include "Util/Util.h"
-#include "Util/Parser.h"
 #include "Util/PerfTest.h"
-#include "Util/ScopeTimer.h"
-
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used
 
 static Window window;

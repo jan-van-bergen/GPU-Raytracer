@@ -1,6 +1,6 @@
 #include "PerfTest.h"
 
-#include "Util/IO.h"
+#include "Core/IO.h"
 #include "Util/StringUtil.h"
 
 void PerfTest::init(Pathtracer * pathtracer, bool enabled, StringView scene_name) {

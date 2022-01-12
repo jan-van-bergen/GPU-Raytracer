@@ -1,11 +1,11 @@
 #include "OBJLoader.h"
 
+#include "Core/Array.h"
+#include "Core/Parser.h"
+#include "Core/String.h"
+
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
-
-#include "Util/Array.h"
-#include "Util/Parser.h"
-#include "Util/String.h"
 
 static float parse_float(Parser & parser) {
 	parser.skip_whitespace();

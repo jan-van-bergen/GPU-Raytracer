@@ -3,11 +3,11 @@
 
 #include "Config.h"
 
+#include "Core/String.h"
+#include "Core/StringView.h"
+
 #include "BVH/BVH.h"
 #include "Pathtracer/MeshData.h"
-
-#include "Util/String.h"
-#include "Util/StringView.h"
 
 namespace BVHLoader {
 	inline constexpr const char * BVH_FILE_EXTENSION = ".bvh";

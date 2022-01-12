@@ -1,6 +1,5 @@
 #pragma once
-#include "String.h"
-#include "StringView.h"
+#include "Core/String.h"
 
 #define FORCEINLINE __forceinline
 

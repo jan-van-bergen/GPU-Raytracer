@@ -1,5 +1,8 @@
 #include "AssetManager.h"
 
+#include "Core/IO.h"
+#include "Core/ScopeTimer.h"
+
 #include "Math/Vector4.h"
 
 #include "BVHLoader.h"
@@ -11,9 +14,7 @@
 #include "BVH/BVHOptimizer.h"
 
 #include "Util/Util.h"
-#include "Util/IO.h"
 #include "Util/StringUtil.h"
-#include "Util/ScopeTimer.h"
 #include "Util/ThreadPool.h"
 
 BVH2 AssetManager::build_bvh(const Array<Triangle> & triangles) {

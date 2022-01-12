@@ -4,23 +4,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "Core/Array.h"
+#include "Core/HashMap.h"
+#include "Core/Format.h"
+#include "Core/Parser.h"
+#include "Core/StringView.h"
+
 #include "Assets/BVHLoader.h"
 #include "Assets/OBJLoader.h"
 #include "Assets/PLYLoader.h"
-
-#include "BVH/Builders/BVHBuilder.h"
-#include "BVH/Builders/CWBVHBuilder.h"
 
 #include "Pathtracer/Scene.h"
 #include "Pathtracer/MeshData.h"
 
 #include "Util/Util.h"
-#include "Util/Array.h"
-#include "Util/HashMap.h"
-#include "Util/Format.h"
-#include "Util/Parser.h"
 #include "Util/Geometry.h"
-#include "Util/StringView.h"
 
 #include "XMLParser.h"
 #include "MitshairLoader.h"

@@ -3,6 +3,8 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#include "Core/IO.h"
+
 #include "Assets/OBJLoader.h"
 #include "Assets/PLYLoader.h"
 #include "Assets/Mitsuba/MitsubaLoader.h"
@@ -10,7 +12,6 @@
 #include "Material.h"
 
 #include "Util/Util.h"
-#include "Util/IO.h"
 #include "Util/StringUtil.h"
 
 void Scene::init(const SceneConfig & scene_config) {

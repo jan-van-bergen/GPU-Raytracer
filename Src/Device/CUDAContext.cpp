@@ -5,8 +5,7 @@
 #include <GL/glew.h>
 #include <cudaGL.h>
 
-#include "Util/Util.h"
-#include "Util/IO.h"
+#include "Core/IO.h"
 
 static CUdevice  device;
 static CUcontext context;

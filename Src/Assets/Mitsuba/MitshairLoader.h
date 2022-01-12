@@ -1,6 +1,6 @@
 #pragma once
-#include "Util/Array.h"
-#include "Util/Parser.h"
+#include "Core/Array.h"
+#include "Core/Parser.h"
 
 struct Triangle;
 

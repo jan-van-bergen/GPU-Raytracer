@@ -3,9 +3,9 @@
 
 #include <cuda.h>
 
-#include "CUDAModule.h"
+#include "Core/IO.h"
 
-#include "Util/IO.h"
+#include "CUDAModule.h"
 
 struct CUDAKernel {
 	static constexpr int PARAMETER_BUFFER_SIZE = 256; // In bytes

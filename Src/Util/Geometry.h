@@ -1,8 +1,8 @@
 #pragma once
+#include "Core/Array.h"
+
 #include "Math/Matrix4.h"
 #include "Pathtracer/Triangle.h"
-
-#include "Util/Array.h"
 
 namespace Geometry {
 	Array<Triangle> rectangle(const Matrix4 & transform);

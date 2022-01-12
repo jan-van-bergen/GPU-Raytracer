@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-#include "Assertion.h"
+#include "Core/Assertion.h"
 
 // Based on: https://github.com/imneme/pcg-c
 struct RNG {

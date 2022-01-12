@@ -103,9 +103,6 @@
     <ClCompile Include="Src\BVH\BVHCollapser.cpp">
       <Filter>BVH</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Util\Mutex.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Assets\Mitsuba\MitsubaLoader.cpp">
       <Filter>Assets\Mitsuba</Filter>
     </ClCompile>
@@ -133,11 +130,14 @@
     <ClCompile Include="Src\Util\StringUtil.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Util\IO.cpp">
-      <Filter>Util</Filter>
+    <ClCompile Include="Src\Core\Mutex.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Util\Format.cpp">
-      <Filter>Util</Filter>
+    <ClCompile Include="Src\Core\Format.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\IO.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -167,6 +167,9 @@
     </Filter>
     <Filter Include="Device">
       <UniqueIdentifier>{05d166cc-0368-4859-a6e2-171631634c79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{87976692-3c4f-4690-bdef-efd0d64a9f29}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -251,13 +254,7 @@
     <ClInclude Include="Src\Pathtracer\Triangle.h">
       <Filter>Pathtracer</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\BitArray.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\PerfTest.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\ScopeTimer.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Util\Util.h">
@@ -286,26 +283,11 @@
     <ClInclude Include="Src\Util\Geometry.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\StringView.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\ThreadPool.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Math\Mipmap.h">
       <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\HashMap.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Array.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\String.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Parser.h">
-      <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Assets\PLYLoader.h">
       <Filter>Assets</Filter>
@@ -319,16 +301,7 @@
     <ClInclude Include="Src\BVH\BVHCollapser.h">
       <Filter>BVH</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\Mutex.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\MinHeap.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\Random.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Queue.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Config.h" />
@@ -377,17 +350,47 @@
     <ClInclude Include="Src\Util\StringUtil.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\Assertion.h">
-      <Filter>Util</Filter>
+    <ClInclude Include="Src\Core\Mutex.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\Format.h">
-      <Filter>Util</Filter>
+    <ClInclude Include="Src\Core\OwnPtr.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\IO.h">
-      <Filter>Util</Filter>
+    <ClInclude Include="Src\Core\Parser.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\OwnPtr.h">
-      <Filter>Util</Filter>
+    <ClInclude Include="Src\Core\Queue.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\ScopeTimer.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\String.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\StringView.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Array.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Assertion.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\BitArray.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Format.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\HashMap.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\IO.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\MinHeap.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

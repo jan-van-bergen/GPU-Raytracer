@@ -2,8 +2,8 @@
 #include "BVH/BVH.h"
 #include "BVHPartitions.h"
 
-#include "Util/Array.h"
-#include "Util/BitArray.h"
+#include "Core/Array.h"
+#include "Core/BitArray.h"
 
 struct PrimitiveRef;
 

@@ -1,10 +1,10 @@
 #pragma once
 #include "Assertion.h"
 #include "Array.h"
-#include "Util.h"
-
 #include "StringView.h"
-#include "StringUtil.h"
+
+#include "Util/Util.h"
+#include "Util/StringUtil.h"
 
 struct Parser;
 

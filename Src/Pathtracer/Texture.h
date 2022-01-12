@@ -1,10 +1,10 @@
 #pragma once
 #include <cuda.h>
 
-#include "CUDA/Common.h"
+#include "Core/Array.h"
+#include "Core/String.h"
 
-#include "Util/Array.h"
-#include "Util/String.h"
+#include "CUDA/Common.h"
 
 struct Scene;
 

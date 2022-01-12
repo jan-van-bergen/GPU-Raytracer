@@ -2,12 +2,13 @@
 
 #include "Config.h"
 
+#include "Core/IO.h"
+#include "Core/Array.h"
+#include "Core/MinHeap.h"
+#include "Core/ScopeTimer.h"
+
 #include "Util/Util.h"
-#include "Util/IO.h"
 #include "Util/Random.h"
-#include "Util/Array.h"
-#include "Util/MinHeap.h"
-#include "Util/ScopeTimer.h"
 
 // Calculates the SAH cost of a whole tree
 static float bvh_sah_cost(const BVH2 & bvh) {

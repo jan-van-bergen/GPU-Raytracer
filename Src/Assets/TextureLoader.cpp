@@ -10,10 +10,10 @@
 
 #include "Config.h"
 
-#include "Math/Mipmap.h"
+#include "Core/Parser.h"
 
+#include "Math/Mipmap.h"
 #include "Util/Util.h"
-#include "Util/Parser.h"
 
 bool TextureLoader::load_dds(const String & filename, Texture & texture) {
 	String file = IO::file_read(filename);

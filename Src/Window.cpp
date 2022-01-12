@@ -6,8 +6,9 @@
 #include <Imgui/imgui_impl_sdl.h>
 #include <Imgui/imgui_impl_opengl3.h>
 
+#include "Core/IO.h"
+
 #include "Util/Util.h"
-#include "Util/IO.h"
 
 static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char * message, const void * user_param) {
 	IO::print("GL CALLBACK: {} type = 0x{:x}, severity = 0x{:x}, message = {}\n"sv, type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **"sv : ""sv, type, severity, message);

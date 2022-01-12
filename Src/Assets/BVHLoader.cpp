@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "Core/IO.h"
+#include "Core/Parser.h"
+
 #include "Util/Util.h"
-#include "Util/IO.h"
-#include "Util/Parser.h"
 #include "Util/StringUtil.h"
 
 String BVHLoader::get_bvh_filename(StringView filename) {

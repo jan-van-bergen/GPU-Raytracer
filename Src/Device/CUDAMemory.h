@@ -1,9 +1,9 @@
 #pragma once
 #include "CUDACall.h"
 
-#include "Util/Array.h"
-#include "Util/Assertion.h"
-#include "Util/IO.h"
+#include "Core/Array.h"
+#include "Core/Assertion.h"
+#include "Core/IO.h"
 
 namespace CUDAMemory {
 	// Type safe device pointer wrapper

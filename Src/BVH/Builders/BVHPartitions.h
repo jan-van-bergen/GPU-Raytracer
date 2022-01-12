@@ -1,8 +1,6 @@
 #pragma once
 #include "Math/Math.h"
-
 #include "Util/Util.h"
-#include "Util/Array.h"
 
 struct PrimitiveRef {
 	int  index;

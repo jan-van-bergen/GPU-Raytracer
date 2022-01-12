@@ -1,8 +1,8 @@
 #pragma once
 #include <stdint.h>
 
-#include "String.h"
-#include "StringView.h"
+#include "Core/String.h"
+#include "Core/StringView.h"
 
 namespace Util {
 	StringView get_directory(StringView filename);

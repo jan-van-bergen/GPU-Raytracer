@@ -1,7 +1,7 @@
 #pragma once
 #include <cuda.h>
 
-#include "Util/IO.h"
+#include "Core/IO.h"
 
 #define CHECK_CUDA_CALLS true
 

@@ -3,8 +3,8 @@
 
 #include "BVH/BVH.h"
 
-#include "Util/Array.h"
-#include "Util/OwnPtr.h"
+#include "Core/Array.h"
+#include "Core/OwnPtr.h"
 
 struct MeshData {
 	Array<Triangle> triangles;

@@ -1,4 +1,9 @@
 #pragma once
+#include "Core/Array.h"
+#include "Core/HashMap.h"
+#include "Core/String.h"
+#include "Core/Mutex.h"
+
 #include "Pathtracer/MeshData.h"
 #include "Pathtracer/Material.h"
 #include "Pathtracer/Medium.h"
@@ -6,11 +11,6 @@
 
 #include "BVHLoader.h"
 #include "BVH/BVHCollapser.h"
-
-#include "Util/Array.h"
-#include "Util/HashMap.h"
-#include "Util/String.h"
-#include "Util/Mutex.h"
 
 struct ThreadPool;
 

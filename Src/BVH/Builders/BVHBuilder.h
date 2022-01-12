@@ -1,6 +1,7 @@
 #pragma once
+#include "Core/BitArray.h"
+
 #include "BVH/BVH.h"
-#include "Util/BitArray.h"
 
 struct Triangle;
 struct Mesh;

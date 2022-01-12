@@ -4,14 +4,15 @@
 
 #include <nvrtc.h>
 
+#include "Core/Assertion.h"
+#include "Core/IO.h"
+#include "Core/Parser.h"
+#include "Core/ScopeTimer.h"
+
 #include "CUDAMemory.h"
 
 #include "Util/Util.h"
-#include "Util/Assertion.h"
-#include "Util/IO.h"
 #include "Util/StringUtil.h"
-#include "Util/Parser.h"
-#include "Util/ScopeTimer.h"
 
 #define NVRTC_CALL(result) check_nvrtc_call(result, __FILE__, __LINE__);
 

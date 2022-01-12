@@ -5,7 +5,7 @@
 
 #include "CUDACall.h"
 
-#include "Util/String.h"
+#include "Core/String.h"
 
 struct CUDAModule {
 	CUmodule module;

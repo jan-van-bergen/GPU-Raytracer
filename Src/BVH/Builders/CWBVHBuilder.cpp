@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "Util/IO.h"
+#include "Core/IO.h"
 
 int CWBVHBuilder::calculate_cost(int node_index, const Array<BVHNode2> & nodes) {
 	const BVHNode2 & node = nodes[node_index];

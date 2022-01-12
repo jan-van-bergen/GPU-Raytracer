@@ -1,10 +1,10 @@
 #include "MitshairLoader.h"
 
+#include "Core/Array.h"
+
 #include "Math/Quaternion.h"
 
 #include "Pathtracer/Triangle.h"
-
-#include "Util/Array.h"
 
 Array<Triangle> MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, float radius) {
 	String file = IO::file_read(filename);

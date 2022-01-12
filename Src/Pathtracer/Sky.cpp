@@ -6,8 +6,8 @@
 
 #include <stb_image.h>
 
-#include "Util/IO.h"
-#include "Util/String.h"
+#include "Core/IO.h"
+#include "Core/String.h"
 
 void Sky::init(const String & filename) {
 	int channels;

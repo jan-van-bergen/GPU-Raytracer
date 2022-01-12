@@ -2,9 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "StringView.h"
-#include "Util.h"
 #include "IO.h"
+#include "StringView.h"
+
+#include "Util/Util.h"
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp

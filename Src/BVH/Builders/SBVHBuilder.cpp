@@ -2,12 +2,13 @@
 
 #include "Config.h"
 
+#include "Core/IO.h"
+#include "Core/Assertion.h"
+#include "Core/ScopeTimer.h"
+
 #include "BVHPartitions.h"
 
 #include "Util/Util.h"
-#include "Util/IO.h"
-#include "Util/Assertion.h"
-#include "Util/ScopeTimer.h"
 
 int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, int first_index, int index_count) {
 	if (index_count == 1) {

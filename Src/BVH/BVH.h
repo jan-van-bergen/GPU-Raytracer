@@ -1,13 +1,10 @@
 #pragma once
-#include <stdlib.h>
-#include <variant>
-
 #include "Config.h"
 
 #include "Pathtracer/Triangle.h"
 
-#include "Util/Array.h"
-#include "Util/OwnPtr.h"
+#include "Core/Array.h"
+#include "Core/OwnPtr.h"
 
 typedef unsigned char byte;
 

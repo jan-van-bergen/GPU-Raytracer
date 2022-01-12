@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-#include "Util/Parser.h"
+#include "Core/Parser.h"
 
 struct Triangle;
 struct XMLNode;
