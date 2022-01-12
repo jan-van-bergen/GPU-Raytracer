@@ -81,30 +81,10 @@ struct BVHNode8 {
 
 static_assert(sizeof(BVHNode8) == 80);
 
-union BVHNodePtr {
-	BVHNode2 * _2;
-	BVHNode4 * _4;
-	BVHNode8 * _8;
-};
-
 struct BVH2;
 
 struct BVH {
 	Array<int> indices;
-
-	//BVH() = default;
-
-	//BVH(const BVH & bvh)             = delete;
-	//BVH & operator=(const BVH & bvh) = delete;
-
-	//BVH(BVH && bvh)             = default;
-	//BVH & operator=(BVH && bvh) = default;
-
-	//virtual ~BVH() = default;
-
-	// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
-	// The procedure to do this is different for each BVH type
-	virtual void aggregate(BVHNodePtr aggregated_bvh_nodes, int index_offset, int bvh_offset) const = 0;
 
 	virtual size_t node_count() const = 0;
 
@@ -123,23 +103,17 @@ struct BVH {
 struct BVH2 final : BVH {
 	Array<BVHNode2> nodes;
 
-	void aggregate(BVHNodePtr aggregated_bvh_nodes, int index_offset, int bvh_offset) const override;
-
 	size_t node_count() const override { return nodes.size(); }
 };
 
 struct BVH4 final : BVH {
 	Array<BVHNode4> nodes;
 
-	void aggregate(BVHNodePtr aggregated_bvh_nodes, int index_offset, int bvh_offset) const override;
-
 	size_t node_count() const override{ return nodes.size(); }
 };
 
 struct BVH8 final : BVH {
 	Array<BVHNode8> nodes;
-
-	void aggregate(BVHNodePtr aggregated_bvh_nodes, int index_offset, int bvh_offset) const override;
 
 	size_t node_count() const override { return nodes.size(); }
 };

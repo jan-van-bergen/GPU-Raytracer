@@ -258,22 +258,12 @@ void Pathtracer::cuda_init_geometry() {
 		aggregated_index_count    += scene.asset_manager.mesh_datas[i].bvh->indices.size();;
 	}
 
-	BVHNodePtr aggregated_bvh_nodes = { };
-	switch (config.bvh_type) {
-		case BVHType::BVH:
-		case BVHType::SBVH:  aggregated_bvh_nodes._2 = new BVHNode2[aggregated_bvh_node_count]; break;
-		case BVHType::QBVH:  aggregated_bvh_nodes._4 = new BVHNode4[aggregated_bvh_node_count]; break;
-		case BVHType::CWBVH: aggregated_bvh_nodes._8 = new BVHNode8[aggregated_bvh_node_count]; break;
-	}
-
 	CUDATriangle * aggregated_triangles = new CUDATriangle[aggregated_index_count];
 
 	reverse_indices = new int[aggregated_triangle_count];
 
 	for (int m = 0; m < mesh_data_count; m++) {
 		const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
-
-		mesh_data.bvh->aggregate(aggregated_bvh_nodes, mesh_data_index_offsets[m], mesh_data_bvh_offsets[m]);
 
 		for (size_t i = 0; i < mesh_data.bvh->indices.size(); i++) {
 			int index = mesh_data.bvh->indices[i];
@@ -294,6 +284,10 @@ void Pathtracer::cuda_init_geometry() {
 			reverse_indices[mesh_data_triangle_offsets[m] + index] = mesh_data_index_offsets[m] + i;
 		}
 	}
+
+	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
+	cuda_module.get_global("triangles").set_value(ptr_triangles);
+	delete [] aggregated_triangles;
 
 	FREEA(mesh_data_index_offsets);
 
@@ -325,39 +319,104 @@ void Pathtracer::cuda_init_geometry() {
 	switch (config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: {
-			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes._2, aggregated_bvh_node_count);
+			Array<BVHNode2> aggregated_bvh_nodes(aggregated_bvh_node_count);
+
+			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
+			// The procedure to do this is different for each BVH type
+			for (int m = 0; m < mesh_data_count; m++) {
+				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
+				const BVH2 * bvh = static_cast<BVH2 *>(mesh_data.bvh);
+
+				int index_offset = mesh_data_index_offsets[m];
+				int bvh_offset   = mesh_data_bvh_offsets[m];
+
+				BVHNode2 * dst = aggregated_bvh_nodes.data() + bvh_offset;
+
+				for (size_t n = 0; n < bvh->nodes.size(); n++) {
+					BVHNode2 & node = dst[n];
+					node = bvh->nodes[n];
+
+					if (node.is_leaf()) {
+						node.first += index_offset;
+					} else {
+						node.left += bvh_offset;
+					}
+				}
+			}
+
+			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes_2);
 
 			tlas = new BVH2();
-
-			delete [] aggregated_bvh_nodes._2;
 			break;
 		}
 		case BVHType::QBVH: {
-			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes._4, aggregated_bvh_node_count);
+			Array<BVHNode4> aggregated_bvh_nodes(aggregated_bvh_node_count);
+
+			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
+			// The procedure to do this is different for each BVH type
+			for (int m = 0; m < mesh_data_count; m++) {
+				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
+				const BVH4 * bvh = static_cast<BVH4 *>(mesh_data.bvh);
+
+				int index_offset = mesh_data_index_offsets[m];
+				int bvh_offset   = mesh_data_bvh_offsets[m];
+
+				BVHNode4 * dst = aggregated_bvh_nodes.data() + bvh_offset;
+
+				for (size_t n = 0; n < bvh->nodes.size(); n++) {
+					BVHNode4 & node = dst[n];
+					node = bvh->nodes[n];
+
+					int child_count = node.get_child_count();
+					for (int c = 0; c < child_count; c++) {
+						if (node.is_leaf(c)) {
+							node.get_index(c) += index_offset;
+						} else {
+							node.get_index(c) += bvh_offset;
+						}
+					}
+				}
+			}
+
+			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes);
 			cuda_module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes_4);
 
 			tlas = new BVH4();
 			tlas_converter_qbvh.init(static_cast<BVH4 *>(tlas), tlas_raw);
-
-			delete [] aggregated_bvh_nodes._4;
 			break;
 		}
 		case BVHType::CWBVH: {
-			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes._8, aggregated_bvh_node_count);
+			Array<BVHNode8> aggregated_bvh_nodes(aggregated_bvh_node_count);
+
+			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
+			// The procedure to do this is different for each BVH type
+			for (int m = 0; m < mesh_data_count; m++) {
+				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
+				const BVH8 * bvh = static_cast<BVH8 *>(mesh_data.bvh);
+
+				int index_offset = mesh_data_index_offsets[m];
+				int bvh_offset   = mesh_data_bvh_offsets[m];
+
+				BVHNode8 * dst = aggregated_bvh_nodes.data() + bvh_offset;
+
+				for (size_t n = 0; n < bvh->nodes.size(); n++) {
+					BVHNode8 & node = dst[n];
+					node = bvh->nodes[n];
+
+					node.base_index_triangle += index_offset;
+					node.base_index_child    += bvh_offset;
+				}
+			}
+
+			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes);
 			cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes_8);
 
 			tlas = new BVH8();
 			tlas_converter_cwbvh.init(static_cast<BVH8 *>(tlas), tlas_raw);
-
-			delete [] aggregated_bvh_nodes._8;
 			break;
 		}
 	}
-
-	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
-	cuda_module.get_global("triangles").set_value(ptr_triangles);
-	delete [] aggregated_triangles;
 }
 
 void Pathtracer::cuda_init_sky() {
