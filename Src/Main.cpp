@@ -67,7 +67,7 @@ int main(int arg_count, char ** args) {
 	}
 
 	{
-		ScopeTimer timer("Initialization");
+		ScopeTimer timer("Initialization"_sv);
 
 		window.init("Pathtracer", config.initial_width, config.initial_height);
 		window.resize_handler = &window_resize;
@@ -120,7 +120,7 @@ int main(int arg_count, char ** args) {
 		draw_gui();
 
 		if (Input::is_key_released(SDL_SCANCODE_F5)) {
-			ScopeTimer timer("Hot Reload");
+			ScopeTimer timer("Hot Reload"_sv);
 
 			pathtracer.cuda_free();
 			pathtracer.cuda_init(window.frame_buffer_handle, window.width, window.height);
@@ -286,7 +286,7 @@ static void parse_args(int arg_count, const char ** args) {
 }
 
 static void capture_screen(const Window & window, const String & filename) {
-	ScopeTimer timer("Screenshot");
+	ScopeTimer timer("Screenshot"_sv);
 
 	int window_pitch = 0;
 	Array<unsigned char> data = window.read_frame_buffer(window_pitch);

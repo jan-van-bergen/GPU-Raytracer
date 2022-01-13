@@ -214,7 +214,7 @@ static void bvh_node_calc_axis(BVH2 & bvh, Array<int> & parent_indices, Array<in
 }
 
 void BVHOptimizer::optimize(BVH2 & bvh) {
-	ScopeTimer timer("BVH Optimization");
+	ScopeTimer timer("BVH Optimization"_sv);
 
 	float cost_before = bvh_sah_cost(bvh);
 

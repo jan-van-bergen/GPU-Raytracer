@@ -18,11 +18,11 @@ BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
 	// Only the SBVH uses SBVH as its starting point,
 	// all other BVH types use the standard BVH as their starting point
 	if (config.bvh_type == BVHType::SBVH) {
-		ScopeTimer timer("SBVH Construction");
+		ScopeTimer timer("SBVH Construction"_sv);
 
 		SBVHBuilder(bvh, triangles.size()).build(triangles);
 	} else  {
-		ScopeTimer timer("BVH Construction");
+		ScopeTimer timer("BVH Construction"_sv);
 
 		SAHBuilder(bvh, triangles.size()).build(triangles);
 	}

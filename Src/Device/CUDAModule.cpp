@@ -97,7 +97,7 @@ static String scan_includes_recursive(const String & filename, StringView direct
 }
 
 void CUDAModule::init(const String & filename, int compute_capability, int max_registers) {
-	ScopeTimer timer("CUDA Module Init");
+	ScopeTimer timer("CUDA Module Init"_sv);
 
 	if (!IO::file_exists(filename.view())) {
 		IO::print("ERROR: File '{}' does not exist!\n"_sv, filename);
