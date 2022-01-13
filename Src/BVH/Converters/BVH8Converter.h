@@ -1,20 +1,18 @@
 #pragma once
-#include "BVH/BVH.h"
+#include "BVHConverter.h"
 
-struct CWBVHBuilder {
-	inline void init(BVH8 * cwbvh, const BVH2 & bvh) {
-		this->cwbvh = cwbvh;
+struct BVH8Converter final : BVHConverter {
+	      BVH8 & cwbvh;
+	const BVH2 & bvh;
 
-		cwbvh->indices.reserve(bvh.indices.size());
-		cwbvh->nodes  .reserve(bvh.nodes  .size());
-		cwbvh->nodes.emplace_back();
+	BVH8Converter(BVH8 & cwbvh, const BVH2 & bvh) : cwbvh(cwbvh), bvh(bvh) {
+		cwbvh.indices.reserve(bvh.indices.size());
+		cwbvh.nodes  .reserve(bvh.nodes  .size());
 	}
 
-	void build(const BVH2 & bvh);
+	void convert() override;
 
 private:
-	BVH8 * cwbvh;
-
 	struct Decision {
 		enum struct Type : char {
 			LEAF,

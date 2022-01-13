@@ -12,7 +12,7 @@
 #include "Util/StringUtil.h"
 #include "Util/ThreadPool.h"
 
-AssetManager::AssetManager() : thread_pool(OwnPtr<ThreadPool>::make()) {
+AssetManager::AssetManager() : thread_pool(make_owned<ThreadPool>()) {
 	Material default_material = { };
 	default_material.name    = "Default";
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);

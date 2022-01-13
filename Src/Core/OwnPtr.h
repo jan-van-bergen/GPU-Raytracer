@@ -26,11 +26,6 @@ struct OwnPtr {
 		release();
 	}
 
-	template<typename ... Args>
-	static OwnPtr<T> make(Args ... args) {
-		return OwnPtr(new T(std::forward<Args>(args) ...));
-	}
-
 	void release() {
 		if (ptr) {
 			delete ptr;
@@ -50,6 +45,14 @@ struct OwnPtr {
 		return *this;
 	}
 
+	template<typename S>
+	OwnPtr & operator=(OwnPtr<S> && other) {
+		release();
+		ptr = other.ptr;
+		other.ptr = nullptr;
+		return *this;
+	}
+
 	T * operator->() {
 		ASSERT(ptr);
 		return ptr;
@@ -62,3 +65,8 @@ struct OwnPtr {
 
 	operator bool() { return ptr != nullptr; }
 };
+
+template<typename T, typename ... Args>
+inline OwnPtr<T> make_owned(Args && ... args) {
+	return OwnPtr<T>(new T { std::forward<Args>(args) ... });
+}

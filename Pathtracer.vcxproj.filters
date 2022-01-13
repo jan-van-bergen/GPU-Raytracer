@@ -22,12 +22,6 @@
     <ClCompile Include="Src\Assets\OBJLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\BVH\Builders\QBVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
     <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
@@ -88,9 +82,6 @@
     <ClCompile Include="Src\Assets\PLYLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
-    <ClCompile Include="Src\BVH\Builders\BVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Util\PMJ.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -139,6 +130,15 @@
     <ClCompile Include="Src\Core\IO.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="Src\BVH\Builders\SAHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Converters\BVH4Converter.cpp">
+      <Filter>BVH\Converters</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Converters\BVH8Converter.cpp">
+      <Filter>BVH\Converters</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -170,6 +170,9 @@
     </Filter>
     <Filter Include="Core">
       <UniqueIdentifier>{87976692-3c4f-4690-bdef-efd0d64a9f29}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BVH\Converters">
+      <UniqueIdentifier>{b6bbcdb4-f4d5-47ff-b52f-73177afa4d05}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -203,16 +206,7 @@
     <ClInclude Include="Src\BVH\BVH.h">
       <Filter>BVH</Filter>
     </ClInclude>
-    <ClInclude Include="Src\BVH\Builders\BVHBuilder.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
     <ClInclude Include="Src\BVH\Builders\BVHPartitions.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\BVH\Builders\CWBVHBuilder.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\BVH\Builders\QBVHBuilder.h">
       <Filter>BVH\Builders</Filter>
     </ClInclude>
     <ClInclude Include="Src\BVH\Builders\SBVHBuilder.h">
@@ -394,6 +388,18 @@
     </ClInclude>
     <ClInclude Include="Src\Core\Hash.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Builders\SAHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Converters\BVH8Converter.h">
+      <Filter>BVH\Converters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Converters\BVH4Converter.h">
+      <Filter>BVH\Converters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Converters\BVHConverter.h">
+      <Filter>BVH\Converters</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-#include "BVHBuilder.h"
+#include "SAHBuilder.h"
 
 #include <new>
 
@@ -8,7 +8,7 @@
 #include "Pathtracer/Mesh.h"
 
 template<typename Primitive>
-static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Array<Primitive> & primitives, int * indices[3], int first_index, int index_count) {
+static void build_bvh_recursive(SAHBuilder & builder, BVHNode2 & node, const Array<Primitive> & primitives, int * indices[3], int first_index, int index_count) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
 		// We do not terminate based on the SAH termination criterion, so that the
@@ -65,7 +65,7 @@ static void build_bvh_recursive(BVHBuilder & builder, BVHNode2 & node, const Arr
 }
 
 template<typename Primitive>
-static void build_bvh_impl(BVHBuilder & builder, const Array<Primitive> & primitives) {
+static void build_bvh_impl(SAHBuilder & builder, const Array<Primitive> & primitives) {
 	builder.bvh->indices.clear();
 	builder.bvh->nodes.clear();
 	builder.bvh->nodes.emplace_back(); // Root
@@ -89,10 +89,10 @@ static void build_bvh_impl(BVHBuilder & builder, const Array<Primitive> & primit
 	builder.bvh->indices = builder.indices_x; // NOTE: copy!
 }
 
-void BVHBuilder::build(const Array<Triangle> & triangles) {
+void SAHBuilder::build(const Array<Triangle> & triangles) {
 	return build_bvh_impl(*this, triangles);
 }
 
-void BVHBuilder::build(const Array<Mesh> & meshes) {
+void SAHBuilder::build(const Array<Mesh> & meshes) {
 	return build_bvh_impl(*this, meshes);
 }

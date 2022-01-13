@@ -5,10 +5,8 @@
 #include "Device/CUDAEvent.h"
 #include "Device/CUDAContext.h"
 
-#include "BVH/Builders/BVHBuilder.h"
-#include "BVH/Builders/SBVHBuilder.h"
-#include "BVH/Builders/QBVHBuilder.h"
-#include "BVH/Builders/CWBVHBuilder.h"
+#include "BVH/Builders/SAHBuilder.h"
+#include "BVH/Converters/BVHConverter.h"
 
 #include "Scene.h"
 #include "Material.h"
@@ -227,12 +225,10 @@ private:
 
 	int pixel_count;
 
-	BVH2               tlas_raw;
-	OwnPtr<BVH>        tlas;
-	OwnPtr<BVHBuilder> tlas_bvh_builder;
-
-	QBVHBuilder  tlas_converter_qbvh;
-	CWBVHBuilder tlas_converter_cwbvh;
+	BVH2                 tlas_raw;
+	OwnPtr<BVH>          tlas;
+	OwnPtr<SAHBuilder>   tlas_builder;
+	OwnPtr<BVHConverter> tlas_converter;
 
 	CUDAModule cuda_module;
 

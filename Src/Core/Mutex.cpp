@@ -5,7 +5,7 @@
 struct Impl { std::mutex mutex; };
 
 Mutex::Mutex() {
-	impl = OwnPtr<Impl>::make();
+	impl = make_owned<Impl>();
 }
 
 Mutex::~Mutex() { }

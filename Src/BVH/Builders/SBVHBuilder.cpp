@@ -10,6 +10,57 @@
 
 #include "Util/Util.h"
 
+void SBVHBuilder::build(const Array<Triangle> & triangles) {
+	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\n"sv);
+
+	AABB root_aabb = AABB::create_empty();
+
+	indices[0].resize(triangles.size());
+	indices[1].resize(triangles.size());
+	indices[2].resize(triangles.size());
+
+	for (size_t i = 0; i < triangles.size(); i++) {
+		indices[0][i].index = i;
+		indices[1][i].index = i;
+		indices[2][i].index = i;
+
+		Vector3 vertices[3] = {
+			triangles[i].position_0,
+			triangles[i].position_1,
+			triangles[i].position_2
+		};
+		AABB aabb = AABB::from_points(vertices, 3);
+
+		indices[0][i].aabb = aabb;
+		indices[1][i].aabb = aabb;
+		indices[2][i].aabb = aabb;
+
+		root_aabb.expand(aabb);
+	}
+
+	inv_root_surface_area = 1.0f / root_aabb.surface_area();
+
+	Util::quick_sort(indices[0].begin(), indices[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+	Util::quick_sort(indices[1].begin(), indices[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+	Util::quick_sort(indices[2].begin(), indices[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+
+	sbvh->nodes.clear();
+	sbvh->nodes.reserve(2 * triangles.size());
+	sbvh->nodes.emplace_back(); // Root
+	sbvh->nodes.emplace_back(); // Dummy
+	sbvh->nodes[0].aabb = root_aabb;
+
+	int index_count = build_sbvh(sbvh->nodes[0], triangles, 0, triangles.size());
+
+	sbvh->indices.resize(index_count);
+	for (int i = 0; i < index_count; i++) {
+		int index = indices[0][i].index;
+		ASSERT(index >= 0 && index < triangles.size());
+
+		sbvh->indices[i] = index;
+	}
+}
+
 int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, int first_index, int index_count) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
@@ -305,55 +356,4 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	int num_leaves_right = build_sbvh(sbvh->nodes[node.left + 1], triangles, first_index + num_leaves_left, n_right);
 
 	return num_leaves_left + num_leaves_right;
-}
-
-void SBVHBuilder::build(const Array<Triangle> & triangles) {
-	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\n"sv);
-
-	AABB root_aabb = AABB::create_empty();
-
-	indices[0].resize(triangles.size());
-	indices[1].resize(triangles.size());
-	indices[2].resize(triangles.size());
-
-	for (size_t i = 0; i < triangles.size(); i++) {
-		indices[0][i].index = i;
-		indices[1][i].index = i;
-		indices[2][i].index = i;
-
-		Vector3 vertices[3] = {
-			triangles[i].position_0,
-			triangles[i].position_1,
-			triangles[i].position_2
-		};
-		AABB aabb = AABB::from_points(vertices, 3);
-
-		indices[0][i].aabb = aabb;
-		indices[1][i].aabb = aabb;
-		indices[2][i].aabb = aabb;
-
-		root_aabb.expand(aabb);
-	}
-
-	inv_root_surface_area = 1.0f / root_aabb.surface_area();
-
-	Util::quick_sort(indices[0].begin(), indices[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-	Util::quick_sort(indices[1].begin(), indices[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-	Util::quick_sort(indices[2].begin(), indices[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
-
-	sbvh->nodes.clear();
-	sbvh->nodes.reserve(2 * triangles.size());
-	sbvh->nodes.emplace_back(); // Root
-	sbvh->nodes.emplace_back(); // Dummy
-	sbvh->nodes[0].aabb = root_aabb;
-
-	int index_count = build_sbvh(sbvh->nodes[0], triangles, 0, triangles.size());
-
-	sbvh->indices.resize(index_count);
-	for (int i = 0; i < index_count; i++) {
-		int index = indices[0][i].index;
-		ASSERT(index >= 0 && index < triangles.size());
-
-		sbvh->indices[i] = index;
-	}
 }
