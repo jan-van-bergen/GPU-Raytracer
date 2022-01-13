@@ -48,12 +48,12 @@ static void build_bvh_recursive(SAHBuilder & builder, BVHNode2 & node, const Arr
 		memcpy(indices[dim] + first_index, temp, index_count * sizeof(int));
 	}
 
-	node.left = builder.bvh->nodes.size();
+	node.left = builder.bvh.nodes.size();
 	node.count = 0;
 	node.axis  = split.dimension;
 
-	BVHNode2 & node_left  = builder.bvh->nodes.emplace_back();
-	BVHNode2 & node_right = builder.bvh->nodes.emplace_back();
+	BVHNode2 & node_left  = builder.bvh.nodes.emplace_back();
+	BVHNode2 & node_right = builder.bvh.nodes.emplace_back();
 	node_left .aabb = split.aabb_left;
 	node_right.aabb = split.aabb_right;
 
@@ -66,16 +66,16 @@ static void build_bvh_recursive(SAHBuilder & builder, BVHNode2 & node, const Arr
 
 template<typename Primitive>
 static void build_bvh_impl(SAHBuilder & builder, const Array<Primitive> & primitives) {
-	builder.bvh->indices.clear();
-	builder.bvh->nodes.clear();
-	builder.bvh->nodes.emplace_back(); // Root
-	builder.bvh->nodes.emplace_back(); // Dummy
+	builder.bvh.indices.clear();
+	builder.bvh.nodes.clear();
+	builder.bvh.nodes.emplace_back(); // Root
+	builder.bvh.nodes.emplace_back(); // Dummy
 
 	AABB root_aabb = AABB::create_empty();
 	for (size_t i = 0; i < primitives.size(); i++) {
 		root_aabb.expand(primitives[i].aabb);
 	}
-	builder.bvh->nodes[0].aabb = root_aabb;
+	builder.bvh.nodes[0].aabb = root_aabb;
 
 	Util::quick_sort(builder.indices_x.begin(), builder.indices_x.end(), [&primitives](int a, int b) { return primitives[a].get_center().x < primitives[b].get_center().x; });
 	Util::quick_sort(builder.indices_y.begin(), builder.indices_y.end(), [&primitives](int a, int b) { return primitives[a].get_center().y < primitives[b].get_center().y; });
@@ -83,10 +83,10 @@ static void build_bvh_impl(SAHBuilder & builder, const Array<Primitive> & primit
 
 	int * indices[3] = { builder.indices_x.data(), builder.indices_y.data(), builder.indices_z.data() };
 
-	build_bvh_recursive(builder, builder.bvh->nodes[0], primitives, indices, 0, primitives.size());
-	ASSERT(builder.bvh->nodes.size() <= 2 * primitives.size());
+	build_bvh_recursive(builder, builder.bvh.nodes[0], primitives, indices, 0, primitives.size());
+	ASSERT(builder.bvh.nodes.size() <= 2 * primitives.size());
 
-	builder.bvh->indices = builder.indices_x; // NOTE: copy!
+	builder.bvh.indices = builder.indices_x; // NOTE: copy!
 }
 
 void SAHBuilder::build(const Array<Triangle> & triangles) {

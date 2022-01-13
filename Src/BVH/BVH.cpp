@@ -20,11 +20,11 @@ BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
 	if (config.bvh_type == BVHType::SBVH) {
 		ScopeTimer timer("SBVH Construction");
 
-		SBVHBuilder(&bvh, triangles.size()).build(triangles);
+		SBVHBuilder(bvh, triangles.size()).build(triangles);
 	} else  {
 		ScopeTimer timer("BVH Construction");
 
-		SAHBuilder(&bvh, triangles.size()).build(triangles);
+		SAHBuilder(bvh, triangles.size()).build(triangles);
 	}
 
 	if (config.enable_bvh_optimization) {

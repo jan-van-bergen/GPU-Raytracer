@@ -7,7 +7,7 @@ struct Triangle;
 struct Mesh;
 
 struct SAHBuilder {
-	BVH2 * bvh = nullptr;
+	BVH2 & bvh;
 
 	Array<int> indices_x;
 	Array<int> indices_y;
@@ -16,7 +16,7 @@ struct SAHBuilder {
 	Array<char> scratch; // Used to store intermediate SAH results and reorder indices
 	BitArray indices_going_left;
 
-	SAHBuilder(BVH2 * bvh, size_t primitive_count) :
+	SAHBuilder(BVH2 & bvh, size_t primitive_count) :
 		bvh(bvh),
 		indices_x(primitive_count),
 		indices_y(primitive_count),
@@ -30,7 +30,7 @@ struct SAHBuilder {
 			indices_z[i] = i;
 		}
 
-		bvh->nodes.reserve(2 * primitive_count);
+		bvh.nodes.reserve(2 * primitive_count);
 	}
 
 	void build(const Array<Triangle> & triangles);

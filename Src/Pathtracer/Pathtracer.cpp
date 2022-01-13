@@ -317,7 +317,7 @@ void Pathtracer::cuda_init_geometry() {
 
 	tlas_raw.indices.resize(scene.meshes.size());
 	tlas_raw.nodes  .resize(scene.meshes.size() * 2);
-	tlas_builder = make_owned<SAHBuilder>(&tlas_raw, scene.meshes.size());
+	tlas_builder = make_owned<SAHBuilder>(tlas_raw, scene.meshes.size());
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:

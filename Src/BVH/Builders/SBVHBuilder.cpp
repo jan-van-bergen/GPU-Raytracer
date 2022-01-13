@@ -44,20 +44,20 @@ void SBVHBuilder::build(const Array<Triangle> & triangles) {
 	Util::quick_sort(indices[1].begin(), indices[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
 	Util::quick_sort(indices[2].begin(), indices[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
-	sbvh->nodes.clear();
-	sbvh->nodes.reserve(2 * triangles.size());
-	sbvh->nodes.emplace_back(); // Root
-	sbvh->nodes.emplace_back(); // Dummy
-	sbvh->nodes[0].aabb = root_aabb;
+	sbvh.nodes.clear();
+	sbvh.nodes.reserve(2 * triangles.size());
+	sbvh.nodes.emplace_back(); // Root
+	sbvh.nodes.emplace_back(); // Dummy
+	sbvh.nodes[0].aabb = root_aabb;
 
-	int index_count = build_sbvh(sbvh->nodes[0], triangles, 0, triangles.size());
+	int index_count = build_sbvh(sbvh.nodes[0], triangles, 0, triangles.size());
 
-	sbvh->indices.resize(index_count);
+	sbvh.indices.resize(index_count);
 	for (int i = 0; i < index_count; i++) {
 		int index = indices[0][i].index;
 		ASSERT(index >= 0 && index < triangles.size());
 
-		sbvh->indices[i] = index;
+		sbvh.indices[i] = index;
 	}
 }
 
@@ -96,9 +96,9 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 
 	ASSERT(object_split.cost != INFINITY || spatial_split.cost != INFINITY);
 
-	node.left = sbvh->nodes.size();
-	sbvh->nodes.emplace_back(); // Left child
-	sbvh->nodes.emplace_back(); // Right child
+	node.left = sbvh.nodes.size();
+	sbvh.nodes.emplace_back(); // Left child
+	sbvh.nodes.emplace_back(); // Right child
 
 	Array<PrimitiveRef> children_left [3];
 	Array<PrimitiveRef> children_right[3];
@@ -325,8 +325,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 		child_aabb_right = spatial_split.aabb_right;
 	}
 
-	sbvh->nodes[node.left    ].aabb = child_aabb_left;
-	sbvh->nodes[node.left + 1].aabb = child_aabb_right;
+	sbvh.nodes[node.left    ].aabb = child_aabb_left;
+	sbvh.nodes[node.left + 1].aabb = child_aabb_right;
 
 	indices[0].resize_if_smaller(first_index + n_left);
 	indices[1].resize_if_smaller(first_index + n_left);
@@ -341,7 +341,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	children_left[2] = { };
 
 	// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
-	int num_leaves_left = build_sbvh(sbvh->nodes[node.left], triangles, first_index, n_left);
+	int num_leaves_left = build_sbvh(sbvh.nodes[node.left], triangles, first_index, n_left);
 
 	indices[0].resize_if_smaller(first_index + num_leaves_left + n_right);
 	indices[1].resize_if_smaller(first_index + num_leaves_left + n_right);
@@ -353,7 +353,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	memcpy(indices[2].data() + first_index + num_leaves_left, children_right[2].data(), n_right * sizeof(PrimitiveRef));
 
 	// Now recurse on the right side
-	int num_leaves_right = build_sbvh(sbvh->nodes[node.left + 1], triangles, first_index + num_leaves_left, n_right);
+	int num_leaves_right = build_sbvh(sbvh.nodes[node.left + 1], triangles, first_index + num_leaves_left, n_right);
 
 	return num_leaves_left + num_leaves_right;
 }
