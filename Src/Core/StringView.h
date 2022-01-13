@@ -31,6 +31,13 @@ inline constexpr StringView operator "" sv(const char * str, size_t length) {
 	return StringView::from_c_str(str, length);
 }
 
+template<>
+struct Hash<StringView> {
+	size_t operator()(StringView str) const {
+		return FNVHash::hash(str.start, str.length());
+	}
+};
+
 template<int N>
 inline bool operator==(const StringView & a, const char (&b)[N]) {
 	if (a.length() != N - 1) return false;

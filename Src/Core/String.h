@@ -171,3 +171,10 @@ inline bool operator!=(const String & a, const String & b) {
 
 	return false;
 }
+
+template<>
+struct Hash<String> {
+	size_t operator()(const String & str) {
+		return FNVHash::hash(str.data(), str.size());
+	}
+};
