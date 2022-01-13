@@ -129,9 +129,9 @@ void Pathtracer::cuda_init_module() {
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  kernel_trace = &kernel_trace_bvh;   kernel_trace_shadow = &kernel_trace_shadow_bvh;   break;
-		case BVHType::QBVH:  kernel_trace = &kernel_trace_qbvh;  kernel_trace_shadow = &kernel_trace_shadow_qbvh;  break;
-		case BVHType::CWBVH: kernel_trace = &kernel_trace_cwbvh; kernel_trace_shadow = &kernel_trace_shadow_cwbvh; break;
+		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh;   kernel_trace_shadow = &kernel_trace_shadow_bvh;   break;
+		case BVHType::BVH4: kernel_trace = &kernel_trace_qbvh;  kernel_trace_shadow = &kernel_trace_shadow_qbvh;  break;
+		case BVHType::BVH8: kernel_trace = &kernel_trace_cwbvh; kernel_trace_shadow = &kernel_trace_shadow_cwbvh; break;
 		default: abort();
 	}
 
@@ -354,7 +354,7 @@ void Pathtracer::cuda_init_geometry() {
 			tlas_converter = make_owned<BVH2Converter>(static_cast<BVH2 &>(*tlas.get()), tlas_raw);
 			break;
 		}
-		case BVHType::QBVH: {
+		case BVHType::BVH4: {
 			Array<BVHNode4> aggregated_bvh_nodes(aggregated_bvh_node_count);
 
 			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
@@ -390,7 +390,7 @@ void Pathtracer::cuda_init_geometry() {
 			tlas_converter = make_owned<BVH4Converter>(static_cast<BVH4 &>(*tlas.get()), tlas_raw);
 			break;
 		}
-		case BVHType::CWBVH: {
+		case BVHType::BVH8: {
 			Array<BVHNode8> aggregated_bvh_nodes(aggregated_bvh_node_count);
 
 			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
@@ -513,9 +513,9 @@ void Pathtracer::cuda_free() {
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  CUDAMemory::free(ptr_bvh_nodes_2); break;
-		case BVHType::QBVH:  CUDAMemory::free(ptr_bvh_nodes_4); break;
-		case BVHType::CWBVH: CUDAMemory::free(ptr_bvh_nodes_8); break;
+		case BVHType::SBVH: CUDAMemory::free(ptr_bvh_nodes_2); break;
+		case BVHType::BVH4: CUDAMemory::free(ptr_bvh_nodes_4); break;
+		case BVHType::BVH8: CUDAMemory::free(ptr_bvh_nodes_8); break;
 	}
 
 	CUDAMemory::free(ptr_triangles);
@@ -807,9 +807,9 @@ void Pathtracer::build_tlas() {
 
 	switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
-		case BVHType::QBVH:  CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
-		case BVHType::CWBVH: CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::SBVH: CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::BVH4: CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::BVH8: CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		default: abort();
 	}
 	ASSERT(tlas->indices.data());

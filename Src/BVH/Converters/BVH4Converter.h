@@ -2,12 +2,12 @@
 #include "BVHConverter.h"
 
 struct BVH4Converter final : BVHConverter {
-	      BVH4 & qbvh;
-	const BVH2 & bvh;
+	      BVH4 & bvh4;
+	const BVH2 & bvh2;
 
-	BVH4Converter(BVH4 & qbvh, const BVH2 & bvh) : qbvh(qbvh), bvh(bvh) {
-		qbvh.indices = bvh.indices;
-		qbvh.nodes.resize(bvh.nodes.size());
+	BVH4Converter(BVH4 & bvh4, const BVH2 & bvh2) : bvh4(bvh4), bvh2(bvh2) {
+		bvh4.indices = bvh2.indices;
+		bvh4.nodes.resize(bvh2.nodes.size());
 	}
 
 	void convert() override;

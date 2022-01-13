@@ -40,13 +40,13 @@ OwnPtr<BVH> BVH::create_from_bvh2(BVH2 bvh) {
 		case BVHType::SBVH: {
 			return make_owned<BVH2>(std::move(bvh));
 		}
-		case BVHType::QBVH: {
-			// Collapse binary BVH into quaternary BVH
+		case BVHType::BVH4: {
+			// Collapse binary BVH into 4-way BVH
 			OwnPtr<BVH4> bvh4 = make_owned<BVH4>();
 			BVH4Converter(*bvh4.get(), bvh).convert();
 			return bvh4;
 		}
-		case BVHType::CWBVH: {
+		case BVHType::BVH8: {
 			// Collapse binary BVH into 8-way Compressed Wide BVH
 			OwnPtr<BVH8> bvh8 = make_owned<BVH8>();
 			BVH8Converter(*bvh8.get(), bvh).convert();

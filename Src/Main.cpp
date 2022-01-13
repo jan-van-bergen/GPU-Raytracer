@@ -184,17 +184,17 @@ static void parse_args(int arg_count, const char ** args) {
 		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, const char ** args, int i) { scene_config.scene_filenames.push_back(args[i + 1]); } },
 		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, const char ** args, int i) { scene_config.sky_filename = args[i + 1]; } },
 
-		Option { "b", "bvh", "Sets type of BVH used: Supported options: bvh, sbvh, qbvh, cwbvh", 1, [](int arg_count, const char ** args, int i) {
-			if (strcmp(args[i + 1], "bvh") == 0) {
+		Option { "b", "bvh", "Sets type of BLAS BVH used: Supported options: sah, sbvh, bvh4, bvh8", 1, [](int arg_count, const char ** args, int i) {
+			if (strcmp(args[i + 1], "sah") == 0) {
 				config.bvh_type = BVHType::BVH;
 			} else if (strcmp(args[i + 1], "sbvh") == 0) {
 				config.bvh_type = BVHType::SBVH;
-			} else if (strcmp(args[i + 1], "qbvh") == 0) {
-				config.bvh_type = BVHType::QBVH;
-			} else if (strcmp(args[i + 1], "cwbvh") == 0) {
-				config.bvh_type = BVHType::CWBVH;
+			} else if (strcmp(args[i + 1], "bvh4") == 0) {
+				config.bvh_type = BVHType::BVH4;
+			} else if (strcmp(args[i + 1], "bvh8") == 0) {
+				config.bvh_type = BVHType::BVH8;
 			} else {
-				IO::print("'{}' is not a recognized BVH type!\n"sv, args[i + 1]);
+				IO::print("'{}' is not a recognized BVH type! Supported options: sah, sbvh, bvh4, bvh8\n"sv, args[i + 1]);
 				abort();
 			}
 		} },
@@ -470,10 +470,10 @@ static void draw_gui() {
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
 			switch (config.bvh_type) {
-				case BVHType::BVH:	 ImGui::TextUnformatted("BVH: BVH"); break;
-				case BVHType::SBVH:	 ImGui::TextUnformatted("BVH: SBVH"); break;
-				case BVHType::QBVH:	 ImGui::TextUnformatted("BVH: QBVH"); break;
-				case BVHType::CWBVH: ImGui::TextUnformatted("BVH: CWBVH"); break;
+				case BVHType::BVH:  ImGui::TextUnformatted("BVH: BVH");  break;
+				case BVHType::SBVH: ImGui::TextUnformatted("BVH: SBVH"); break;
+				case BVHType::BVH4: ImGui::TextUnformatted("BVH: BVH4"); break;
+				case BVHType::BVH8: ImGui::TextUnformatted("BVH: BVH8"); break;
 			}
 
 			bool invalidated_config = ImGui::SliderInt("Num Bounces", &config.num_bounces, 0, MAX_BOUNCES);

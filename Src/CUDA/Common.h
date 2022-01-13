@@ -27,8 +27,8 @@ enum struct ReconstructionFilter {
 enum struct BVHType {
 	BVH,  // Binary SAH-based BVH
 	SBVH, // Binary SAH-based Spatial BVH
-	QBVH, // Quaternary BVH,              constructed by collapsing the binary BVH
-	CWBVH // Compressed Wide BVH (8 way), constructed by collapsing the binary BVH
+	BVH4, // Quaternary BVH,              constructed by collapsing the binary BVH
+	BVH8  // Compressed Wide BVH (8 way), constructed by collapsing the binary BVH
 };
 
 struct Config {
@@ -78,7 +78,7 @@ struct Config {
 
 
 	// BVH
-	BVHType bvh_type = BVHType::CWBVH;
+	BVHType bvh_type = BVHType::BVH8;
 
 	float sah_cost_node = 4.0f;
 	float sah_cost_leaf = 1.0f;

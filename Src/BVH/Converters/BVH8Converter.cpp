@@ -5,20 +5,20 @@
 #include "Core/IO.h"
 
 void BVH8Converter::convert() {
-	cwbvh.indices.clear();
-	cwbvh.indices.reserve(bvh.indices.size());
+	bvh8.indices.clear();
+	bvh8.indices.reserve(bvh2.indices.size());
 
-	cwbvh.nodes.clear();
-	cwbvh.nodes.emplace_back(); // Root
+	bvh8.nodes.clear();
+	bvh8.nodes.emplace_back(); // Root
 
-	decisions.resize(bvh.nodes.size() * 7);
+	decisions.resize(bvh2.nodes.size() * 7);
 
 	// Fill cost table using dynamic programming (bottom up)
-	calculate_cost(0, bvh.nodes);
+	calculate_cost(0, bvh2.nodes);
 
 	// Collapse SBVH into 8-way tree (top down)
-	collapse(bvh.nodes, bvh.indices, 0, 0);
-	ASSERT(cwbvh.indices.size() == bvh.indices.size());
+	collapse(bvh2.nodes, bvh2.indices, 0, 0);
+	ASSERT(bvh8.indices.size() == bvh2.indices.size());
 }
 
 int BVH8Converter::calculate_cost(int node_index, const Array<BVHNode2> & nodes) {
@@ -157,7 +157,7 @@ int BVH8Converter::count_primitives(int node_index, const Array<BVHNode2> & node
 		ASSERT(node.count == 1);
 
 		for (int i = 0; i < node.count; i++) {
-			cwbvh.indices.push_back(indices[node.first + i]);
+			bvh8.indices.push_back(indices[node.first + i]);
 		}
 
 		return node.count;
@@ -232,7 +232,7 @@ void BVH8Converter::order_children(int node_index, const Array<BVHNode2> & nodes
 }
 
 void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_cwbvh, int node_index_bvh) {
-	BVHNode8 & node = cwbvh.nodes[node_index_cwbvh];
+	BVHNode8 & node = bvh8.nodes[node_index_cwbvh];
 	const AABB & aabb = nodes_bvh[node_index_bvh].aabb;
 
 	memset(&node, 0, sizeof(BVHNode8));
@@ -276,8 +276,8 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 
 	node.imask = 0;
 
-	node.base_index_triangle = cwbvh.indices.size();
-	node.base_index_child    = cwbvh.nodes  .size();
+	node.base_index_triangle = bvh8.indices.size();
+	node.base_index_child    = bvh8.nodes  .size();
 
 	int node_internal_count = 0;
 	int node_triangle_count = 0;
@@ -328,12 +328,12 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 	}
 
 	for (int i = 0; i < node_internal_count; i++) {
-		cwbvh.nodes.emplace_back();
+		bvh8.nodes.emplace_back();
 	}
-	node = cwbvh.nodes[node_index_cwbvh]; // NOTE: 'node' may have been invalidated by emplace_back on previous line
+	node = bvh8.nodes[node_index_cwbvh]; // NOTE: 'node' may have been invalidated by emplace_back on previous line
 
-	ASSERT(node.base_index_child    + node_internal_count == cwbvh.nodes  .size());
-	ASSERT(node.base_index_triangle + node_triangle_count == cwbvh.indices.size());
+	ASSERT(node.base_index_child    + node_internal_count == bvh8.nodes  .size());
+	ASSERT(node.base_index_triangle + node_triangle_count == bvh8.indices.size());
 
 	// Recurse on Internal Nodes
 	for (int i = 0; i < 8; i++) {
