@@ -87,9 +87,8 @@ struct Array {
 	}
 
 	constexpr void pop_back() {
-		if (count > 0) {
-			data()[--count].~T();
-		}
+		ASSERT(count > 0);
+		data()[--count].~T();
 	}
 
 	constexpr void resize(size_t new_count) {
