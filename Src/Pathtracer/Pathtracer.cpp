@@ -68,7 +68,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	global_camera      = cuda_module.get_global("camera");
 	global_config      = cuda_module.get_global("config");
-	global_svgf_data   = cuda_module.get_global("svgf_data");
+	global_svgf_data   = cuda_module.get_global("_svgf_data");
 	global_pixel_query = cuda_module.get_global("pixel_query");
 
 	global_lights_total_weight = cuda_module.get_global("lights_total_weight");
@@ -100,8 +100,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
 
-	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"sv,   bytes_allocated >> 10, bytes_allocated >> 20);
-	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"sv, bytes_available >> 10, bytes_available >> 20);
+	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"_sv,   bytes_allocated >> 10, bytes_allocated >> 20);
+	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"_sv, bytes_available >> 10, bytes_available >> 20);
 }
 
 void Pathtracer::cuda_init_module() {
@@ -445,35 +445,35 @@ void Pathtracer::cuda_init_rng() {
 
 void Pathtracer::cuda_init_events() {
 	int display_order = 0;
-	event_desc_primary = { display_order++, "Primary"sv, "Primary"sv };
+	event_desc_primary = { display_order++, "Primary"_sv, "Primary"_sv };
 
 	for (int i = 0; i < MAX_BOUNCES; i++) {
-		String category = Format().format("Bounce {}"sv, i);
+		String category = Format().format("Bounce {}"_sv, i);
 
-		event_desc_trace              [i] = CUDAEvent::Desc { display_order, category, "Trace"sv };
-		event_desc_sort               [i] = CUDAEvent::Desc { display_order, category, "Sort"sv };
-		event_desc_material_diffuse   [i] = CUDAEvent::Desc { display_order, category, "Diffuse"sv };
-		event_desc_material_plastic   [i] = CUDAEvent::Desc { display_order, category, "Plastic"sv };
-		event_desc_material_dielectric[i] = CUDAEvent::Desc { display_order, category, "Dielectric"sv };
-		event_desc_material_conductor [i] = CUDAEvent::Desc { display_order, category, "Conductor"sv };
-		event_desc_shadow_trace       [i] = CUDAEvent::Desc { display_order, category, "Shadow"sv };
+		event_desc_trace              [i] = CUDAEvent::Desc { display_order, category, "Trace"_sv };
+		event_desc_sort               [i] = CUDAEvent::Desc { display_order, category, "Sort"_sv };
+		event_desc_material_diffuse   [i] = CUDAEvent::Desc { display_order, category, "Diffuse"_sv };
+		event_desc_material_plastic   [i] = CUDAEvent::Desc { display_order, category, "Plastic"_sv };
+		event_desc_material_dielectric[i] = CUDAEvent::Desc { display_order, category, "Dielectric"_sv };
+		event_desc_material_conductor [i] = CUDAEvent::Desc { display_order, category, "Conductor"_sv };
+		event_desc_shadow_trace       [i] = CUDAEvent::Desc { display_order, category, "Shadow"_sv };
 
 		display_order++;
 	}
 
-	event_desc_svgf_reproject = CUDAEvent::Desc { display_order, "SVGF"sv, "Reproject"sv };
-	event_desc_svgf_variance  = CUDAEvent::Desc { display_order, "SVGF"sv, "Variance"sv };
+	event_desc_svgf_reproject = CUDAEvent::Desc { display_order, "_svGF"_sv, "Reproject"_sv };
+	event_desc_svgf_variance  = CUDAEvent::Desc { display_order, "_svGF"_sv, "Variance"_sv };
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
-		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "SVGF"sv, Format().format("A Trous {}"sv, i) };
+		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "_svGF"_sv, Format().format("A Trous {}"_sv, i) };
 	}
-	event_desc_svgf_finalize = CUDAEvent::Desc { display_order++, "SVGF"sv, "Finalize"sv };
+	event_desc_svgf_finalize = CUDAEvent::Desc { display_order++, "_svGF"_sv, "Finalize"_sv };
 
-	event_desc_taa         = CUDAEvent::Desc { display_order, "Post"sv, "TAA"sv };
-	event_desc_reconstruct = CUDAEvent::Desc { display_order, "Post"sv, "Reconstruct"sv };
-	event_desc_accumulate  = CUDAEvent::Desc { display_order, "Post"sv, "Accumulate"sv };
+	event_desc_taa         = CUDAEvent::Desc { display_order, "Post"_sv, "TAA"_sv };
+	event_desc_reconstruct = CUDAEvent::Desc { display_order, "Post"_sv, "Reconstruct"_sv };
+	event_desc_accumulate  = CUDAEvent::Desc { display_order, "Post"_sv, "Accumulate"_sv };
 
-	event_desc_end = CUDAEvent::Desc { ++display_order, "END"sv, "END"sv };
+	event_desc_end = CUDAEvent::Desc { ++display_order, "END"_sv, "END"_sv };
 }
 
 void Pathtracer::cuda_free() {
@@ -865,7 +865,7 @@ void Pathtracer::build_tlas() {
 
 void Pathtracer::update(float delta) {
 	if (invalidated_config && config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
-		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"sv);
+		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"_sv);
 		scene.camera.aperture_radius = 0.0f;
 		invalidated_camera = true;
 	}

@@ -11,11 +11,11 @@ void PerfTest::init(Pathtracer * pathtracer, bool enabled, StringView scene_name
 
 	this->pathtracer = pathtracer;
 
-	if (Util::strstr(scene_name, "sponza"sv)) {
+	if (Util::strstr(scene_name, "sponza"_sv)) {
 		povs = &povs_sponza;
-	} else if (Util::strstr(scene_name, "San_Miguel"sv)) {
+	} else if (Util::strstr(scene_name, "San_Miguel"_sv)) {
 		povs = &povs_san_miguel;
-	} else if (Util::strstr(scene_name, "bistro"sv)) {
+	} else if (Util::strstr(scene_name, "bistro"_sv)) {
 		povs = &povs_bistro;
 	} else {
 		this->enabled = false;
@@ -33,7 +33,7 @@ void PerfTest::frame_begin() {
 		pathtracer->invalidated_camera = true;
 		pathtracer->sample_index = 0;
 
-		IO::print("POV {}\n"sv, index_pov);
+		IO::print("POV {}\n"_sv, index_pov);
 	}
 }
 

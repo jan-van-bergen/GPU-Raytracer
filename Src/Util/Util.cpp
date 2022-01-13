@@ -46,7 +46,7 @@ void Util::export_ppm(const String & filename, int width, int height, const unsi
 	fopen_s(&file, filename.data(), "wb");
 
 	if (file == nullptr) {
-		IO::print("Failed to export '{}'!\n"sv, filename);
+		IO::print("Failed to export '{}'!\n"_sv, filename);
 
 		return;
 	}

@@ -22,7 +22,7 @@ struct CUDAKernel {
 	inline void init(const CUDAModule * module, const char * kernel_name) {
 		CUresult result = cuModuleGetFunction(&kernel, module->module, kernel_name);
 		if (result == CUDA_ERROR_NOT_FOUND) {
-			IO::print("No Kernel with name '{}' was found in the Module!\n"sv, kernel_name);
+			IO::print("No Kernel with name '{}' was found in the Module!\n"_sv, kernel_name);
 			abort();
 		}
 		CUDACALL(result);

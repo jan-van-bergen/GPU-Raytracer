@@ -180,7 +180,7 @@ Array<Triangle> OBJLoader::load(const String & filename) {
 		triangles[f].init();
 	}
 
-	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"sv, filename, triangles.size());
+	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"_sv, filename, triangles.size());
 
 	return triangles;
 }

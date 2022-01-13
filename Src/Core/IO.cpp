@@ -22,7 +22,7 @@ String IO::file_read(const String & filename) {
 	fopen_s(&file, filename.data(), "rb");
 
 	if (!file) {
-		IO::print("ERROR: Unable to open '{}'!\n"sv, filename);
+		IO::print("ERROR: Unable to open '{}'!\n"_sv, filename);
 		abort();
 	}
 

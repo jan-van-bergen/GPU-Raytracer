@@ -29,7 +29,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 		eof_dictionary_offset = serialized.size() - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
 		parser.seek(eof_dictionary_offset);
 
-		for (int i = 0; i < num_meshes; i++) {
+		for (uint32_t i = 0; i < num_meshes; i++) {
 			mesh_offsets[i] = parser.parse_binary<uint32_t>();
 		}
 	} else {
@@ -37,7 +37,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 		eof_dictionary_offset = serialized.size() - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
 		parser.seek(eof_dictionary_offset);
 
-		for (int i = 0; i < num_meshes; i++) {
+		for (uint32_t i = 0; i < num_meshes; i++) {
 			mesh_offsets[i] = parser.parse_binary<uint64_t>();
 		}
 	}

@@ -11,7 +11,7 @@
 #include "BVH/BVHOptimizer.h"
 
 BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
-	IO::print("Constructing BVH...\r"sv);
+	IO::print("Constructing BVH...\r"_sv);
 
 	BVH2 bvh = { };
 

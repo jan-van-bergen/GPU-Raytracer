@@ -6,17 +6,17 @@
 #include "Util.h"
 
 StringView Util::get_directory(StringView filename) {
-	const char * last_slash = find_last_after(filename, "/\\"sv);
+	const char * last_slash = find_last_after(filename, "/\\"_sv);
 
 	if (last_slash != filename.end) {
 		return StringView { filename.start, last_slash };
 	} else {
-		return "./"sv;
+		return "./"_sv;
 	}
 }
 
 StringView Util::remove_directory(StringView filename) {
-	const char * last_slash = find_last_after(filename, "/\\"sv);
+	const char * last_slash = find_last_after(filename, "/\\"_sv);
 
 	if (last_slash != filename.end) {
 		return StringView { last_slash, filename.end };
@@ -26,7 +26,7 @@ StringView Util::remove_directory(StringView filename) {
 }
 
 StringView Util::get_file_extension(StringView filename) {
-	return StringView { find_last_after(filename, "."sv), filename.end };
+	return StringView { find_last_after(filename, "."_sv), filename.end };
 }
 
 StringView Util::substr(StringView str, size_t offset, size_t len) {

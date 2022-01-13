@@ -16,9 +16,9 @@
 
 #define WARNING(loc, msg, ...) \
 	if (loc.file.length() > 0) { \
-		IO::print("{}:{}:{}: " msg ""sv, loc.file, loc.line, loc.col, __VA_ARGS__); \
+		IO::print("{}:{}:{}: " msg ""_sv, loc.file, loc.line, loc.col, __VA_ARGS__); \
 	} else { \
-		IO::print(msg ""sv, __VA_ARGS__); \
+		IO::print(msg ""_sv, __VA_ARGS__); \
 	}
 
 #define ERROR(loc, msg, ...) \
@@ -239,7 +239,7 @@ struct Parser {
 			value = value * pow(10.0, exponent);
 		}
 
-		return sign ? -value : value;
+		return float(sign ? -value : value);
 	}
 
 	int parse_int() {

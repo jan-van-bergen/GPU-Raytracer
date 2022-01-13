@@ -27,7 +27,7 @@ struct StringView {
 	}
 };
 
-inline constexpr StringView operator "" sv(const char * str, size_t length) {
+inline constexpr StringView operator "" _sv(const char * str, size_t length) {
 	return StringView::from_c_str(str, length);
 }
 
@@ -61,7 +61,7 @@ inline bool operator!=(const StringView & a, const char (&b)[N]) {
 }
 
 inline bool operator==(const StringView & a, const char * b) {
-	int length = a.length();
+	size_t length = a.length();
 
 	for (int i = 0; i < length; i++) {
 		if (a[i] != b[i] || b[i] == '\0') return false;
@@ -71,8 +71,8 @@ inline bool operator==(const StringView & a, const char * b) {
 }
 
 inline bool operator==(const StringView & a, const StringView & b) {
-	int length_a = a.length();
-	int length_b = b.length();
+	size_t length_b = b.length();
+	size_t length_a = a.length();
 
 	if (length_a != length_b) return false;
 

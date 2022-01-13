@@ -4369,7 +4369,7 @@ bool ImGui::ColorPicker4(const char* label, float col[4], ImGuiColorEditFlags fl
     else if (flags & ImGuiColorEditFlags_PickerHueBar)
     {
         // SV rectangle logic
-        InvisibleButton("sv", ImVec2(sv_picker_size, sv_picker_size));
+        InvisibleButton("_sv", ImVec2(sv_picker_size, sv_picker_size));
         if (IsItemActive())
         {
             S = ImSaturate((io.MousePos.x - picker_pos.x) / (sv_picker_size-1));

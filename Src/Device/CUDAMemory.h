@@ -16,7 +16,7 @@ namespace CUDAMemory {
 
 		void operator=(Ptr other) {
 			if (ptr != NULL) {
-				IO::print("WARNING: CUDA memory leak detected!\n"sv);
+				IO::print("WARNING: CUDA memory leak detected!\n"_sv);
 				__debugbreak();
 			}
 			ptr = other.ptr;

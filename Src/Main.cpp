@@ -96,7 +96,7 @@ int main(int arg_count, char ** args) {
 			break; // Exit game loop and terimate
 		}
 		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
-			String screenshot_name = Format().format("screenshot_{}.ppm"sv, pathtracer.sample_index);
+			String screenshot_name = Format().format("screenshot_{}.ppm"_sv, pathtracer.sample_index);
 			capture_screen(window, screenshot_name);
 
 			timing.time_of_last_screenshot = timing.now;
@@ -157,7 +157,7 @@ static bool atob(const char * str) {
 		strcmp(str, "0")     == 0) {
 		return false;
 	} else {
-		IO::print("Invalid boolean argument '{}'!\n"sv, str);
+		IO::print("Invalid boolean argument '{}'!\n"_sv, str);
 		return true;
 	}
 };
@@ -194,7 +194,7 @@ static void parse_args(int arg_count, const char ** args) {
 			} else if (strcmp(args[i + 1], "bvh8") == 0) {
 				config.bvh_type = BVHType::BVH8;
 			} else {
-				IO::print("'{}' is not a recognized BVH type! Supported options: sah, sbvh, bvh4, bvh8\n"sv, args[i + 1]);
+				IO::print("'{}' is not a recognized BVH type! Supported options: sah, sbvh, bvh4, bvh8\n"_sv, args[i + 1]);
 				abort();
 			}
 		} },
@@ -209,9 +209,9 @@ static void parse_args(int arg_count, const char ** args) {
 		Option { "Ot", "opt-time",    "Sets time limit (in seconds) for BVH optimization",                      1, [](int arg_count, const char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
 		Option { "Ob", "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization", 1, [](int arg_count, const char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
 
-		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, const char ** args, int i) { config.sah_cost_node                 = atof(args[i + 1]); } },
-		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, const char ** args, int i) { config.sah_cost_leaf                 = atof(args[i + 1]); } },
-		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, const char ** args, int i) { config.sbvh_alpha                    = atof(args[i + 1]); } },
+		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, const char ** args, int i) { config.sah_cost_node                 = float(atof(args[i + 1])); } },
+		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, const char ** args, int i) { config.sah_cost_leaf                 = float(atof(args[i + 1])); } },
+		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, const char ** args, int i) { config.sbvh_alpha                    = float(atof(args[i + 1])); } },
 
 		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                     1, [](int arg_count, const char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
 		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser", 1, [](int arg_count, const char ** args, int i) {
@@ -222,7 +222,7 @@ static void parse_args(int arg_count, const char ** args) {
 			} else if (strcmp(args[i + 1], "kaiser") == 0) {
 				config.mipmap_filter = Config::MipmapFilter::KAISER;
 			} else {
-				IO::print("'{}' is not a recognized Mipmap Filter!\n"sv, args[i + 1]);
+				IO::print("'{}' is not a recognized Mipmap Filter!\n"_sv, args[i + 1]);
 				abort();
 			}
 		} },
@@ -234,9 +234,9 @@ static void parse_args(int arg_count, const char ** args) {
 			const Option & option = options[o];
 
 			if (option.name_short) {
-				IO::print("-{},\t--{:16}{}\n"sv, option.name_short, option.name_full, option.help_text);
+				IO::print("-{},\t--{:16}{}\n"_sv, option.name_short, option.name_full, option.help_text);
 			} else {
-				IO::print("\t--{:16}{}\n"sv, option.name_full, option.help_text);
+				IO::print("\t--{:16}{}\n"_sv, option.name_full, option.help_text);
 			}
 		}
 		exit(EXIT_SUCCESS);
@@ -244,7 +244,7 @@ static void parse_args(int arg_count, const char ** args) {
 
 	for (int i = 1; i < arg_count; i++) {
 		StringView arg = StringView::from_c_str(args[i]);
-		String arg_name = Format().format("Arg {} ({})"sv, i, arg);
+		String arg_name = Format().format("Arg {} ({})"_sv, i, arg);
 
 		Parser parser(arg, arg_name.view());
 
@@ -264,7 +264,7 @@ static void parse_args(int arg_count, const char ** args) {
 
 				if (match) {
 					if (i + option.num_args >= arg_count) {
-						IO::print("Not enough arguments provided to option '{}'!\n"sv, option.name_full);
+						IO::print("Not enough arguments provided to option '{}'!\n"_sv, option.name_full);
 						return;
 					}
 
@@ -276,7 +276,7 @@ static void parse_args(int arg_count, const char ** args) {
 			}
 
 			if (!match) {
-				IO::print("Unrecognized command line option '{}'\nUse --help for a list of valid options\n"sv, parser.cur);
+				IO::print("Unrecognized command line option '{}'\nUse --help for a list of valid options\n"_sv, parser.cur);
 			}
 		} else {
 			// Without explicit option, assume scene name
@@ -333,7 +333,7 @@ static void calc_timing() {
 	timing.max = 0.0;
 
 	for (int i = 0; i < count; i++) {
-		float time = timing.history[i];
+		double time = timing.history[i];
 		if (time < timing.min) {
 			timing.min = time;
 			min_index = i;
@@ -375,7 +375,7 @@ static void draw_gui() {
 
 	if (ImGui::Begin("Pathtracer")) {
 		if (ImGui::CollapsingHeader("Performance", ImGuiTreeNodeFlags_DefaultOpen)) {
-			size_t time_in_seconds = double(timing.now - timing.start) * timing.inv_perf_freq;
+			size_t time_in_seconds = size_t(double(timing.now - timing.start) * timing.inv_perf_freq);
 			size_t time_in_minutes = time_in_seconds / 60;
 			size_t time_in_hours   = time_in_minutes / 60;
 
@@ -494,7 +494,7 @@ static void draw_gui() {
 
 			invalidated_config |= ImGui::Checkbox("Update Scene", &config.enable_scene_update);
 
-			if (ImGui::Checkbox("SVGF", &config.enable_svgf)) {
+			if (ImGui::Checkbox("_svGF", &config.enable_svgf)) {
 				if (config.enable_svgf) {
 					pathtracer.svgf_init();
 				} else {
@@ -740,7 +740,7 @@ static void draw_gui() {
 			int mouse_x, mouse_y;
 			Input::mouse_position(&mouse_x, &mouse_y);
 
-			if (Vector2::length(Vector2(mouse_x, mouse_y) - Vector2(last_pixel_query_x, last_pixel_query_y)) < 50.0f) {
+			if (Vector2::length(Vector2(float(mouse_x), float(mouse_y)) - Vector2(float(last_pixel_query_x), float(last_pixel_query_y))) < 50.0f) {
 				Vector3 triangle_center_world = Matrix4::transform_position(mesh.transform, triangle.get_center());
 
 				ImGui::BeginTooltip();

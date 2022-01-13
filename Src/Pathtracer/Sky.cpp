@@ -14,7 +14,7 @@ void Sky::load(const String & filename) {
 	float * hdr = stbi_loadf(filename.data(), &width, &height, &channels, STBI_rgb);
 
 	if (!hdr || width == 0 || height == 0) {
-		IO::print("Unable to load hdr Sky from file '{}'!\n"sv, filename);
+		IO::print("Unable to load hdr Sky from file '{}'!\n"_sv, filename);
 		abort();
 	}
 

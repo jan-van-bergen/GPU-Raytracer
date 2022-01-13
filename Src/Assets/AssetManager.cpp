@@ -88,7 +88,7 @@ TextureHandle AssetManager::add_texture(const String & filename) {
 		}
 
 		if (!success) {
-			IO::print("WARNING: Failed to load Texture '{}'!\n"sv, filename);
+			IO::print("WARNING: Failed to load Texture '{}'!\n"_sv, filename);
 
 			// Use a default 1x1 pink Texture
 			Vector4 pink = Vector4(1.0f, 0.0f, 1.0f, 1.0f);

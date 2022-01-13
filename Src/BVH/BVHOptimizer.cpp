@@ -36,7 +36,7 @@ static void init_parent_indices(const BVH2 & bvh, Array<int> & parent_indices, i
 
 	if (node.is_leaf()) {
 		if (node.count != 1) {
-			IO::print("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!\n"sv);
+			IO::print("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
 			abort();
 		}
 		return;
@@ -395,11 +395,11 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 			break;
 		}
 
-		IO::print("{}: SAH={} best={} last_reduction={}     \r"sv, batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
+		IO::print("{}: SAH={} best={} last_reduction={}     \r"_sv, batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
 		batch_count++;
 	}
 
 	// Report the improvement of the SAH cost
 	float cost_after = bvh_sah_cost(bvh);
-	IO::print("\ncost: {} -> {}\n"sv, cost_before, cost_after);
+	IO::print("\ncost: {} -> {}\n"_sv, cost_before, cost_after);
 }

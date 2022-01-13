@@ -19,13 +19,13 @@ public:
 		unsigned long long      duration  = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
 
 		if (duration >= 60000000) {
-			IO::print("{} took: {} s ({} min)\n"sv, name, duration / 1000000, duration / 60000000);
+			IO::print("{} took: {} s ({} min)\n"_sv, name, duration / 1000000, duration / 60000000);
 		} else if (duration >= 1000000) {
-			IO::print("{} took: {} us ({} s)\n"sv, name, duration, duration / 1000000);
+			IO::print("{} took: {} us ({} s)\n"_sv, name, duration, duration / 1000000);
 		} else if (duration >= 1000) {
-			IO::print("{} took: {} us ({} ms)\n"sv, name, duration, duration / 1000);
+			IO::print("{} took: {} us ({} ms)\n"_sv, name, duration, duration / 1000);
 		} else {
-			IO::print("{} took: {} us\n"sv, name, duration);
+			IO::print("{} took: {} us\n"_sv, name, duration);
 		}
 	}
 };

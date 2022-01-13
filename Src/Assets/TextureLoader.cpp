@@ -89,7 +89,7 @@ bool TextureLoader::load_dds(const String & filename, Texture & texture) {
 	int level_height = texture.height;
 	int level_offset = 0;
 
-	for (int level = 0; level < header.num_mipmaps; level++) {
+	for (unsigned level = 0; level < header.num_mipmaps; level++) {
 		if (level_width == 0 || level_height == 0) {
 			break;
 		}

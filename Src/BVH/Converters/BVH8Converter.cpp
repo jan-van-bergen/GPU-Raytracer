@@ -29,7 +29,7 @@ int BVH8Converter::calculate_cost(int node_index, const Array<BVHNode2> & nodes)
 	if (node.is_leaf()) {
 		num_primitives = node.count;
 		if (num_primitives != 1) {
-			IO::print("ERROR: CWBVH Builder expects BVH with leaf Nodes containing only 1 primitive!\n"sv);
+			IO::print("ERROR: CWBVH Builder expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
 			abort();
 		}
 
@@ -156,7 +156,7 @@ int BVH8Converter::count_primitives(int node_index, const Array<BVHNode2> & node
 	if (node.is_leaf()) {
 		ASSERT(node.count == 1);
 
-		for (int i = 0; i < node.count; i++) {
+		for (unsigned i = 0; i < node.count; i++) {
 			bvh8.indices.push_back(indices[node.first + i]);
 		}
 

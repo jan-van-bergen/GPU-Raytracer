@@ -41,7 +41,7 @@ static int collapse_subtree(const BVH2 & bvh, BVH & new_bvh, int node_index) {
 	const BVHNode2 & node = bvh.nodes[node_index];
 
 	if (node.is_leaf()) {
-		for (int i = 0; i < node.count; i++) {
+		for (unsigned i = 0; i < node.count; i++) {
 			new_bvh.indices.push_back(bvh.indices[node.first + i]);
 		}
 
@@ -66,7 +66,7 @@ static void bvh_collapse(const BVH2 & bvh, BVH2 & new_bvh, int new_index, BitArr
 	if (node.is_leaf()) {
 		new_node.first = new_bvh.indices.size();
 
-		for (int i = 0; i < node.count; i++) {
+		for (unsigned i = 0; i < node.count; i++) {
 			new_bvh.indices.push_back(bvh.indices[node.first + i]);
 		}
 

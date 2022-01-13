@@ -11,7 +11,7 @@
 #include "Util/Util.h"
 
 void SBVHBuilder::build(const Array<Triangle> & triangles) {
-	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\n"sv);
+	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\n"_sv);
 
 	AABB root_aabb = AABB::create_empty();
 

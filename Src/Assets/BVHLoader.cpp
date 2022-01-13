@@ -39,7 +39,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 	BVHFileHeader header = parser.parse_binary<BVHFileHeader>();
 
 	if (strcmp(header.filetype_identifier, "BVH") != 0) {
-		IO::print("WARNING: BVH file '{}' has an invalid header!\n"sv, bvh_filename);
+		IO::print("WARNING: BVH file '{}' has an invalid header!\n"_sv, bvh_filename);
 		return false;
 	}
 
@@ -51,7 +51,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 		header.sah_cost_node       != config.sah_cost_node ||
 		header.sah_cost_leaf       != config.sah_cost_leaf
 	) {
-		IO::print("BVH file '{}' was created with different settings, rebuiling BVH from scratch.\n"sv, bvh_filename);
+		IO::print("BVH file '{}' was created with different settings, rebuiling BVH from scratch.\n"_sv, bvh_filename);
 		return false;
 	}
 
@@ -65,7 +65,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 
 	ASSERT(parser.reached_end());
 
-	IO::print("Loaded BVH '{}' from disk\n"sv, bvh_filename);
+	IO::print("Loaded BVH '{}' from disk\n"_sv, bvh_filename);
 	return true;
 }
 
@@ -74,7 +74,7 @@ bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, co
 	fopen_s(&file, bvh_filename.data(), "wb");
 
 	if (!file) {
-		IO::print("WARNING: Unable to open BVH file '{}' for writing!\n"sv, bvh_filename);
+		IO::print("WARNING: Unable to open BVH file '{}' for writing!\n"_sv, bvh_filename);
 		return false;
 	}
 
@@ -103,7 +103,7 @@ bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, co
 	fclose(file);
 
 	if (!header_written || num_triangles_written < mesh_data.triangles.size() || num_bvh_nodes_written < bvh.nodes.size() || num_indices_written < bvh.indices.size()) {
-		IO::print("WARNING: Unable to successfully write to BVH file '{}'!\n"sv, bvh_filename);
+		IO::print("WARNING: Unable to successfully write to BVH file '{}'!\n"_sv, bvh_filename);
 		return false;
 	}
 

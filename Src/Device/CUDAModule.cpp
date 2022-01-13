@@ -18,7 +18,7 @@
 
 static void check_nvrtc_call(nvrtcResult result, const char * file, int line) {
 	if (result != NVRTC_SUCCESS) {
-		IO::print("{}:{}: NVRTC call failed with error {}!\n"sv, file, line, nvrtcGetErrorString(result));
+		IO::print("{}:{}: NVRTC call failed with error {}!\n"_sv, file, line, nvrtcGetErrorString(result));
 		__debugbreak();
 	}
 }
@@ -76,12 +76,12 @@ static String scan_includes_recursive(const String & filename, StringView direct
 					if (!should_recompile && IO::file_is_newer(ptx_filename, include_full_path.view())) {
 						should_recompile = true;
 
-						IO::print("CUDA Module '{}': Recompilation required because included file '{}' changed.\n"sv, filename, include_filename);
+						IO::print("CUDA Module '{}': Recompilation required because included file '{}' changed.\n"_sv, filename, include_filename);
 					}
 
 					StringView path = Util::get_directory(include_full_path.view());
 
-					int index = includes.size();
+					size_t index = includes.size();
 					includes.emplace_back();
 
 					includes[index].filename = String(include_filename);
@@ -100,14 +100,14 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 	ScopeTimer timer("CUDA Module Init");
 
 	if (!IO::file_exists(filename.view())) {
-		IO::print("ERROR: File '{}' does not exist!\n"sv, filename);
+		IO::print("ERROR: File '{}' does not exist!\n"_sv, filename);
 		abort();
 	}
 
 #ifdef _DEBUG
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"sv);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"_sv);
 #else
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"sv);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"_sv);
 #endif
 
 	bool should_recompile = true;
@@ -143,8 +143,8 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 			includes.clear();
 
 			// Configure options
-			String option_compute = Format().format("--gpu-architecture=compute_{}"sv, compute_capability);
-			String option_maxregs = Format().format("--maxrregcount={}"sv, max_registers);
+			String option_compute = Format().format("--gpu-architecture=compute_{}"_sv, compute_capability);
+			String option_maxregs = Format().format("--maxrregcount={}"_sv, max_registers);
 
 			const char * options[] = {
 				"--std=c++11",
@@ -167,7 +167,7 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 				String log(log_size);
 				NVRTC_CALL(nvrtcGetProgramLog(program, log.data()));
 
-				IO::print("NVRTC output:\n{}\n"sv, log);
+				IO::print("NVRTC output:\n{}\n"_sv, log);
 			}
 
 			if (result == NVRTC_SUCCESS) break;
@@ -187,7 +187,7 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 		// Cache PTX on disk
 		IO::file_write(ptx_filename, StringView { ptx.data(), ptx.data() + ptx.size() });
 	} else {
-		IO::print("CUDA Module '{}' did not need to recompile.\n"sv, filename);
+		IO::print("CUDA Module '{}' did not need to recompile.\n"_sv, filename);
 	}
 
 	char log_buffer[8192];
@@ -234,7 +234,7 @@ CUDAModule::Global CUDAModule::get_global(const char * variable_name) const {
 	size_t size;
 	CUresult result = cuModuleGetGlobal(&global.ptr, &size, module, variable_name);
 	if (result == CUDA_ERROR_NOT_FOUND) {
-		IO::print("ERROR: Global CUDA variable '{}' not found!\n"sv, variable_name);
+		IO::print("ERROR: Global CUDA variable '{}' not found!\n"_sv, variable_name);
 	}
 	CUDACALL(result);
 

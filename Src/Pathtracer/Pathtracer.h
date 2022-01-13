@@ -232,7 +232,7 @@ private:
 
 	CUDAModule cuda_module;
 
-	CUstream memory_stream;
+	CUstream memory_stream = { };
 
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace_bvh;
@@ -272,7 +272,7 @@ private:
 
 	CUDAModule::Global global_ray_buffer_shadow;
 
-	BufferSizes * pinned_buffer_sizes;
+	BufferSizes * pinned_buffer_sizes = nullptr;
 
 	CUDAModule::Global global_camera;
 	CUDAModule::Global global_buffer_sizes;
@@ -310,14 +310,14 @@ private:
 		float cells[12];
 	};
 
-	int       * pinned_mesh_bvh_root_indices;
-	int       * pinned_mesh_material_ids;
-	Matrix3x4 * pinned_mesh_transforms;
-	Matrix3x4 * pinned_mesh_transforms_inv;
-	Matrix3x4 * pinned_mesh_transforms_prev;
-	ProbAlias * pinned_light_mesh_prob_alias;
-	int2      * pinned_light_mesh_first_index_and_triangle_count;
-	int       * pinned_light_mesh_transform_index;
+	int       * pinned_mesh_bvh_root_indices                     = nullptr;
+	int       * pinned_mesh_material_ids                         = nullptr;
+	Matrix3x4 * pinned_mesh_transforms                           = nullptr;
+	Matrix3x4 * pinned_mesh_transforms_inv                       = nullptr;
+	Matrix3x4 * pinned_mesh_transforms_prev                      = nullptr;
+	ProbAlias * pinned_light_mesh_prob_alias                     = nullptr;
+	int2      * pinned_light_mesh_first_index_and_triangle_count = nullptr;
+	int       * pinned_light_mesh_transform_index                = nullptr;
 
 	Array<double> light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
 

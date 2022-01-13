@@ -16,7 +16,7 @@ inline void check_cuda_call(CUresult result, const char * file, int line) {
 		cuGetErrorName  (result, &error_name);
 		cuGetErrorString(result, &error_string);
 
-		IO::print("{}:{}: CUDA call failed with error {}!\n{}\n"sv, file, line, error_name, error_string);
+		IO::print("{}:{}: CUDA call failed with error {}!\n{}\n"_sv, file, line, error_name, error_string);
 		__debugbreak();
 	}
 }
