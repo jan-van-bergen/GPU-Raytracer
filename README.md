@@ -11,8 +11,8 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 - Multiple BVH types
   - Standard binary *SAH-based BVH*
   - *SBVH* (Spatial BVH), see [Stich et al. 2009](https://www.nvidia.in/docs/IO/77714/sbvh.pdf). This BVH is able to split across triangles.
-  - *QBVH* (Quaternary BVH). The QBVH is a four-way BVH that is constructed by iteratively collapsing the Nodes of a binary BVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
-  - *CWBVH* (Compressed Wide BVH), see [Ylitie et al. 2017](https://research.nvidia.com/sites/default/files/publications/ylitie2017hpg-paper.pdf). Eight-way BVH that is constructed by collapsing a binary BVH. Each BVH Node is compressed so that it takes up only 80 bytes per node. The implementation incudes the Dynamic Fetch Heurisic as well as Triangle Postponing (see paper). The CWBVH outperforms all other BVH types.
+  - *BVH4* (Quaternary BVH). The BVH4 is a four-way BVH that is constructed by iteratively collapsing the Nodes of a binary BVH. The collapsing procedure was implemented as described in [Wald et al. 2008](https://graphics.stanford.edu/~boulos/papers/multi_rt08.pdf).
+  - *BVH8* (Compressed Wide BVH), see [Ylitie et al. 2017](https://research.nvidia.com/sites/default/files/publications/ylitie2017hpg-paper.pdf). Eight-way BVH that is constructed by collapsing a binary BVH. Each BVH Node is compressed so that it takes up only 80 bytes per node. The implementation incudes the Dynamic Fetch Heurisic as well as Triangle Postponing (see paper). The BVH8 outperforms all other BVH types.
   - BVH Optimization. The SAH cost of binary BVH's can be optimized using a method by [Bittner et al. 2012](https://dspace.cvut.cz/bitstream/handle/10467/15603/2013-Fast-Insertion-Based-Optimization-of-Bounding-Volume-Hierarchies.pdf).
   - All BVH types use Dynamic Ray Fetching to reduce divergence among threads, see [Aila et al. 2009](https://www.nvidia.com/docs/IO/76976/HPG2009-Trace-Efficiency.pdf)
 - Two Level Acceleration Structures
