@@ -445,36 +445,36 @@ void Pathtracer::cuda_init_rng() {
 
 void Pathtracer::cuda_init_events() {
 	int display_order = 0;
-	event_desc_primary = { display_order++, "Primary", "Primary" };
+	event_desc_primary = { display_order++, "Primary"sv, "Primary"sv };
 
 	for (int i = 0; i < MAX_BOUNCES; i++) {
 		String category = Format().format("Bounce {}"sv, i);
 
-		event_desc_trace              [i] = CUDAEvent::Desc { display_order, category, "Trace" };
-		event_desc_sort               [i] = CUDAEvent::Desc { display_order, category, "Sort" };
-		event_desc_material_diffuse   [i] = CUDAEvent::Desc { display_order, category, "Diffuse" };
-		event_desc_material_plastic   [i] = CUDAEvent::Desc { display_order, category, "Plastic" };
-		event_desc_material_dielectric[i] = CUDAEvent::Desc { display_order, category, "Dielectric" };
-		event_desc_material_conductor [i] = CUDAEvent::Desc { display_order, category, "Conductor" };
-		event_desc_shadow_trace       [i] = CUDAEvent::Desc { display_order, category, "Shadow" };
+		event_desc_trace              [i] = CUDAEvent::Desc { display_order, category, "Trace"sv };
+		event_desc_sort               [i] = CUDAEvent::Desc { display_order, category, "Sort"sv };
+		event_desc_material_diffuse   [i] = CUDAEvent::Desc { display_order, category, "Diffuse"sv };
+		event_desc_material_plastic   [i] = CUDAEvent::Desc { display_order, category, "Plastic"sv };
+		event_desc_material_dielectric[i] = CUDAEvent::Desc { display_order, category, "Dielectric"sv };
+		event_desc_material_conductor [i] = CUDAEvent::Desc { display_order, category, "Conductor"sv };
+		event_desc_shadow_trace       [i] = CUDAEvent::Desc { display_order, category, "Shadow"sv };
 
 		display_order++;
 	}
 
-	event_desc_svgf_reproject = { display_order, "SVGF", "Reproject" };
-	event_desc_svgf_variance  = { display_order, "SVGF", "Variance" };
+	event_desc_svgf_reproject = CUDAEvent::Desc { display_order, "SVGF"sv, "Reproject"sv };
+	event_desc_svgf_variance  = CUDAEvent::Desc { display_order, "SVGF"sv, "Variance"sv };
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
 		String name = Format().format("A Trous {}"sv, i);
-		event_desc_svgf_atrous[i] = { display_order, "SVGF", std::move(name) };
+		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "SVGF"sv, std::move(name) };
 	}
-	event_desc_svgf_finalize = { display_order++, "SVGF", "Finalize" };
+	event_desc_svgf_finalize = CUDAEvent::Desc { display_order++, "SVGF"sv, "Finalize"sv };
 
-	event_desc_taa         = { display_order, "Post", "TAA" };
-	event_desc_reconstruct = { display_order, "Post", "Reconstruct" };
-	event_desc_accumulate  = { display_order, "Post", "Accumulate" };
+	event_desc_taa         = CUDAEvent::Desc { display_order, "Post"sv, "TAA"sv };
+	event_desc_reconstruct = CUDAEvent::Desc { display_order, "Post"sv, "Reconstruct"sv };
+	event_desc_accumulate  = CUDAEvent::Desc { display_order, "Post"sv, "Accumulate"sv };
 
-	event_desc_end = { ++display_order, "END", "END" };
+	event_desc_end = CUDAEvent::Desc { ++display_order, "END"sv, "END"sv };
 }
 
 void Pathtracer::cuda_free() {
