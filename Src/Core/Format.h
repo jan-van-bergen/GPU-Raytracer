@@ -6,19 +6,6 @@
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 
-struct Parser;
-
-namespace detail {
-	template<typename Arg, typename ... Args>
-	constexpr auto get(int index) {
-		if constexpr (N == 0) {
-			return Arg;
-		} else {
-			return get<N -1, Args ...>();
-		}
-	}
-}
-
 struct Format {
 	struct Spec {
 		const char * fmt_end;
