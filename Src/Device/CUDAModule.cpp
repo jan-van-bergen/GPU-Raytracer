@@ -34,9 +34,7 @@ struct Include {
 // Returns source code of 'filename'
 static String scan_includes_recursive(const String & filename, StringView directory, Array<Include> & includes, StringView ptx_filename, bool & should_recompile) {
 	String source = IO::file_read(filename);
-
-	Parser parser = { };
-	parser.init(source.view(), filename.view());
+	Parser parser(source.view(), filename.view());
 
 	while (!parser.reached_end()) {
 		if (parser.match("#include")) {

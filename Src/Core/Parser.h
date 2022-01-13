@@ -80,17 +80,15 @@ inline const char * char_to_str(char c) {
 }
 
 struct Parser {
-	const char * cur;
-	const char * start;
-	const char * end;
+	const char * cur   = nullptr;
+	const char * start = nullptr;
+	const char * end   = nullptr;
 
-	SourceLocation location;
+	SourceLocation location = { };
 
-	void init(StringView data, StringView filename = { }) {
-		init(data, SourceLocation { filename, 1, 0 });
-	}
+	Parser(StringView data, StringView filename = { }) : Parser(data, SourceLocation { filename, 1, 0 }) { }
 
-	void init(StringView data, SourceLocation location) {
+	Parser(StringView data, SourceLocation location) {
 		this->cur   = data.start;
 		this->start = data.start;
 		this->end   = data.end;

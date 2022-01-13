@@ -8,9 +8,7 @@
 
 Serialized SerializedLoader::load(const String & filename, SourceLocation location_in_mitsuba_file) {
 	String serialized = IO::file_read(filename);
-
-	Parser parser = { };
-	parser.init(serialized.view(), filename.view());
+	Parser parser(serialized.view(), filename.view());
 
 	uint16_t file_format_id = parser.parse_binary<uint16_t>();
 	if (file_format_id != 0x041c) {
@@ -74,8 +72,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 			}
 		}
 
-		Parser parser = { };
-		parser.init(deserialized.view(), filename.view());
+		Parser parser(deserialized.view(), filename.view());
 
 		// Read flags field
 		uint32_t flags = parser.parse_binary<uint32_t>();

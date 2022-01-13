@@ -246,8 +246,7 @@ static void parse_args(int arg_count, const char ** args) {
 		StringView arg = StringView::from_c_str(args[i]);
 		String arg_name = Format().format("Arg {} ({})"sv, i, arg);
 
-		Parser parser = { };
-		parser.init(arg, arg_name.view());
+		Parser parser(arg, arg_name.view());
 
 		if (parser.match('-')) {
 			bool use_full_name = parser.match('-');

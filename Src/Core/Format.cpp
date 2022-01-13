@@ -3,8 +3,7 @@
 #include "Parser.h"
 
 Format::Spec Format::parse_fmt(StringView fmt) const {
-	Parser parser = { };
-	parser.init(fmt);
+	Parser parser(fmt);
 
 	Spec spec = { };
 	spec.fmt_end = fmt.end;

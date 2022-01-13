@@ -34,9 +34,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 	}
 
 	String file = IO::file_read(bvh_filename);
-
-	Parser parser = { };
-	parser.init(file.view(), bvh_filename.view());
+	Parser parser(file.view(), bvh_filename.view());
 
 	BVHFileHeader header = parser.parse_binary<BVHFileHeader>();
 

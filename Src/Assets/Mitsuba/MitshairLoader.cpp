@@ -9,8 +9,7 @@
 Array<Triangle> MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, float radius) {
 	String file = IO::file_read(filename);
 
-	Parser parser = { };
-	parser.init(file.view(), filename.view());
+	Parser parser(file.view(), filename.view());
 
 	Array<Vector3> hair_vertices;
 	Array<int>     hair_strand_lengths;

@@ -92,8 +92,7 @@ static OBJFile parse_obj(const String & filename) {
 
 	OBJFile obj = { };
 
-	Parser parser = { };
-	parser.init(file.view(), filename.view());
+	Parser parser(file.view(), filename.view());
 
 	while (!parser.reached_end()) {
 		if (parser.match('#') || parser.match("o ")) {

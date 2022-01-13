@@ -670,8 +670,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 }
 
 void MitsubaLoader::load(const String & filename, Scene & scene) {
-	XMLParser xml_parser = { };
-	xml_parser.init(filename);
+	XMLParser xml_parser(filename);
 
 	XMLNode root = xml_parser.parse_root();
 
@@ -682,9 +681,7 @@ void MitsubaLoader::load(const String & filename, Scene & scene) {
 
 	{
 		StringView version = scene_node->get_attribute_value<StringView>("version");
-
-		Parser version_parser = { };
-		version_parser.init(version);
+		Parser version_parser(version);
 
 		int major = version_parser.parse_int(); version_parser.expect('.');
 		int minor = version_parser.parse_int(); version_parser.expect('.');

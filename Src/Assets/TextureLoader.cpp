@@ -17,9 +17,7 @@
 
 bool TextureLoader::load_dds(const String & filename, Texture & texture) {
 	String file = IO::file_read(filename);
-
-	Parser parser = { };
-	parser.init(file.view(), filename.view());
+	Parser parser(file.view(), filename.view());
 
 	// Based on: https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dds-header
 	struct DDSHeader {
