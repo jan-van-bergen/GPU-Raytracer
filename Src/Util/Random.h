@@ -7,7 +7,7 @@
 struct RNG {
 	uint64_t state;
 
-	void init(uint64_t seed) {
+	RNG(uint64_t seed) {
 		constexpr uint32_t MUL32 = 747796405u;
 		constexpr uint32_t INC32 = 2891336453u;
 		state = (seed + INC32) * MUL32 + INC32;

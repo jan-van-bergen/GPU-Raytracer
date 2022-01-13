@@ -246,8 +246,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 	Array<int> originated  (bvh.nodes.size());
 	Array<int> displacement(bvh.nodes.size());
 
-	RNG rng = { };
-	rng.init(time(nullptr));
+	RNG rng(time(nullptr));
 
 	clock_t start_time = clock();
 

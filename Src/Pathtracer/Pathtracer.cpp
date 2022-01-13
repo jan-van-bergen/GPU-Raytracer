@@ -465,8 +465,7 @@ void Pathtracer::cuda_init_events() {
 	event_desc_svgf_variance  = CUDAEvent::Desc { display_order, "SVGF"sv, "Variance"sv };
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
-		String name = Format().format("A Trous {}"sv, i);
-		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "SVGF"sv, std::move(name) };
+		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "SVGF"sv, Format().format("A Trous {}"sv, i) };
 	}
 	event_desc_svgf_finalize = CUDAEvent::Desc { display_order++, "SVGF"sv, "Finalize"sv };
 
