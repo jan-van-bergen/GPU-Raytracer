@@ -24,9 +24,10 @@ private:
 
 		char distribute_left  = INVALID;
 		char distribute_right = INVALID;
+
+		float cost;
 	};
 
-	Array<float>    cost;
 	Array<Decision> decisions;
 
 	int calculate_cost(int node_index, const Array<BVHNode2> & nodes);

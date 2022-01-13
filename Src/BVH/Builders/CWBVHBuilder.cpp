@@ -20,8 +20,8 @@ int CWBVHBuilder::calculate_cost(int node_index, const Array<BVHNode2> & nodes) 
 		float cost_leaf = node.aabb.surface_area() * float(num_primitives);
 
 		for (int i = 0; i < 7; i++) {
-			cost     [node_index * 7 + i]      = cost_leaf;
 			decisions[node_index * 7 + i].type = Decision::Type::LEAF;
+			decisions[node_index * 7 + i].cost = cost_leaf;
 		}
 	} else {
 		num_primitives =
@@ -39,8 +39,8 @@ int CWBVHBuilder::calculate_cost(int node_index, const Array<BVHNode2> & nodes) 
 
 			for (int k = 0; k < 7; k++) {
 				float c =
-					cost[(node.left)     * 7 +     k] +
-					cost[(node.left + 1) * 7 + 6 - k];
+					decisions[(node.left)     * 7 +     k].cost +
+					decisions[(node.left + 1) * 7 + 6 - k].cost;
 
 				if (c < cost_distribute) {
 					cost_distribute = c;
@@ -53,13 +53,11 @@ int CWBVHBuilder::calculate_cost(int node_index, const Array<BVHNode2> & nodes) 
 			float cost_internal = cost_distribute + node.aabb.surface_area();
 
 			if (cost_leaf < cost_internal) {
-				cost[node_index * 7] = cost_leaf;
-
 				decisions[node_index * 7].type = Decision::Type::LEAF;
+				decisions[node_index * 7].cost = cost_leaf;
 			} else {
-				cost[node_index * 7] = cost_internal;
-
 				decisions[node_index * 7].type = Decision::Type::INTERNAL;
+				decisions[node_index * 7].cost = cost_internal;
 			}
 
 			decisions[node_index * 7].distribute_left  = distribute_left;
@@ -68,15 +66,15 @@ int CWBVHBuilder::calculate_cost(int node_index, const Array<BVHNode2> & nodes) 
 
 		// In the paper i=2..7
 		for (int i = 1; i < 7; i++) {
-			float cost_distribute = cost[node_index * 7 + i - 1];
+			float cost_distribute = decisions[node_index * 7 + i - 1].cost;
 
 			char distribute_left  = INVALID;
 			char distribute_right = INVALID;
 
 			for (int k = 0; k < i; k++) {
 				float c =
-					cost[(node.left)     * 7 +     k    ] +
-					cost[(node.left + 1) * 7 + i - k - 1];
+					decisions[(node.left)     * 7 +     k    ].cost +
+					decisions[(node.left + 1) * 7 + i - k - 1].cost;
 
 				if (c < cost_distribute) {
 					cost_distribute = c;
@@ -86,7 +84,7 @@ int CWBVHBuilder::calculate_cost(int node_index, const Array<BVHNode2> & nodes) 
 				}
 			}
 
-			cost[node_index * 7 + i] = cost_distribute;
+			decisions[node_index * 7 + i].cost = cost_distribute;
 
 			if (distribute_left != INVALID) {
 				decisions[node_index * 7 + i].type = Decision::Type::DISTRIBUTE;
@@ -338,7 +336,6 @@ void CWBVHBuilder::build(const BVH2 & bvh) {
 	cwbvh->nodes.clear();
 	cwbvh->nodes.emplace_back(); // Root
 
-	cost     .resize(bvh.nodes.size() * 7);
 	decisions.resize(bvh.nodes.size() * 7);
 
 	// Fill cost table using dynamic programming (bottom up)
