@@ -42,10 +42,7 @@ void Scene::init(const SceneConfig & scene_config) {
 }
 
 Mesh & Scene::add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
-	Mesh & mesh = meshes.emplace_back();
-	mesh.init(std::move(name), mesh_data_handle, material_handle, *this);
-
-	return mesh;
+	return meshes.emplace_back(std::move(name), mesh_data_handle, material_handle, *this);
 }
 
 void Scene::check_materials() {

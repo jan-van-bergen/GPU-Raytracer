@@ -117,7 +117,7 @@ struct Array {
 		}
 		buffer = new_buffer;
 
-		if constexpr (!std::is_trivially_constructible_v<T>) {
+		if constexpr (std::is_constructible_v<T>) {
 			// Construct new elements (if any)
 			for (size_t i = count; i < new_count; i++) {
 				new(data() + i) T();

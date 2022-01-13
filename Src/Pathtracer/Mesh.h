@@ -34,7 +34,7 @@ struct Mesh {
 		int triangle_count;
 	} light;
 
-	void init(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene);
+	Mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, const Scene & scene);
 
 	void update();
 

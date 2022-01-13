@@ -88,8 +88,13 @@ public:
 
 	void wait_until_loaded();
 
-	inline MeshData & get_mesh_data(MeshDataHandle handle) { return mesh_datas[handle.handle]; }
-	inline Material & get_material (MaterialHandle handle) { return materials [handle.handle]; }
-	inline Medium   & get_medium   (MediumHandle   handle) { return media     [handle.handle]; }
-	inline Texture  & get_texture  (TextureHandle  handle) { return textures  [handle.handle]; }
+	MeshData & get_mesh_data(MeshDataHandle handle) { return mesh_datas[handle.handle]; }
+	Material & get_material (MaterialHandle handle) { return materials [handle.handle]; }
+	Medium   & get_medium   (MediumHandle   handle) { return media     [handle.handle]; }
+	Texture  & get_texture  (TextureHandle  handle) { return textures  [handle.handle]; }
+
+	const MeshData & get_mesh_data(MeshDataHandle handle) const { return mesh_datas[handle.handle]; }
+	const Material & get_material (MaterialHandle handle) const { return materials [handle.handle]; }
+	const Medium   & get_medium   (MediumHandle   handle) const { return media     [handle.handle]; }
+	const Texture  & get_texture  (TextureHandle  handle) const { return textures  [handle.handle]; }
 };
