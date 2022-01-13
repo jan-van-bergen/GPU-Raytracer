@@ -33,7 +33,6 @@ struct OwnPtr {
 
 	void release() {
 		if (ptr) {
-			ptr->~T();
 			delete ptr;
 			ptr = nullptr;
 		}
