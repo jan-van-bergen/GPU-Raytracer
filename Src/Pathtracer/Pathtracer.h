@@ -348,6 +348,8 @@ private:
 			float   roughness;
 			Vector3 k;
 		} conductor;
+
+		CUDAMaterial() { }
 	};
 
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;

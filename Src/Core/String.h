@@ -171,9 +171,3 @@ inline bool operator!=(const String & a, const String & b) {
 
 	return false;
 }
-
-struct StringHash {
-	size_t operator()(const String & str) {
-		return StringViewHash()(str.view());
-	}
-};

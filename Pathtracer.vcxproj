@@ -277,6 +277,7 @@
     <ClInclude Include="Src\Core\Assertion.h" />
     <ClInclude Include="Src\Core\BitArray.h" />
     <ClInclude Include="Src\Core\Format.h" />
+    <ClInclude Include="Src\Core\Hash.h" />
     <ClInclude Include="Src\Core\HashMap.h" />
     <ClInclude Include="Src\Core\IO.h" />
     <ClInclude Include="Src\Core\MinHeap.h" />

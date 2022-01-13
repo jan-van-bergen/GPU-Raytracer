@@ -29,10 +29,10 @@ struct ShapeGroup {
 	MaterialHandle material_handle;
 };
 
-using ShapeGroupMap = HashMap<String, ShapeGroup,     StringHash>;
-using SerializedMap = HashMap<String, Serialized,     StringHash>;
-using MaterialMap   = HashMap<String, MaterialHandle, StringHash>;
-using TextureMap    = HashMap<String, TextureHandle,  StringHash>;
+using ShapeGroupMap = HashMap<String, ShapeGroup>;
+using SerializedMap = HashMap<String, Serialized>;
+using MaterialMap   = HashMap<String, MaterialHandle>;
+using TextureMap    = HashMap<String, TextureHandle>;
 
 static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene) {
 	StringView type = node->get_attribute_value("type");

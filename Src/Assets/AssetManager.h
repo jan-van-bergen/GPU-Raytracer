@@ -25,8 +25,8 @@ struct AssetManager {
 	~AssetManager();
 
 private:
-	HashMap<String, MeshDataHandle, StringHash> mesh_data_cache;
-	HashMap<String, TextureHandle,  StringHash> texture_cache;
+	HashMap<String, MeshDataHandle> mesh_data_cache;
+	HashMap<String, TextureHandle>  texture_cache;
 
 	Mutex mesh_datas_mutex;
 	Mutex textures_mutex;

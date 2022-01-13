@@ -1,6 +1,8 @@
 #pragma once
 #include <string.h>
 
+#include "Hash.h"
+
 struct StringView {
 	const char * start;
 	const char * end;
@@ -28,23 +30,6 @@ struct StringView {
 inline constexpr StringView operator "" sv(const char * str, size_t length) {
 	return StringView::from_c_str(str, length);
 }
-
-struct StringViewHash {
-	// Based on: https://www.geeksforgeeks.org/string-hashing-using-polynomial-rolling-hash-function/
-	size_t operator()(const StringView & str) const {
-		static constexpr int p = 31;
-		static constexpr int m = 1'000'000'009;
-
-		size_t hash = 0;
-		size_t p_pow = 1;
-		for (int i = 0; i < str.length(); i++) {
-			hash = (hash + (str[i] - 'a' + 1) * p_pow) % m;
-			p_pow = (p_pow * p) % m;
-		}
-
-		return hash;
-	}
-};
 
 template<int N>
 inline bool operator==(const StringView & a, const char (&b)[N]) {

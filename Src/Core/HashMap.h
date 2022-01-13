@@ -1,8 +1,10 @@
 #pragma once
 #include <string.h>
 
+#include "Hash.h"
+
 // Hash Map using linear probing
-template<typename Key, typename Value, typename Hash = std::hash<Key>, typename Cmp = std::equal_to<Key>>
+template<typename Key, typename Value, typename Hash = Hash<Key>, typename Cmp = Cmp<Key>>
 struct HashMap {
 	struct Map {
 		size_t count    = 0;
