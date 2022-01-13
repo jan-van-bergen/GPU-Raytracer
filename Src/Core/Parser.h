@@ -141,10 +141,10 @@ struct Parser {
 		return false;
 	}
 
-	template<int N>
-	bool match(const char (& target)[N]) {
-		if (cur + N - 1 <= end && strncmp(cur, target, N - 1) == 0) {
-			for (int i = 0; i < N - 1; i++) {
+	bool match(StringView target) {
+		size_t length = target.length();
+		if (cur + length <= end && target == StringView { cur, cur + length }) {
+			for (size_t i = 0; i < length; i++) {
 				advance();
 			}
 			return true;
@@ -153,14 +153,8 @@ struct Parser {
 	}
 
 	template<int N>
-	bool match_any_case(const char (& target)[N]) {
-		if (cur + N - 1 <= end && strncasecmp(cur, target, N - 1) == 0) {
-			for (int i = 0; i < N - 1; i++) {
-				advance();
-			}
-			return true;
-		}
-		return false;
+	bool match(const char (& target)[N]) {
+		return match(StringView { target, target + N - 1 });
 	}
 
 	void expect(char expected) {
@@ -181,7 +175,7 @@ struct Parser {
 	}
 
 	float parse_float() {
-		if (match_any_case("nan")) {
+		if (match("nan") || match("NAN")) {
 			return NAN;
 		}
 
@@ -193,7 +187,7 @@ struct Parser {
 		}
 		skip_whitespace();
 
-		if (match_any_case("inf") || match_any_case("infinity")) {
+		if (match("inf") || match("INF") || match("infinity") || match("INFINITY")) {
 			return sign ? -INFINITY : INFINITY;
 		}
 

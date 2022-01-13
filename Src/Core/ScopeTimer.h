@@ -8,11 +8,11 @@ struct ScopeTimer {
 	StringView name;
 	std::chrono::high_resolution_clock::time_point start_time;
 
-	inline ScopeTimer(StringView name) : name(name) {
+	ScopeTimer(StringView name) : name(name) {
 		start_time = std::chrono::high_resolution_clock::now();
 	}
 
-	inline ~ScopeTimer() {
+	~ScopeTimer() {
 		std::chrono::time_point stop_time = std::chrono::high_resolution_clock::now();
 		size_t                  duration  = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
 

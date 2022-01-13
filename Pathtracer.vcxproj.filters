@@ -139,6 +139,7 @@
     <ClCompile Include="include\Imgui\imgui_demo.cpp">
       <Filter>ThirdParty</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Args.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -377,5 +378,6 @@
     <ClInclude Include="Src\BVH\Converters\BVHConverter.h">
       <Filter>BVH\Converters</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Args.h" />
   </ItemGroup>
 </Project>

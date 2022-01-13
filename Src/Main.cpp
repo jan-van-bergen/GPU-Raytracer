@@ -5,6 +5,7 @@
 #include "Pathtracer/Pathtracer.h"
 
 #include "Config.h"
+#include "Args.h"
 
 #include "Core/Parser.h"
 #include "Core/ScopeTimer.h"
@@ -14,6 +15,7 @@
 
 #include "Util/Util.h"
 #include "Util/PerfTest.h"
+
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used
 
 static Window window;
@@ -50,14 +52,13 @@ struct Timing {
 static int last_pixel_query_x;
 static int last_pixel_query_y;
 
-static void parse_args(int arg_count, const char ** args);
 static void capture_screen(const Window & window, const String & filename);
 static void window_resize(unsigned frame_buffer_handle, int width, int height);
 static void calc_timing();
 static void draw_gui();
 
-int main(int arg_count, char ** args) {
-	parse_args(arg_count, const_cast<const char **>(args));
+int main(int num_args, char ** args) {
+	Args::parse(num_args, args);
 
 	if (scene_config.scene_filenames.size() == 0) {
 		scene_config.scene_filenames.push_back("Data/cornellbox/scene.xml");
@@ -141,148 +142,6 @@ int main(int arg_count, char ** args) {
 	window.free();
 
 	return EXIT_SUCCESS;
-}
-
-static bool atob(const char * str) {
-	if (
-		strcmp(str, "true") == 0 ||
-		strcmp(str, "True") == 0 ||
-		strcmp(str, "TRUE") == 0 ||
-		strcmp(str, "1")    == 0) {
-		return true;
-	} else if (
-		strcmp(str, "false") == 0 ||
-		strcmp(str, "False") == 0 ||
-		strcmp(str, "FALSE") == 0 ||
-		strcmp(str, "0")     == 0) {
-		return false;
-	} else {
-		IO::print("Invalid boolean argument '{}'!\n"_sv, str);
-		return true;
-	}
-};
-
-static void parse_args(int arg_count, const char ** args) {
-	struct Option {
-		const char * name_short;
-		const char * name_full;
-
-		const char * help_text;
-
-		int num_args;
-
-		void (* action)(int arg_count, const char ** args, int i);
-	};
-
-	static Array<Option> options = {
-		Option { "W", "width",   "Sets the width of the window",                     1, [](int arg_count, const char ** args, int i) { config.initial_width       = atoi(args[i + 1]); } },
-		Option { "H", "height",  "Sets the height of the window",                    1, [](int arg_count, const char ** args, int i) { config.initial_height      = atoi(args[i + 1]); } },
-		Option { "b", "bounce",  "Sets the number of pathtracing bounces",           1, [](int arg_count, const char ** args, int i) { config.num_bounces         = Math::clamp(atoi(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N", "samples", "Sets a target number of samples to use",           1, [](int arg_count, const char ** args, int i) { config.output_sample_index = atoi(args[i + 1]); } },
-		Option { "o", "output",  "Sets path to output file. Supported formats: ppm", 1, [](int arg_count, const char ** args, int i) { config.output_name         = args[i + 1]; } },
-
-		Option { "s", "scene", "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY", 1, [](int arg_count, const char ** args, int i) { scene_config.scene_filenames.push_back(args[i + 1]); } },
-		Option { "S", "sky",   "Sets path to sky file. Supported formats: HDR",                         1, [](int arg_count, const char ** args, int i) { scene_config.sky_filename = args[i + 1]; } },
-
-		Option { "b", "bvh", "Sets type of BLAS BVH used: Supported options: sah, sbvh, bvh4, bvh8", 1, [](int arg_count, const char ** args, int i) {
-			if (strcmp(args[i + 1], "sah") == 0) {
-				config.bvh_type = BVHType::BVH;
-			} else if (strcmp(args[i + 1], "sbvh") == 0) {
-				config.bvh_type = BVHType::SBVH;
-			} else if (strcmp(args[i + 1], "bvh4") == 0) {
-				config.bvh_type = BVHType::BVH4;
-			} else if (strcmp(args[i + 1], "bvh8") == 0) {
-				config.bvh_type = BVHType::BVH8;
-			} else {
-				IO::print("'{}' is not a recognized BVH type! Supported options: sah, sbvh, bvh4, bvh8\n"_sv, args[i + 1]);
-				abort();
-			}
-		} },
-
-		Option { nullptr, "albedo", "Enables or disables albedo",                       1, [](int arg_count, const char ** args, int i) { config.enable_albedo                       = atob(args[i + 1]); } },
-		Option { nullptr, "nee",    "Enables or disables Next Event Estimation",        1, [](int arg_count, const char ** args, int i) { config.enable_next_event_estimation        = atob(args[i + 1]); } },
-		Option { nullptr, "mis",    "Enables or disables Multiple Importance Sampling", 1, [](int arg_count, const char ** args, int i) { config.enable_multiple_importance_sampling = atob(args[i + 1]); } },
-
-		Option { nullptr, "force-rebuild", "BVH will not be loaded from disk but rebuild from scratch",                                           0, [](int arg_count, const char ** args, int i) { config.bvh_force_rebuild             = true; } },
-
-		Option { "O",  "optimize",    "Enables or disables BVH optimzation post-processing step",               1, [](int arg_count, const char ** args, int i) { config.enable_bvh_optimization       = atob(args[i + 1]); } },
-		Option { "Ot", "opt-time",    "Sets time limit (in seconds) for BVH optimization",                      1, [](int arg_count, const char ** args, int i) { config.bvh_optimizer_max_time        = atoi(args[i + 1]); } },
-		Option { "Ob", "opt-batches", "Sets a limit on the maximum number of batches used in BVH optimization", 1, [](int arg_count, const char ** args, int i) { config.bvh_optimizer_max_num_batches = atoi(args[i + 1]); } },
-
-		Option { nullptr, "sah-node",    "Sets the SAH cost of an internal BVH node",                                                             1, [](int arg_count, const char ** args, int i) { config.sah_cost_node                 = float(atof(args[i + 1])); } },
-		Option { nullptr, "sah-leaf",    "Sets the SAH cost of a leaf BVH node",                                                                  1, [](int arg_count, const char ** args, int i) { config.sah_cost_leaf                 = float(atof(args[i + 1])); } },
-		Option { nullptr, "sbvh-alpha",  "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH", 1, [](int arg_count, const char ** args, int i) { config.sbvh_alpha                    = float(atof(args[i + 1])); } },
-
-		Option { nullptr, "mipmap",      "Enables or disables texture mipmapping",                                                     1, [](int arg_count, const char ** args, int i) { config.enable_mipmapping             = atob(args[i + 1]); } },
-		Option { nullptr, "mip-filter",  "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser", 1, [](int arg_count, const char ** args, int i) {
-			if (strcmp(args[i + 1], "box") == 0) {
-				config.mipmap_filter = Config::MipmapFilter::BOX;
-			} else if (strcmp(args[i + 1], "lanczos") == 0) {
-				config.mipmap_filter = Config::MipmapFilter::LANCZOS;
-			} else if (strcmp(args[i + 1], "kaiser") == 0) {
-				config.mipmap_filter = Config::MipmapFilter::KAISER;
-			} else {
-				IO::print("'{}' is not a recognized Mipmap Filter!\n"_sv, args[i + 1]);
-				abort();
-			}
-		} },
-		Option { "c", "compress", "Enables or disables texture block compression", 1, [](int arg_count, const char ** args, int i) { config.enable_block_compression = atob(args[i + 1]); } },
-	};
-
-	options.emplace_back("h", "help", "Displays this message", 0, [](int arg_count, const char ** args, int i) {
-		for (int o = 0; o < options.size(); o++) {
-			const Option & option = options[o];
-
-			if (option.name_short) {
-				IO::print("-{},\t--{:16}{}\n"_sv, option.name_short, option.name_full, option.help_text);
-			} else {
-				IO::print("\t--{:16}{}\n"_sv, option.name_full, option.help_text);
-			}
-		}
-		exit(EXIT_SUCCESS);
-	});
-
-	for (int i = 1; i < arg_count; i++) {
-		StringView arg = StringView::from_c_str(args[i]);
-		String arg_name = Format().format("Arg {} ({})"_sv, i, arg);
-
-		Parser parser(arg, arg_name.view());
-
-		if (parser.match('-')) {
-			bool use_full_name = parser.match('-');
-
-			bool match = false;
-
-			for (int o = 0; o < options.size(); o++) {
-				const Option & option = options[o];
-
-				if (use_full_name) {
-					match = strcmp(parser.cur, option.name_full) == 0;
-				} else if (option.name_short) {
-					match = strcmp(parser.cur, option.name_short) == 0;
-				}
-
-				if (match) {
-					if (i + option.num_args >= arg_count) {
-						IO::print("Not enough arguments provided to option '{}'!\n"_sv, option.name_full);
-						return;
-					}
-
-					option.action(arg_count, args, i);
-					i += option.num_args;
-
-					break;
-				}
-			}
-
-			if (!match) {
-				IO::print("Unrecognized command line option '{}'\nUse --help for a list of valid options\n"_sv, parser.cur);
-			}
-		} else {
-			// Without explicit option, assume scene name
-			scene_config.scene_filenames.push_back(arg);
-		}
-	}
 }
 
 static void capture_screen(const Window & window, const String & filename) {
@@ -494,7 +353,7 @@ static void draw_gui() {
 
 			invalidated_config |= ImGui::Checkbox("Update Scene", &config.enable_scene_update);
 
-			if (ImGui::Checkbox("_svGF", &config.enable_svgf)) {
+			if (ImGui::Checkbox("SVGF", &config.enable_svgf)) {
 				if (config.enable_svgf) {
 					pathtracer.svgf_init();
 				} else {
@@ -503,9 +362,9 @@ static void draw_gui() {
 				invalidated_config = true;
 			}
 
-			invalidated_config |= ImGui::Checkbox("Spatial Variance",  &config.enable_spatial_variance);
-			invalidated_config |= ImGui::Checkbox("TAA",               &config.enable_taa);
-			invalidated_config |= ImGui::Checkbox("Modulate Albedo",   &config.enable_albedo);
+			invalidated_config |= ImGui::Checkbox("Spatial Variance", &config.enable_spatial_variance);
+			invalidated_config |= ImGui::Checkbox("TAA",              &config.enable_taa);
+			invalidated_config |= ImGui::Checkbox("Modulate Albedo",  &config.enable_albedo);
 
 			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.reconstruction_filter), "Box\0Tent\0Gaussian\0");
 

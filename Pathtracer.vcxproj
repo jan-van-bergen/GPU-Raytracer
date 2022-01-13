@@ -204,6 +204,7 @@
     <ClCompile Include="include\Imgui\imgui_impl_sdl.cpp" />
     <ClCompile Include="include\Imgui\imgui_widgets.cpp" />
     <ClCompile Include="include\miniz\miniz.c" />
+    <ClCompile Include="Src\Args.cpp" />
     <ClCompile Include="Src\Assets\AssetManager.cpp" />
     <ClCompile Include="Src\Assets\BVHLoader.cpp" />
     <ClCompile Include="Src\Assets\Mitsuba\MitshairLoader.cpp" />
@@ -247,6 +248,7 @@
     <ClCompile Include="Src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Args.h" />
     <ClInclude Include="Src\Assets\AssetManager.h" />
     <ClInclude Include="Src\Assets\BVHLoader.h" />
     <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h" />

@@ -68,7 +68,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	global_camera      = cuda_module.get_global("camera");
 	global_config      = cuda_module.get_global("config");
-	global_svgf_data   = cuda_module.get_global("_svgf_data");
+	global_svgf_data   = cuda_module.get_global("svgf_data");
 	global_pixel_query = cuda_module.get_global("pixel_query");
 
 	global_lights_total_weight = cuda_module.get_global("lights_total_weight");
@@ -461,13 +461,13 @@ void Pathtracer::cuda_init_events() {
 		display_order++;
 	}
 
-	event_desc_svgf_reproject = CUDAEvent::Desc { display_order, "_svGF"_sv, "Reproject"_sv };
-	event_desc_svgf_variance  = CUDAEvent::Desc { display_order, "_svGF"_sv, "Variance"_sv };
+	event_desc_svgf_reproject = CUDAEvent::Desc { display_order, "SVGF"_sv, "Reproject"_sv };
+	event_desc_svgf_variance  = CUDAEvent::Desc { display_order, "SVGF"_sv, "Variance"_sv };
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
-		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "_svGF"_sv, Format().format("A Trous {}"_sv, i) };
+		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "SVGF"_sv, Format().format("A Trous {}"_sv, i) };
 	}
-	event_desc_svgf_finalize = CUDAEvent::Desc { display_order++, "_svGF"_sv, "Finalize"_sv };
+	event_desc_svgf_finalize = CUDAEvent::Desc { display_order++, "SVGF"_sv, "Finalize"_sv };
 
 	event_desc_taa         = CUDAEvent::Desc { display_order, "Post"_sv, "TAA"_sv };
 	event_desc_reconstruct = CUDAEvent::Desc { display_order, "Post"_sv, "Reconstruct"_sv };
