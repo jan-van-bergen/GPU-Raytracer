@@ -197,12 +197,12 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Imgui\imgui.cpp" />
-    <ClCompile Include="Imgui\imgui_demo.cpp" />
-    <ClCompile Include="Imgui\imgui_draw.cpp" />
-    <ClCompile Include="Imgui\imgui_impl_opengl3.cpp" />
-    <ClCompile Include="Imgui\imgui_impl_sdl.cpp" />
-    <ClCompile Include="Imgui\imgui_widgets.cpp" />
+    <ClCompile Include="include\Imgui\imgui.cpp" />
+    <ClCompile Include="include\Imgui\imgui_demo.cpp" />
+    <ClCompile Include="include\Imgui\imgui_draw.cpp" />
+    <ClCompile Include="include\Imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="include\Imgui\imgui_impl_sdl.cpp" />
+    <ClCompile Include="include\Imgui\imgui_widgets.cpp" />
     <ClCompile Include="include\miniz\miniz.c" />
     <ClCompile Include="Src\Assets\AssetManager.cpp" />
     <ClCompile Include="Src\Assets\BVHLoader.cpp" />
@@ -247,14 +247,6 @@
     <ClCompile Include="Src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Imgui\imconfig.h" />
-    <ClInclude Include="Imgui\imgui.h" />
-    <ClInclude Include="Imgui\imgui_impl_opengl3.h" />
-    <ClInclude Include="Imgui\imgui_impl_sdl.h" />
-    <ClInclude Include="Imgui\imgui_internal.h" />
-    <ClInclude Include="Imgui\imstb_rectpack.h" />
-    <ClInclude Include="Imgui\imstb_textedit.h" />
-    <ClInclude Include="Imgui\imstb_truetype.h" />
     <ClInclude Include="Src\Assets\AssetManager.h" />
     <ClInclude Include="Src\Assets\BVHLoader.h" />
     <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h" />

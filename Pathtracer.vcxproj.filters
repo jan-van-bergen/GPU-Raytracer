@@ -1,24 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Imgui\imgui.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_demo.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_draw.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_impl_opengl3.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_impl_sdl.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_widgets.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Assets\OBJLoader.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
@@ -68,9 +50,6 @@
       <Filter>Assets</Filter>
     </ClCompile>
     <ClCompile Include="Src\Util\Geometry.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
-    <ClCompile Include="include\miniz\miniz.c">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Src\Util\ThreadPool.cpp">
@@ -139,6 +118,27 @@
     <ClCompile Include="Src\BVH\Converters\BVH8Converter.cpp">
       <Filter>BVH\Converters</Filter>
     </ClCompile>
+    <ClCompile Include="include\miniz\miniz.c">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_draw.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_impl_opengl3.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_impl_sdl.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_widgets.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_demo.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -156,9 +156,6 @@
     <Filter Include="Assets">
       <UniqueIdentifier>{6f3338e2-ac89-4452-8dcb-2d4fb9144c6e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Imgui">
-      <UniqueIdentifier>{037b16ff-a350-4457-a943-8623a74530aa}</UniqueIdentifier>
-    </Filter>
     <Filter Include="BVH\Builders">
       <UniqueIdentifier>{2a80c523-a358-438a-aead-602c959f8290}</UniqueIdentifier>
     </Filter>
@@ -174,32 +171,11 @@
     <Filter Include="BVH\Converters">
       <UniqueIdentifier>{b6bbcdb4-f4d5-47ff-b52f-73177afa4d05}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ThirdParty">
+      <UniqueIdentifier>{b7816568-63dd-49a2-8af3-9802d3c9c530}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Imgui\imconfig.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui_impl_opengl3.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui_impl_sdl.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui_internal.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imstb_rectpack.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imstb_textedit.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imstb_truetype.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Assets\OBJLoader.h">
       <Filter>Assets</Filter>
     </ClInclude>
