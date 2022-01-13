@@ -8,7 +8,6 @@
 struct PrimitiveRef;
 
 struct SBVHBuilder {
-
 	BVH2 * sbvh = nullptr;
 
 	Array<PrimitiveRef> indices[3];

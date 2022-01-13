@@ -365,10 +365,10 @@ private:
 		float       lod_bias;
 	};
 
-	Array<CUDATexture     > textures;
+	Array<CUDATexture>      textures;
 	Array<CUmipmappedArray> texture_arrays;
 
-	CUDAMemory::Ptr<CUDATexture>  ptr_textures;
+	CUDAMemory::Ptr<CUDATexture> ptr_textures;
 
 	struct CUDATriangle {
 		Vector3 position_0;
@@ -386,14 +386,14 @@ private:
 
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
 
-	CUDAMemory::Ptr<BVHNode2>    ptr_bvh_nodes_2;
-	CUDAMemory::Ptr<BVHNode4>    ptr_bvh_nodes_4;
-	CUDAMemory::Ptr<BVHNode8>    ptr_bvh_nodes_8;
-	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
-	CUDAMemory::Ptr<int>         ptr_mesh_material_ids;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_prev;
+	CUDAMemory::Ptr<BVHNode2>  ptr_bvh_nodes_2;
+	CUDAMemory::Ptr<BVHNode4>  ptr_bvh_nodes_4;
+	CUDAMemory::Ptr<BVHNode8>  ptr_bvh_nodes_8;
+	CUDAMemory::Ptr<int>       ptr_mesh_bvh_root_indices;
+	CUDAMemory::Ptr<int>       ptr_mesh_material_ids;
+	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms;
+	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms_inv;
+	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms_prev;
 
 	CUDAModule::Global global_lights_total_weight;
 
