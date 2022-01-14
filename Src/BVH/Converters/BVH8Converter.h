@@ -30,8 +30,8 @@ private:
 
 	int calculate_cost(int node_index, const Array<BVHNode2> & nodes);
 
-	void get_children  (int node_index, const Array<BVHNode2> & nodes, int i, int & child_count, int children[8]);
-	void order_children(int node_index, const Array<BVHNode2> & nodes, int children[8], int child_count);
+	void get_children  (int node_index, const Array<BVHNode2> & nodes, int children[8], int & child_count, int i);
+	void order_children(int node_index, const Array<BVHNode2> & nodes, int children[8], int   child_count);
 
 	int count_primitives(int node_index, const Array<BVHNode2> & nodes, const Array<int> & indices_sbvh);
 

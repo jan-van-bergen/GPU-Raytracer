@@ -116,7 +116,7 @@ int BVH8Converter::calculate_cost(int node_index, const Array<BVHNode2> & nodes)
 	return num_primitives;
 }
 
-void BVH8Converter::get_children(int node_index, const Array<BVHNode2> & nodes, int i, int & child_count, int children[8]) {
+void BVH8Converter::get_children(int node_index, const Array<BVHNode2> & nodes, int children[8], int & child_count, int i) {
 	const BVHNode2 & node = nodes[node_index];
 
 	if (node.is_leaf()) {
@@ -135,37 +135,17 @@ void BVH8Converter::get_children(int node_index, const Array<BVHNode2> & nodes, 
 
 	// Recurse on left child if it needs to distribute
 	if (decisions[node.left * 7 + distribute_left].type == Decision::Type::DISTRIBUTE) {
-		get_children(node.left, nodes, distribute_left, child_count, children);
+		get_children(node.left, nodes, children, child_count, distribute_left);
 	} else {
 		children[child_count++] = node.left;
 	}
 
 	// Recurse on right child if it needs to distribute
 	if (decisions[(node.left + 1) * 7 + distribute_right].type == Decision::Type::DISTRIBUTE) {
-		get_children(node.left + 1, nodes, distribute_right, child_count, children);
+		get_children(node.left + 1, nodes, children, child_count, distribute_left);
 	} else {
 		children[child_count++] = node.left + 1;
 	}
-}
-
-// Recursively count triangles in subtree of the given Node
-// Simultaneously fills the indices buffer of the CWBVH
-int BVH8Converter::count_primitives(int node_index, const Array<BVHNode2> & nodes, const Array<int> & indices) {
-	const BVHNode2 & node = nodes[node_index];
-
-	if (node.is_leaf()) {
-		ASSERT(node.count == 1);
-
-		for (unsigned i = 0; i < node.count; i++) {
-			bvh8.indices.push_back(indices[node.first + i]);
-		}
-
-		return node.count;
-	}
-
-	return
-		count_primitives(node.left,     nodes, indices) +
-		count_primitives(node.left + 1, nodes, indices);
 }
 
 void BVH8Converter::order_children(int node_index, const Array<BVHNode2> & nodes, int children[8], int child_count) {
@@ -231,6 +211,26 @@ void BVH8Converter::order_children(int node_index, const Array<BVHNode2> & nodes
 	}
 }
 
+// Recursively count triangles in subtree of the given Node
+// Simultaneously fills the indices buffer of the CWBVH
+int BVH8Converter::count_primitives(int node_index, const Array<BVHNode2> & nodes, const Array<int> & indices) {
+	const BVHNode2 & node = nodes[node_index];
+
+	if (node.is_leaf()) {
+		ASSERT(node.count == 1);
+
+		for (unsigned i = 0; i < node.count; i++) {
+			bvh8.indices.push_back(indices[node.first + i]);
+		}
+
+		return node.count;
+	}
+
+	return
+		count_primitives(node.left,     nodes, indices) +
+		count_primitives(node.left + 1, nodes, indices);
+}
+
 void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_cwbvh, int node_index_bvh) {
 	BVHNode8 & node = bvh8.nodes[node_index_cwbvh];
 	const AABB & aabb = nodes_bvh[node_index_bvh].aabb;
@@ -268,8 +268,7 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 
 	int child_count = 0;
 	int children[8] = { INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID };
-	get_children(node_index_bvh, nodes_bvh, 0, child_count, children);
-
+	get_children(node_index_bvh, nodes_bvh, children, child_count, 0);
 	ASSERT(child_count <= 8);
 
 	order_children(node_index_bvh, nodes_bvh, children, child_count);
@@ -310,19 +309,15 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 
 				node_triangle_count += triangle_count;
 				ASSERT(node_triangle_count <= 24);
-
 				break;
 			}
-
 			case Decision::Type::INTERNAL: {
 				node.meta[i] = (node_internal_count + 24) | 0b00100000;
 
 				node.imask |= (1 << node_internal_count);
 				node_internal_count++;
-
 				break;
 			}
-
 			default: ASSERT(false);
 		}
 	}
