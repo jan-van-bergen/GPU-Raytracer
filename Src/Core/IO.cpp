@@ -47,3 +47,19 @@ bool IO::file_write(const String & filename, StringView data) {
 
 	return true;
 }
+
+// Based on: https://rosettacode.org/wiki/Bitmap/Write_a_PPM_file
+void IO::export_ppm(const String & filename, int width, int height, const unsigned char * data) {
+	FILE * file = nullptr;
+	fopen_s(&file, filename.data(), "wb");
+
+	if (!file) {
+		IO::print("Failed to export '{}'!\n"_sv, filename);
+		return;
+	}
+
+	fprintf(file, "P6\n %d\n %d\n %d\n", width, height, 255);
+	fwrite(data, sizeof(char), width * height * 3, file);
+
+	fclose(file);
+}

@@ -1,5 +1,4 @@
 #pragma once
-#include "Core/String.h"
 
 #define FORCEINLINE __forceinline
 
@@ -104,6 +103,4 @@ namespace Util {
 	constexpr int array_count(const T (& array)[N]) {
 		return N;
 	}
-
-	void export_ppm(const String & filename, int width, int height, const unsigned char * data);
 }

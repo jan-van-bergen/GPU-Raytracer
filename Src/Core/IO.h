@@ -24,4 +24,6 @@ namespace IO {
 
 	String file_read (const String & filename);
 	bool   file_write(const String & filename, StringView data);
+
+	void export_ppm(const String & filename, int width, int height, const unsigned char * data);
 }

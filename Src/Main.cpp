@@ -166,7 +166,7 @@ static void capture_screen(const Window & window, const String & filename) {
 		memmove(data.data() + j * window.width * 3, data.data() + j * window_pitch, window.width * 3);
 	}
 
-	Util::export_ppm(filename, window.width, window.height, data.data());
+	IO::export_ppm(filename, window.width, window.height, data.data());
 }
 
 static void window_resize(unsigned frame_buffer_handle, int width, int height) {
