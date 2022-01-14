@@ -34,15 +34,15 @@ __device__ inline unsigned cwbvh_node_intersect(
 ) {
 	float3 p = make_float3(node_0);
 
-	unsigned e_imask = float_as_uint(node_0.w);
+	unsigned e_imask = __float_as_uint(node_0.w);
 	byte e_x = extract_byte(e_imask, 0);
 	byte e_y = extract_byte(e_imask, 1);
 	byte e_z = extract_byte(e_imask, 2);
 
 	float3 adjusted_ray_direction_inv = make_float3(
-		uint_as_float(e_x << 23) / ray.direction.x,
-		uint_as_float(e_y << 23) / ray.direction.y,
-		uint_as_float(e_z << 23) / ray.direction.z
+		__uint_as_float(e_x << 23) / ray.direction.x,
+		__uint_as_float(e_y << 23) / ray.direction.y,
+		__uint_as_float(e_z << 23) / ray.direction.z
 	);
 	float3 adjusted_ray_origin = (p - ray.origin) / ray.direction;
 
@@ -50,7 +50,7 @@ __device__ inline unsigned cwbvh_node_intersect(
 
 	#pragma unroll
 	for (int i = 0; i < 2; i++) {
-		unsigned meta4 = float_as_uint(i == 0 ? node_1.z : node_1.w);
+		unsigned meta4 = __float_as_uint(i == 0 ? node_1.z : node_1.w);
 
 		unsigned is_inner4   = (meta4 & (meta4 << 1)) & 0x10101010;
 		unsigned inner_mask4 = sign_extend_s8x4(is_inner4 << 3);
@@ -58,14 +58,14 @@ __device__ inline unsigned cwbvh_node_intersect(
 		unsigned child_bits4 = (meta4 >> 5) & 0x07070707;
 
 		// Select near and far planes based on ray octant
-		unsigned q_lo_x = float_as_uint(i == 0 ? node_2.x : node_2.y);
-		unsigned q_hi_x = float_as_uint(i == 0 ? node_2.z : node_2.w);
+		unsigned q_lo_x = __float_as_uint(i == 0 ? node_2.x : node_2.y);
+		unsigned q_hi_x = __float_as_uint(i == 0 ? node_2.z : node_2.w);
 
-		unsigned q_lo_y = float_as_uint(i == 0 ? node_3.x : node_3.y);
-		unsigned q_hi_y = float_as_uint(i == 0 ? node_3.z : node_3.w);
+		unsigned q_lo_y = __float_as_uint(i == 0 ? node_3.x : node_3.y);
+		unsigned q_hi_y = __float_as_uint(i == 0 ? node_3.z : node_3.w);
 
-		unsigned q_lo_z = float_as_uint(i == 0 ? node_4.x : node_4.y);
-		unsigned q_hi_z = float_as_uint(i == 0 ? node_4.z : node_4.w);
+		unsigned q_lo_z = __float_as_uint(i == 0 ? node_4.x : node_4.y);
+		unsigned q_hi_z = __float_as_uint(i == 0 ? node_4.z : node_4.w);
 
 		unsigned x_min = ray.direction.x < 0.0f ? q_hi_x : q_lo_x;
 		unsigned x_max = ray.direction.x < 0.0f ? q_lo_x : q_hi_x;
@@ -179,10 +179,10 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 
 				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
 
-				byte imask = extract_byte(float_as_uint(node_0.w), 3);
+				byte imask = extract_byte(__float_as_uint(node_0.w), 3);
 
-				current_group .x = float_as_uint(node_1.x); // Child    base offset
-				triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+				current_group .x = __float_as_uint(node_1.x); // Child    base offset
+				triangle_group.x = __float_as_uint(node_1.y); // Triangle base offset
 
 				current_group .y = (hitmask & 0xff000000) | unsigned(imask);
 				triangle_group.y = (hitmask & 0x00ffffff);
@@ -341,10 +341,10 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 
 				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, max_distance, node_0, node_1, node_2, node_3, node_4);
 
-				byte imask = extract_byte(float_as_uint(node_0.w), 3);
+				byte imask = extract_byte(__float_as_uint(node_0.w), 3);
 
-				current_group .x = float_as_uint(node_1.x); // Child    base offset
-				triangle_group.x = float_as_uint(node_1.y); // Triangle base offset
+				current_group .x = __float_as_uint(node_1.x); // Child    base offset
+				triangle_group.x = __float_as_uint(node_1.y); // Triangle base offset
 
 				current_group .y = (hitmask & 0xff000000) | unsigned(imask);
 				triangle_group.y = (hitmask & 0x00ffffff);
