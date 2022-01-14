@@ -91,9 +91,8 @@ namespace Util {
 
 	template<typename T, typename Cmp>
 	constexpr void stable_sort(T * first, T * last, Cmp cmp) {
-		T * tmp = new T[last - first];
-		stable_sort(first, last, tmp, cmp);
-		delete [] tmp;
+		Array<T> tmp(last - first);
+		stable_sort(first, last, tmp.data(), cmp);
 	}
 
 	template<typename T>
