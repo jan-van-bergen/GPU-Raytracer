@@ -487,7 +487,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 			triangles = Geometry::sphere(transform);
 		} else {
-			abort(); // Unreachable
+			ASSERT(false); // Unreachable
 		}
 
 		name = type;

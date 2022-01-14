@@ -104,7 +104,7 @@ struct Queue {
 	}
 
 	constexpr T pop() {
-		if (size() == 0) abort();
+		ASSERT(size() > 0);
 
 		T result = *head;
 		inc_wrap(head);

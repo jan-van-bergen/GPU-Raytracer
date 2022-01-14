@@ -23,7 +23,7 @@ void Scene::init(const SceneConfig & scene_config) {
 		StringView file_extension = Util::get_file_extension(scene_filename.view());
 		if (file_extension.is_empty()) {
 			IO::print("ERROR: File '{}' has no file extension, cannot deduce file format!\n"_sv, scene_filename);
-			abort();
+			IO::exit(1);
 		}
 
 		if (file_extension == "obj") {
@@ -34,7 +34,7 @@ void Scene::init(const SceneConfig & scene_config) {
 			MitsubaLoader::load(scene_filename, *this);
 		} else {
 			IO::print("ERROR: '{}' file format is not supported!\n"_sv, file_extension);
-			abort();
+			IO::exit(1);
 		}
 	}
 

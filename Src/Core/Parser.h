@@ -23,7 +23,7 @@
 
 #define ERROR(loc, msg, ...) \
 	WARNING(loc, msg, __VA_ARGS__); \
-	abort();
+	IO::exit(1);
 
 inline bool is_digit(char c) {
 	return c >= '0' && c <= '9';

@@ -80,7 +80,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 		case BVHType::SBVH:  delete [] tlas_raw.nodes; tlas_raw.nodes = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
 		case BVHType::QBVH:  delete [] tlas    .nodes; tlas    .nodes = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
 		case BVHType::CWBVH: delete [] tlas    .nodes; tlas    .nodes = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
-		default: abort();
+		default: ASSERT(false);
 	}*/
 
 	scene.camera.update(0.0f);
@@ -132,7 +132,7 @@ void Pathtracer::cuda_init_module() {
 		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh;   kernel_trace_shadow = &kernel_trace_shadow_bvh;   break;
 		case BVHType::BVH4: kernel_trace = &kernel_trace_qbvh;  kernel_trace_shadow = &kernel_trace_shadow_qbvh;  break;
 		case BVHType::BVH8: kernel_trace = &kernel_trace_cwbvh; kernel_trace_shadow = &kernel_trace_shadow_cwbvh; break;
-		default: abort();
+		default: ASSERT(false);
 	}
 
 	// Set Block dimensions for all Kernels
@@ -810,7 +810,7 @@ void Pathtracer::build_tlas() {
 		case BVHType::SBVH: CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::BVH4: CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::BVH8: CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
-		default: abort();
+		default: ASSERT(false);
 	}
 	ASSERT(tlas->indices.data());
 
@@ -909,7 +909,7 @@ void Pathtracer::update(float delta) {
 					cuda_materials[i].conductor.k         = material.k;
 					break;
 				}
-				default: abort();
+				default: ASSERT(false);
 			}
 		}
 

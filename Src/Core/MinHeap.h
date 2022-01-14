@@ -22,8 +22,7 @@ struct MinHeap {
 	}
 
 	constexpr T pop() {
-		if (size() == 0) abort();
-
+		ASSERT(size() > 0);
 		T result = data[0];
 
 		if (size() >= 2) {
@@ -38,7 +37,7 @@ struct MinHeap {
 	}
 
 	constexpr const T & peek() const {
-		if (size() == 0) abort();
+		ASSERT(size() > 0);
 		return data[0];
 	}
 

@@ -52,6 +52,6 @@ OwnPtr<BVH> BVH::create_from_bvh2(BVH2 bvh) {
 			BVH8Converter(*bvh8.get(), bvh).convert();
 			return bvh8;
 		}
-		default: abort();
+		default: ASSERT(false);
 	}
 }

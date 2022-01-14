@@ -23,7 +23,7 @@ String IO::file_read(const String & filename) {
 
 	if (!file) {
 		IO::print("ERROR: Unable to open '{}'!\n"_sv, filename);
-		abort();
+		IO::exit(1);
 	}
 
 	size_t file_length = std::filesystem::file_size(stringview_to_path(filename.view()));

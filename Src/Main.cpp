@@ -508,7 +508,7 @@ static void draw_gui() {
 						break;
 					}
 
-					default: abort();
+					default: ASSERT(false);
 				}
 
 				if (material_changed) pathtracer.invalidated_materials = true;

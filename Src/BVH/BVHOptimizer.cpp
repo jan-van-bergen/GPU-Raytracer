@@ -37,7 +37,7 @@ static void init_parent_indices(const BVH2 & bvh, Array<int> & parent_indices, i
 	if (node.is_leaf()) {
 		if (node.count != 1) {
 			IO::print("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
-			abort();
+			IO::exit(1);
 		}
 		return;
 	}
@@ -256,7 +256,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices, rng); break;
 			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, batch_indices); break;
 
-			default: abort();
+			default: ASSERT(false);
 		}
 
 		for (size_t i = 0; i < bvh.nodes.size(); i++) {

@@ -10,7 +10,7 @@ CUarray_format Texture::get_cuda_array_format() const {
 		case Format::BC3:  return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT32;
 		case Format::RGBA: return CUarray_format::CU_AD_FORMAT_UNSIGNED_INT8;
 
-		default: abort();
+		default: ASSERT(false);
 	}
 }
 
@@ -21,7 +21,7 @@ CUresourceViewFormat Texture::get_cuda_resource_view_format() const {
 		case Texture::Format::BC3:  return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UNSIGNED_BC3;
 		case Texture::Format::RGBA: return CUresourceViewFormat::CU_RES_VIEW_FORMAT_UINT_4X8;
 
-		default: abort();
+		default: ASSERT(false);
 	}
 }
 

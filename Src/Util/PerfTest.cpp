@@ -55,7 +55,7 @@ bool PerfTest::frame_end(float frame_time) {
 			FILE * file = nullptr;
 			fopen_s(&file, output_file, "wb");
 
-			if (file == nullptr) abort();
+			if (file == nullptr) IO::exit(1);
 
 			for (int i = 0; i < (*povs).size(); i++) {
 				const POV & pov = (*povs)[i];

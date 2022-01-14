@@ -40,7 +40,7 @@ void Window::init(const char * title, int width, int height) {
 	GLenum status = glewInit();
 	if (status != GLEW_OK) {
 		IO::print("Glew failed to initialize!\n"_sv);
-		abort();
+		IO::exit(1);
 	}
 
 	IO::print("OpenGL Info:\n"_sv);

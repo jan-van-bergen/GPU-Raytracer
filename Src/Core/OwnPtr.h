@@ -11,7 +11,7 @@ struct OwnPtr {
 
 	OwnPtr(const OwnPtr & other) = delete;
 
-	OwnPtr(OwnPtr && other) {
+	OwnPtr(OwnPtr && other) noexcept {
 		ptr = other.ptr;
 		other.ptr = nullptr;
 	}

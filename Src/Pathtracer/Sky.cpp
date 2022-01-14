@@ -15,7 +15,7 @@ void Sky::load(const String & filename) {
 
 	if (!hdr || width == 0 || height == 0) {
 		IO::print("Unable to load hdr Sky from file '{}'!\n"_sv, filename);
-		abort();
+		IO::exit(1);
 	}
 
 	// Allocate data and copy it over from the file

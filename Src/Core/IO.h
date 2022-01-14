@@ -18,6 +18,10 @@ namespace IO {
 		print(string.view());
 	}
 
+	inline void exit(int code) {
+		::exit(code);
+	}
+
 	bool file_exists(StringView filename);
 
 	bool file_is_newer(StringView filename_a, StringView filename_b);

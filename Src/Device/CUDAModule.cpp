@@ -101,7 +101,7 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 
 	if (!IO::file_exists(filename.view())) {
 		IO::print("ERROR: File '{}' does not exist!\n"_sv, filename);
-		abort();
+		IO::exit(1);
 	}
 
 #ifdef _DEBUG

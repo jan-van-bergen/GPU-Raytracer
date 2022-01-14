@@ -66,7 +66,7 @@ static void parse_args(const Array<StringView> & args) {
 				config.bvh_type = BVHType::BVH8;
 			} else {
 				IO::print("'{}' is not a recognized BVH type! Supported options: sah, sbvh, bvh4, bvh8\n"_sv, args[i + 1]);
-				abort();
+				IO::exit(1);
 			}
 		} },
 
@@ -94,7 +94,7 @@ static void parse_args(const Array<StringView> & args) {
 				config.mipmap_filter = Config::MipmapFilter::KAISER;
 			} else {
 				IO::print("'{}' is not a recognized Mipmap Filter!\n"_sv, args[i + 1]);
-				abort();
+				IO::exit(1);
 			}
 		} },
 		Option { "c"_sv, "compress"_sv, "Enables or disables texture block compression"_sv, 1, [](const Array<StringView> & args, size_t i) { config.enable_block_compression = parse_arg_bool(args[i + 1]); } },

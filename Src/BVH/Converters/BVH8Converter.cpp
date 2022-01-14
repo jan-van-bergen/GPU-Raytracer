@@ -30,7 +30,7 @@ int BVH8Converter::calculate_cost(int node_index, const Array<BVHNode2> & nodes)
 		num_primitives = node.count;
 		if (num_primitives != 1) {
 			IO::print("ERROR: CWBVH Builder expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
-			abort();
+			IO::exit(1);
 		}
 
 		// SAH cost
@@ -323,7 +323,7 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 				break;
 			}
 
-			default: abort();
+			default: ASSERT(false);
 		}
 	}
 

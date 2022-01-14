@@ -25,7 +25,7 @@ void CUDAContext::init() {
 
 	if (device_count == 0) {
 		IO::print("ERROR: No suitable Device found!\n"_sv);
-		abort();
+		IO::exit(1);
 	}
 
 	Array<CUdevice> devices(device_count);
@@ -35,7 +35,7 @@ void CUDAContext::init() {
 
 	if (gl_device_count == 0) {
 		IO::print("ERROR: No suitable GL Device found!\n"_sv);
-		abort();
+		IO::exit(1);
 	}
 
 	CUdevice best_device;
