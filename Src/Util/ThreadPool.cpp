@@ -7,7 +7,7 @@ ThreadPool::ThreadPool(int thread_count) : threads(thread_count) {
 				Work work;
 				{
 					std::unique_lock<std::mutex> lock(signal_submit.mutex);
-					signal_submit.condition.wait(lock, [this]{ return !work_queue.empty() || is_done; });
+					signal_submit.condition.wait(lock, [this]{ return !work_queue.is_empty() || is_done; });
 
 					if (is_done) return;
 

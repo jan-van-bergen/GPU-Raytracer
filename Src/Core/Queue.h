@@ -119,7 +119,7 @@ struct Queue {
 		}
 	}
 
-	constexpr bool empty() const { return size() == 0; }
+	constexpr bool is_empty() const { return size() == 0; }
 
 private:
 	constexpr void inc_wrap(T *& ptr) {
