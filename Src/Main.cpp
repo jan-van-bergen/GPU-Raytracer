@@ -460,7 +460,7 @@ static void draw_gui() {
 					i++;
 				};
 
-				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name, 5 + padding - event_timings[i].desc.name.size(), timing);
+				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name.data(), 5 + padding - event_timings[i].desc.name.size(), timing);
 
 				if (i == event_timing_count - 1) {
 					ImGui::TreePop();
