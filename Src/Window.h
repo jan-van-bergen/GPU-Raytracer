@@ -21,8 +21,8 @@ struct Window {
 
 	bool is_closed = false;
 
-	void init(const char * title, int width, int height);
-	void free();
+	Window(const char * title, int width, int height);
+	~Window();
 
 	void resize(int new_width, int new_height);
 

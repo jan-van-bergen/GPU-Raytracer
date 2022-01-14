@@ -198,7 +198,7 @@ void BVH8Converter::order_children(int node_index, const Array<BVHNode2> & nodes
 	}
 
 	// Permute children array according to assignment
-	int children_copy[8];
+	int children_copy[8] = { };
 	memcpy(children_copy, children, sizeof(children_copy));
 
 	for (int i = 0; i < 8; i++) children[i] = INVALID;

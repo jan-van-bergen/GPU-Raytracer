@@ -18,8 +18,6 @@
 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used
 
-static Window window;
-
 static Pathtracer pathtracer;
 static PerfTest   perf_test;
 
@@ -55,7 +53,7 @@ static int last_pixel_query_y;
 static void capture_screen(const Window & window, const String & filename);
 static void window_resize(unsigned frame_buffer_handle, int width, int height);
 static void calc_timing();
-static void draw_gui();
+static void draw_gui(Window & window);
 
 int main(int num_args, char ** args) {
 	Args::parse(num_args, args);
@@ -67,11 +65,11 @@ int main(int num_args, char ** args) {
 		scene_config.sky_filename = "Data/Skies/sky_15.hdr";
 	}
 
+	Window window("Pathtracer", config.initial_width, config.initial_height);
+	window.resize_handler = &window_resize;
+
 	{
 		ScopeTimer timer("Initialization"_sv);
-
-		window.init("Pathtracer", config.initial_width, config.initial_height);
-		window.resize_handler = &window_resize;
 
 		CUDAContext::init();
 		pathtracer.init(scene_config, window.frame_buffer_handle, config.initial_width, config.initial_height);
@@ -118,7 +116,7 @@ int main(int num_args, char ** args) {
 		}
 
 		calc_timing();
-		draw_gui();
+		draw_gui(window);
 
 		if (Input::is_key_released(SDL_SCANCODE_F5)) {
 			ScopeTimer timer("Hot Reload"_sv);
@@ -139,7 +137,6 @@ int main(int num_args, char ** args) {
 	}
 
 	CUDAContext::free();
-	window.free();
 
 	return EXIT_SUCCESS;
 }
@@ -229,7 +226,7 @@ static void calc_timing() {
 	}
 }
 
-static void draw_gui() {
+static void draw_gui(Window & window) {
 	window.gui_begin();
 
 	if (ImGui::Begin("Pathtracer")) {
@@ -294,7 +291,6 @@ static void draw_gui() {
 					if (!category_visible) {
 						// Skip ahead to next category
 						i = j;
-
 						continue;
 					}
 				}
@@ -516,8 +512,8 @@ static void draw_gui() {
 				if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {
 					Medium & medium = pathtracer.scene.asset_manager.get_medium(material.medium_handle);
 
-					Vector3 sigma_a;
-					Vector3 sigma_s;
+					Vector3 sigma_a = { };
+					Vector3 sigma_s = { };
 					medium.get_sigmas(sigma_a, sigma_s);
 
 					Vector3 sigma_t = sigma_a + sigma_s;
@@ -558,7 +554,7 @@ static void draw_gui() {
 			aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
 		}
 
-		auto draw_line_clipped = [draw_list](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
+		auto draw_line_clipped = [draw_list, &window](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
 			if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
 
 			// Clip against near plane only

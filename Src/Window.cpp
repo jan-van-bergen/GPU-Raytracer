@@ -15,7 +15,7 @@ static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id
 	IO::print("GL CALLBACK: {} type = 0x{:x}, severity = 0x{:x}, message = {}\n"_sv, type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **"_sv : ""_sv, type, severity, message);
 }
 
-void Window::init(const char * title, int width, int height) {
+Window::Window(const char * title, int width, int height) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
@@ -138,7 +138,7 @@ void Window::init(const char * title, int width, int height) {
 	ImGui::StyleColorsDark();
 }
 
-void Window::free() {
+Window::~Window() {
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
