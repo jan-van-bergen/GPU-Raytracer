@@ -142,7 +142,7 @@ void BVH8Converter::get_children(int node_index, const Array<BVHNode2> & nodes, 
 
 	// Recurse on right child if it needs to distribute
 	if (decisions[(node.left + 1) * 7 + distribute_right].type == Decision::Type::DISTRIBUTE) {
-		get_children(node.left + 1, nodes, children, child_count, distribute_left);
+		get_children(node.left + 1, nodes, children, child_count, distribute_right);
 	} else {
 		children[child_count++] = node.left + 1;
 	}
