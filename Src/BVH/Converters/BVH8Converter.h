@@ -20,8 +20,8 @@ private:
 			DISTRIBUTE
 		} type;
 
-		char distribute_left  = INVALID;
-		char distribute_right = INVALID;
+		char distribute_left;
+		char distribute_right;
 
 		float cost;
 	};

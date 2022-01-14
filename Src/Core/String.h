@@ -96,7 +96,7 @@ struct String {
 		return *this;
 	}
 
-	constexpr String(String && str) : length(str.length), ptr(nullptr) {
+	constexpr String(String && str) noexcept : length(str.length), ptr(nullptr) {
 		if (length < SSO_SIZE) {
 			memcpy(buf, str.buf, length + 1);
 		} else {
@@ -105,7 +105,7 @@ struct String {
 		}
 	}
 
-	constexpr String & operator=(String && str) {
+	constexpr String & operator=(String && str) noexcept {
 		if (length >= SSO_SIZE) {
 			delete [] ptr;
 		}

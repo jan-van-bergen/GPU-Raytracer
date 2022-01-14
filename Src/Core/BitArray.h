@@ -20,7 +20,7 @@ public:
 		buffer = other.buffer;
 	}
 
-	BitArray(BitArray && other) {
+	BitArray(BitArray && other) noexcept {
 		buffer = std::move(other.buffer);
 	}
 
@@ -31,7 +31,7 @@ public:
 		return *this;
 	}
 
-	BitArray & operator=(BitArray && other) {
+	BitArray & operator=(BitArray && other) noexcept {
 		buffer = std::move(other.buffer);
 		return *this;
 	}

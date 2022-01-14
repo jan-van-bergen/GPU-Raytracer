@@ -61,7 +61,7 @@ struct Array {
 		array.capacity = 0;
 	}
 
-	constexpr Array & operator=(Array && array) {
+	constexpr Array & operator=(Array && array) noexcept {
 		destroy_buffer();
 
 		buffer   = array.buffer;

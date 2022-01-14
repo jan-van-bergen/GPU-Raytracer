@@ -38,7 +38,7 @@ struct OwnPtr {
 
 	OwnPtr & operator=(const OwnPtr & other) = delete;
 
-	OwnPtr & operator=(OwnPtr && other) {
+	OwnPtr & operator=(OwnPtr && other) noexcept {
 		release();
 		ptr = other.ptr;
 		other.ptr = nullptr;

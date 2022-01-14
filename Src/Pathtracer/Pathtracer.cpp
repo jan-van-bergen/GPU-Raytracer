@@ -216,10 +216,10 @@ void Pathtracer::cuda_init_materials() {
 			tex_desc.addressMode[2] = CUaddress_mode::CU_TR_ADDRESS_MODE_CLAMP;
 			tex_desc.filterMode       = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
 			tex_desc.mipmapFilterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
-			tex_desc.mipmapLevelBias = 0;
+			tex_desc.mipmapLevelBias = 0.0f;
 			tex_desc.maxAnisotropy = max_aniso;
-			tex_desc.minMipmapLevelClamp = 0;
-			tex_desc.maxMipmapLevelClamp = texture.mip_levels() - 1;
+			tex_desc.minMipmapLevelClamp = 0.0f;
+			tex_desc.maxMipmapLevelClamp = float(texture.mip_levels() - 1);
 			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
 			// Describe the Texture View
@@ -748,7 +748,7 @@ void Pathtracer::calc_light_power() {
 			const Material & material = scene.asset_manager.get_material(mesh->material_handle);
 			float power = Math::luminance(material.emission.x, material.emission.y, material.emission.z);
 
-			mesh->light.weight               = power * light_mesh_data.total_area;
+			mesh->light.weight               = power * float(light_mesh_data.total_area);
 			mesh->light.first_triangle_index = light_mesh_data.first_triangle_index;
 			mesh->light.triangle_count       = light_mesh_data.triangle_count;
 		}
@@ -964,7 +964,7 @@ void Pathtracer::update(float delta) {
 				bool reversed = material_buffer_index & 1;
 
 				ASSERT((ptr_buffer.ptr & 1) == 0);
-				uintptr_t packed = ptr_buffer.ptr | reversed;
+				uintptr_t packed = uintptr_t(ptr_buffer.ptr) | uintptr_t(reversed);
 				cuda_module.get_global(global_name).set_value_async(packed, memory_stream);
 
 				material_buffer_index++;
