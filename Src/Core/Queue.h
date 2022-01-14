@@ -2,8 +2,60 @@
 
 template<typename T>
 struct Queue {
-	T    * data = nullptr;
 	size_t capacity = 0;
+	T    * data     = nullptr;
+
+	constexpr Queue() { }
+
+	constexpr Queue(const Queue & other) {
+		capacity = other.capacity;
+		data     = new T[capacity];
+		memcpy(data, other.data, capacity * sizeof(T));
+
+		head = data + (other.head - other.data);
+		tail = data + (other.tail - other.data);
+	}
+
+	constexpr Queue(Queue && other) noexcept {
+		capacity = other.capacity;
+		data     = other.data;
+		head     = other.head;
+		tail     = other.tail;
+
+		other.capacity = 0;
+		other.data     = nullptr;
+		other.head     = nullptr;
+		other.tail     = nullptr;
+	}
+
+	constexpr Queue & operator=(const Queue & other) {
+		if (data) delete [] data;
+
+		capacity = other.capacity;
+		data     = new T[capacity];
+		memcpy(data, other.data, capacity * sizeof(T));
+
+		head = data + (other.head - other.data);
+		tail = data + (other.tail - other.data);
+
+		return *this;
+	}
+
+	constexpr Queue & operator=(Queue && other) noexcept {
+		if (data) delete [] data;
+
+		capacity = other.capacity;
+		data     = other.data;
+		head     = other.head;
+		tail     = other.tail;
+
+		other.capacity = 0;
+		other.data     = nullptr;
+		other.head     = nullptr;
+		other.tail     = nullptr;
+
+		return *this;
+	}
 
 	~Queue() {
 		if (data) delete [] data;
