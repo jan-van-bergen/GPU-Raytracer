@@ -172,6 +172,11 @@ inline bool operator!=(const String & a, const String & b) {
 	return false;
 }
 
+inline bool operator< (const String & a, const String & b) { return strcmp(a.data(), b.data()) <  0; }
+inline bool operator> (const String & a, const String & b) { return strcmp(a.data(), b.data()) >  0; }
+inline bool operator<=(const String & a, const String & b) { return strcmp(a.data(), b.data()) <= 0; }
+inline bool operator>=(const String & a, const String & b) { return strcmp(a.data(), b.data()) >= 0; }
+
 template<>
 struct Hash<String> {
 	size_t operator()(const String & str) {

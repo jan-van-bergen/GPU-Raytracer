@@ -252,10 +252,9 @@ static void draw_gui() {
 				float           timing;
 			};
 
-			int           event_timing_count = pathtracer.event_pool.num_used - 1;
-			EventTiming * event_timings = new EventTiming[event_timing_count];
+			Array<EventTiming> event_timings(pathtracer.event_pool.num_used - 1);
 
-			for (int i = 0; i < event_timing_count; i++) {
+			for (size_t i = 0; i < event_timings.size(); i++) {
 				event_timings[i].desc = pathtracer.event_pool.pool[i].desc;
 				event_timings[i].timing = CUDAEvent::time_elapsed_between(
 					pathtracer.event_pool.pool[i],
@@ -263,32 +262,32 @@ static void draw_gui() {
 				);
 			}
 
-			Util::stable_sort(event_timings, event_timings + event_timing_count, [](const EventTiming & a, const EventTiming & b) {
+			Util::stable_sort(event_timings.begin(), event_timings.end(), [](const EventTiming & a, const EventTiming & b) {
 				if (a.desc.display_order == b.desc.display_order) {
-					return strcmp(a.desc.category.data(), b.desc.category.data()) < 0;
+					return a.desc.category < b.desc.category.data();
 				}
 				return a.desc.display_order < b.desc.display_order;
 			});
 
 			bool category_changed = true;
-			int  padding;
+			int  padding = 0;
 
 			// Display Profile timings per category
-			for (int i = 0; i < event_timing_count; i++) {
+			for (size_t i = 0; i < event_timings.size(); i++) {
 				if (category_changed) {
 					padding = 0;
 
 					// Sum the times of all events in the new Category so it can be displayed in the header
 					float time_sum = 0.0f;
 
-					int j;
-					for (j = i; j < event_timing_count; j++) {
+					size_t j;
+					for (j = i; j < event_timings.size(); j++) {
 						int length = event_timings[j].desc.name.size();
 						if (length > padding) padding = length;
 
 						time_sum += event_timings[j].timing;
 
-						if (j < event_timing_count - 1 && strcmp(event_timings[j].desc.category.data(), event_timings[j + 1].desc.category.data()) != 0) break;
+						if (j < event_timings.size() - 1 && event_timings[j].desc.category != event_timings[j + 1].desc.category) break;
 					}
 
 					bool category_visible = ImGui::TreeNode(event_timings[i].desc.category.data(), "%s: %.2f ms", event_timings[i].desc.category.data(), time_sum);
@@ -306,25 +305,23 @@ static void draw_gui() {
 				while (true) {
 					timing += event_timings[i].timing;
 
-					if (i == event_timing_count - 1 || strcmp(event_timings[i].desc.name.data(), event_timings[i+1].desc.name.data()) != 0) break;
+					if (i == event_timings.size() - 1 || event_timings[i].desc.name != event_timings[i+1].desc.name) break;
 
 					i++;
 				};
 
 				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name.data(), 5 + padding - event_timings[i].desc.name.size(), timing);
 
-				if (i == event_timing_count - 1) {
+				if (i == event_timings.size() - 1) {
 					ImGui::TreePop();
 					break;
 				}
 
-				category_changed = strcmp(event_timings[i].desc.category.data(), event_timings[i + 1].desc.category.data());
+				category_changed = event_timings[i].desc.category != event_timings[i + 1].desc.category;
 				if (category_changed) {
 					ImGui::TreePop();
 				}
 			}
-
-			delete [] event_timings;
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
