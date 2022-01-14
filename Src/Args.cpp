@@ -80,9 +80,9 @@ static void parse_args(const Array<StringView> & args) {
 		Option { "Ot"_sv, "opt-time"_sv,    "Sets time limit (in seconds) for BVH optimization"_sv,                      1, [](const Array<StringView> & args, size_t i) { config.bvh_optimizer_max_time        = parse_arg_int (args[i + 1]); } },
 		Option { "Ob"_sv, "opt-batches"_sv, "Sets a limit on the maximum number of batches used in BVH optimization"_sv, 1, [](const Array<StringView> & args, size_t i) { config.bvh_optimizer_max_num_batches = parse_arg_int (args[i + 1]); } },
 
-		Option { { }, "sah-node"_sv,   "Sets the SAH cost of an internal BVH node"_sv,                                                             1, [](const Array<StringView> & args, size_t i) { config.sah_cost_node                 = parse_arg_float(args[i + 1]); } },
-		Option { { }, "sah-leaf"_sv,   "Sets the SAH cost of a leaf BVH node"_sv,                                                                  1, [](const Array<StringView> & args, size_t i) { config.sah_cost_leaf                 = parse_arg_float(args[i + 1]); } },
-		Option { { }, "sbvh-alpha"_sv, "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH"_sv, 1, [](const Array<StringView> & args, size_t i) { config.sbvh_alpha                    = parse_arg_float(args[i + 1]); } },
+		Option { { }, "sah-node"_sv,   "Sets the SAH cost of an internal BVH node"_sv,                                                             1, [](const Array<StringView> & args, size_t i) { config.sah_cost_node = parse_arg_float(args[i + 1]); } },
+		Option { { }, "sah-leaf"_sv,   "Sets the SAH cost of a leaf BVH node"_sv,                                                                  1, [](const Array<StringView> & args, size_t i) { config.sah_cost_leaf = parse_arg_float(args[i + 1]); } },
+		Option { { }, "sbvh-alpha"_sv, "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH"_sv, 1, [](const Array<StringView> & args, size_t i) { config.sbvh_alpha    = parse_arg_float(args[i + 1]); } },
 
 		Option { { }, "mipmap"_sv,     "Enables or disables texture mipmapping"_sv,                                                     1, [](const Array<StringView> & args, size_t i) { config.enable_mipmapping = parse_arg_bool(args[i + 1]); } },
 		Option { { }, "mip-filter"_sv, "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser"_sv, 1, [](const Array<StringView> & args, size_t i) {
