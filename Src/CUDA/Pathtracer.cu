@@ -138,7 +138,7 @@ __device__ bool russian_roulette(int pixel_index, int bounce, int sample_index, 
 		// This deteriorates Russian Roulette performance, so albedo is included here
 		float3 throughput_with_albedo = throughput * make_float3(frame_buffer_albedo[pixel_index]);
 
-		float survival_probability  = saturate(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
+		float survival_probability  = __saturatef(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
 		float rand_russian_roulette = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).x;
 
 		if (rand_russian_roulette > survival_probability) {

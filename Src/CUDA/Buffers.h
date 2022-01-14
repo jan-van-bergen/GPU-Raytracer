@@ -46,7 +46,7 @@ struct HitBuffer {
 	__device__ void set(int index, const RayHit & ray_hit) {
 		unsigned uv = int(ray_hit.u * 65535.0f) | (int(ray_hit.v * 65535.0f) << 16);
 
-		hits[index] = make_uint4(ray_hit.mesh_id, ray_hit.triangle_id, float_as_uint(ray_hit.t), uv);
+		hits[index] = make_uint4(ray_hit.mesh_id, ray_hit.triangle_id, __float_as_uint(ray_hit.t), uv);
 	}
 
 	__device__ RayHit get(int index) const {
@@ -57,7 +57,7 @@ struct HitBuffer {
 		ray_hit.mesh_id     = hit.x;
 		ray_hit.triangle_id = hit.y;
 
-		ray_hit.t = uint_as_float(hit.z);
+		ray_hit.t = __uint_as_float(hit.z);
 
 		ray_hit.u = float(hit.w & 0xffff) / 65535.0f;
 		ray_hit.v = float(hit.w >> 16)    / 65535.0f;

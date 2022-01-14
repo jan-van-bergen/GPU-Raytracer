@@ -62,9 +62,9 @@ __device__ inline float3 rgb_to_ycocg(const float3 & colour) {
 
 __device__ inline float3 ycocg_to_rgb(const float3 & colour) {
 	return make_float3(
-		saturate(colour.x + colour.y - colour.z),
-		saturate(colour.x            + colour.z),
-		saturate(colour.x - colour.y - colour.z)
+		__saturatef(colour.x + colour.y - colour.z),
+		__saturatef(colour.x            + colour.z),
+		__saturatef(colour.x - colour.y - colour.z)
 	);
 }
 
@@ -175,7 +175,7 @@ __device__ inline float3 oct_decode_normal(float2 f) {
 
 	float3 n = make_float3(f.x, f.y, 1.0f - fabsf(f.x) - fabsf(f.y));
 
-	float t = saturate(-n.z);
+	float t = __saturatef(-n.z);
 	n.x += n.x >= 0.0 ? -t : t;
 	n.y += n.y >= 0.0 ? -t : t;
 
