@@ -23,5 +23,5 @@ struct SBVHBuilder {
 	void build(const Array<Triangle> & triangles); // SAH-based object + spatial splits, Stich et al. 2009 (Triangles only)
 
 private:
-	int build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, int first_index, int index_count);
+	int build_sbvh(int node_index, const Array<Triangle> & triangles, int first_index, int index_count);
 };

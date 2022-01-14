@@ -50,7 +50,7 @@ void SBVHBuilder::build(const Array<Triangle> & triangles) {
 	sbvh.nodes.emplace_back(); // Dummy
 	sbvh.nodes[0].aabb = root_aabb;
 
-	int index_count = build_sbvh(sbvh.nodes[0], triangles, 0, triangles.size());
+	int index_count = build_sbvh(0, triangles, 0, triangles.size());
 
 	sbvh.indices.resize(index_count);
 	for (int i = 0; i < index_count; i++) {
@@ -61,16 +61,16 @@ void SBVHBuilder::build(const Array<Triangle> & triangles) {
 	}
 }
 
-int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, int first_index, int index_count) {
+int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, int first_index, int index_count) {
 	if (index_count == 1) {
 		// Leaf Node, terminate recursion
 		// We do not terminate based on the SAH termination criterion, so that the
 		// BVHs that are cached to disk have a standard layout (1 triangle per leaf node)
 		// If desired these trees can be collapsed based on the SAH cost using BVHCollapser::collapse
-		node.first = first_index;
-		node.count = index_count;
+		sbvh.nodes[node_index].first = first_index;
+		sbvh.nodes[node_index].count = index_count;
 
-		return node.count;
+		return index_count;
 	}
 
 	// Object Split information
@@ -89,14 +89,14 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 
 	// If ratio between overlap area and root area is large enough, consider a Spatial Split
 	if (ratio > config.sbvh_alpha) {
-		spatial_split = BVHPartitions::partition_spatial(triangles, indices, first_index, index_count, sah.data(), node.aabb);
+		spatial_split = BVHPartitions::partition_spatial(triangles, indices, first_index, index_count, sah.data(), sbvh.nodes[node_index].aabb);
 	} else {
 		spatial_split.cost = INFINITY;
 	}
 
 	ASSERT(isfinite(object_split.cost) || isfinite(spatial_split.cost));
 
-	node.left = sbvh.nodes.size();
+	sbvh.nodes[node_index].left = sbvh.nodes.size();
 	sbvh.nodes.emplace_back(); // Left child
 	sbvh.nodes.emplace_back(); // Right child
 
@@ -116,8 +116,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	if (object_split.cost <= spatial_split.cost) {
 		// Perform Object Split
 
-		node.count = 0;
-		node.axis  = object_split.dimension;
+		sbvh.nodes[node_index].count = 0;
+		sbvh.nodes[node_index].axis  = object_split.dimension;
 
 		for (int i = first_index;        i < object_split.index;        i++) indices_going_left[indices[object_split.dimension][i].index] = true;
 		for (int i = object_split.index; i < first_index + index_count; i++) indices_going_left[indices[object_split.dimension][i].index] = false;
@@ -151,8 +151,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	} else {
 		// Perform Spatial Split
 
-		node.count = 0;
-		node.axis  = spatial_split.dimension;
+		sbvh.nodes[node_index].count = 0;
+		sbvh.nodes[node_index].axis  = spatial_split.dimension;
 
 		// Keep track of amount of rejected references on both sides for debugging purposes
 		int rejected_left  = 0;
@@ -161,8 +161,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 		float n_1 = float(spatial_split.num_left);
 		float n_2 = float(spatial_split.num_right);
 
-		float bounds_min  = node.aabb.min[spatial_split.dimension] - 0.001f;
-		float bounds_max  = node.aabb.max[spatial_split.dimension] + 0.001f;
+		float bounds_min  = sbvh.nodes[node_index].aabb.min[spatial_split.dimension] - 0.001f;
+		float bounds_max  = sbvh.nodes[node_index].aabb.max[spatial_split.dimension] + 0.001f;
 
 		float inv_bounds_delta = 1.0f / (bounds_max - bounds_min);
 
@@ -325,8 +325,8 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 		child_aabb_right = spatial_split.aabb_right;
 	}
 
-	sbvh.nodes[node.left    ].aabb = child_aabb_left;
-	sbvh.nodes[node.left + 1].aabb = child_aabb_right;
+	sbvh.nodes[sbvh.nodes[node_index].left    ].aabb = child_aabb_left;
+	sbvh.nodes[sbvh.nodes[node_index].left + 1].aabb = child_aabb_right;
 
 	indices[0].resize_if_smaller(first_index + n_left);
 	indices[1].resize_if_smaller(first_index + n_left);
@@ -341,7 +341,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	children_left[2] = { };
 
 	// Do a depth first traversal, so that we know the amount of indices that were recursively created by the left child
-	int num_leaves_left = build_sbvh(sbvh.nodes[node.left], triangles, first_index, n_left);
+	int num_leaves_left = build_sbvh(sbvh.nodes[node_index].left, triangles, first_index, n_left);
 
 	indices[0].resize_if_smaller(first_index + num_leaves_left + n_right);
 	indices[1].resize_if_smaller(first_index + num_leaves_left + n_right);
@@ -353,7 +353,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 	memcpy(indices[2].data() + first_index + num_leaves_left, children_right[2].data(), n_right * sizeof(PrimitiveRef));
 
 	// Now recurse on the right side
-	int num_leaves_right = build_sbvh(sbvh.nodes[node.left + 1], triangles, first_index + num_leaves_left, n_right);
+	int num_leaves_right = build_sbvh(sbvh.nodes[node_index].left + 1, triangles, first_index + num_leaves_left, n_right);
 
 	return num_leaves_left + num_leaves_right;
 }
