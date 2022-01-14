@@ -1,7 +1,7 @@
 #pragma once
 #include "BVHCommon.h"
 
-struct QBVHNode {
+struct BVH4Node {
 	float4 aabb_min_x;
 	float4 aabb_min_y;
 	float4 aabb_min_z;
@@ -11,15 +11,15 @@ struct QBVHNode {
 	int2 index_and_count[4];
 };
 
-__device__ __constant__ QBVHNode * qbvh_nodes;
+__device__ __constant__ BVH4Node * bvh4_nodes;
 
 struct AABBHits {
 	float t_near[4];
 	bool  hit[4];
 };
 
-// Check the Ray agains the four AABB's of the children of the given QBVH Node
-__device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray & ray, float max_distance) {
+// Check the Ray agains the four AABB's of the children of the given BVH4 Node
+__device__ inline AABBHits bvh4_node_intersect(const BVH4Node & node, const Ray & ray, float max_distance) {
 	AABBHits result;
 
 	float4 tx0 = (__ldg(&node.aabb_min_x) - ray.origin.x) / ray.direction.x;
@@ -66,19 +66,18 @@ __device__ inline AABBHits qbvh_node_intersect(const QBVHNode & node, const Ray 
 	return result;
 }
 
-__device__ inline unsigned pack_qbvh_node(int index, int id) {
+__device__ inline unsigned pack_bvh4_node(int index, int id) {
 	ASSERT(index < 0x3fffffff, "Index must fit in 30 bits");
-
 	return (id << 30) | index;
 }
 
-__device__ inline void unpack_qbvh_node(unsigned packed, int & index, int & id) {
+__device__ inline void unpack_bvh4_node(unsigned packed, int & index, int & id) {
 	index = packed & 0x3fffffff;
 	id    = packed >> 30;
 }
 
-__device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired) {
-	extern __shared__ unsigned shared_stack_qbvh[];
+__device__ inline void bvh4_trace(int bounce, int ray_count, int * rays_retired) {
+	extern __shared__ unsigned shared_stack_bvh4[];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -108,7 +107,7 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 
 			// Push root on stack
 			stack_size                               = 1;
-			shared_stack_qbvh[SHARED_STACK_INDEX(0)] = 1;
+			shared_stack_bvh4[SHARED_STACK_INDEX(0)] = 1;
 		}
 
 		while (true) {
@@ -124,12 +123,12 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 
 			//assert(stack_size <= BVH_STACK_SIZE);
 
-			unsigned packed = stack_pop(shared_stack_qbvh, stack, stack_size);
+			unsigned packed = stack_pop(shared_stack_bvh4, stack, stack_size);
 
 			int node_index, node_id;
-			unpack_qbvh_node(packed, node_index, node_id);
+			unpack_bvh4_node(packed, node_index, node_id);
 
-			int2 index_and_count = __ldg(&qbvh_nodes[node_index].index_and_count[node_id]);
+			int2 index_and_count = __ldg(&bvh4_nodes[node_index].index_and_count[node_id]);
 
 			int index = index_and_count.x;
 			int count = index_and_count.y;
@@ -151,7 +150,7 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 						matrix3x4_transform_direction(transform_inv, ray.direction);
 					}
 
-					stack_push(shared_stack_qbvh, stack, stack_size, root_index);
+					stack_push(shared_stack_bvh4, stack, stack_size, root_index);
 				} else {
 					for (int j = index; j < index + count; j++) {
 						triangle_intersect(mesh_id, j, ray, ray_hit);
@@ -160,14 +159,14 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 			} else {
 				int child = index;
 
-				AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, ray_hit.t);
+				AABBHits aabb_hits = bvh4_node_intersect(bvh4_nodes[child], ray, ray_hit.t);
 
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
 					int id = __float_as_uint(aabb_hits.t_near[i]) & 3;
 
 					if (aabb_hits.hit[id]) {
-						stack_push(shared_stack_qbvh, stack, stack_size, pack_qbvh_node(child, id));
+						stack_push(shared_stack_bvh4, stack, stack_size, pack_bvh4_node(child, id));
 					}
 				}
 			}
@@ -181,8 +180,8 @@ __device__ inline void qbvh_trace(int bounce, int ray_count, int * rays_retired)
 	}
 }
 
-__device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_retired) {
-	extern __shared__ unsigned shared_stack_qbvh[];
+__device__ inline void bvh4_trace_shadow(int bounce, int ray_count, int * rays_retired) {
+	extern __shared__ unsigned shared_stack_bvh4[];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -212,7 +211,7 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 
 			// Push root on stack
 			stack_size                               = 1;
-			shared_stack_qbvh[SHARED_STACK_INDEX(0)] = 1;
+			shared_stack_bvh4[SHARED_STACK_INDEX(0)] = 1;
 		}
 
 		while (true) {
@@ -227,12 +226,12 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 			}
 
 			// Pop Node of the stack
-			unsigned packed = stack_pop(shared_stack_qbvh, stack, stack_size);
+			unsigned packed = stack_pop(shared_stack_bvh4, stack, stack_size);
 
 			int node_index, node_id;
-			unpack_qbvh_node(packed, node_index, node_id);
+			unpack_bvh4_node(packed, node_index, node_id);
 
-			int2 index_and_count = qbvh_nodes[node_index].index_and_count[node_id];
+			int2 index_and_count = bvh4_nodes[node_index].index_and_count[node_id];
 
 			int index = index_and_count.x;
 			int count = index_and_count.y;
@@ -254,7 +253,7 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 						matrix3x4_transform_direction(transform_inv, ray.direction);
 					}
 
-					stack_push(shared_stack_qbvh, stack, stack_size, root_index);
+					stack_push(shared_stack_bvh4, stack, stack_size, root_index);
 				} else {
 					bool hit = false;
 
@@ -275,14 +274,14 @@ __device__ inline void qbvh_trace_shadow(int bounce, int ray_count, int * rays_r
 			} else {
 				int child = index;
 
-				AABBHits aabb_hits = qbvh_node_intersect(qbvh_nodes[child], ray, max_distance);
+				AABBHits aabb_hits = bvh4_node_intersect(bvh4_nodes[child], ray, max_distance);
 
 				for (int i = 0; i < 4; i++) {
 					// Extract index from the 2 least significant bits
 					int id = __float_as_uint(aabb_hits.t_near[i]) & 3;
 
 					if (aabb_hits.hit[id]) {
-						stack_push(shared_stack_qbvh, stack, stack_size, pack_qbvh_node(child, id));
+						stack_push(shared_stack_bvh4, stack, stack_size, pack_bvh4_node(child, id));
 					}
 				}
 			}

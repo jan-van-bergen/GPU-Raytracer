@@ -12,11 +12,11 @@ __device__ inline unsigned ray_get_octant_inv4(const float3 ray_direction) {
 // Inverse of the percentage of active threads that triggers triangle postponing
 // A value of 5 means that if less than 1/5 = 20% of the active threads want to
 // intersect triangles we postpone the intersection test to decrease divergence within a Warp
-#define CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR 5
+#define BVH8_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR 5
 
 typedef unsigned char byte;
 
-struct CWBVHNode {
+struct BVH8Node {
 	float4 node_0;
 	float4 node_1;
 	float4 node_2;
@@ -24,9 +24,9 @@ struct CWBVHNode {
 	float4 node_4; // Node is stored as 5 float4's so we can load the entire 80 bytes in 5 global memory accesses
 };
 
-__device__ __constant__ const CWBVHNode * cwbvh_nodes;
+__device__ __constant__ const BVH8Node * bvh8_nodes;
 
-__device__ inline unsigned cwbvh_node_intersect(
+__device__ inline unsigned bvh8_node_intersect(
 	const Ray & ray,
 	unsigned oct_inv4,
 	float max_distance,
@@ -106,8 +106,8 @@ __device__ inline unsigned cwbvh_node_intersect(
 #define N_d 4
 #define N_w 16
 
-__device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired) {
-	extern __shared__ uint2 shared_stack_cwbvh[];
+__device__ inline void bvh8_trace(int bounce, int ray_count, int * rays_retired) {
+	extern __shared__ uint2 shared_stack_bvh8[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int   stack_size = 0;
@@ -163,7 +163,7 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 				if (current_group.y & 0xff000000) {
 					// assert(stack_size < BVH_STACK_SIZE);
 
-					stack_push(shared_stack_cwbvh, stack, stack_size, current_group);
+					stack_push(shared_stack_bvh8, stack, stack_size, current_group);
 				}
 
 				unsigned slot_index     = (child_index_offset - 24) ^ (oct_inv4 & 0xff);
@@ -171,13 +171,13 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 
 				unsigned child_node_index = child_index_base + relative_index;
 
-				float4 node_0 = __ldg(&cwbvh_nodes[child_node_index].node_0);
-				float4 node_1 = __ldg(&cwbvh_nodes[child_node_index].node_1);
-				float4 node_2 = __ldg(&cwbvh_nodes[child_node_index].node_2);
-				float4 node_3 = __ldg(&cwbvh_nodes[child_node_index].node_3);
-				float4 node_4 = __ldg(&cwbvh_nodes[child_node_index].node_4);
+				float4 node_0 = __ldg(&bvh8_nodes[child_node_index].node_0);
+				float4 node_1 = __ldg(&bvh8_nodes[child_node_index].node_1);
+				float4 node_2 = __ldg(&bvh8_nodes[child_node_index].node_2);
+				float4 node_3 = __ldg(&bvh8_nodes[child_node_index].node_3);
+				float4 node_4 = __ldg(&bvh8_nodes[child_node_index].node_4);
 
-				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
+				unsigned hitmask = bvh8_node_intersect(ray, oct_inv4, ray_hit.t, node_0, node_1, node_2, node_3, node_4);
 
 				byte imask = extract_byte(float_as_uint(node_0.w), 3);
 
@@ -191,7 +191,7 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 				current_group  = make_uint2(0);
 			}
 
-			int postpone_threshold = __popc(__activemask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
+			int postpone_threshold = __popc(__activemask()) / BVH8_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
 
 			// While the triangle group is not empty
 			while (triangle_group.y != 0) {
@@ -202,10 +202,10 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 					mesh_id = triangle_group.x + mesh_offset;
 
 					if (triangle_group.y != 0) {
-						stack_push(shared_stack_cwbvh, stack, stack_size, triangle_group);
+						stack_push(shared_stack_bvh8, stack, stack_size, triangle_group);
 					}
 					if (current_group.y & 0xff000000) {
-						stack_push(shared_stack_cwbvh, stack, stack_size, current_group);
+						stack_push(shared_stack_bvh8, stack, stack_size, current_group);
 					}
 
 					tlas_stack_size = stack_size;
@@ -228,7 +228,7 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 					int thread_count = __popc(__activemask());
 					if (thread_count < postpone_threshold) {
 						// Not enough threads currently active that want to check triangle intersection, postpone by pushing on the stack
-						stack_push(shared_stack_cwbvh, stack, stack_size, triangle_group);
+						stack_push(shared_stack_bvh8, stack, stack_size, triangle_group);
 
 						break;
 					}
@@ -261,7 +261,7 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 					}
 				}
 
-				current_group = stack_pop(shared_stack_cwbvh, stack, stack_size);
+				current_group = stack_pop(shared_stack_bvh8, stack, stack_size);
 			}
 
 			iterations_lost += WARP_SIZE - __popc(__activemask()) - N_d;
@@ -269,8 +269,8 @@ __device__ inline void cwbvh_trace(int bounce, int ray_count, int * rays_retired
 	}
 }
 
-__device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_retired) {
-	extern __shared__ uint2 shared_stack_cwbvh[];
+__device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_retired) {
+	extern __shared__ uint2 shared_stack_bvh8[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int   stack_size = 0;
@@ -325,7 +325,7 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 				if (current_group.y & 0xff000000) {
 					// assert(stack_size < BVH_STACK_SIZE);
 
-					stack_push(shared_stack_cwbvh, stack, stack_size, current_group);
+					stack_push(shared_stack_bvh8, stack, stack_size, current_group);
 				}
 
 				unsigned slot_index     = (child_index_offset - 24) ^ (oct_inv4 & 0xff);
@@ -333,13 +333,13 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 
 				unsigned child_node_index = child_index_base + relative_index;
 
-				float4 node_0 = cwbvh_nodes[child_node_index].node_0;
-				float4 node_1 = cwbvh_nodes[child_node_index].node_1;
-				float4 node_2 = cwbvh_nodes[child_node_index].node_2;
-				float4 node_3 = cwbvh_nodes[child_node_index].node_3;
-				float4 node_4 = cwbvh_nodes[child_node_index].node_4;
+				float4 node_0 = bvh8_nodes[child_node_index].node_0;
+				float4 node_1 = bvh8_nodes[child_node_index].node_1;
+				float4 node_2 = bvh8_nodes[child_node_index].node_2;
+				float4 node_3 = bvh8_nodes[child_node_index].node_3;
+				float4 node_4 = bvh8_nodes[child_node_index].node_4;
 
-				unsigned hitmask = cwbvh_node_intersect(ray, oct_inv4, max_distance, node_0, node_1, node_2, node_3, node_4);
+				unsigned hitmask = bvh8_node_intersect(ray, oct_inv4, max_distance, node_0, node_1, node_2, node_3, node_4);
 
 				byte imask = extract_byte(float_as_uint(node_0.w), 3);
 
@@ -353,7 +353,7 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 				current_group  = make_uint2(0);
 			}
 
-			int postpone_threshold = __popc(__activemask()) / CWBVH_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
+			int postpone_threshold = __popc(__activemask()) / BVH8_TRIANGLE_POSTPONING_THRESHOLD_DIVISOR;
 
 			bool hit = false;
 
@@ -366,10 +366,10 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 					mesh_id = triangle_group.x + mesh_offset;
 
 					if (triangle_group.y != 0) {
-						stack_push(shared_stack_cwbvh, stack, stack_size, triangle_group);
+						stack_push(shared_stack_bvh8, stack, stack_size, triangle_group);
 					}
 					if (current_group.y & 0xff000000) {
-						stack_push(shared_stack_cwbvh, stack, stack_size, current_group);
+						stack_push(shared_stack_bvh8, stack, stack_size, current_group);
 					}
 
 					tlas_stack_size = stack_size;
@@ -392,7 +392,7 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 					int thread_count = __popc(__activemask());
 					if (thread_count < postpone_threshold) {
 						// Not enough threads currently active that want to check triangle intersection, postpone by pushing on the stack
-						stack_push(shared_stack_cwbvh, stack, stack_size, triangle_group);
+						stack_push(shared_stack_bvh8, stack, stack_size, triangle_group);
 
 						break;
 					}
@@ -445,7 +445,7 @@ __device__ inline void cwbvh_trace_shadow(int bounce, int ray_count, int * rays_
 					}
 				}
 
-				current_group = stack_pop(shared_stack_cwbvh, stack, stack_size);
+				current_group = stack_pop(shared_stack_bvh8, stack, stack_size);
 			}
 
 			iterations_lost += WARP_SIZE - __popc(__activemask()) - N_d;

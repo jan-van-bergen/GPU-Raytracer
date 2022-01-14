@@ -109,16 +109,16 @@ void Pathtracer::cuda_init_module() {
 
 	kernel_generate           .init(&cuda_module, "kernel_generate");
 	kernel_trace_bvh          .init(&cuda_module, "kernel_trace_bvh");
-	kernel_trace_qbvh         .init(&cuda_module, "kernel_trace_qbvh");
-	kernel_trace_cwbvh        .init(&cuda_module, "kernel_trace_cwbvh");
+	kernel_trace_qbvh         .init(&cuda_module, "kernel_trace_bvh4");
+	kernel_trace_cwbvh        .init(&cuda_module, "kernel_trace_bvh8");
 	kernel_sort               .init(&cuda_module, "kernel_sort");
 	kernel_material_diffuse   .init(&cuda_module, "kernel_material_diffuse");
 	kernel_material_plastic   .init(&cuda_module, "kernel_material_plastic");
 	kernel_material_dielectric.init(&cuda_module, "kernel_material_dielectric");
 	kernel_material_conductor .init(&cuda_module, "kernel_material_conductor");
 	kernel_trace_shadow_bvh   .init(&cuda_module, "kernel_trace_shadow_bvh");
-	kernel_trace_shadow_qbvh  .init(&cuda_module, "kernel_trace_shadow_qbvh");
-	kernel_trace_shadow_cwbvh .init(&cuda_module, "kernel_trace_shadow_cwbvh");
+	kernel_trace_shadow_qbvh  .init(&cuda_module, "kernel_trace_shadow_bvh4");
+	kernel_trace_shadow_cwbvh .init(&cuda_module, "kernel_trace_shadow_bvh8");
 	kernel_svgf_reproject     .init(&cuda_module, "kernel_svgf_reproject");
 	kernel_svgf_variance      .init(&cuda_module, "kernel_svgf_variance");
 	kernel_svgf_atrous        .init(&cuda_module, "kernel_svgf_atrous");
@@ -384,7 +384,7 @@ void Pathtracer::cuda_init_geometry() {
 			}
 
 			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes);
-			cuda_module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes_4);
+			cuda_module.get_global("bvh4_nodes").set_value(ptr_bvh_nodes_4);
 
 			tlas           = make_owned<BVH4>();
 			tlas_converter = make_owned<BVH4Converter>(static_cast<BVH4 &>(*tlas.get()), tlas_raw);
@@ -414,7 +414,7 @@ void Pathtracer::cuda_init_geometry() {
 			}
 
 			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes);
-			cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes_8);
+			cuda_module.get_global("bvh8_nodes").set_value(ptr_bvh_nodes_8);
 
 			tlas           = make_owned<BVH8>();
 			tlas_converter = make_owned<BVH8Converter>(static_cast<BVH8 &>(*tlas.get()), tlas_raw);
