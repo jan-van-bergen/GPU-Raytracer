@@ -94,7 +94,7 @@ int SBVHBuilder::build_sbvh(BVHNode2 & node, const Array<Triangle> & triangles, 
 		spatial_split.cost = INFINITY;
 	}
 
-	ASSERT(object_split.cost != INFINITY || spatial_split.cost != INFINITY);
+	ASSERT(isfinite(object_split.cost) || isfinite(spatial_split.cost));
 
 	node.left = sbvh.nodes.size();
 	sbvh.nodes.emplace_back(); // Left child

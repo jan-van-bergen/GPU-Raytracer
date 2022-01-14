@@ -34,7 +34,6 @@ AABB AABB::unify(const AABB & b1, const AABB & b2) {
 	return aabb;
 }
 
-
 AABB AABB::overlap(const AABB & b1, const AABB & b2) {
 	ASSERT(b1.is_valid() || b1.is_empty());
 	ASSERT(b2.is_valid() || b2.is_empty());

@@ -25,6 +25,8 @@ struct AABB {
 
 	// Make sure the AABB is non-zero along every dimension
 	inline void fix_if_needed(float epsilon = 0.001f) {
+		if (is_empty()) return;
+
 		for (int dimension = 0; dimension < 3; dimension++) {
 			float eps = epsilon;
 			while (max[dimension] - min[dimension] < eps) {

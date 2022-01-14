@@ -140,6 +140,9 @@
       <Filter>ThirdParty</Filter>
     </ClCompile>
     <ClCompile Include="Src\Args.cpp" />
+    <ClCompile Include="Src\BVH\Builders\BVHPartitions.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">

@@ -19,6 +19,7 @@ namespace IO {
 	}
 
 	inline void exit(int code) {
+		__debugbreak();
 		::exit(code);
 	}
 

@@ -2,6 +2,8 @@
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
+#include "Core/Array.h"
+
 #include "Util/Shader.h"
 
 typedef void (*ResizeHandler)(unsigned frame_buffer_handle, int width, int height);
@@ -31,7 +33,7 @@ struct Window {
 
 	void swap();
 
-	Array<unsigned char> Window::read_frame_buffer(int & window_pitch) const;
+	Array<unsigned char> read_frame_buffer(int & window_pitch) const;
 
 	ResizeHandler resize_handler = nullptr;
 };
