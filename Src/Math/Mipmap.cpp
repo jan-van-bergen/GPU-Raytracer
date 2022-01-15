@@ -50,7 +50,7 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 
 	// Fill horizontal kernel
 	for (int x = 0; x < window_size_x; x++) {
-		float sample = filter_sample_box<Filter>(x - window_size_x / 2, scale_x);
+		float sample = filter_sample_box<Filter>(float(x - window_size_x / 2), scale_x);
 
 		kernel_x[x] = sample;
 		sum_x += sample;
@@ -58,7 +58,7 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 
 	// Fill vertical kernel
 	for (int y = 0; y < window_size_y; y++) {
-		float sample = filter_sample_box<Filter>(y - window_size_y / 2, scale_y);
+		float sample = filter_sample_box<Filter>(float(y - window_size_y / 2), scale_y);
 
 		kernel_y[y] = sample;
 		sum_y += sample;

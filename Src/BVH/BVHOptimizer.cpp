@@ -58,7 +58,7 @@ static void select_nodes_random(const BVH2 & bvh, const Array<int> & parent_indi
 	// Identify Nodes that are valid for selection
 	for (size_t i = 2; i < bvh.nodes.size(); i++) {
 		if (!bvh.nodes[i].is_leaf() && parent_indices[i] != 0) { // Node must be an internal Node and must have a grandparent (i.e. cannot be the child of the root)
-			temp[offset++] = i;
+			temp[offset++] = int(i);
 		}
 	}
 
@@ -230,7 +230,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 	static_assert(P_T >= P_R);
 
-	int        batch_size = Math::max<int>(bvh.nodes.size() / k, 8);
+	int        batch_size = Math::max(int(bvh.nodes.size()) / k, 8);
 	Array<int> batch_indices(bvh.nodes.size());
 
 	int batch_count = 0;

@@ -14,7 +14,7 @@ struct RNG {
 	}
 
 	uint32_t get_uint32() {
-		uint32_t x = ((state >> 18u) ^ state) >> 27u;
+		uint32_t x = uint32_t(((state >> 18u) ^ state) >> 27u);
 		uint32_t r = state >> 59u;
 		state  = state * 6364136223846793005ull + 1;
 		return (x >> r) | (x << ((~r + 1) & 31));

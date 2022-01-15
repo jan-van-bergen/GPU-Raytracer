@@ -275,8 +275,8 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 
 	node.imask = 0;
 
-	node.base_index_triangle = bvh8.indices.size();
-	node.base_index_child    = bvh8.nodes  .size();
+	node.base_index_triangle = unsigned(bvh8.indices.size());
+	node.base_index_child    = unsigned(bvh8.nodes  .size());
 
 	int node_internal_count = 0;
 	int node_triangle_count = 0;

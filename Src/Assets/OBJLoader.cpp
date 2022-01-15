@@ -152,9 +152,9 @@ Array<Triangle> OBJLoader::load(const String & filename) {
 				return result;
 			};
 
-			int index_v = get_index(obj.positions .size(), v);
-			int index_t = get_index(obj.tex_coords.size(), t);
-			int index_n = get_index(obj.normals   .size(), n);
+			int index_v = get_index(int(obj.positions .size()), v);
+			int index_t = get_index(int(obj.tex_coords.size()), t);
+			int index_n = get_index(int(obj.normals   .size()), n);
 
 			if (index_v != INVALID) {
 				positions[i] = obj.positions[index_v];

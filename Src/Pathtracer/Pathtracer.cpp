@@ -232,7 +232,7 @@ void Pathtracer::cuda_init_materials() {
 
 			CUDACALL(cuTexObjectCreate(&textures[i].texture, &res_desc, &tex_desc, &view_desc));
 
-			textures[i].lod_bias = 0.5f * log2f(texture.width * texture.height);
+			textures[i].lod_bias = 0.5f * log2f(float(texture.width * texture.height));
 		}
 
 		ptr_textures = CUDAMemory::malloc(textures);

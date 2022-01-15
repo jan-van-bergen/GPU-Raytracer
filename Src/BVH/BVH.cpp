@@ -54,4 +54,5 @@ OwnPtr<BVH> BVH::create_from_bvh2(BVH2 bvh) {
 		}
 		default: ASSERT(false);
 	}
+	IO::exit(1);
 }

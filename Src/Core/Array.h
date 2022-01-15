@@ -51,7 +51,7 @@ struct Array {
 		return *this;
 	}
 
-	constexpr Array(Array && array) {
+	constexpr Array(Array && array) noexcept {
 		buffer   = array.buffer;
 		count    = array.count;
 		capacity = array.capacity;

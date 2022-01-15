@@ -127,18 +127,17 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 		nvrtcProgram program;
 
 		while (true) {
-			int num_includes = includes.size();
-
+			size_t num_includes = includes.size();
 			Array<const char *> include_names  (num_includes);
 			Array<const char *> include_sources(num_includes);
 
-			for (int i = 0; i < num_includes; i++) {
+			for (size_t i = 0; i < num_includes; i++) {
 				include_names  [i] = includes[i].filename.data();
 				include_sources[i] = includes[i].source  .data();
 			}
 
 			// Create NVRTC Program from the source and all includes
-			NVRTC_CALL(nvrtcCreateProgram(&program, source.data(), "Pathtracer", num_includes, include_sources.data(), include_names.data()));
+			NVRTC_CALL(nvrtcCreateProgram(&program, source.data(), "Pathtracer", int(num_includes), include_sources.data(), include_names.data()));
 
 			includes.clear();
 

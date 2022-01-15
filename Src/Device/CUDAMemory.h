@@ -24,7 +24,7 @@ namespace CUDAMemory {
 	};
 
 	template<typename T>
-	inline T * malloc_pinned(int count = 1) {
+	inline T * malloc_pinned(size_t count = 1) {
 		ASSERT(count > 0);
 
 		T * ptr;
@@ -34,7 +34,7 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline Ptr<T> malloc(int count = 1) {
+	inline Ptr<T> malloc(size_t count = 1) {
 		ASSERT(count > 0);
 
 		CUdeviceptr ptr;
@@ -44,7 +44,7 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline Ptr<T> malloc(const T * data, int count) {
+	inline Ptr<T> malloc(const T * data, size_t count) {
 		Ptr<T> ptr = malloc<T>(count);
 		memcpy(ptr, data, count);
 
@@ -75,7 +75,7 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void memcpy(Ptr<T> dst, const T * src, int count = 1) {
+	inline void memcpy(Ptr<T> dst, const T * src, size_t count = 1) {
 		ASSERT(src);
 		ASSERT(dst.ptr);
 		ASSERT(count > 0);
@@ -84,7 +84,7 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void memcpy_async(Ptr<T> dst, const T * src, int count, CUstream stream) {
+	inline void memcpy_async(Ptr<T> dst, const T * src, size_t count, CUstream stream) {
 		ASSERT(src);
 		ASSERT(dst.ptr);
 		ASSERT(count > 0);
@@ -93,7 +93,7 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void memcpy(T * dst, Ptr<T> src, int count = 1) {
+	inline void memcpy(T * dst, Ptr<T> src, size_t count = 1) {
 		ASSERT(src.ptr);
 		ASSERT(dst);
 		ASSERT(count > 0);
@@ -102,7 +102,7 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void memcpy_async(T * dst, Ptr<T> src, int count, CUstream stream) {
+	inline void memcpy_async(T * dst, Ptr<T> src, size_t count, CUstream stream) {
 		ASSERT(src.ptr);
 		ASSERT(dst);
 		ASSERT(count > 0);
@@ -111,7 +111,7 @@ namespace CUDAMemory {
 	}
 
 	template<typename T>
-	inline void memset_async(Ptr<T> ptr, int value, int count, CUstream stream) {
+	inline void memset_async(Ptr<T> ptr, int value, size_t count, CUstream stream) {
 		int size_in_bytes = count * sizeof(T);
 		if ((size_in_bytes & 3) == 0) {
 			CUDACALL(cuMemsetD32Async(ptr.ptr, value, size_in_bytes >> 2, stream));

@@ -78,7 +78,7 @@ bool TextureLoader::load_dds(const String & filename, Texture & texture) {
 		default: return false;
 	}
 
-	int data_size = file.size() - sizeof(header);
+	size_t data_size = file.size() - sizeof(header);
 
 	texture.data.resize(data_size);
 	memcpy(texture.data.data(), parser.cur, data_size);
@@ -196,10 +196,10 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 	// Convert floating point pixels to unsigned bytes
 	Array<unsigned char> data_rgba_u8(pixel_count * 4);
 	for (int i = 0; i < pixel_count; i++) {
-		data_rgba_u8[4*i + 0] = Math::clamp(data_rgba[i].x * 255.0f, 0.0f, 255.0f);
-		data_rgba_u8[4*i + 1] = Math::clamp(data_rgba[i].y * 255.0f, 0.0f, 255.0f);
-		data_rgba_u8[4*i + 2] = Math::clamp(data_rgba[i].z * 255.0f, 0.0f, 255.0f);
-		data_rgba_u8[4*i + 3] = Math::clamp(data_rgba[i].w * 255.0f, 0.0f, 255.0f);
+		data_rgba_u8[4*i + 0] = unsigned char(Math::clamp(data_rgba[i].x * 255.0f, 0.0f, 255.0f));
+		data_rgba_u8[4*i + 1] = unsigned char(Math::clamp(data_rgba[i].y * 255.0f, 0.0f, 255.0f));
+		data_rgba_u8[4*i + 2] = unsigned char(Math::clamp(data_rgba[i].z * 255.0f, 0.0f, 255.0f));
+		data_rgba_u8[4*i + 3] = unsigned char(Math::clamp(data_rgba[i].w * 255.0f, 0.0f, 255.0f));
 	}
 
 	if (config.enable_block_compression && Math::is_power_of_two(texture.width) && Math::is_power_of_two(texture.height)) {

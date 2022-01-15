@@ -64,7 +64,7 @@ static void bvh_collapse(const BVH2 & bvh, BVH2 & new_bvh, int new_index, BitArr
 	new_node.axis  = node.axis;
 
 	if (node.is_leaf()) {
-		new_node.first = new_bvh.indices.size();
+		new_node.first = int(new_bvh.indices.size());
 
 		for (unsigned i = 0; i < node.count; i++) {
 			new_bvh.indices.push_back(bvh.indices[node.first + i]);
@@ -75,11 +75,11 @@ static void bvh_collapse(const BVH2 & bvh, BVH2 & new_bvh, int new_index, BitArr
 		// Check if this internal Node needs to collapse its subtree into a leaf
 		if (collapse[node_index]) {
 			new_node.count = collapse_subtree(bvh, new_bvh, node_index);
-			new_node.first = new_bvh.indices.size() - new_node.count;
+			new_node.first = int(new_bvh.indices.size()) - new_node.count;
 
 			ASSERT(new_node.is_leaf());
 		} else {
-			new_node.left = new_bvh.nodes.size();
+			new_node.left = int(new_bvh.nodes.size());
 			new_bvh.nodes.emplace_back();
 			new_bvh.nodes.emplace_back();
 

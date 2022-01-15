@@ -139,9 +139,9 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 				result.y = reinterpret_cast<const float *>(buffer)[3*index + 1];
 				result.z = reinterpret_cast<const float *>(buffer)[3*index + 2];
 			} else {
-				result.x = reinterpret_cast<const double *>(buffer)[3*index];
-				result.y = reinterpret_cast<const double *>(buffer)[3*index + 1];
-				result.z = reinterpret_cast<const double *>(buffer)[3*index + 2];
+				result.x = float(reinterpret_cast<const double *>(buffer)[3*index]);
+				result.y = float(reinterpret_cast<const double *>(buffer)[3*index + 1]);
+				result.z = float(reinterpret_cast<const double *>(buffer)[3*index + 2]);
 			}
 			return result;
 		};
@@ -153,8 +153,8 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 				result.x = reinterpret_cast<const float *>(buffer)[2*index];
 				result.y = reinterpret_cast<const float *>(buffer)[2*index + 1];
 			} else {
-				result.x = reinterpret_cast<const double *>(buffer)[2*index];
-				result.y = reinterpret_cast<const double *>(buffer)[2*index + 1];
+				result.x = float(reinterpret_cast<const double *>(buffer)[2*index]);
+				result.y = float(reinterpret_cast<const double *>(buffer)[2*index + 1]);
 			}
 			return result;
 		};

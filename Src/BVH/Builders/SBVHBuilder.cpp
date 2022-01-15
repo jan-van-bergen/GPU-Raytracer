@@ -20,9 +20,9 @@ void SBVHBuilder::build(const Array<Triangle> & triangles) {
 	indices[2].resize(triangles.size());
 
 	for (size_t i = 0; i < triangles.size(); i++) {
-		indices[0][i].index = i;
-		indices[1][i].index = i;
-		indices[2][i].index = i;
+		indices[0][i].index = int(i);
+		indices[1][i].index = int(i);
+		indices[2][i].index = int(i);
 
 		Vector3 vertices[3] = {
 			triangles[i].position_0,
@@ -96,7 +96,7 @@ int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, i
 
 	ASSERT(isfinite(object_split.cost) || isfinite(spatial_split.cost));
 
-	sbvh.nodes[node_index].left = sbvh.nodes.size();
+	sbvh.nodes[node_index].left = int(sbvh.nodes.size());
 	sbvh.nodes.emplace_back(); // Left child
 	sbvh.nodes.emplace_back(); // Right child
 
@@ -138,8 +138,8 @@ int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, i
 		ASSERT(children_left [0].size() == children_left [1].size() && children_left [1].size() == children_left [2].size());
 		ASSERT(children_right[0].size() == children_right[1].size() && children_right[1].size() == children_right[2].size());
 
-		n_left  = children_left [0].size();
-		n_right = children_right[0].size();
+		n_left  = int(children_left [0].size());
+		n_right = int(children_right[0].size());
 
 		// Using object split, no duplicates can occur.
 		// Thus, left + right should equal the total number of triangles
@@ -306,8 +306,8 @@ int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, i
 		ASSERT(children_left [0].size() == children_left [1].size() && children_left [1].size() == children_left [2].size());
 		ASSERT(children_right[0].size() == children_right[1].size() && children_right[1].size() == children_right[2].size());
 
-		n_left  = children_left [0].size();
-		n_right = children_right[0].size();
+		n_left  = int(children_left [0].size());
+		n_right = int(children_right[0].size());
 
 		// The actual number of references going left/right should match the numbers calculated during spatial splitting
 		ASSERT(n_left  == spatial_split.num_left  - rejected_left);

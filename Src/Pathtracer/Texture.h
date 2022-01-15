@@ -33,7 +33,7 @@ struct Texture {
 
 	int get_width_in_bytes(int mip_level = 0) const;
 
-	inline int mip_levels() const { return mip_offsets.size(); }
+	inline int mip_levels() const { return int(mip_offsets.size()); }
 };
 
 struct TextureHandle { int handle = INVALID; };

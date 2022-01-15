@@ -27,7 +27,7 @@ struct Timing {
 	Uint64 now;
 	Uint64 last;
 
-	Uint64 time_of_last_screenshot = -1;
+	Uint64 time_of_last_screenshot;
 
 	double inv_perf_freq;
 	double delta_time;
@@ -77,6 +77,7 @@ int main(int num_args, char ** args) {
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
 	timing.start = SDL_GetPerformanceCounter();
 	timing.last  = timing.start;
+	timing.time_of_last_screenshot = INVALID;
 
 	// Game loop
 	while (!window.is_closed) {
@@ -271,7 +272,7 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 
 					size_t j;
 					for (j = i; j < event_timings.size(); j++) {
-						int length = event_timings[j].desc.name.size();
+						int length = int(event_timings[j].desc.name.size());
 						if (length > padding) padding = length;
 
 						time_sum += event_timings[j].timing;
@@ -474,17 +475,17 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 					}
 					case Material::Type::DIFFUSE: {
 						material_changed |= ImGui::ColorEdit3("Diffuse", &material.diffuse.x);
-						material_changed |= ImGui::SliderInt ("Texture", &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						material_changed |= ImGui::SliderInt ("Texture", &material.texture_id.handle, -1, int(pathtracer.scene.asset_manager.textures.size() - 1), texture_name);
 						break;
 					}
 					case Material::Type::PLASTIC: {
 						material_changed |= ImGui::ColorEdit3  ("Diffuse",   &material.diffuse.x);
-						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, pathtracer.scene.asset_manager.textures.size() - 1, texture_name);
+						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, int(pathtracer.scene.asset_manager.textures.size() - 1), texture_name);
 						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 						break;
 					}
 					case Material::Type::DIELECTRIC: {
-						material_changed |= ImGui::SliderInt  ("Medium",    &material.medium_handle.handle, -1, pathtracer.scene.asset_manager.media.size() - 1);
+						material_changed |= ImGui::SliderInt  ("Medium",    &material.medium_handle.handle, -1, int(pathtracer.scene.asset_manager.media.size() - 1));
 						material_changed |= ImGui::SliderFloat("IOR",       &material.index_of_refraction, 1.0f, 2.5f);
 						material_changed |= ImGui::SliderFloat("Roughness", &material.linear_roughness,    0.0f, 1.0f);
 						break;
