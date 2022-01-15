@@ -55,13 +55,13 @@ int main(int num_args, char ** args) {
 	Args::parse(num_args, args);
 
 	if (scene_config.scene_filenames.size() == 0) {
-		scene_config.scene_filenames.push_back("Data/cornellbox/scene.xml");
+		scene_config.scene_filenames.push_back("Data/cornellbox/scene.xml"_sv);
 	}
 	if (scene_config.sky_filename.is_empty()) {
-		scene_config.sky_filename = "Data/Skies/sky_15.hdr";
+		scene_config.sky_filename = "Data/Skies/sky_15.hdr"_sv;
 	}
 
-	Window window("Pathtracer", config.initial_width, config.initial_height);
+	Window window("Pathtracer"_sv, config.initial_width, config.initial_height);
 
 	CUDAContext::init();
 
@@ -253,7 +253,7 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 
 			Util::stable_sort(event_timings.begin(), event_timings.end(), [](const EventTiming & a, const EventTiming & b) {
 				if (a.desc.display_order == b.desc.display_order) {
-					return a.desc.category < b.desc.category.data();
+					return a.desc.category < b.desc.category;
 				}
 				return a.desc.display_order < b.desc.display_order;
 			});

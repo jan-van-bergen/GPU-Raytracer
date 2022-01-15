@@ -15,7 +15,7 @@ static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id
 	IO::print("GL CALLBACK: {} type = 0x{:x}, severity = 0x{:x}, message = {}\n"_sv, type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **"_sv : ""_sv, type, severity, message);
 }
 
-Window::Window(const char * title, int width, int height) {
+Window::Window(const String & title, int width, int height) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
@@ -30,7 +30,7 @@ Window::Window(const char * title, int width, int height) {
 	this->width  = width;
 	this->height = height;
 
-	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+	window  = SDL_CreateWindow(title.data(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
 	context = SDL_GL_CreateContext(window);
 
 	SDL_SetWindowResizable(window, SDL_TRUE);

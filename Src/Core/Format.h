@@ -138,7 +138,7 @@ struct Formatter<bool> {
 			if (fmt_spec.align == 0) {
 				fmt_spec.align = '>';
 			}
-			return value ? "1" : "0";
+			return value ? "1"_sv : "0"_sv;
 		} else {
 			return Util::to_string(value);
 		}

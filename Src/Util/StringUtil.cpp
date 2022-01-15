@@ -134,7 +134,7 @@ static int uint64_to_string(uint64_t value, uint64_t base, char * buf) {
 }
 
 String Util::to_string(bool value) {
-	return value ? "true" : "false";
+	return value ? "true"_sv : "false"_sv;
 }
 
 String Util::to_string(int64_t value, int64_t base) {
@@ -151,10 +151,10 @@ String Util::to_string(uint64_t value, uint64_t base) {
 
 String Util::to_string(double value) {
 	if (isinf(value)) {
-		return value > 0.0f ? "inf" : "-inf";
+		return value > 0.0f ? "inf"_sv : "-inf"_sv;
 	}
 	if (isnan(value)) {
-		return "nan";
+		return "nan"_sv;
 	}
 
 	// Based on: https://github.com/antongus/stm32tpl/blob/master/ftoa.c

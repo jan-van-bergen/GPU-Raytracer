@@ -5,6 +5,7 @@
 #include <SDL2/SDL.h>
 
 #include "Core/Array.h"
+#include "Core/String.h"
 
 #include "Util/Shader.h"
 
@@ -21,7 +22,7 @@ struct Window {
 
 	bool is_closed = false;
 
-	Window(const char * title, int width, int height);
+	Window(const String & title, int width, int height);
 	~Window();
 
 	void resize(int new_width, int new_height);
