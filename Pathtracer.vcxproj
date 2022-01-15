@@ -225,6 +225,7 @@
     <ClCompile Include="Src\Core\Format.cpp" />
     <ClCompile Include="Src\Core\IO.cpp" />
     <ClCompile Include="Src\Core\Mutex.cpp" />
+    <ClCompile Include="Src\Core\Random.cpp" />
     <ClCompile Include="Src\Device\CUDAContext.cpp" />
     <ClCompile Include="Src\Device\CUDAMemory.cpp" />
     <ClCompile Include="Src\Device\CUDAModule.cpp" />
@@ -245,7 +246,6 @@
     <ClCompile Include="Src\Util\Shader.cpp" />
     <ClCompile Include="Src\Util\StringUtil.cpp" />
     <ClCompile Include="Src\Util\ThreadPool.cpp" />
-    <ClCompile Include="Src\Util\Util.cpp" />
     <ClCompile Include="Src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -281,6 +281,7 @@
     <ClInclude Include="Src\Core\OwnPtr.h" />
     <ClInclude Include="Src\Core\Parser.h" />
     <ClInclude Include="Src\Core\Queue.h" />
+    <ClInclude Include="Src\Core\Random.h" />
     <ClInclude Include="Src\Core\Timer.h" />
     <ClInclude Include="Src\Core\String.h" />
     <ClInclude Include="Src\Core\StringView.h" />
@@ -313,7 +314,6 @@
     <ClInclude Include="Src\Util\Geometry.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\PMJ.h" />
-    <ClInclude Include="Src\Util\Random.h" />
     <ClInclude Include="Src\Util\Shader.h" />
     <ClInclude Include="Src\Util\StringUtil.h" />
     <ClInclude Include="Src\Util\ThreadPool.h" />

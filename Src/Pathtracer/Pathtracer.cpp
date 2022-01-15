@@ -767,7 +767,7 @@ void Pathtracer::calc_light_power() {
 				light_probabilities[i] = light_triangles[i].area / light_mesh_data.total_area;
 			}
 
-			Util::init_alias_method(
+			Random::alias_method(
 				light_mesh_data.triangle_count,
 				light_probabilities.data() + light_mesh_data.first_triangle_index,
 				light_prob_alias   .data() + light_mesh_data.first_triangle_index
@@ -853,7 +853,7 @@ void Pathtracer::build_tlas() {
 		for (int i = 0; i < light_mesh_count; i++) {
 			light_mesh_probabilites[i] /= lights_total_weight;
 		}
-		Util::init_alias_method(light_mesh_count, light_mesh_probabilites.data(), pinned_light_mesh_prob_alias);
+		Random::alias_method(light_mesh_count, light_mesh_probabilites.data(), pinned_light_mesh_prob_alias);
 
 		CUDAMemory::memcpy_async(ptr_light_mesh_prob_alias,                     pinned_light_mesh_prob_alias,                     light_mesh_count, memory_stream);
 		CUDAMemory::memcpy_async(ptr_light_mesh_first_index_and_triangle_count, pinned_light_mesh_first_index_and_triangle_count, light_mesh_count, memory_stream);

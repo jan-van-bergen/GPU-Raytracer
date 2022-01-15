@@ -2,23 +2,16 @@
 
 #define FORCEINLINE __forceinline
 
-struct alignas(8) ProbAlias {
-	float prob;
-	int   alias;
-};
-
 namespace Util {
-	void init_alias_method(int n, double p[], ProbAlias distribution[]);
-
 	template<typename T>
-	void swap(T & a, T & b) {
+	constexpr void swap(T & a, T & b) {
 		T temp = a;
 		a = b;
 		b = temp;
 	}
 
 	template<typename To, typename From>
-	To bit_cast(const From & value) {
+	constexpr To bit_cast(const From & value) {
 		static_assert(sizeof(From) == sizeof(To));
 
 		To result = { };
@@ -27,7 +20,7 @@ namespace Util {
 	}
 
 	template<typename T>
-	void reverse(T * array, size_t length) {
+	constexpr void reverse(T * array, size_t length) {
 		for (size_t i = 0; i < length / 2; i++) {
 			Util::swap(array[i], array[length - i - 1]);
 		}

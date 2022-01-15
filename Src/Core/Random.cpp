@@ -1,15 +1,11 @@
-#include "Util.h"
-
-#include <string.h>
-
-#include "Core/IO.h"
+#include "Random.h"
 
 // Based on: Vose - A Linear Algorithm for Generating Random Numbers with a Given Distribution (1991)
-void Util::init_alias_method(int n, double p[], ProbAlias distribution[]) {
-	Array<int> large(n);
-	Array<int> small(n);
-	int l = 0;
-	int s = 0;
+void Random::alias_method(int n, double p[], ProbAlias distribution[]) {
+	int * large = new int[n];
+	int * small = new int[n];
+	int   l = 0;
+	int   s = 0;
 
 	for (int j = 0; j < n; j++) {
 		p[j] *= double(n);
@@ -38,4 +34,7 @@ void Util::init_alias_method(int n, double p[], ProbAlias distribution[]) {
 
 	while (s > 0) distribution[small[--s]] = { 1.0f, -1 };
 	while (l > 0) distribution[large[--l]] = { 1.0f, -1 };
+
+	delete [] large;
+	delete [] small;
 }

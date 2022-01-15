@@ -25,9 +25,6 @@
     <ClCompile Include="Src\Util\PerfTest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Util\Util.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Input.cpp" />
     <ClCompile Include="Src\Main.cpp" />
     <ClCompile Include="Src\Window.cpp" />
@@ -142,6 +139,9 @@
     <ClCompile Include="Src\Args.cpp" />
     <ClCompile Include="Src\BVH\Builders\BVHPartitions.cpp">
       <Filter>BVH\Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\Random.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -275,9 +275,6 @@
     <ClInclude Include="Src\BVH\BVHCollapser.h">
       <Filter>BVH</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\Random.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Config.h" />
     <ClInclude Include="Src\Assets\Mitsuba\MitsubaLoader.h">
       <Filter>Assets\Mitsuba</Filter>
@@ -382,5 +379,8 @@
       <Filter>BVH\Converters</Filter>
     </ClInclude>
     <ClInclude Include="Src\Args.h" />
+    <ClInclude Include="Src\Core\Random.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

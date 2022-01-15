@@ -6,9 +6,9 @@
 #include "Core/Array.h"
 #include "Core/MinHeap.h"
 #include "Core/Timer.h"
+#include "Core/Random.h"
 
 #include "Util/Util.h"
-#include "Util/Random.h"
 
 // Calculates the SAH cost of a whole tree
 static float bvh_sah_cost(const BVH2 & bvh) {
@@ -62,7 +62,7 @@ static void select_nodes_random(const BVH2 & bvh, const Array<int> & parent_indi
 		}
 	}
 
-	Util::sample(temp.data(), temp.data() + offset, batch_indices.data(), batch_indices.data() + batch_size, rng);
+	Random::sample(temp.data(), temp.data() + offset, batch_indices.data(), batch_indices.data() + batch_size, rng);
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on which Nodes have the highest inefficiency measure

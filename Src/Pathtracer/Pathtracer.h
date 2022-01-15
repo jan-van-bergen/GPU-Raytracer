@@ -1,4 +1,6 @@
 #pragma once
+#include "Core/Random.h"
+
 #include "Device/CUDAModule.h"
 #include "Device/CUDAKernel.h"
 #include "Device/CUDAMemory.h"
