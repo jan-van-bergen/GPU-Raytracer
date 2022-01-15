@@ -17,7 +17,7 @@
 #include "Util/Util.h"
 #include "Util/BlueNoise.h"
 
-void Pathtracer::init(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height) {
+Pathtracer::Pathtracer(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height) {
 	scene.init(scene_config);
 
 	cuda_init(frame_buffer_handle, width, height);

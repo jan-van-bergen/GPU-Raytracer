@@ -18,9 +18,6 @@
 
 extern "C" { _declspec(dllexport) unsigned NvOptimusEnablement = true; } // Forces NVIDIA driver to be used
 
-static Pathtracer pathtracer;
-static PerfTest   perf_test;
-
 static constexpr int FRAMETIME_HISTORY_LENGTH = 100;
 
 static constexpr float SCREENSHOT_FADE_TIME = 5.0f;
@@ -51,9 +48,8 @@ static int last_pixel_query_x;
 static int last_pixel_query_y;
 
 static void capture_screen(const Window & window, const String & filename);
-static void window_resize(unsigned frame_buffer_handle, int width, int height);
 static void calc_timing();
-static void draw_gui(Window & window);
+static void draw_gui(Window & window, Pathtracer & pathtracer);
 
 int main(int num_args, char ** args) {
 	Args::parse(num_args, args);
@@ -66,16 +62,17 @@ int main(int num_args, char ** args) {
 	}
 
 	Window window("Pathtracer", config.initial_width, config.initial_height);
-	window.resize_handler = &window_resize;
 
-	{
-		ScopeTimer timer("Initialization"_sv);
+	CUDAContext::init();
 
-		CUDAContext::init();
-		pathtracer.init(scene_config, window.frame_buffer_handle, config.initial_width, config.initial_height);
+	Pathtracer pathtracer(scene_config, window.frame_buffer_handle, config.initial_width, config.initial_height);
 
-		perf_test.init(&pathtracer, false, scene_config.scene_filenames[0].view());
-	}
+	window.resize_handler = [&pathtracer](unsigned frame_buffer_handle, int width, int height) {
+		pathtracer.resize_free();
+		pathtracer.resize_init(frame_buffer_handle, width, height);
+	};
+
+	PerfTest perf_test(pathtracer, false, scene_config.scene_filenames[0].view());
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
 	timing.start = SDL_GetPerformanceCounter();
@@ -116,7 +113,7 @@ int main(int num_args, char ** args) {
 		}
 
 		calc_timing();
-		draw_gui(window);
+		draw_gui(window, pathtracer);
 
 		if (Input::is_key_released(SDL_SCANCODE_F5)) {
 			ScopeTimer timer("Hot Reload"_sv);
@@ -165,11 +162,6 @@ static void capture_screen(const Window & window, const String & filename) {
 
 	IO::export_ppm(filename, window.width, window.height, data.data());
 }
-
-static void window_resize(unsigned frame_buffer_handle, int width, int height) {
-	pathtracer.resize_free();
-	pathtracer.resize_init(frame_buffer_handle, width, height);
-};
 
 static void calc_timing() {
 	// Calculate delta time
@@ -226,7 +218,7 @@ static void calc_timing() {
 	}
 }
 
-static void draw_gui(Window & window) {
+static void draw_gui(Window & window, Pathtracer & pathtracer) {
 	window.gui_begin();
 
 	if (ImGui::Begin("Pathtracer")) {
@@ -554,12 +546,12 @@ static void draw_gui(Window & window) {
 			aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
 		}
 
-		auto draw_line_clipped = [draw_list, &window](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
-			if (a.z < pathtracer.scene.camera.near && b.z < pathtracer.scene.camera.near) return;
+		auto draw_line_clipped = [draw_list, &window, near = pathtracer.scene.camera.near](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
+			if (a.z < near && b.z < near) return;
 
 			// Clip against near plane only
-			if (a.z < pathtracer.scene.camera.near) a = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
-			if (b.z < pathtracer.scene.camera.near) b = Math::lerp(a, b, Math::inv_lerp(pathtracer.scene.camera.near, a.z, b.z));
+			if (a.z < near) a = Math::lerp(a, b, Math::inv_lerp(near, a.z, b.z));
+			if (b.z < near) b = Math::lerp(a, b, Math::inv_lerp(near, a.z, b.z));
 
 			// Clip space to NDC to Window coordinates
 			ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };

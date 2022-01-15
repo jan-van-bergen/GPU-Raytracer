@@ -3,13 +3,9 @@
 #include "Core/IO.h"
 #include "Util/StringUtil.h"
 
-void PerfTest::init(Pathtracer * pathtracer, bool enabled, StringView scene_name) {
-	this->enabled = enabled;
-
+PerfTest::PerfTest(Pathtracer & pathtracer, bool enabled, StringView scene_name) : pathtracer(pathtracer), enabled(enabled) {
 	index_pov    = 0;
 	index_buffer = 0;
-
-	this->pathtracer = pathtracer;
 
 	if (Util::strstr(scene_name, "sponza"_sv)) {
 		povs = &povs_sponza;
@@ -28,10 +24,10 @@ void PerfTest::frame_begin() {
 	const POV & pov = (*povs)[index_pov];
 
 	if (index_buffer == 0) {
-		pathtracer->scene.camera.position = pov.position;
-		pathtracer->scene.camera.rotation = pov.rotation;
-		pathtracer->invalidated_camera = true;
-		pathtracer->sample_index = 0;
+		pathtracer.scene.camera.position = pov.position;
+		pathtracer.scene.camera.rotation = pov.rotation;
+		pathtracer.invalidated_camera = true;
+		pathtracer.sample_index = 0;
 
 		IO::print("POV {}\n"_sv, index_pov);
 	}

@@ -1,12 +1,12 @@
 #pragma once
+#include <functional>
+
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
 #include "Core/Array.h"
 
 #include "Util/Shader.h"
-
-typedef void (*ResizeHandler)(unsigned frame_buffer_handle, int width, int height);
 
 struct Window {
 	SDL_Window *  window;
@@ -35,5 +35,5 @@ struct Window {
 
 	Array<unsigned char> read_frame_buffer(int & window_pitch) const;
 
-	ResizeHandler resize_handler = nullptr;
+	std::function<void(unsigned frame_buffer_handle, int width, int height)> resize_handler;
 };

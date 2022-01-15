@@ -19,7 +19,7 @@ private:
 	int index_pov;
 	int index_buffer;
 
-	Pathtracer * pathtracer;
+	Pathtracer & pathtracer;
 
 	Array<POV> * povs;
 
@@ -56,7 +56,7 @@ public:
 		{ Vector3(-7.894484f, 2.674741f, 0.916597f),   Quaternion(0.104225f, 0.628730f, 0.085566f, -0.765840f), { } },
 	};
 
-	void init(Pathtracer * pathtracer, bool enabled, StringView scene_name);
+	PerfTest(Pathtracer & pathtracer, bool enabled, StringView scene_name);
 
 	void frame_begin();
 	bool frame_end(float frame_time);
