@@ -10,7 +10,7 @@ static int parse_arg_int(StringView str) {
 	return Parser(str).parse_int();
 }
 
-static int parse_arg_float(StringView str) {
+static float parse_arg_float(StringView str) {
 	return Parser(str).parse_float();
 }
 
