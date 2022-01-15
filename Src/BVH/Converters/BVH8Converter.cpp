@@ -250,11 +250,9 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 
 	Vector3 one_over_e(1.0f / e.x, 1.0f / e.y, 1.0f / e.z);
 
-	// Treat float as unsigned
-	unsigned u_ex, u_ey, u_ez;
-	memcpy(&u_ex, &e.x, 4);
-	memcpy(&u_ey, &e.y, 4);
-	memcpy(&u_ez, &e.z, 4);
+	unsigned u_ex = Util::bit_cast<unsigned>(e.x);
+	unsigned u_ey = Util::bit_cast<unsigned>(e.y);
+	unsigned u_ez = Util::bit_cast<unsigned>(e.z);
 
 	// Only the exponent bits can be non-zero
 	ASSERT((u_ex & 0b10000000011111111111111111111111) == 0);

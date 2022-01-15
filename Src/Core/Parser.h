@@ -286,7 +286,7 @@ struct Parser {
 		const char * start = cur;
 		advance(sizeof(T));
 
-		T result;
+		T result = { };
 		memcpy(&result, start, sizeof(T));
 		return result;
 	}

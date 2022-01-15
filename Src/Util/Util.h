@@ -17,6 +17,15 @@ namespace Util {
 		b = temp;
 	}
 
+	template<typename To, typename From>
+	To bit_cast(const From & value) {
+		static_assert(sizeof(From) == sizeof(To));
+
+		To result = { };
+		memcpy(&result, &value, sizeof(From));
+		return result;
+	}
+
 	template<typename T>
 	void reverse(T * array, size_t length) {
 		for (size_t i = 0; i < length / 2; i++) {
