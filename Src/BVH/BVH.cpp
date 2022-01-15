@@ -1,7 +1,7 @@
 #include "BVH.h"
 
 #include "Core/IO.h"
-#include "Core/ScopeTimer.h"
+#include "Core/Timer.h"
 
 #include "BVH/Builders/SAHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"

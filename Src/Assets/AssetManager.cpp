@@ -1,7 +1,7 @@
 #include "AssetManager.h"
 
 #include "Core/IO.h"
-#include "Core/ScopeTimer.h"
+#include "Core/Timer.h"
 
 #include "Math/Vector4.h"
 

@@ -4,7 +4,7 @@
 
 #include "Core/IO.h"
 #include "Core/Assertion.h"
-#include "Core/ScopeTimer.h"
+#include "Core/Timer.h"
 
 #include "BVHPartitions.h"
 

@@ -7,7 +7,7 @@
 #include "Core/Assertion.h"
 #include "Core/IO.h"
 #include "Core/Parser.h"
-#include "Core/ScopeTimer.h"
+#include "Core/Timer.h"
 
 #include "CUDAMemory.h"
 

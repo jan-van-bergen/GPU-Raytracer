@@ -8,7 +8,7 @@
 #include "Args.h"
 
 #include "Core/Parser.h"
-#include "Core/ScopeTimer.h"
+#include "Core/Timer.h"
 
 #include "Input.h"
 #include "Window.h"
@@ -61,6 +61,9 @@ int main(int num_args, char ** args) {
 		scene_config.sky_filename = "Data/Skies/sky_15.hdr"_sv;
 	}
 
+	Timer timer = { };
+	timer.start();
+
 	Window window("Pathtracer"_sv, config.initial_width, config.initial_height);
 
 	CUDAContext::init();
@@ -73,6 +76,9 @@ int main(int num_args, char ** args) {
 	};
 
 	PerfTest perf_test(pathtracer, false, scene_config.scene_filenames[0].view());
+
+	size_t initialization_time = timer.stop();
+	Timer::print_named_duration("Initialization"_sv, initialization_time);
 
 	timing.inv_perf_freq = 1.0 / double(SDL_GetPerformanceFrequency());
 	timing.start = SDL_GetPerformanceCounter();

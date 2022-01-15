@@ -281,7 +281,7 @@
     <ClInclude Include="Src\Core\OwnPtr.h" />
     <ClInclude Include="Src\Core\Parser.h" />
     <ClInclude Include="Src\Core\Queue.h" />
-    <ClInclude Include="Src\Core\ScopeTimer.h" />
+    <ClInclude Include="Src\Core\Timer.h" />
     <ClInclude Include="Src\Core\String.h" />
     <ClInclude Include="Src\Core\StringView.h" />
     <ClInclude Include="Src\Device\CUDACall.h" />

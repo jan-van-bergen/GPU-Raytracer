@@ -5,7 +5,7 @@
 #include "Config.h"
 
 #include "Core/HashMap.h"
-#include "Core/ScopeTimer.h"
+#include "Core/Timer.h"
 
 #include "Math/Vector4.h"
 

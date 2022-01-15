@@ -336,7 +336,7 @@
     <ClInclude Include="Src\Core\Queue.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Core\ScopeTimer.h">
+    <ClInclude Include="Src\Core\Timer.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Src\Core\String.h">

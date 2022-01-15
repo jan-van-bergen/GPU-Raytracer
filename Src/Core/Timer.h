@@ -3,19 +3,20 @@
 
 #include "IO.h"
 
-// Timer that records the time between its construction and destruction
-struct ScopeTimer {
-	StringView name;
+// Manual Timer
+struct Timer {
 	std::chrono::high_resolution_clock::time_point start_time;
 
-	ScopeTimer(StringView name) : name(name) {
+	void start() {
 		start_time = std::chrono::high_resolution_clock::now();
 	}
 
-	~ScopeTimer() {
+	size_t stop() {
 		std::chrono::time_point stop_time = std::chrono::high_resolution_clock::now();
-		size_t                  duration  = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
+		return std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
+	}
 
+	static void print_named_duration(StringView name, size_t duration) {
 		if (duration >= 60000000) {
 			IO::print("{} took: {} s ({} min)\n"_sv, name, duration / 1000000, duration / 60000000);
 		} else if (duration >= 1000000) {
@@ -25,5 +26,20 @@ struct ScopeTimer {
 		} else {
 			IO::print("{} took: {} us\n"_sv, name, duration);
 		}
+	}
+};
+
+// Timer that records the time between its construction and destruction
+struct ScopeTimer {
+	StringView name;
+	Timer      timer;
+
+	ScopeTimer(StringView name) : name(name) {
+		timer.start();
+	}
+
+	~ScopeTimer() {
+		size_t duration = timer.stop();
+		Timer::print_named_duration(name, duration);
 	}
 };

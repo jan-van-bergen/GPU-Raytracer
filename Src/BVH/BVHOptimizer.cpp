@@ -5,7 +5,7 @@
 #include "Core/IO.h"
 #include "Core/Array.h"
 #include "Core/MinHeap.h"
-#include "Core/ScopeTimer.h"
+#include "Core/Timer.h"
 
 #include "Util/Util.h"
 #include "Util/Random.h"
