@@ -18,6 +18,7 @@ namespace IO {
 		print(string.view());
 	}
 
+	[[noreturn]]
 	inline void exit(int code) {
 		__debugbreak();
 		::exit(code);
