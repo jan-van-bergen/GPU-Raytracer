@@ -9,7 +9,7 @@ __device__ __constant__ int screen_width;
 __device__ __constant__ int screen_pitch;
 __device__ __constant__ int screen_height;
 
-__device__ __constant__ Config config;
+__device__ __constant__ GPUConfig config;
 
 // Frame Buffers
 __device__ __constant__ float4 * frame_buffer_albedo;

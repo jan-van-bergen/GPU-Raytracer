@@ -105,7 +105,7 @@ bool TextureLoader::load_dds(const String & filename, Texture & texture) {
 }
 
 static void mip_count(int width, int height, int & mip_levels, int & pixel_count) {
-	if (config.enable_mipmapping) {
+	if (gpu_config.enable_mipmapping) {
 		mip_levels  = 0;
 		pixel_count = 0;
 
@@ -153,7 +153,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 
 	texture.mip_offsets.push_back(0);
 
-	if (config.enable_mipmapping) {
+	if (gpu_config.enable_mipmapping) {
 		int offset      = texture.width * texture.height;
 		int offset_prev = 0;
 
@@ -168,7 +168,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 		Array<Vector4> temp((texture.width / 2) * texture.height); // Intermediate storage used when performing seperable filtering
 
 		while (true) {
-			if (config.mipmap_filter == Config::MipmapFilter::BOX) {
+			if (cpu_config.mipmap_filter == MipmapFilterType::BOX) {
 				// Box filter can downsample the previous Mip level
 				Mipmap::downsample(level_width_prev, level_height_prev, level_width, level_height, data_rgba.data() + offset_prev, data_rgba.data() + offset, temp.data());
 			} else {
@@ -202,7 +202,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 		data_rgba_u8[4*i + 3] = unsigned char(Math::clamp(data_rgba[i].w * 255.0f, 0.0f, 255.0f));
 	}
 
-	if (config.enable_block_compression && Math::is_power_of_two(texture.width) && Math::is_power_of_two(texture.height)) {
+	if (cpu_config.enable_block_compression && Math::is_power_of_two(texture.width) && Math::is_power_of_two(texture.height)) {
 		// Block Compression
 		int new_width  = Math::divide_round_up(texture.width,  4);
 		int new_height = Math::divide_round_up(texture.height, 4);

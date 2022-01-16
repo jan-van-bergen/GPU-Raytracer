@@ -29,7 +29,7 @@ struct BVHFileHeader {
 };
 
 bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH2 & bvh) {
-	if (config.bvh_force_rebuild || !IO::file_exists(bvh_filename.view()) || IO::file_is_newer(bvh_filename.view(), filename.view())) {
+	if (cpu_config.bvh_force_rebuild || !IO::file_exists(bvh_filename.view()) || IO::file_is_newer(bvh_filename.view(), filename.view())) {
 		return false;
 	}
 
@@ -47,9 +47,9 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 
 	// Check if the settings used to create the BVH file are the same as the current settings
 	if (header.underlying_bvh_type != char(BVH::underlying_bvh_type()) ||
-		header.bvh_is_optimized    != config.enable_bvh_optimization ||
-		header.sah_cost_node       != config.sah_cost_node ||
-		header.sah_cost_leaf       != config.sah_cost_leaf
+		header.bvh_is_optimized    != cpu_config.enable_bvh_optimization ||
+		header.sah_cost_node       != cpu_config.sah_cost_node ||
+		header.sah_cost_leaf       != cpu_config.sah_cost_leaf
 	) {
 		IO::print("BVH file '{}' was created with different settings, rebuiling BVH from scratch.\n"_sv, bvh_filename);
 		return false;
@@ -85,10 +85,10 @@ bool BVHLoader::save(const String & bvh_filename, const MeshData & mesh_data, co
 	header.filetype_identifier[3] = '\0';
 	header.filetype_version = BVH_FILETYPE_VERSION;
 
-	header.underlying_bvh_type    = char(BVH::underlying_bvh_type());
-	header.bvh_is_optimized       = config.enable_bvh_optimization;
-	header.sah_cost_node          = config.sah_cost_node;
-	header.sah_cost_leaf          = config.sah_cost_leaf;
+	header.underlying_bvh_type = char(BVH::underlying_bvh_type());
+	header.bvh_is_optimized    = cpu_config.enable_bvh_optimization;
+	header.sah_cost_node       = cpu_config.sah_cost_node;
+	header.sah_cost_leaf       = cpu_config.sah_cost_leaf;
 
 	header.num_triangles = mesh_data.triangles.size();
 	header.num_nodes     = bvh.nodes  .size();

@@ -12,15 +12,15 @@ static CollapseCost calc_collapse_cost(const BVH2 & bvh, BitArray & collapse, in
 	const BVHNode2 & node = bvh.nodes[node_index];
 
 	if (node.is_leaf()) {
-		return { int(node.count), float(node.count) * config.sah_cost_leaf };
+		return { int(node.count), float(node.count) * cpu_config.sah_cost_leaf };
 	} else {
 		CollapseCost cost_left  = calc_collapse_cost(bvh, collapse, node.left);
 		CollapseCost cost_right = calc_collapse_cost(bvh, collapse, node.left + 1);
 
 		int total_primtive_count = cost_left.primitive_count + cost_right.primitive_count;
 
-		float sah_leaf = config.sah_cost_leaf * float(total_primtive_count);
-		float sah_node = config.sah_cost_node + (
+		float sah_leaf = cpu_config.sah_cost_leaf * float(total_primtive_count);
+		float sah_node = cpu_config.sah_cost_node + (
 			bvh.nodes[node.left    ].aabb.surface_area() * cost_left .sah +
 			bvh.nodes[node.left + 1].aabb.surface_area() * cost_right.sah
 		) / node.aabb.surface_area();

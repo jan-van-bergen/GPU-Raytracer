@@ -14,11 +14,9 @@
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 
-void Scene::init(const SceneConfig & scene_config) {
-	camera.init(Math::deg_to_rad(85.0f));
-
-	for (int i = 0; i < scene_config.scene_filenames.size(); i++) {
-		const String & scene_filename = scene_config.scene_filenames[i];
+Scene::Scene() : camera(Math::deg_to_rad(85.0f)) {
+	for (int i = 0; i < cpu_config.scene_filenames.size(); i++) {
+		const String & scene_filename = cpu_config.scene_filenames[i];
 
 		StringView file_extension = Util::get_file_extension(scene_filename.view());
 		if (file_extension.is_empty()) {
@@ -38,7 +36,7 @@ void Scene::init(const SceneConfig & scene_config) {
 		}
 	}
 
-	sky.load(scene_config.sky_filename);
+	sky.load(cpu_config.sky_filename);
 }
 
 Mesh & Scene::add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {

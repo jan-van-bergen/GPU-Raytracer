@@ -17,7 +17,7 @@ BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
 
 	// Only the SBVH uses SBVH as its starting point,
 	// all other BVH types use the standard BVH as their starting point
-	if (config.bvh_type == BVHType::SBVH) {
+	if (cpu_config.bvh_type == BVHType::SBVH) {
 		ScopeTimer timer("SBVH Construction"_sv);
 
 		SBVHBuilder(bvh, triangles.size()).build(triangles);
@@ -27,7 +27,7 @@ BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
 		SAHBuilder(bvh, triangles.size()).build(triangles);
 	}
 
-	if (config.enable_bvh_optimization) {
+	if (cpu_config.enable_bvh_optimization) {
 		BVHOptimizer::optimize(bvh);
 	}
 
@@ -35,7 +35,7 @@ BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
 }
 
 OwnPtr<BVH> BVH::create_from_bvh2(BVH2 bvh) {
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: {
 			return make_owned<BVH2>(std::move(bvh));

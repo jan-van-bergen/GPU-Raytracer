@@ -18,7 +18,7 @@ struct Scene {
 	bool has_conductor  = false;
 	bool has_lights     = false;
 
-	void init(const SceneConfig & scene_config);
+	Scene();
 
 	Mesh & add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
 

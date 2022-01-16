@@ -198,7 +198,7 @@ struct Pathtracer {
 
 	CUDAEventPool event_pool;
 
-	Pathtracer(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height);
+	Pathtracer(unsigned frame_buffer_handle, int width, int height);
 
 	void cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height);
 	void cuda_init_module();

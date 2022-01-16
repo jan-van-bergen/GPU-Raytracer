@@ -46,58 +46,58 @@ static void parse_args(const Array<StringView> & args) {
 	};
 
 	static Array<Option> options = {
-		Option { "W"_sv, "width"_sv,   "Sets the width of the window"_sv,                     1, [](const Array<StringView> & args, size_t i) { config.initial_width       = parse_arg_int(args[i + 1]); } },
-		Option { "H"_sv, "height"_sv,  "Sets the height of the window"_sv,                    1, [](const Array<StringView> & args, size_t i) { config.initial_height      = parse_arg_int(args[i + 1]); } },
-		Option { "b"_sv, "bounce"_sv,  "Sets the number of pathtracing bounces"_sv,           1, [](const Array<StringView> & args, size_t i) { config.num_bounces         = Math::clamp(parse_arg_int(args[i + 1]), 0, MAX_BOUNCES - 1); } },
-		Option { "N"_sv, "samples"_sv, "Sets a target number of samples to use"_sv,           1, [](const Array<StringView> & args, size_t i) { config.output_sample_index = parse_arg_int(args[i + 1]); } },
-		Option { "o"_sv, "output"_sv,  "Sets path to output file. Supported formats: ppm"_sv, 1, [](const Array<StringView> & args, size_t i) { config.output_name         = args[i + 1].start; } },
+		Option { "W"_sv, "width"_sv,   "Sets the width of the window"_sv,                     1, [](const Array<StringView> & args, size_t i) { cpu_config.initial_width       = parse_arg_int(args[i + 1]); } },
+		Option { "H"_sv, "height"_sv,  "Sets the height of the window"_sv,                    1, [](const Array<StringView> & args, size_t i) { cpu_config.initial_height      = parse_arg_int(args[i + 1]); } },
+		Option { "b"_sv, "bounce"_sv,  "Sets the number of pathtracing bounces"_sv,           1, [](const Array<StringView> & args, size_t i) { gpu_config.num_bounces         = Math::clamp(parse_arg_int(args[i + 1]), 0, MAX_BOUNCES - 1); } },
+		Option { "N"_sv, "samples"_sv, "Sets a target number of samples to use"_sv,           1, [](const Array<StringView> & args, size_t i) { cpu_config.output_sample_index = parse_arg_int(args[i + 1]); } },
+		Option { "o"_sv, "output"_sv,  "Sets path to output file. Supported formats: ppm"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.output_name         = args[i + 1].start; } },
 
-		Option { "s"_sv, "scene"_sv, "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY"_sv, 1, [](const Array<StringView> & args, size_t i) { scene_config.scene_filenames.push_back(args[i + 1]); } },
-		Option { "S"_sv, "sky"_sv,   "Sets path to sky file. Supported formats: HDR"_sv,                         1, [](const Array<StringView> & args, size_t i) { scene_config.sky_filename = args[i + 1]; } },
+		Option { "s"_sv, "scene"_sv, "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.scene_filenames.push_back(args[i + 1]); } },
+		Option { "S"_sv, "sky"_sv,   "Sets path to sky file. Supported formats: HDR"_sv,                         1, [](const Array<StringView> & args, size_t i) { cpu_config.sky_filename = args[i + 1]; } },
 
 		Option { "b"_sv, "bvh"_sv, "Sets type of BLAS BVH used: Supported options: sah, sbvh, bvh4, bvh8"_sv, 1, [](const Array<StringView> & args, size_t i) {
 			if (args[i + 1] == "sah") {
-				config.bvh_type = BVHType::BVH;
+				cpu_config.bvh_type = BVHType::BVH;
 			} else if (args[i + 1] == "sbvh") {
-				config.bvh_type = BVHType::SBVH;
+				cpu_config.bvh_type = BVHType::SBVH;
 			} else if (args[i + 1] == "bvh4") {
-				config.bvh_type = BVHType::BVH4;
+				cpu_config.bvh_type = BVHType::BVH4;
 			} else if (args[i + 1] == "bvh8") {
-				config.bvh_type = BVHType::BVH8;
+				cpu_config.bvh_type = BVHType::BVH8;
 			} else {
 				IO::print("'{}' is not a recognized BVH type! Supported options: sah, sbvh, bvh4, bvh8\n"_sv, args[i + 1]);
 				IO::exit(1);
 			}
 		} },
 
-		Option { { }, "albedo"_sv, "Enables or disables albedo"_sv,                       1, [](const Array<StringView> & args, size_t i) { config.enable_albedo                       = parse_arg_bool(args[i + 1]); } },
-		Option { { }, "nee"_sv,    "Enables or disables Next Event Estimation"_sv,        1, [](const Array<StringView> & args, size_t i) { config.enable_next_event_estimation        = parse_arg_bool(args[i + 1]); } },
-		Option { { }, "mis"_sv,    "Enables or disables Multiple Importance Sampling"_sv, 1, [](const Array<StringView> & args, size_t i) { config.enable_multiple_importance_sampling = parse_arg_bool(args[i + 1]); } },
+		Option { { }, "albedo"_sv, "Enables or disables albedo"_sv,                       1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_albedo                       = parse_arg_bool(args[i + 1]); } },
+		Option { { }, "nee"_sv,    "Enables or disables Next Event Estimation"_sv,        1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_next_event_estimation        = parse_arg_bool(args[i + 1]); } },
+		Option { { }, "mis"_sv,    "Enables or disables Multiple Importance Sampling"_sv, 1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_multiple_importance_sampling = parse_arg_bool(args[i + 1]); } },
 
-		Option { { }, "force-rebuild"_sv, "BVH will not be loaded from disk but rebuild from scratch"_sv, 0, [](const Array<StringView> & args, size_t i) { config.bvh_force_rebuild = true; } },
+		Option { { }, "force-rebuild"_sv, "BVH will not be loaded from disk but rebuild from scratch"_sv, 0, [](const Array<StringView> & args, size_t i) { cpu_config.bvh_force_rebuild = true; } },
 
-		Option { "O"_sv,  "optimize"_sv,    "Enables or disables BVH optimzation post-processing step"_sv,               1, [](const Array<StringView> & args, size_t i) { config.enable_bvh_optimization       = parse_arg_bool(args[i + 1]); } },
-		Option { "Ot"_sv, "opt-time"_sv,    "Sets time limit (in seconds) for BVH optimization"_sv,                      1, [](const Array<StringView> & args, size_t i) { config.bvh_optimizer_max_time        = parse_arg_int (args[i + 1]); } },
-		Option { "Ob"_sv, "opt-batches"_sv, "Sets a limit on the maximum number of batches used in BVH optimization"_sv, 1, [](const Array<StringView> & args, size_t i) { config.bvh_optimizer_max_num_batches = parse_arg_int (args[i + 1]); } },
+		Option { "O"_sv,  "optimize"_sv,    "Enables or disables BVH optimzation post-processing step"_sv,               1, [](const Array<StringView> & args, size_t i) { cpu_config.enable_bvh_optimization       = parse_arg_bool(args[i + 1]); } },
+		Option { "Ot"_sv, "opt-time"_sv,    "Sets time limit (in seconds) for BVH optimization"_sv,                      1, [](const Array<StringView> & args, size_t i) { cpu_config.bvh_optimizer_max_time        = parse_arg_int (args[i + 1]); } },
+		Option { "Ob"_sv, "opt-batches"_sv, "Sets a limit on the maximum number of batches used in BVH optimization"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.bvh_optimizer_max_num_batches = parse_arg_int (args[i + 1]); } },
 
-		Option { { }, "sah-node"_sv,   "Sets the SAH cost of an internal BVH node"_sv,                                                             1, [](const Array<StringView> & args, size_t i) { config.sah_cost_node = parse_arg_float(args[i + 1]); } },
-		Option { { }, "sah-leaf"_sv,   "Sets the SAH cost of a leaf BVH node"_sv,                                                                  1, [](const Array<StringView> & args, size_t i) { config.sah_cost_leaf = parse_arg_float(args[i + 1]); } },
-		Option { { }, "sbvh-alpha"_sv, "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH"_sv, 1, [](const Array<StringView> & args, size_t i) { config.sbvh_alpha    = parse_arg_float(args[i + 1]); } },
+		Option { { }, "sah-node"_sv,   "Sets the SAH cost of an internal BVH node"_sv,                                                             1, [](const Array<StringView> & args, size_t i) { cpu_config.sah_cost_node = parse_arg_float(args[i + 1]); } },
+		Option { { }, "sah-leaf"_sv,   "Sets the SAH cost of a leaf BVH node"_sv,                                                                  1, [](const Array<StringView> & args, size_t i) { cpu_config.sah_cost_leaf = parse_arg_float(args[i + 1]); } },
+		Option { { }, "sbvh-alpha"_sv, "Sets the SBVH alpha constant. An alpha of 1 results in a regular BVH, alpha of 0 results in full SBVH"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.sbvh_alpha    = parse_arg_float(args[i + 1]); } },
 
-		Option { { }, "mipmap"_sv,     "Enables or disables texture mipmapping"_sv,                                                     1, [](const Array<StringView> & args, size_t i) { config.enable_mipmapping = parse_arg_bool(args[i + 1]); } },
+		Option { { }, "mipmap"_sv,     "Enables or disables texture mipmapping"_sv,                                                     1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_mipmapping = parse_arg_bool(args[i + 1]); } },
 		Option { { }, "mip-filter"_sv, "Sets the downsampling filter for creating mipmaps: Supported options: box, lanczos, kaiser"_sv, 1, [](const Array<StringView> & args, size_t i) {
 			if (args[i + 1] == "box") {
-				config.mipmap_filter = Config::MipmapFilter::BOX;
+				cpu_config.mipmap_filter = MipmapFilterType::BOX;
 			} else if (args[i + 1] == "lanczos") {
-				config.mipmap_filter = Config::MipmapFilter::LANCZOS;
+				cpu_config.mipmap_filter = MipmapFilterType::LANCZOS;
 			} else if (args[i + 1] == "kaiser") {
-				config.mipmap_filter = Config::MipmapFilter::KAISER;
+				cpu_config.mipmap_filter = MipmapFilterType::KAISER;
 			} else {
 				IO::print("'{}' is not a recognized Mipmap Filter!\n"_sv, args[i + 1]);
 				IO::exit(1);
 			}
 		} },
-		Option { "c"_sv, "compress"_sv, "Enables or disables texture block compression"_sv, 1, [](const Array<StringView> & args, size_t i) { config.enable_block_compression = parse_arg_bool(args[i + 1]); } },
+		Option { "c"_sv, "compress"_sv, "Enables or disables texture block compression"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.enable_block_compression = parse_arg_bool(args[i + 1]); } },
 	};
 
 	options.emplace_back("h"_sv, "help"_sv, "Displays this message"_sv, 0u, [](const Array<StringView> & args, size_t i) {
@@ -151,7 +151,7 @@ static void parse_args(const Array<StringView> & args) {
 			}
 		} else {
 			// Without explicit option, assume scene name
-			scene_config.scene_filenames.push_back(arg);
+			cpu_config.scene_filenames.push_back(arg);
 		}
 	}
 }

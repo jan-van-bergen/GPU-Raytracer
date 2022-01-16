@@ -88,7 +88,7 @@ int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, i
 	SpatialSplit spatial_split;
 
 	// If ratio between overlap area and root area is large enough, consider a Spatial Split
-	if (ratio > config.sbvh_alpha) {
+	if (ratio > cpu_config.sbvh_alpha) {
 		spatial_split = BVHPartitions::partition_spatial(triangles, indices, first_index, index_count, sah.data(), sbvh.nodes[node_index].aabb);
 	} else {
 		spatial_split.cost = INFINITY;

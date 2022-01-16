@@ -27,7 +27,10 @@ static float bvh_sah_cost(const BVH2 & bvh) {
 		}
 	}
 
-	return (config.sah_cost_node * sum_node + config.sah_cost_leaf * sum_leaf) / bvh.nodes[0].aabb.surface_area();
+	return (
+		cpu_config.sah_cost_node * sum_node +
+		cpu_config.sah_cost_leaf * sum_leaf
+	) / bvh.nodes[0].aabb.surface_area();
 }
 
 // Initialize array of parent indices by traversing the tree recursively
@@ -391,7 +394,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 		clock_t curr_time = clock();
 		size_t  duration  = (curr_time - start_time) * 1000 / CLOCKS_PER_SEC;
 
-		if (duration >= config.bvh_optimizer_max_time || batch_count >= config.bvh_optimizer_max_num_batches) {
+		if (duration >= cpu_config.bvh_optimizer_max_time || batch_count >= cpu_config.bvh_optimizer_max_num_batches) {
 			break;
 		}
 

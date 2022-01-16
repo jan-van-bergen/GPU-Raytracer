@@ -54,28 +54,28 @@ static void draw_gui(Window & window, Pathtracer & pathtracer);
 int main(int num_args, char ** args) {
 	Args::parse(num_args, args);
 
-	if (scene_config.scene_filenames.size() == 0) {
-		scene_config.scene_filenames.push_back("Data/cornellbox/scene.xml"_sv);
+	if (cpu_config.scene_filenames.size() == 0) {
+		cpu_config.scene_filenames.push_back("Data/cornellbox/scene.xml"_sv);
 	}
-	if (scene_config.sky_filename.is_empty()) {
-		scene_config.sky_filename = "Data/Skies/sky_15.hdr"_sv;
+	if (cpu_config.sky_filename.is_empty()) {
+		cpu_config.sky_filename = "Data/Skies/sky_15.hdr"_sv;
 	}
 
 	Timer timer = { };
 	timer.start();
 
-	Window window("Pathtracer"_sv, config.initial_width, config.initial_height);
+	Window window("Pathtracer"_sv, cpu_config.initial_width, cpu_config.initial_height);
 
 	CUDAContext::init();
 
-	Pathtracer pathtracer(scene_config, window.frame_buffer_handle, config.initial_width, config.initial_height);
+	Pathtracer pathtracer(window.frame_buffer_handle, cpu_config.initial_width, cpu_config.initial_height);
 
 	window.resize_handler = [&pathtracer](unsigned frame_buffer_handle, int width, int height) {
 		pathtracer.resize_free();
 		pathtracer.resize_init(frame_buffer_handle, width, height);
 	};
 
-	PerfTest perf_test(pathtracer, false, scene_config.scene_filenames[0].view());
+	PerfTest perf_test(pathtracer, false, cpu_config.scene_filenames[0].view());
 
 	size_t initialization_time = timer.stop();
 	Timer::print_named_duration("Initialization"_sv, initialization_time);
@@ -94,8 +94,8 @@ int main(int num_args, char ** args) {
 
 		window.render_framebuffer();
 
-		if (pathtracer.sample_index == config.output_sample_index) {
-			capture_screen(window, config.output_name);
+		if (pathtracer.sample_index == cpu_config.output_sample_index) {
+			capture_screen(window, cpu_config.output_name);
 			break; // Exit game loop and terimate
 		}
 		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
@@ -136,8 +136,8 @@ int main(int num_args, char ** args) {
 		window.swap();
 	}
 
-	if (pathtracer.sample_index < config.output_sample_index) {
-		capture_screen(window, config.output_name);
+	if (pathtracer.sample_index < cpu_config.output_sample_index) {
+		capture_screen(window, cpu_config.output_name);
 	}
 
 	CUDAContext::free();
@@ -305,7 +305,7 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 					i++;
 				};
 
-				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name.data(), 5 + padding - event_timings[i].desc.name.size(), timing);
+				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name.data(), 5 + padding - int(event_timings[i].desc.name.size()), timing);
 
 				if (i == event_timings.size() - 1) {
 					ImGui::TreePop();
@@ -320,14 +320,14 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 		}
 
 		if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-			switch (config.bvh_type) {
+			switch (cpu_config.bvh_type) {
 				case BVHType::BVH:  ImGui::TextUnformatted("BVH: BVH");  break;
 				case BVHType::SBVH: ImGui::TextUnformatted("BVH: SBVH"); break;
 				case BVHType::BVH4: ImGui::TextUnformatted("BVH: BVH4"); break;
 				case BVHType::BVH8: ImGui::TextUnformatted("BVH: BVH8"); break;
 			}
 
-			bool invalidated_config = ImGui::SliderInt("Num Bounces", &config.num_bounces, 0, MAX_BOUNCES);
+			bool invalidated_config = ImGui::SliderInt("Num Bounces", &gpu_config.num_bounces, 0, MAX_BOUNCES);
 
 			float fov = Math::rad_to_deg(pathtracer.scene.camera.fov);
 			if (ImGui::SliderFloat("FOV", &fov, 0.0f, 179.0f)) {
@@ -338,15 +338,15 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius, 0.0f, 1.0f);
 			pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
 
-			invalidated_config |= ImGui::Checkbox("NEE", &config.enable_next_event_estimation);
-			invalidated_config |= ImGui::Checkbox("MIS", &config.enable_multiple_importance_sampling);
+			invalidated_config |= ImGui::Checkbox("NEE", &gpu_config.enable_next_event_estimation);
+			invalidated_config |= ImGui::Checkbox("MIS", &gpu_config.enable_multiple_importance_sampling);
 
-			invalidated_config |= ImGui::Checkbox("Russian Roulete", &config.enable_russian_roulette);
+			invalidated_config |= ImGui::Checkbox("Russian Roulete", &gpu_config.enable_russian_roulette);
 
-			invalidated_config |= ImGui::Checkbox("Update Scene", &config.enable_scene_update);
+			invalidated_config |= ImGui::Checkbox("Update Scene", &cpu_config.enable_scene_update);
 
-			if (ImGui::Checkbox("SVGF", &config.enable_svgf)) {
-				if (config.enable_svgf) {
+			if (ImGui::Checkbox("SVGF", &gpu_config.enable_svgf)) {
+				if (gpu_config.enable_svgf) {
 					pathtracer.svgf_init();
 				} else {
 					pathtracer.svgf_free();
@@ -354,16 +354,16 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 				invalidated_config = true;
 			}
 
-			invalidated_config |= ImGui::Checkbox("Spatial Variance", &config.enable_spatial_variance);
-			invalidated_config |= ImGui::Checkbox("TAA",              &config.enable_taa);
-			invalidated_config |= ImGui::Checkbox("Modulate Albedo",  &config.enable_albedo);
+			invalidated_config |= ImGui::Checkbox("Spatial Variance", &gpu_config.enable_spatial_variance);
+			invalidated_config |= ImGui::Checkbox("TAA",              &gpu_config.enable_taa);
+			invalidated_config |= ImGui::Checkbox("Modulate Albedo",  &gpu_config.enable_albedo);
 
-			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&config.reconstruction_filter), "Box\0Tent\0Gaussian\0");
+			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&gpu_config.reconstruction_filter), "Box\0Tent\0Gaussian\0");
 
-			invalidated_config |= ImGui::SliderInt("A Trous iterations", &config.num_atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
+			invalidated_config |= ImGui::SliderInt("A Trous iterations", &gpu_config.num_atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
 
-			invalidated_config |= ImGui::SliderFloat("Alpha colour", &config.alpha_colour, 0.0f, 1.0f);
-			invalidated_config |= ImGui::SliderFloat("Alpha moment", &config.alpha_moment, 0.0f, 1.0f);
+			invalidated_config |= ImGui::SliderFloat("Alpha colour", &gpu_config.alpha_colour, 0.0f, 1.0f);
+			invalidated_config |= ImGui::SliderFloat("Alpha moment", &gpu_config.alpha_moment, 0.0f, 1.0f);
 
 			pathtracer.invalidated_config = invalidated_config;
 		}

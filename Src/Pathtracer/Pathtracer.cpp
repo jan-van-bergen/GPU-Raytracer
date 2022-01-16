@@ -17,11 +17,8 @@
 #include "Util/Util.h"
 #include "Util/BlueNoise.h"
 
-Pathtracer::Pathtracer(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height) {
-	scene.init(scene_config);
-
+Pathtracer::Pathtracer(unsigned frame_buffer_handle, int width, int height) {
 	cuda_init(frame_buffer_handle, width, height);
-
 	CUDACALL(cuStreamCreate(&memory_stream, CU_STREAM_NON_BLOCKING));
 }
 
@@ -127,7 +124,7 @@ void Pathtracer::cuda_init_module() {
 	kernel_taa_finalize       .init(&cuda_module, "kernel_taa_finalize");
 	kernel_accumulate         .init(&cuda_module, "kernel_accumulate");
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh;   kernel_trace_shadow = &kernel_trace_shadow_bvh;   break;
 		case BVHType::BVH4: kernel_trace = &kernel_trace_qbvh;  kernel_trace_shadow = &kernel_trace_shadow_qbvh;  break;
@@ -319,7 +316,7 @@ void Pathtracer::cuda_init_geometry() {
 	tlas_raw.nodes  .resize(scene.meshes.size() * 2);
 	tlas_builder = make_owned<SAHBuilder>(tlas_raw, scene.meshes.size());
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: {
 			Array<BVHNode2> aggregated_bvh_nodes(aggregated_bvh_node_count);
@@ -511,7 +508,7 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_mesh_transforms_inv);
 	CUDAMemory::free(ptr_mesh_transforms_prev);
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: CUDAMemory::free(ptr_bvh_nodes_2); break;
 		case BVHType::BVH4: CUDAMemory::free(ptr_bvh_nodes_4); break;
@@ -602,7 +599,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 
 	sample_index = 0;
 
-	if (config.enable_svgf) svgf_init();
+	if (gpu_config.enable_svgf) svgf_init();
 }
 
 void Pathtracer::resize_free() {
@@ -616,7 +613,7 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free(ptr_frame_buffer_direct);
 	CUDAMemory::free(ptr_frame_buffer_indirect);
 
-	if (config.enable_svgf) svgf_free();
+	if (gpu_config.enable_svgf) svgf_free();
 }
 
 void Pathtracer::svgf_init() {
@@ -805,7 +802,7 @@ void Pathtracer::build_tlas() {
 	tlas_builder->build(scene.meshes);
 	tlas_converter->convert();
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::BVH4: CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
@@ -864,7 +861,7 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
-	if (invalidated_config && config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
+	if (invalidated_config && gpu_config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
 		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"_sv);
 		scene.camera.aperture_radius = 0.0f;
 		invalidated_camera = true;
@@ -1029,10 +1026,10 @@ void Pathtracer::update(float delta) {
 		invalidated_mediums = false;
 	}
 
-	if (config.enable_scene_update) {
+	if (cpu_config.enable_scene_update) {
 		scene.update(delta);
 		invalidated_scene = true;
-	} else if (config.enable_svgf || invalidated_scene) {
+	} else if (gpu_config.enable_svgf || invalidated_scene) {
 		scene.camera.update(0.0f);
 		scene.update(0.0f);
 	}
@@ -1042,7 +1039,7 @@ void Pathtracer::update(float delta) {
 
 		// If SVGF is enabled we can handle Scene updates using reprojection,
 		// otherwise 'frames_accumulated' needs to be reset in order to avoid ghosting
-		if (!config.enable_svgf) {
+		if (!gpu_config.enable_svgf) {
 			sample_index = 0;
 		}
 
@@ -1073,7 +1070,7 @@ void Pathtracer::update(float delta) {
 
 		global_camera.set_value_async(cuda_camera, memory_stream);
 
-		if (!config.enable_svgf) {
+		if (!gpu_config.enable_svgf) {
 			sample_index = 0;
 		}
 
@@ -1094,7 +1091,7 @@ void Pathtracer::update(float delta) {
 		pixel_query_status = PixelQueryStatus::INACTIVE;
 	}
 
-	if (config.enable_svgf) {
+	if (gpu_config.enable_svgf) {
 		struct SVGFData {
 			alignas(16) Matrix4 view_projection;
 			alignas(16) Matrix4 view_projection_prev;
@@ -1108,8 +1105,8 @@ void Pathtracer::update(float delta) {
 
 	if (invalidated_config) {
 		sample_index = 0;
-		global_config.set_value_async(config, memory_stream);
-	} else if (scene.camera.moved && !config.enable_svgf) {
+		global_config.set_value_async(gpu_config, memory_stream);
+	} else if (scene.camera.moved && !gpu_config.enable_svgf) {
 		sample_index = 0;
 	} else {
 		sample_index++;
@@ -1134,7 +1131,7 @@ void Pathtracer::render() {
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(sample_index, pixel_offset, pixel_count);
 
-		for (int bounce = 0; bounce < config.num_bounces; bounce++) {
+		for (int bounce = 0; bounce < gpu_config.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
 			event_pool.record(event_desc_trace[bounce]);
 			kernel_trace->execute(bounce);
@@ -1161,7 +1158,7 @@ void Pathtracer::render() {
 			}
 
 			// Trace shadow Rays
-			if (scene.has_lights && config.enable_next_event_estimation) {
+			if (scene.has_lights && gpu_config.enable_next_event_estimation) {
 				event_pool.record(event_desc_shadow_trace[bounce]);
 				kernel_trace_shadow->execute(bounce);
 			}
@@ -1176,7 +1173,7 @@ void Pathtracer::render() {
 		}
 	}
 
-	if (config.enable_svgf) {
+	if (gpu_config.enable_svgf) {
 		// Temporal reprojection + integration
 		event_pool.record(event_desc_svgf_reproject);
 		kernel_svgf_reproject.execute(sample_index);
@@ -1186,7 +1183,7 @@ void Pathtracer::render() {
 		CUdeviceptr indirect_in  = ptr_frame_buffer_indirect    .ptr;
 		CUdeviceptr indirect_out = ptr_frame_buffer_indirect_alt.ptr;
 
-		if (config.enable_spatial_variance) {
+		if (gpu_config.enable_spatial_variance) {
 			// Estimate Variance spatially
 			event_pool.record(event_desc_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
@@ -1196,7 +1193,7 @@ void Pathtracer::render() {
 		}
 
 		// À-Trous Filter
-		for (int i = 0; i < config.num_atrous_iterations; i++) {
+		for (int i = 0; i < gpu_config.num_atrous_iterations; i++) {
 			int step_size = 1 << i;
 
 			event_pool.record(event_desc_svgf_atrous[i]);
@@ -1210,7 +1207,7 @@ void Pathtracer::render() {
 		event_pool.record(event_desc_svgf_finalize);
 		kernel_svgf_finalize.execute(direct_in, indirect_in);
 
-		if (config.enable_taa) {
+		if (gpu_config.enable_taa) {
 			event_pool.record(event_desc_taa);
 
 			kernel_taa         .execute(sample_index);
@@ -1227,7 +1224,7 @@ void Pathtracer::render() {
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	if (config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, memory_stream);
+	if (gpu_config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, memory_stream);
 	CUDAMemory::memset_async(ptr_frame_buffer_direct,   0, screen_pitch * screen_height, memory_stream);
 	CUDAMemory::memset_async(ptr_frame_buffer_indirect, 0, screen_pitch * screen_height, memory_stream);
 

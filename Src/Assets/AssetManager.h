@@ -65,7 +65,7 @@ public:
 			BVHLoader::save(bvh_filename, mesh_data, bvh);
 		}
 
-		if (config.bvh_type != BVHType::BVH8) {
+		if (cpu_config.bvh_type != BVHType::BVH8) {
 			BVHCollapser::collapse(bvh);
 		}
 

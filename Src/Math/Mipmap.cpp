@@ -108,10 +108,10 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 }
 
 void Mipmap::downsample(int width_src, int height_src, int width_dst, int height_dst, const Vector4 texture_src[], Vector4 texture_dst[], Vector4 temp[]) {
-	switch (config.mipmap_filter) {
-		case Config::MipmapFilter::BOX:     downsample_impl<FilterBox>    (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
-		case Config::MipmapFilter::LANCZOS: downsample_impl<FilterLanczos>(width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
-		case Config::MipmapFilter::KAISER:  downsample_impl<FilterKaiser> (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
+	switch (cpu_config.mipmap_filter) {
+		case MipmapFilterType::BOX:     downsample_impl<FilterBox>    (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
+		case MipmapFilterType::LANCZOS: downsample_impl<FilterLanczos>(width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
+		case MipmapFilterType::KAISER:  downsample_impl<FilterKaiser> (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
 		default: ASSERT(false);
 	}
 }
