@@ -13,6 +13,8 @@
 #include "Input.h"
 #include "Window.h"
 
+#include "Exporters/PPMExporter.h"
+
 #include "Util/Util.h"
 #include "Util/PerfTest.h"
 
@@ -149,25 +151,9 @@ static void capture_screen(const Window & window, const String & filename) {
 	ScopeTimer timer("Screenshot"_sv);
 
 	int window_pitch = 0;
-	Array<unsigned char> data = window.read_frame_buffer(window_pitch);
-	Array<unsigned char> temp(window_pitch);
+	Array<Vector3> data = window.read_frame_buffer(window_pitch);
 
-	// Flip image vertically
-	for (int j = 0; j < window.height / 2; j++) {
-		unsigned char * row_top    = data.data() +                  j      * window_pitch;
-		unsigned char * row_bottom = data.data() + (window.height - j - 1) * window_pitch;
-
-		memcpy(temp.data(), row_top,     window_pitch);
-		memcpy(row_top,     row_bottom,  window_pitch);
-		memcpy(row_bottom,  temp.data(), window_pitch);
-	}
-
-	// Remove pack alignment
-	for (int j = 1; j < window.height; j++) {
-		memmove(data.data() + j * window.width * 3, data.data() + j * window_pitch, window.width * 3);
-	}
-
-	IO::export_ppm(filename, window.width, window.height, data.data());
+	PPMExporter::save(filename, window_pitch, window.width, window.height, data);
 }
 
 static void calc_timing() {

@@ -143,6 +143,9 @@
     <ClCompile Include="Src\Core\Random.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Exporters\PPMExporter.cpp">
+      <Filter>Exporters</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -177,6 +180,9 @@
     </Filter>
     <Filter Include="ThirdParty">
       <UniqueIdentifier>{b7816568-63dd-49a2-8af3-9802d3c9c530}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Exporters">
+      <UniqueIdentifier>{fa13993b-69d4-460f-84c1-41572d053ea4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -381,6 +387,9 @@
     <ClInclude Include="Src\Args.h" />
     <ClInclude Include="Src\Core\Random.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Exporters\PPMExporter.h">
+      <Filter>Exporters</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

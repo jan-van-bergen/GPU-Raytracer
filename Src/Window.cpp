@@ -207,15 +207,15 @@ void Window::swap() {
 	}
 }
 
-Array<unsigned char> Window::read_frame_buffer(int & window_pitch) const {
-	int pack_alignment;
+Array<Vector3> Window::read_frame_buffer(int & window_pitch) const {
+	int pack_alignment = 0;
 	glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
 
-	window_pitch = Math::round_up(width * 3, pack_alignment);
-	Array<unsigned char> data(window_pitch * height);
+	window_pitch = int(Math::round_up(width * sizeof(Vector3), size_t(pack_alignment)) / sizeof(Vector3));
+	Array<Vector3> data(window_pitch * height);
 
 	glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
-	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+	glReadPixels(0, 0, width, height, GL_RGB, GL_FLOAT, data.data());
 
 	return data;
 }

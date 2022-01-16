@@ -9,6 +9,8 @@
 
 #include "Util/Shader.h"
 
+struct Vector3;
+
 struct Window {
 	SDL_Window *  window;
 	SDL_GLContext context;
@@ -34,7 +36,7 @@ struct Window {
 
 	void swap();
 
-	Array<unsigned char> read_frame_buffer(int & window_pitch) const;
+	Array<Vector3> read_frame_buffer(int & window_pitch) const;
 
 	std::function<void(unsigned frame_buffer_handle, int width, int height)> resize_handler;
 };
