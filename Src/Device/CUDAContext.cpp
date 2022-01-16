@@ -5,8 +5,7 @@
 #include <GL/glew.h>
 #include <cudaGL.h>
 
-#include "Util/Util.h"
-#include "Util/IO.h"
+#include "Core/IO.h"
 
 static CUdevice  device;
 static CUcontext context;
@@ -25,24 +24,24 @@ void CUDAContext::init() {
 	CUDACALL(cuDeviceGetCount(&device_count));
 
 	if (device_count == 0) {
-		IO::print("ERROR: No suitable Device found!\n"sv);
-		abort();
+		IO::print("ERROR: No suitable Device found!\n"_sv);
+		IO::exit(1);
 	}
 
-	CUdevice * devices = MALLOCA(CUdevice, device_count);
+	Array<CUdevice> devices(device_count);
 
 	unsigned gl_device_count;
-	CUDACALL(cuGLGetDevices(&gl_device_count, devices, device_count, CU_GL_DEVICE_LIST_ALL));
+	CUDACALL(cuGLGetDevices(&gl_device_count, devices.data(), device_count, CU_GL_DEVICE_LIST_ALL));
 
 	if (gl_device_count == 0) {
-		IO::print("ERROR: No suitable GL Device found!\n"sv);
-		abort();
+		IO::print("ERROR: No suitable GL Device found!\n"_sv);
+		IO::exit(1);
 	}
 
 	CUdevice best_device;
 	int      best_compute_capability = 0;
 
-	for (int i = 0; i < gl_device_count; i++) {
+	for (unsigned i = 0; i < gl_device_count; i++) {
 		int major = device_get_attribute(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, devices[i]);
 		int minor = device_get_attribute(CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, devices[i]);
 
@@ -52,8 +51,6 @@ void CUDAContext::init() {
 			best_compute_capability = device_compute_capability;
 		}
 	}
-
-	FREEA(devices);
 
 	compute_capability = best_compute_capability;
 
@@ -72,22 +69,22 @@ void CUDAContext::init() {
 	int driver_version = 0;
 	CUDACALL(cuDriverGetVersion(&driver_version));
 
-	IO::print("CUDA Info:\n"sv);
-	IO::print("CUDA Version: {}.{}\n"sv, driver_version / 1000, (driver_version % 1000) / 10);
-	IO::print("Compute Capability: {}\n"sv, compute_capability);
-	IO::print("Memory available: {} MB\n"sv, total_memory >> 20);
+	IO::print("CUDA Info:\n"_sv);
+	IO::print("CUDA Version: {}.{}\n"_sv, driver_version / 1000, (driver_version % 1000) / 10);
+	IO::print("Compute Capability: {}\n"_sv, compute_capability);
+	IO::print("Memory available: {} MB\n"_sv, total_memory >> 20);
 
 	switch (config_cache) {
-		case CU_FUNC_CACHE_PREFER_NONE:   IO::print("Cache Config: Prefer None\n"sv);   break;
-		case CU_FUNC_CACHE_PREFER_SHARED: IO::print("Cache Config: Prefer Shared\n"sv); break;
-		case CU_FUNC_CACHE_PREFER_L1:     IO::print("Cache Config: Prefer L1\n"sv);     break;
-		case CU_FUNC_CACHE_PREFER_EQUAL:  IO::print("Cache Config: Prefer Equal\n"sv);  break;
+		case CU_FUNC_CACHE_PREFER_NONE:   IO::print("Cache Config: Prefer None\n"_sv);   break;
+		case CU_FUNC_CACHE_PREFER_SHARED: IO::print("Cache Config: Prefer Shared\n"_sv); break;
+		case CU_FUNC_CACHE_PREFER_L1:     IO::print("Cache Config: Prefer L1\n"_sv);     break;
+		case CU_FUNC_CACHE_PREFER_EQUAL:  IO::print("Cache Config: Prefer Equal\n"_sv);  break;
 	}
 
 	switch (config_shared) {
-		case CU_SHARED_MEM_CONFIG_DEFAULT_BANK_SIZE:    IO::print("Shared Memory Config: Default\n"sv); break;
-		case CU_SHARED_MEM_CONFIG_FOUR_BYTE_BANK_SIZE:  IO::print("Shared Memory Config: 4 Bytes\n"sv); break;
-		case CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE: IO::print("Shared Memory Config: 8 Bytes\n"sv); break;
+		case CU_SHARED_MEM_CONFIG_DEFAULT_BANK_SIZE:    IO::print("Shared Memory Config: Default\n"_sv); break;
+		case CU_SHARED_MEM_CONFIG_FOUR_BYTE_BANK_SIZE:  IO::print("Shared Memory Config: 4 Bytes\n"_sv); break;
+		case CU_SHARED_MEM_CONFIG_EIGHT_BYTE_BANK_SIZE: IO::print("Shared Memory Config: 8 Bytes\n"_sv); break;
 	}
 
 	IO::print('\n');

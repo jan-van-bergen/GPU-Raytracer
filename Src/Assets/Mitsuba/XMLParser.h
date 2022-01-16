@@ -2,8 +2,8 @@
 #include "Math/Vector3.h"
 #include "Math/Matrix4.h"
 
-#include "Util/Array.h"
-#include "Util/Parser.h"
+#include "Core/Array.h"
+#include "Core/Parser.h"
 
 struct XMLAttribute {
 	StringView name;
@@ -20,15 +20,13 @@ struct XMLAttribute {
 
 	template<>
 	int get_value() const {
-		Parser parser = { };
-		parser.init(value, location_of_value);
+		Parser parser(value, location_of_value);
 		return parser.parse_int();
 	}
 
 	template<>
 	float get_value() const {
-		Parser parser = { };
-		parser.init(value, location_of_value);
+		Parser parser(value, location_of_value);
 		return parser.parse_float();
 	}
 
@@ -41,8 +39,7 @@ struct XMLAttribute {
 
 	template<>
 	Vector3 get_value() const {
-		Parser parser = { };
-		parser.init(value, location_of_value);
+		Parser parser(value, location_of_value);
 
 		Vector3 v;
 		v.x = parser.parse_float();
@@ -67,8 +64,7 @@ struct XMLAttribute {
 
 	template<>
 	Matrix4 get_value() const {
-		Parser parser = { };
-		parser.init(value, location_of_value);
+		Parser parser(value, location_of_value);
 
 		int i = 0;
 		Matrix4 m;
@@ -176,10 +172,7 @@ struct XMLParser {
 	String source;
 	Parser parser;
 
-	void init(const String & filename) {
-		source = IO::file_read(filename);
-		parser.init(source.view(), filename.view());
-	}
+	XMLParser(const String & filename) : source(IO::file_read(filename)), parser(source.view(), filename.view()) { }
 
 	XMLNode parse_root();
 };

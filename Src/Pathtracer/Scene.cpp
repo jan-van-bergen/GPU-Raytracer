@@ -3,6 +3,8 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#include "Core/IO.h"
+
 #include "Assets/OBJLoader.h"
 #include "Assets/PLYLoader.h"
 #include "Assets/Mitsuba/MitsubaLoader.h"
@@ -10,21 +12,16 @@
 #include "Material.h"
 
 #include "Util/Util.h"
-#include "Util/IO.h"
 #include "Util/StringUtil.h"
 
-void Scene::init(const SceneConfig & scene_config) {
-	camera.init(DEG_TO_RAD(85.0f));
-
-	asset_manager.init();
-
-	for (int i = 0; i < scene_config.scene_filenames.size(); i++) {
-		const String & scene_filename = scene_config.scene_filenames[i];
+Scene::Scene() : camera(Math::deg_to_rad(85.0f)) {
+	for (int i = 0; i < cpu_config.scene_filenames.size(); i++) {
+		const String & scene_filename = cpu_config.scene_filenames[i];
 
 		StringView file_extension = Util::get_file_extension(scene_filename.view());
 		if (file_extension.is_empty()) {
-			IO::print("ERROR: File '{}' has no file extension, cannot deduce file format!\n"sv, scene_filename);
-			abort();
+			IO::print("ERROR: File '{}' has no file extension, cannot deduce file format!\n"_sv, scene_filename);
+			IO::exit(1);
 		}
 
 		if (file_extension == "obj") {
@@ -34,19 +31,16 @@ void Scene::init(const SceneConfig & scene_config) {
 		} else if (file_extension == "xml") {
 			MitsubaLoader::load(scene_filename, *this);
 		} else {
-			IO::print("ERROR: '{}' file format is not supported!\n"sv, file_extension);
-			abort();
+			IO::print("ERROR: '{}' file format is not supported!\n"_sv, file_extension);
+			IO::exit(1);
 		}
 	}
 
-	sky.init(scene_config.sky_filename);
+	sky.load(cpu_config.sky_filename);
 }
 
 Mesh & Scene::add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
-	Mesh & mesh = meshes.emplace_back();
-	mesh.init(std::move(name), mesh_data_handle, material_handle, *this);
-
-	return mesh;
+	return meshes.emplace_back(std::move(name), mesh_data_handle, material_handle, *this);
 }
 
 void Scene::check_materials() {

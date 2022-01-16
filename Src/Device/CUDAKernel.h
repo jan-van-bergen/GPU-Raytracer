@@ -3,9 +3,9 @@
 
 #include <cuda.h>
 
-#include "CUDAModule.h"
+#include "Core/IO.h"
 
-#include "Util/IO.h"
+#include "CUDAModule.h"
 
 struct CUDAKernel {
 	static constexpr int PARAMETER_BUFFER_SIZE = 256; // In bytes
@@ -22,8 +22,8 @@ struct CUDAKernel {
 	inline void init(const CUDAModule * module, const char * kernel_name) {
 		CUresult result = cuModuleGetFunction(&kernel, module->module, kernel_name);
 		if (result == CUDA_ERROR_NOT_FOUND) {
-			IO::print("No Kernel with name '{}' was found in the Module!\n"sv, kernel_name);
-			abort();
+			IO::print("No Kernel with name '{}' was found in the Module!\n"_sv, kernel_name);
+			IO::exit(1);
 		}
 		CUDACALL(result);
 

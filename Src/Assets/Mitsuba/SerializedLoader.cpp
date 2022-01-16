@@ -8,9 +8,7 @@
 
 Serialized SerializedLoader::load(const String & filename, SourceLocation location_in_mitsuba_file) {
 	String serialized = IO::file_read(filename);
-
-	Parser parser = { };
-	parser.init(serialized.view(), filename.view());
+	Parser parser(serialized.view(), filename.view());
 
 	uint16_t file_format_id = parser.parse_binary<uint16_t>();
 	if (file_format_id != 0x041c) {
@@ -24,14 +22,14 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 	uint32_t num_meshes = parser.parse_binary<uint32_t>();
 	uint64_t eof_dictionary_offset = 0;;
 
-	uint64_t * mesh_offsets = new uint64_t[num_meshes + 1];
+	Array<uint64_t> mesh_offsets(num_meshes + 1);
 
 	if (file_version <= 3) {
 		// Version 0.3.0 and earlier use 32 bit mesh offsets
 		eof_dictionary_offset = serialized.size() - sizeof(uint32_t) - num_meshes * sizeof(uint32_t);
 		parser.seek(eof_dictionary_offset);
 
-		for (int i = 0; i < num_meshes; i++) {
+		for (uint32_t i = 0; i < num_meshes; i++) {
 			mesh_offsets[i] = parser.parse_binary<uint32_t>();
 		}
 	} else {
@@ -39,7 +37,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 		eof_dictionary_offset = serialized.size() - sizeof(uint32_t) - num_meshes * sizeof(uint64_t);
 		parser.seek(eof_dictionary_offset);
 
-		for (int i = 0; i < num_meshes; i++) {
+		for (uint32_t i = 0; i < num_meshes; i++) {
 			mesh_offsets[i] = parser.parse_binary<uint64_t>();
 		}
 	}
@@ -48,9 +46,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 	ASSERT(mesh_offsets[0] == 0);
 
 	Serialized result = { };
-	result.num_meshes     = num_meshes;
-	result.triangle_count = new int       [num_meshes];
-	result.triangles      = new Triangle *[num_meshes];
+	result.meshes.resize(num_meshes);
 
 	for (uint32_t i = 0; i < num_meshes; i++) {
 		// Decompress stream for this Mesh
@@ -76,8 +72,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 			}
 		}
 
-		Parser parser = { };
-		parser.init(deserialized.view(), filename.view());
+		Parser parser(deserialized.view(), filename.view());
 
 		// Read flags field
 		uint32_t flags = parser.parse_binary<uint32_t>();
@@ -100,11 +95,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 		uint64_t num_triangles = parser.parse_binary<uint64_t>();
 
 		if (num_vertices == 0 || num_triangles == 0) {
-			result.triangle_count[i] = 0;
-			result.triangles     [i] = nullptr;
-
 			WARNING(location_in_mitsuba_file, "WARNING: Serialized Mesh defined without vertices or triangles, skipping\n");
-
 			continue;
 		}
 
@@ -148,9 +139,9 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 				result.y = reinterpret_cast<const float *>(buffer)[3*index + 1];
 				result.z = reinterpret_cast<const float *>(buffer)[3*index + 2];
 			} else {
-				result.x = reinterpret_cast<const double *>(buffer)[3*index];
-				result.y = reinterpret_cast<const double *>(buffer)[3*index + 1];
-				result.z = reinterpret_cast<const double *>(buffer)[3*index + 2];
+				result.x = float(reinterpret_cast<const double *>(buffer)[3*index]);
+				result.y = float(reinterpret_cast<const double *>(buffer)[3*index + 1]);
+				result.z = float(reinterpret_cast<const double *>(buffer)[3*index + 2]);
 			}
 			return result;
 		};
@@ -162,8 +153,8 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 				result.x = reinterpret_cast<const float *>(buffer)[2*index];
 				result.y = reinterpret_cast<const float *>(buffer)[2*index + 1];
 			} else {
-				result.x = reinterpret_cast<const double *>(buffer)[2*index];
-				result.y = reinterpret_cast<const double *>(buffer)[2*index + 1];
+				result.x = float(reinterpret_cast<const double *>(buffer)[2*index]);
+				result.y = float(reinterpret_cast<const double *>(buffer)[2*index + 1]);
 			}
 			return result;
 		};
@@ -178,7 +169,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 		};
 
 		// Construct triangles
-		Triangle * triangles = new Triangle[num_triangles];
+		Array<Triangle> triangles(num_triangles);
 
 		for (size_t t = 0; t < num_triangles; t++) {
 			uint64_t index_0 = read_index(indices, 3*t);
@@ -212,11 +203,8 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 			triangles[t].init();
 		}
 
-		result.triangle_count[i] = num_triangles;
-		result.triangles     [i] = triangles;
+		result.meshes[i] = std::move(triangles);
 	}
-
-	delete [] mesh_offsets;
 
 	return result;
 }

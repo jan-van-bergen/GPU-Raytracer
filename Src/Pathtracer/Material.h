@@ -1,10 +1,10 @@
 #pragma once
+#include "Core/String.h"
+
 #include "Math/Vector3.h"
 
 #include "Medium.h"
 #include "Texture.h"
-
-#include "Util/String.h"
 
 struct Material {
 	String name;

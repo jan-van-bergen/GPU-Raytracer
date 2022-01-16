@@ -6,14 +6,16 @@
 #include <Imgui/imgui_impl_sdl.h>
 #include <Imgui/imgui_impl_opengl3.h>
 
+#include "Core/IO.h"
+
+#include "Math/Math.h"
 #include "Util/Util.h"
-#include "Util/IO.h"
 
 static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char * message, const void * user_param) {
-	IO::print("GL CALLBACK: {} type = 0x{:x}, severity = 0x{:x}, message = {}\n"sv, type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **"sv : ""sv, type, severity, message);
+	IO::print("GL CALLBACK: {} type = 0x{:x}, severity = 0x{:x}, message = {}\n"_sv, type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **"_sv : ""_sv, type, severity, message);
 }
 
-void Window::init(const char * title, int width, int height) {
+Window::Window(const String & title, int width, int height) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
@@ -28,7 +30,7 @@ void Window::init(const char * title, int width, int height) {
 	this->width  = width;
 	this->height = height;
 
-	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+	window  = SDL_CreateWindow(title.data(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
 	context = SDL_GL_CreateContext(window);
 
 	SDL_SetWindowResizable(window, SDL_TRUE);
@@ -37,15 +39,15 @@ void Window::init(const char * title, int width, int height) {
 
 	GLenum status = glewInit();
 	if (status != GLEW_OK) {
-		IO::print("Glew failed to initialize!\n"sv);
-		abort();
+		IO::print("Glew failed to initialize!\n"_sv);
+		IO::exit(1);
 	}
 
-	IO::print("OpenGL Info:\n"sv);
-	IO::print("Version:  {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_VERSION)));
-	IO::print("GLSL:     {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
-	IO::print("Vendor:   {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
-	IO::print("Renderer: {}\n"sv, reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
+	IO::print("OpenGL Info:\n"_sv);
+	IO::print("Version:  {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+	IO::print("GLSL:     {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
+	IO::print("Vendor:   {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
+	IO::print("Renderer: {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
 	IO::print('\n');
 
 #if false
@@ -136,7 +138,7 @@ void Window::init(const char * title, int width, int height) {
 	ImGui::StyleColorsDark();
 }
 
-void Window::free() {
+Window::~Window() {
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
@@ -205,7 +207,15 @@ void Window::swap() {
 	}
 }
 
-void Window::read_frame_buffer(unsigned char * data) const {
+Array<unsigned char> Window::read_frame_buffer(int & window_pitch) const {
+	int pack_alignment;
+	glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+
+	window_pitch = Math::round_up(width * 3, pack_alignment);
+	Array<unsigned char> data(window_pitch * height);
+
 	glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
-	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data.data());
+
+	return data;
 }

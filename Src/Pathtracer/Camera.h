@@ -30,7 +30,7 @@ struct Camera {
 
 	bool moved;
 
-	inline void init(float fov, float near = 0.1f, float far = 300.0f) {
+	Camera(float fov, float near = 0.1f, float far = 300.0f) {
 		set_fov(fov);
 		this->near = near;
 		this->far  = far;

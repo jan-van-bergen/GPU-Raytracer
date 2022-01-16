@@ -2,15 +2,15 @@
 
 #include "Pathtracer/Scene.h"
 
-void Mesh::init(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, Scene & scene) {
-	this->name = std::move(name);
+Mesh::Mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, const Scene & scene) {
+	this->name             = std::move(name);
 	this->mesh_data_handle = mesh_data_handle;
 	this->material_handle  = material_handle;
 
 	const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
 
 	aabb_untransformed = AABB::create_empty();
-	for (int i = 0; i < mesh_data.triangle_count; i++) {
+	for (int i = 0; i < mesh_data.triangles.size(); i++) {
 		aabb_untransformed.expand(mesh_data.triangles[i].aabb);
 	}
 }

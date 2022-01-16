@@ -4,23 +4,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "Core/Array.h"
+#include "Core/HashMap.h"
+#include "Core/Format.h"
+#include "Core/Parser.h"
+#include "Core/StringView.h"
+
 #include "Assets/BVHLoader.h"
 #include "Assets/OBJLoader.h"
 #include "Assets/PLYLoader.h"
-
-#include "BVH/Builders/BVHBuilder.h"
-#include "BVH/Builders/CWBVHBuilder.h"
 
 #include "Pathtracer/Scene.h"
 #include "Pathtracer/MeshData.h"
 
 #include "Util/Util.h"
-#include "Util/Array.h"
-#include "Util/HashMap.h"
-#include "Util/Format.h"
-#include "Util/Parser.h"
 #include "Util/Geometry.h"
-#include "Util/StringView.h"
 
 #include "XMLParser.h"
 #include "MitshairLoader.h"
@@ -31,10 +29,10 @@ struct ShapeGroup {
 	MaterialHandle material_handle;
 };
 
-using ShapeGroupMap = HashMap<String, ShapeGroup,     StringHash>;
-using SerializedMap = HashMap<String, Serialized,     StringHash>;
-using MaterialMap   = HashMap<String, MaterialHandle, StringHash>;
-using TextureMap    = HashMap<String, TextureHandle,  StringHash>;
+using ShapeGroupMap = HashMap<String, ShapeGroup>;
+using SerializedMap = HashMap<String, Serialized>;
+using MaterialMap   = HashMap<String, MaterialHandle>;
+using TextureMap    = HashMap<String, TextureHandle>;
 
 static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene) {
 	StringView type = node->get_attribute_value("type");
@@ -458,21 +456,20 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere") {
 		Matrix4 transform = parse_transform_matrix(node);
 
-		Triangle * triangles = nullptr;
-		int        triangle_count = 0;
+		Array<Triangle> triangles;
 
 		if (type == "rectangle") {
-			Geometry::rectangle(triangles, triangle_count, transform);
+			triangles = Geometry::rectangle(transform);
 		} else if (type == "cube") {
-			Geometry::cube(triangles, triangle_count, transform);
+			triangles = Geometry::cube(transform);
 		} else if (type == "disk") {
-			Geometry::disk(triangles, triangle_count, transform);
+			triangles = Geometry::disk(transform);
 		} else if (type == "cylinder") {
 			Vector3 p0     = node->get_child_value_optional("p0", Vector3(0.0f, 0.0f, 0.0f));
 			Vector3 p1     = node->get_child_value_optional("p1", Vector3(0.0f, 0.0f, 1.0f));
 			float   radius = node->get_child_value_optional("radius", 1.0f);
 
-			Geometry::cylinder(triangles, triangle_count, transform, p0, p1, radius);
+			triangles = Geometry::cylinder(transform, p0, p1, radius);
 		} else if (type == "sphere") {
 			float   radius = node->get_child_value_optional("radius", 1.0f);
 			Vector3 center = Vector3(0.0f);
@@ -488,23 +485,23 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 			transform = transform * Matrix4::create_translation(center) * Matrix4::create_scale(radius);
 
-			Geometry::sphere(triangles, triangle_count, transform);
+			triangles = Geometry::sphere(transform);
 		} else {
-			abort(); // Unreachable
+			ASSERT(false); // Unreachable
 		}
 
 		name = type;
 
-		return scene.asset_manager.add_mesh_data(triangles, triangle_count);
+		return scene.asset_manager.add_mesh_data(std::move(triangles));
 	} else if (type == "serialized") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
 		String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
-		String bvh_filename = Format().format("{}.shape_{}.bvh"sv, filename_abs, shape_index);
+		String bvh_filename = Format().format("{}.shape_{}.bvh"_sv, filename_abs, shape_index);
 
-		auto fallback_loader = [&](const String & filename, Triangle *& triangles, int & triangle_count) {
+		auto fallback_loader = [&](const String & filename) {
 			Serialized serialized;
 			bool found = serialized_map.try_get(filename_abs, serialized);
 			if (!found) {
@@ -512,13 +509,12 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 				serialized_map[filename_rel] = serialized;
 			}
 
-			triangles      = serialized.triangles     [shape_index];
-			triangle_count = serialized.triangle_count[shape_index];
+			return std::move(serialized.meshes[shape_index]);
 		};
 
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, fallback_loader);
 
-		name = Format().format("{}_{}"sv, filename_rel, shape_index);
+		name = Format().format("{}_{}"_sv, filename_rel, shape_index);
 
 		return mesh_data_handle;
 	} else if (type == "hair") {
@@ -527,8 +523,8 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		float radius = node->get_child_value_optional("radius", 0.0025f);
 
-		auto fallback_loader = [&](const String & filename, Triangle *& triangles, int & triangle_count) {
-			MitshairLoader::load(filename, node->location, triangles, triangle_count, radius);
+		auto fallback_loader = [&](const String & filename) {
+			return MitshairLoader::load(filename, node->location, radius);
 		};
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
 
@@ -643,24 +639,22 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 			} else if (extension != "hdr") {
 				WARNING(node->location, "Environment Map '{}' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
 			} else {
-				scene_config.sky_filename = Util::combine_stringviews(path, filename_rel);
+				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel);
 			}
 		} else if (emitter_type == "point") {
+			// Make small area light
+			constexpr float RADIUS = 0.0001f;
+			Matrix4 transform = parse_transform_matrix(node) * Matrix4::create_scale(RADIUS);
+
+			Array<Triangle> triangles = Geometry::sphere(transform, 0);
+			MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(std::move(triangles));
+
 			Material material = { };
 			material.type = Material::Type::LIGHT;
 			material.emission = node->get_child_value_optional<Vector3>("intensity", Vector3(1.0f));
 
 			MaterialHandle material_handle = scene.asset_manager.add_material(material);
 
-			// Make small area light
-			constexpr float RADIUS = 0.0001f;
-			Matrix4 transform = parse_transform_matrix(node) * Matrix4::create_scale(RADIUS);
-
-			Triangle * triangles;
-			int        triangle_count;
-			Geometry::sphere(triangles, triangle_count, transform, 0);
-
-			MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 			scene.add_mesh("PointLight", mesh_data_handle, material_handle);
 		} else {
 			WARNING(node->location, "Emitter type '{}' is not supported!\n", emitter_type);
@@ -676,8 +670,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 }
 
 void MitsubaLoader::load(const String & filename, Scene & scene) {
-	XMLParser xml_parser = { };
-	xml_parser.init(filename);
+	XMLParser xml_parser(filename);
 
 	XMLNode root = xml_parser.parse_root();
 
@@ -688,9 +681,7 @@ void MitsubaLoader::load(const String & filename, Scene & scene) {
 
 	{
 		StringView version = scene_node->get_attribute_value<StringView>("version");
-
-		Parser version_parser = { };
-		version_parser.init(version);
+		Parser version_parser(version);
 
 		int major = version_parser.parse_int(); version_parser.expect('.');
 		int minor = version_parser.parse_int(); version_parser.expect('.');

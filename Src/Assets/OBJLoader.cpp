@@ -1,11 +1,11 @@
 #include "OBJLoader.h"
 
+#include "Core/Array.h"
+#include "Core/Parser.h"
+#include "Core/String.h"
+
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
-
-#include "Util/Array.h"
-#include "Util/Parser.h"
-#include "Util/String.h"
 
 static float parse_float(Parser & parser) {
 	parser.skip_whitespace();
@@ -92,8 +92,7 @@ static OBJFile parse_obj(const String & filename) {
 
 	OBJFile obj = { };
 
-	Parser parser = { };
-	parser.init(file.view(), filename.view());
+	Parser parser(file.view(), filename.view());
 
 	while (!parser.reached_end()) {
 		if (parser.match('#') || parser.match("o ")) {
@@ -119,11 +118,10 @@ static OBJFile parse_obj(const String & filename) {
 	return obj;
 }
 
-bool OBJLoader::load(const String & filename, Triangle *& triangles, int & triangle_count) {
+Array<Triangle> OBJLoader::load(const String & filename) {
 	OBJFile obj = parse_obj(filename);
 
-	triangle_count = obj.faces.size();
-	triangles      = new Triangle[triangle_count];
+	Array<Triangle> triangles(obj.faces.size());
 
 	for (int f = 0; f < obj.faces.size(); f++) {
 		const Face & face = obj.faces[f];
@@ -154,9 +152,9 @@ bool OBJLoader::load(const String & filename, Triangle *& triangles, int & trian
 				return result;
 			};
 
-			int index_v = get_index(obj.positions .size(), v);
-			int index_t = get_index(obj.tex_coords.size(), t);
-			int index_n = get_index(obj.normals   .size(), n);
+			int index_v = get_index(int(obj.positions .size()), v);
+			int index_t = get_index(int(obj.tex_coords.size()), t);
+			int index_n = get_index(int(obj.normals   .size()), n);
 
 			if (index_v != INVALID) {
 				positions[i] = obj.positions[index_v];
@@ -182,7 +180,7 @@ bool OBJLoader::load(const String & filename, Triangle *& triangles, int & trian
 		triangles[f].init();
 	}
 
-	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"sv, filename, triangle_count);
+	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"_sv, filename, triangles.size());
 
-	return true;
+	return triangles;
 }

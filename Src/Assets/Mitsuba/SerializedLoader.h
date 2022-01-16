@@ -1,16 +1,13 @@
 #pragma once
 #include <stdint.h>
 
-#include "Util/Parser.h"
+#include "Core/Parser.h"
 
 struct Triangle;
 struct XMLNode;
 
 struct Serialized {
-	uint32_t num_meshes;
-
-	int       * triangle_count;
-	Triangle ** triangles;
+	Array<Array<Triangle>> meshes;
 };
 
 namespace SerializedLoader {

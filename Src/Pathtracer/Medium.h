@@ -1,10 +1,10 @@
 #pragma once
+#include "Core/String.h"
+
 #include "Math/Math.h"
 #include "Math/Vector3.h"
 
 #include "CUDA/Common.h"
-
-#include "Util/String.h"
 
 struct Medium {
 	String name;

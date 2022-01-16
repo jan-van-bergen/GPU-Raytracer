@@ -9,7 +9,7 @@ __device__ __constant__ int screen_width;
 __device__ __constant__ int screen_pitch;
 __device__ __constant__ int screen_height;
 
-__device__ __constant__ Config config;
+__device__ __constant__ GPUConfig config;
 
 // Frame Buffers
 __device__ __constant__ float4 * frame_buffer_albedo;
@@ -27,8 +27,8 @@ __device__ __constant__ float4 * frame_buffer_indirect;
 __device__ __constant__ Surface<float4> accumulator;
 
 #include "Raytracing/BVH.h"
-#include "Raytracing/QBVH.h"
-#include "Raytracing/CWBVH.h"
+#include "Raytracing/BVH4.h"
+#include "Raytracing/BVH8.h"
 
 #include "Sampling.h"
 
@@ -108,24 +108,24 @@ extern "C" __global__ void kernel_trace_bvh(int bounce) {
 	bvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
-extern "C" __global__ void kernel_trace_qbvh(int bounce) {
-	qbvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+extern "C" __global__ void kernel_trace_bvh4(int bounce) {
+	bvh4_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
-extern "C" __global__ void kernel_trace_cwbvh(int bounce) {
-	cwbvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+extern "C" __global__ void kernel_trace_bvh8(int bounce) {
+	bvh8_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_shadow_bvh(int bounce) {
 	bvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
-extern "C" __global__ void kernel_trace_shadow_qbvh(int bounce) {
-	qbvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
+extern "C" __global__ void kernel_trace_shadow_bvh4(int bounce) {
+	bvh4_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
-extern "C" __global__ void kernel_trace_shadow_cwbvh(int bounce) {
-	cwbvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
+extern "C" __global__ void kernel_trace_shadow_bvh8(int bounce) {
+	bvh8_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
 // Returns true if the path should terminate

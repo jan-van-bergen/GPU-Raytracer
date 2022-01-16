@@ -108,6 +108,10 @@ namespace Math {
 		return 0.299f * r + 0.587f * g + 0.114f * b;
 	}
 
+	inline constexpr float luminance(const Vector3 & rgb) {
+		return luminance(rgb.x, rgb.y, rgb.z);
+	}
+
 	inline constexpr float rad_to_deg(float rad) { return rad * ONE_OVER_PI * 180.0f; }
 	inline constexpr float deg_to_rad(float deg) { return deg / 180.0f * PI; }
 

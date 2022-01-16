@@ -1,7 +1,7 @@
 #pragma once
 #include <math.h>
 
-#include "Util/Assertion.h"
+#include "Core/Assertion.h"
 
 struct Vector4 {
 	union {

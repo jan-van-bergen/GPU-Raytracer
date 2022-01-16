@@ -1,10 +1,13 @@
 #pragma once
+#include <functional>
+
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
-#include "Util/Shader.h"
+#include "Core/Array.h"
+#include "Core/String.h"
 
-typedef void (*ResizeHandler)(unsigned frame_buffer_handle, int width, int height);
+#include "Util/Shader.h"
 
 struct Window {
 	SDL_Window *  window;
@@ -19,8 +22,8 @@ struct Window {
 
 	bool is_closed = false;
 
-	void init(const char * title, int width, int height);
-	void free();
+	Window(const String & title, int width, int height);
+	~Window();
 
 	void resize(int new_width, int new_height);
 
@@ -31,7 +34,7 @@ struct Window {
 
 	void swap();
 
-	void read_frame_buffer(unsigned char * data) const;
+	Array<unsigned char> read_frame_buffer(int & window_pitch) const;
 
-	ResizeHandler resize_handler = nullptr;
+	std::function<void(unsigned frame_buffer_handle, int width, int height)> resize_handler;
 };

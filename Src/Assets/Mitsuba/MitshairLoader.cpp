@@ -1,21 +1,20 @@
 #include "MitshairLoader.h"
 
+#include "Core/Array.h"
+
 #include "Math/Quaternion.h"
 
 #include "Pathtracer/Triangle.h"
 
-#include "Util/Array.h"
-
-void MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, Triangle *& triangles, int & triangle_count, float radius) {
+Array<Triangle> MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, float radius) {
 	String file = IO::file_read(filename);
 
-	Parser parser = { };
-	parser.init(file.view(), filename.view());
+	Parser parser(file.view(), filename.view());
 
 	Array<Vector3> hair_vertices;
 	Array<int>     hair_strand_lengths;
 
-	triangle_count = 0;
+	size_t triangle_count = 0;
 	int strand_size = 0;
 
 	if (parser.match("BINARY_HAIR")) { // Binary format
@@ -56,7 +55,7 @@ void MitshairLoader::load(const String & filename, SourceLocation location_in_mi
 	}
 
 	triangle_count *= 2;
-	triangles       = new Triangle[triangle_count];
+	Array<Triangle> triangles(triangle_count);
 
 	int current_triangle = 0;
 
@@ -129,4 +128,6 @@ void MitshairLoader::load(const String & filename, SourceLocation location_in_mi
 			prev_segment = curr_segment;
 		}
 	}
+
+	return triangles;
 }

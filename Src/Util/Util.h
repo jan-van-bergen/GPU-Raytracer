@@ -1,46 +1,26 @@
 #pragma once
-#include <malloc.h>
-#include <utility>
-
-#include "String.h"
-#include "StringView.h"
-
-#define DATA_PATH(file_name) "./Data/" file_name
-
-#define DEG_TO_RAD(angle) ((angle) * PI / 180.0f)
-#define RAD_TO_DEG(angle) ((angle) / PI * 180.0f)
-
-#define KILO_BYTE(value) (value) * 1024
-#define MEGA_BYTE(value) (value) * 1024 * 1024
-#define GIGA_BYTE(value) (value) * 1024 * 1024 * 1024
 
 #define FORCEINLINE __forceinline
 
-#define UNREACHABLE __assume(false)
-
-#define ALLIGNED_MALLOC(size, align) _aligned_malloc(size, align)
-#define ALLIGNED_FREE(ptr)           _aligned_free(ptr)
-
-#define MALLOCA(type, count) reinterpret_cast<type *>(_malloca(count * sizeof(type)))
-#define FREEA(ptr) _freea(ptr)
-
-struct alignas(8) ProbAlias {
-	float prob;
-	int   alias;
-};
-
 namespace Util {
-	void init_alias_method(int n, double p[], ProbAlias distribution[]);
-
 	template<typename T>
-	void swap(T & a, T & b) {
+	constexpr void swap(T & a, T & b) {
 		T temp = a;
 		a = b;
 		b = temp;
 	}
 
+	template<typename To, typename From>
+	constexpr To bit_cast(const From & value) {
+		static_assert(sizeof(From) == sizeof(To));
+
+		To result = { };
+		memcpy(&result, &value, sizeof(From));
+		return result;
+	}
+
 	template<typename T>
-	void reverse(T * array, size_t length) {
+	constexpr void reverse(T * array, size_t length) {
 		for (size_t i = 0; i < length / 2; i++) {
 			Util::swap(array[i], array[length - i - 1]);
 		}
@@ -112,9 +92,8 @@ namespace Util {
 
 	template<typename T, typename Cmp>
 	constexpr void stable_sort(T * first, T * last, Cmp cmp) {
-		T * tmp = new T[last - first];
-		stable_sort(first, last, tmp, cmp);
-		delete [] tmp;
+		Array<T> tmp(last - first);
+		stable_sort(first, last, tmp.data(), cmp);
 	}
 
 	template<typename T>
@@ -126,6 +105,4 @@ namespace Util {
 	constexpr int array_count(const T (& array)[N]) {
 		return N;
 	}
-
-	void export_ppm(const String & filename, int width, int height, const unsigned char * data);
 }

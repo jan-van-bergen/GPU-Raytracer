@@ -24,33 +24,19 @@ enum struct ReconstructionFilter {
 	GAUSSIAN
 };
 
-enum struct BVHType {
-	BVH,  // Binary SAH-based BVH
-	SBVH, // Binary SAH-based Spatial BVH
-	QBVH, // Quaternary BVH,              constructed by collapsing the binary BVH
-	CWBVH // Compressed Wide BVH (8 way), constructed by collapsing the binary BVH
-};
-
-struct Config {
+struct GPUConfig {
 	// Screen
-	int initial_width  = 900;
-	int initial_height = 600;
-
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::GAUSSIAN;
 
 
 	// Pathtracing
 	int num_bounces = 10;
 
-	int          output_sample_index = INVALID;
-	const char * output_name         = "render.ppm";
-
 	bool enable_albedo                       = true;
 	bool enable_mipmapping                   = true;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
 	bool enable_russian_roulette             = true;
-	bool enable_scene_update                 = false;
 	bool enable_svgf                         = false;
 	bool enable_spatial_variance             = true;
 	bool enable_taa                          = true;
@@ -65,32 +51,6 @@ struct Config {
 	float sigma_z =  4.0f;
 	float sigma_n = 16.0f;
 	float sigma_l = 10.0f;
-
-
-	// Textures
-	bool enable_block_compression = true;
-
-	enum struct MipmapFilter {
-		BOX,
-		LANCZOS,
-		KAISER
-	} mipmap_filter = MipmapFilter::BOX;
-
-
-	// BVH
-	BVHType bvh_type = BVHType::CWBVH;
-
-	float sah_cost_node = 4.0f;
-	float sah_cost_leaf = 1.0f;
-
-	float sbvh_alpha = 10e-5f; // Alpha parameter for SBVH construction, alpha == 1 means regular BVH, alpha == 0 means full SBVH
-
-	bool enable_bvh_optimization = false;
-
-	bool bvh_force_rebuild = false;
-
-	int bvh_optimizer_max_time        = 60000; // Time limit in milliseconds
-	int bvh_optimizer_max_num_batches = 1000;
 };
 
 // Rendering is performance in batches of BATCH_SIZE pixels

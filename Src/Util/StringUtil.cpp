@@ -1,20 +1,22 @@
 #include "StringUtil.h"
 
-#include "Assertion.h"
+#include "Core/Assertion.h"
+#include "Core/StringView.h"
+
 #include "Util.h"
 
 StringView Util::get_directory(StringView filename) {
-	const char * last_slash = find_last_after(filename, "/\\"sv);
+	const char * last_slash = find_last_after(filename, "/\\"_sv);
 
 	if (last_slash != filename.end) {
 		return StringView { filename.start, last_slash };
 	} else {
-		return "./"sv;
+		return "./"_sv;
 	}
 }
 
 StringView Util::remove_directory(StringView filename) {
-	const char * last_slash = find_last_after(filename, "/\\"sv);
+	const char * last_slash = find_last_after(filename, "/\\"_sv);
 
 	if (last_slash != filename.end) {
 		return StringView { last_slash, filename.end };
@@ -24,7 +26,7 @@ StringView Util::remove_directory(StringView filename) {
 }
 
 StringView Util::get_file_extension(StringView filename) {
-	return StringView { find_last_after(filename, "."sv), filename.end };
+	return StringView { find_last_after(filename, "."_sv), filename.end };
 }
 
 StringView Util::substr(StringView str, size_t offset, size_t len) {
@@ -132,7 +134,7 @@ static int uint64_to_string(uint64_t value, uint64_t base, char * buf) {
 }
 
 String Util::to_string(bool value) {
-	return value ? "true" : "false";
+	return value ? "true"_sv : "false"_sv;
 }
 
 String Util::to_string(int64_t value, int64_t base) {
@@ -149,10 +151,10 @@ String Util::to_string(uint64_t value, uint64_t base) {
 
 String Util::to_string(double value) {
 	if (isinf(value)) {
-		return value > 0.0f ? "inf" : "-inf";
+		return value > 0.0f ? "inf"_sv : "-inf"_sv;
 	}
 	if (isnan(value)) {
-		return "nan";
+		return "nan"_sv;
 	}
 
 	// Based on: https://github.com/antongus/stm32tpl/blob/master/ftoa.c

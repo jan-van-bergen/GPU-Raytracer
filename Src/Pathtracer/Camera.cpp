@@ -3,8 +3,8 @@
 #include <cstdio>
 #include <cstdint>
 
+#include "Core/IO.h"
 #include "Input.h"
-#include "Util/IO.h"
 
 void Camera::resize(int width, int height) {
 	screen_width  = float(width);
@@ -74,8 +74,8 @@ void Camera::update(float delta) {
 
 	// For debugging purposes
 	if (Input::is_key_pressed(SDL_SCANCODE_F)) {
-		IO::print("camera.position = Vector3({}f, {}f, {}f);\n"sv,         position.x, position.y, position.z);
-		IO::print("camera.rotation = Quaternion({}f, {}f, {}f, {}f);\n"sv, rotation.x, rotation.y, rotation.z, rotation.w);
+		IO::print("camera.position = Vector3({}f, {}f, {}f);\n"_sv,         position.x, position.y, position.z);
+		IO::print("camera.rotation = Quaternion({}f, {}f, {}f, {}f);\n"_sv, rotation.x, rotation.y, rotation.z, rotation.w);
 	}
 	if (Input::is_key_pressed(SDL_SCANCODE_G)) {
 		rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f); // Reset

@@ -4,21 +4,21 @@
 
 #include "Config.h"
 
+#include "Core/HashMap.h"
+#include "Core/Timer.h"
+
 #include "Math/Vector4.h"
+
+#include "BVH/Converters/BVH4Converter.h"
+#include "BVH/Converters/BVH8Converter.h"
 
 #include "MeshData.h"
 
+#include "Util/Util.h"
 #include "Util/BlueNoise.h"
 
-#include "Util/Util.h"
-#include "Util/HashMap.h"
-#include "Util/ScopeTimer.h"
-
-void Pathtracer::init(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height) {
-	scene.init(scene_config);
-
+Pathtracer::Pathtracer(unsigned frame_buffer_handle, int width, int height) {
 	cuda_init(frame_buffer_handle, width, height);
-
 	CUDACALL(cuStreamCreate(&memory_stream, CU_STREAM_NON_BLOCKING));
 }
 
@@ -72,13 +72,13 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_lights_total_weight.set_value(0.0f);
 
 	// Reallocate TLAS BVH nodes as page locked memory, this allows faster copying to the GPU
-	switch (config.bvh_type) {
+	/*switch (config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  delete [] tlas_raw.nodes._2; tlas_raw.nodes._2 = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
-		case BVHType::QBVH:  delete [] tlas    .nodes._4; tlas    .nodes._4 = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
-		case BVHType::CWBVH: delete [] tlas    .nodes._8; tlas    .nodes._8 = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
-		default: abort();
-	}
+		case BVHType::SBVH:  delete [] tlas_raw.nodes; tlas_raw.nodes = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
+		case BVHType::QBVH:  delete [] tlas    .nodes; tlas    .nodes = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
+		case BVHType::CWBVH: delete [] tlas    .nodes; tlas    .nodes = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
+		default: ASSERT(false);
+	}*/
 
 	scene.camera.update(0.0f);
 	scene.update(0.0f);
@@ -97,8 +97,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	unsigned long long bytes_available = CUDAContext::get_available_memory();
 	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
 
-	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"sv,   bytes_allocated >> 10, bytes_allocated >> 20);
-	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"sv, bytes_available >> 10, bytes_available >> 20);
+	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"_sv,   bytes_allocated >> 10, bytes_allocated >> 20);
+	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"_sv, bytes_available >> 10, bytes_available >> 20);
 }
 
 void Pathtracer::cuda_init_module() {
@@ -106,16 +106,16 @@ void Pathtracer::cuda_init_module() {
 
 	kernel_generate           .init(&cuda_module, "kernel_generate");
 	kernel_trace_bvh          .init(&cuda_module, "kernel_trace_bvh");
-	kernel_trace_qbvh         .init(&cuda_module, "kernel_trace_qbvh");
-	kernel_trace_cwbvh        .init(&cuda_module, "kernel_trace_cwbvh");
+	kernel_trace_qbvh         .init(&cuda_module, "kernel_trace_bvh4");
+	kernel_trace_cwbvh        .init(&cuda_module, "kernel_trace_bvh8");
 	kernel_sort               .init(&cuda_module, "kernel_sort");
 	kernel_material_diffuse   .init(&cuda_module, "kernel_material_diffuse");
 	kernel_material_plastic   .init(&cuda_module, "kernel_material_plastic");
 	kernel_material_dielectric.init(&cuda_module, "kernel_material_dielectric");
 	kernel_material_conductor .init(&cuda_module, "kernel_material_conductor");
 	kernel_trace_shadow_bvh   .init(&cuda_module, "kernel_trace_shadow_bvh");
-	kernel_trace_shadow_qbvh  .init(&cuda_module, "kernel_trace_shadow_qbvh");
-	kernel_trace_shadow_cwbvh .init(&cuda_module, "kernel_trace_shadow_cwbvh");
+	kernel_trace_shadow_qbvh  .init(&cuda_module, "kernel_trace_shadow_bvh4");
+	kernel_trace_shadow_cwbvh .init(&cuda_module, "kernel_trace_shadow_bvh8");
 	kernel_svgf_reproject     .init(&cuda_module, "kernel_svgf_reproject");
 	kernel_svgf_variance      .init(&cuda_module, "kernel_svgf_variance");
 	kernel_svgf_atrous        .init(&cuda_module, "kernel_svgf_atrous");
@@ -124,12 +124,12 @@ void Pathtracer::cuda_init_module() {
 	kernel_taa_finalize       .init(&cuda_module, "kernel_taa_finalize");
 	kernel_accumulate         .init(&cuda_module, "kernel_accumulate");
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  kernel_trace = &kernel_trace_bvh;   kernel_trace_shadow = &kernel_trace_shadow_bvh;   break;
-		case BVHType::QBVH:  kernel_trace = &kernel_trace_qbvh;  kernel_trace_shadow = &kernel_trace_shadow_qbvh;  break;
-		case BVHType::CWBVH: kernel_trace = &kernel_trace_cwbvh; kernel_trace_shadow = &kernel_trace_shadow_cwbvh; break;
-		default: abort();
+		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh;   kernel_trace_shadow = &kernel_trace_shadow_bvh;   break;
+		case BVHType::BVH4: kernel_trace = &kernel_trace_qbvh;  kernel_trace_shadow = &kernel_trace_shadow_qbvh;  break;
+		case BVHType::BVH8: kernel_trace = &kernel_trace_cwbvh; kernel_trace_shadow = &kernel_trace_shadow_cwbvh; break;
+		default: ASSERT(false);
 	}
 
 	// Set Block dimensions for all Kernels
@@ -170,10 +170,10 @@ void Pathtracer::cuda_init_materials() {
 	cuda_module.get_global("media").set_value(ptr_media);
 
 	// Set global Texture table
-	int texture_count = scene.asset_manager.textures.size();
+	size_t texture_count = scene.asset_manager.textures.size();
 	if (texture_count > 0) {
-		textures       = new CUDATexture     [texture_count];
-		texture_arrays = new CUmipmappedArray[texture_count];
+		textures      .resize(texture_count);
+		texture_arrays.resize(texture_count);
 
 		// Get maximum anisotropy from OpenGL
 		int max_aniso; glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_aniso);
@@ -187,18 +187,18 @@ void Pathtracer::cuda_init_materials() {
 				texture.height,
 				texture.channels,
 				texture.get_cuda_array_format(),
-				texture.mip_levels
+				texture.mip_levels()
 			);
 
 			// Upload each level of the mipmap
-			for (int level = 0; level < texture.mip_levels; level++) {
+			for (int level = 0; level < texture.mip_levels(); level++) {
 				CUarray level_array;
 				CUDACALL(cuMipmappedArrayGetLevel(&level_array, texture_arrays[i], level));
 
 				int level_width_in_bytes = texture.get_width_in_bytes(level);
 				int level_height         = Math::max(texture.height >> level, 1);
 
-				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data + texture.mip_offsets[level]);
+				CUDAMemory::copy_array(level_array, level_width_in_bytes, level_height, texture.data.data() + texture.mip_offsets[level]);
 			}
 
 			// Describe the Array to read from
@@ -213,10 +213,10 @@ void Pathtracer::cuda_init_materials() {
 			tex_desc.addressMode[2] = CUaddress_mode::CU_TR_ADDRESS_MODE_CLAMP;
 			tex_desc.filterMode       = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
 			tex_desc.mipmapFilterMode = CUfilter_mode::CU_TR_FILTER_MODE_LINEAR;
-			tex_desc.mipmapLevelBias = 0;
+			tex_desc.mipmapLevelBias = 0.0f;
 			tex_desc.maxAnisotropy = max_aniso;
-			tex_desc.minMipmapLevelClamp = 0;
-			tex_desc.maxMipmapLevelClamp = texture.mip_levels - 1;
+			tex_desc.minMipmapLevelClamp = 0.0f;
+			tex_desc.maxMipmapLevelClamp = float(texture.mip_levels() - 1);
 			tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
 			// Describe the Texture View
@@ -225,58 +225,49 @@ void Pathtracer::cuda_init_materials() {
 			view_desc.width  = texture.get_cuda_resource_view_width();
 			view_desc.height = texture.get_cuda_resource_view_height();
 			view_desc.firstMipmapLevel = 0;
-			view_desc.lastMipmapLevel  = texture.mip_levels - 1;
+			view_desc.lastMipmapLevel  = texture.mip_levels() - 1;
 
 			CUDACALL(cuTexObjectCreate(&textures[i].texture, &res_desc, &tex_desc, &view_desc));
 
-			textures[i].lod_bias = 0.5f * log2f(texture.width * texture.height);
+			textures[i].lod_bias = 0.5f * log2f(float(texture.width * texture.height));
 		}
 
-		ptr_textures = CUDAMemory::malloc(textures, texture_count);
+		ptr_textures = CUDAMemory::malloc(textures);
 		cuda_module.get_global("textures").set_value(ptr_textures);
 	}
 }
 
 void Pathtracer::cuda_init_geometry() {
-	int mesh_data_count = scene.asset_manager.mesh_datas.size();
+	size_t mesh_data_count = scene.asset_manager.mesh_datas.size();
 
-	mesh_data_bvh_offsets      = new int[mesh_data_count];
-	mesh_data_triangle_offsets = new int[mesh_data_count];
-	int * mesh_data_index_offsets = MALLOCA(int, mesh_data_count);
+	mesh_data_bvh_offsets     .resize(mesh_data_count);
+	mesh_data_triangle_offsets.resize(mesh_data_count);
 
-	int aggregated_bvh_node_count = 2 * scene.meshes.size(); // Reserve 2 times Mesh count for TLAS
-	int aggregated_triangle_count = 0;
-	int aggregated_index_count    = 0;
+	Array<int> mesh_data_index_offsets(mesh_data_count);
 
-	for (int i = 0; i < mesh_data_count; i++) {
+	size_t aggregated_bvh_node_count = 2 * scene.meshes.size(); // Reserve 2 times Mesh count for TLAS
+	size_t aggregated_triangle_count = 0;
+	size_t aggregated_index_count    = 0;
+
+	for (size_t i = 0; i < mesh_data_count; i++) {
 		mesh_data_bvh_offsets     [i] = aggregated_bvh_node_count;
 		mesh_data_triangle_offsets[i] = aggregated_triangle_count;
 		mesh_data_index_offsets   [i] = aggregated_index_count;
 
-		aggregated_bvh_node_count += scene.asset_manager.mesh_datas[i].bvh.node_count;
-		aggregated_triangle_count += scene.asset_manager.mesh_datas[i].triangle_count;
-		aggregated_index_count    += scene.asset_manager.mesh_datas[i].bvh.index_count;
+		aggregated_bvh_node_count += scene.asset_manager.mesh_datas[i].bvh->node_count();
+		aggregated_triangle_count += scene.asset_manager.mesh_datas[i].triangles.size();
+		aggregated_index_count    += scene.asset_manager.mesh_datas[i].bvh->indices.size();;
 	}
 
-	BVHNodePtr aggregated_bvh_nodes = { };
-	switch (config.bvh_type) {
-		case BVHType::BVH:
-		case BVHType::SBVH:  aggregated_bvh_nodes._2 = new BVHNode2[aggregated_bvh_node_count]; break;
-		case BVHType::QBVH:  aggregated_bvh_nodes._4 = new BVHNode4[aggregated_bvh_node_count]; break;
-		case BVHType::CWBVH: aggregated_bvh_nodes._8 = new BVHNode8[aggregated_bvh_node_count]; break;
-	}
+	Array<CUDATriangle> aggregated_triangles(aggregated_index_count);
 
-	CUDATriangle * aggregated_triangles = new CUDATriangle[aggregated_index_count];
-
-	reverse_indices = new int[aggregated_triangle_count];
+	reverse_indices.resize(aggregated_triangle_count);
 
 	for (int m = 0; m < mesh_data_count; m++) {
 		const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
 
-		mesh_data.bvh.aggregate(aggregated_bvh_nodes, mesh_data_index_offsets[m], mesh_data_bvh_offsets[m]);
-
-		for (int i = 0; i < mesh_data.bvh.index_count; i++) {
-			int index = mesh_data.bvh.indices[i];
+		for (size_t i = 0; i < mesh_data.bvh->indices.size(); i++) {
+			int index = mesh_data.bvh->indices[i];
 			const Triangle & triangle = mesh_data.triangles[index];
 
 			aggregated_triangles[mesh_data_index_offsets[m] + i].position_0      = triangle.position_0;
@@ -295,7 +286,8 @@ void Pathtracer::cuda_init_geometry() {
 		}
 	}
 
-	FREEA(mesh_data_index_offsets);
+	ptr_triangles = CUDAMemory::malloc(aggregated_triangles);
+	cuda_module.get_global("triangles").set_value(ptr_triangles);
 
 	pinned_mesh_bvh_root_indices                     = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 	pinned_mesh_material_ids                         = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
@@ -306,7 +298,7 @@ void Pathtracer::cuda_init_geometry() {
 	pinned_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc_pinned<int2>     (scene.meshes.size());
 	pinned_light_mesh_transform_index                = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 
-	light_mesh_probabilites = new double[scene.meshes.size()];
+	light_mesh_probabilites.resize(scene.meshes.size());
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.meshes.size());
 	ptr_mesh_material_ids     = CUDAMemory::malloc<int>      (scene.meshes.size());
@@ -320,48 +312,116 @@ void Pathtracer::cuda_init_geometry() {
 	cuda_module.get_global("mesh_transforms_inv")  .set_value(ptr_mesh_transforms_inv);
 	cuda_module.get_global("mesh_transforms_prev") .set_value(ptr_mesh_transforms_prev);
 
-	tlas_bvh_builder.init(&tlas_raw, scene.meshes.size());
-	tlas_raw.index_count = scene.meshes.size();
-	tlas_raw.node_count  = scene.meshes.size() * 2;
+	tlas_raw.indices.resize(scene.meshes.size());
+	tlas_raw.nodes  .resize(scene.meshes.size() * 2);
+	tlas_builder = make_owned<SAHBuilder>(tlas_raw, scene.meshes.size());
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: {
-			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes._2, aggregated_bvh_node_count);
+			Array<BVHNode2> aggregated_bvh_nodes(aggregated_bvh_node_count);
+
+			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
+			// The procedure to do this is different for each BVH type
+			for (int m = 0; m < mesh_data_count; m++) {
+				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
+				const BVH2 * bvh = static_cast<const BVH2 *>(mesh_data.bvh.get());
+
+				int index_offset = mesh_data_index_offsets[m];
+				int bvh_offset   = mesh_data_bvh_offsets[m];
+
+				BVHNode2 * dst = aggregated_bvh_nodes.data() + bvh_offset;
+
+				for (size_t n = 0; n < bvh->nodes.size(); n++) {
+					BVHNode2 & node = dst[n];
+					node = bvh->nodes[n];
+
+					if (node.is_leaf()) {
+						node.first += index_offset;
+					} else {
+						node.left += bvh_offset;
+					}
+				}
+			}
+
+			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes_2);
 
-			tlas = tlas_raw;
-
-			delete [] aggregated_bvh_nodes._2;
+			tlas           = make_owned<BVH2>();
+			tlas_converter = make_owned<BVH2Converter>(static_cast<BVH2 &>(*tlas.get()), tlas_raw);
 			break;
 		}
-		case BVHType::QBVH: {
-			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes._4, aggregated_bvh_node_count);
-			cuda_module.get_global("qbvh_nodes").set_value(ptr_bvh_nodes_4);
+		case BVHType::BVH4: {
+			Array<BVHNode4> aggregated_bvh_nodes(aggregated_bvh_node_count);
 
-			tlas_converter_qbvh.init(&tlas, tlas_raw);
+			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
+			// The procedure to do this is different for each BVH type
+			for (int m = 0; m < mesh_data_count; m++) {
+				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
+				const BVH4 * bvh = static_cast<const BVH4 *>(mesh_data.bvh.get());
 
-			delete [] aggregated_bvh_nodes._4;
+				int index_offset = mesh_data_index_offsets[m];
+				int bvh_offset   = mesh_data_bvh_offsets[m];
+
+				BVHNode4 * dst = aggregated_bvh_nodes.data() + bvh_offset;
+
+				for (size_t n = 0; n < bvh->nodes.size(); n++) {
+					BVHNode4 & node = dst[n];
+					node = bvh->nodes[n];
+
+					int child_count = node.get_child_count();
+					for (int c = 0; c < child_count; c++) {
+						if (node.is_leaf(c)) {
+							node.get_index(c) += index_offset;
+						} else {
+							node.get_index(c) += bvh_offset;
+						}
+					}
+				}
+			}
+
+			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes);
+			cuda_module.get_global("bvh4_nodes").set_value(ptr_bvh_nodes_4);
+
+			tlas           = make_owned<BVH4>();
+			tlas_converter = make_owned<BVH4Converter>(static_cast<BVH4 &>(*tlas.get()), tlas_raw);
 			break;
 		}
-		case BVHType::CWBVH: {
-			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes._8, aggregated_bvh_node_count);
-			cuda_module.get_global("cwbvh_nodes").set_value(ptr_bvh_nodes_8);
+		case BVHType::BVH8: {
+			Array<BVHNode8> aggregated_bvh_nodes(aggregated_bvh_node_count);
 
-			tlas_converter_cwbvh.init(&tlas, tlas_raw);
+			// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
+			// The procedure to do this is different for each BVH type
+			for (int m = 0; m < mesh_data_count; m++) {
+				const MeshData & mesh_data = scene.asset_manager.mesh_datas[m];
+				const BVH8 * bvh = static_cast<const BVH8 *>(mesh_data.bvh.get());
 
-			delete [] aggregated_bvh_nodes._8;
+				int index_offset = mesh_data_index_offsets[m];
+				int bvh_offset   = mesh_data_bvh_offsets[m];
+
+				BVHNode8 * dst = aggregated_bvh_nodes.data() + bvh_offset;
+
+				for (size_t n = 0; n < bvh->nodes.size(); n++) {
+					BVHNode8 & node = dst[n];
+					node = bvh->nodes[n];
+
+					node.base_index_triangle += index_offset;
+					node.base_index_child    += bvh_offset;
+				}
+			}
+
+			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes);
+			cuda_module.get_global("bvh8_nodes").set_value(ptr_bvh_nodes_8);
+
+			tlas           = make_owned<BVH8>();
+			tlas_converter = make_owned<BVH8Converter>(static_cast<BVH8 &>(*tlas.get()), tlas_raw);
 			break;
 		}
 	}
-
-	ptr_triangles = CUDAMemory::malloc(aggregated_triangles, aggregated_index_count);
-	cuda_module.get_global("triangles").set_value(ptr_triangles);
-	delete [] aggregated_triangles;
 }
 
 void Pathtracer::cuda_init_sky() {
-	ptr_sky_data = CUDAMemory::malloc(scene.sky.data, scene.sky.width * scene.sky.height);
+	ptr_sky_data = CUDAMemory::malloc(scene.sky.data);
 
 	cuda_module.get_global("sky_width") .set_value(scene.sky.width);
 	cuda_module.get_global("sky_height").set_value(scene.sky.height);
@@ -382,36 +442,35 @@ void Pathtracer::cuda_init_rng() {
 
 void Pathtracer::cuda_init_events() {
 	int display_order = 0;
-	event_desc_primary = { display_order++, "Primary", "Primary" };
+	event_desc_primary = { display_order++, "Primary"_sv, "Primary"_sv };
 
 	for (int i = 0; i < MAX_BOUNCES; i++) {
-		String category = Format().format("Bounce {}"sv, i);
+		String category = Format().format("Bounce {}"_sv, i);
 
-		event_desc_trace              [i] = CUDAEvent::Desc { display_order, category, "Trace" };
-		event_desc_sort               [i] = CUDAEvent::Desc { display_order, category, "Sort" };
-		event_desc_material_diffuse   [i] = CUDAEvent::Desc { display_order, category, "Diffuse" };
-		event_desc_material_plastic   [i] = CUDAEvent::Desc { display_order, category, "Plastic" };
-		event_desc_material_dielectric[i] = CUDAEvent::Desc { display_order, category, "Dielectric" };
-		event_desc_material_conductor [i] = CUDAEvent::Desc { display_order, category, "Conductor" };
-		event_desc_shadow_trace       [i] = CUDAEvent::Desc { display_order, category, "Shadow" };
+		event_desc_trace              [i] = CUDAEvent::Desc { display_order, category, "Trace"_sv };
+		event_desc_sort               [i] = CUDAEvent::Desc { display_order, category, "Sort"_sv };
+		event_desc_material_diffuse   [i] = CUDAEvent::Desc { display_order, category, "Diffuse"_sv };
+		event_desc_material_plastic   [i] = CUDAEvent::Desc { display_order, category, "Plastic"_sv };
+		event_desc_material_dielectric[i] = CUDAEvent::Desc { display_order, category, "Dielectric"_sv };
+		event_desc_material_conductor [i] = CUDAEvent::Desc { display_order, category, "Conductor"_sv };
+		event_desc_shadow_trace       [i] = CUDAEvent::Desc { display_order, category, "Shadow"_sv };
 
 		display_order++;
 	}
 
-	event_desc_svgf_reproject = { display_order, "SVGF", "Reproject" };
-	event_desc_svgf_variance  = { display_order, "SVGF", "Variance" };
+	event_desc_svgf_reproject = CUDAEvent::Desc { display_order, "SVGF"_sv, "Reproject"_sv };
+	event_desc_svgf_variance  = CUDAEvent::Desc { display_order, "SVGF"_sv, "Variance"_sv };
 
 	for (int i = 0; i < MAX_ATROUS_ITERATIONS; i++) {
-		String name = Format().format("A Trous {}"sv, i);
-		event_desc_svgf_atrous[i] = { display_order, "SVGF", std::move(name) };
+		event_desc_svgf_atrous[i] = CUDAEvent::Desc { display_order, "SVGF"_sv, Format().format("A Trous {}"_sv, i) };
 	}
-	event_desc_svgf_finalize = { display_order++, "SVGF", "Finalize" };
+	event_desc_svgf_finalize = CUDAEvent::Desc { display_order++, "SVGF"_sv, "Finalize"_sv };
 
-	event_desc_taa         = { display_order, "Post", "TAA" };
-	event_desc_reconstruct = { display_order, "Post", "Reconstruct" };
-	event_desc_accumulate  = { display_order, "Post", "Accumulate" };
+	event_desc_taa         = CUDAEvent::Desc { display_order, "Post"_sv, "TAA"_sv };
+	event_desc_reconstruct = CUDAEvent::Desc { display_order, "Post"_sv, "Reconstruct"_sv };
+	event_desc_accumulate  = CUDAEvent::Desc { display_order, "Post"_sv, "Accumulate"_sv };
 
-	event_desc_end = { ++display_order, "END", "END" };
+	event_desc_end = CUDAEvent::Desc { ++display_order, "END"_sv, "END"_sv };
 }
 
 void Pathtracer::cuda_free() {
@@ -428,8 +487,8 @@ void Pathtracer::cuda_free() {
 			CUDAMemory::free_texture(textures[i].texture);
 		}
 
-		delete [] textures;
-		delete [] texture_arrays;
+		textures      .clear();
+		texture_arrays.clear();
 	}
 
 	CUDAMemory::free_pinned(pinned_buffer_sizes);
@@ -441,7 +500,7 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free_pinned(pinned_light_mesh_prob_alias);
 	CUDAMemory::free_pinned(pinned_light_mesh_transform_index);
 
-	delete [] light_mesh_probabilites;
+	light_mesh_probabilites.clear();
 
 	CUDAMemory::free(ptr_mesh_bvh_root_indices);
 	CUDAMemory::free(ptr_mesh_material_ids);
@@ -449,11 +508,11 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free(ptr_mesh_transforms_inv);
 	CUDAMemory::free(ptr_mesh_transforms_prev);
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  CUDAMemory::free(ptr_bvh_nodes_2); break;
-		case BVHType::QBVH:  CUDAMemory::free(ptr_bvh_nodes_4); break;
-		case BVHType::CWBVH: CUDAMemory::free(ptr_bvh_nodes_8); break;
+		case BVHType::SBVH: CUDAMemory::free(ptr_bvh_nodes_2); break;
+		case BVHType::BVH4: CUDAMemory::free(ptr_bvh_nodes_4); break;
+		case BVHType::BVH8: CUDAMemory::free(ptr_bvh_nodes_8); break;
 	}
 
 	CUDAMemory::free(ptr_triangles);
@@ -480,15 +539,10 @@ void Pathtracer::cuda_free() {
 
 	CUDAMemory::free(ptr_material_ray_buffers);
 
-	tlas_bvh_builder.free();
-	if (config.bvh_type == BVHType::CWBVH) {
-		tlas_converter_cwbvh.free();
-	}
+	reverse_indices.clear();
 
-	delete [] reverse_indices;
-
-	delete [] mesh_data_bvh_offsets;
-	delete [] mesh_data_triangle_offsets;
+	mesh_data_bvh_offsets     .clear();
+	mesh_data_triangle_offsets.clear();
 
 	resize_free();
 
@@ -545,7 +599,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 
 	sample_index = 0;
 
-	if (config.enable_svgf) svgf_init();
+	if (gpu_config.enable_svgf) svgf_init();
 }
 
 void Pathtracer::resize_free() {
@@ -559,7 +613,7 @@ void Pathtracer::resize_free() {
 	CUDAMemory::free(ptr_frame_buffer_direct);
 	CUDAMemory::free(ptr_frame_buffer_indirect);
 
-	if (config.enable_svgf) svgf_free();
+	if (gpu_config.enable_svgf) svgf_free();
 }
 
 void Pathtracer::svgf_init() {
@@ -654,8 +708,8 @@ void Pathtracer::calc_light_power() {
 	Array<LightTriangle> light_triangles;
 
 	struct LightMeshData {
-		int first_triangle_index;
-		int triangle_count;
+		size_t first_triangle_index;
+		size_t triangle_count;
 
 		double total_area;
 	};
@@ -671,10 +725,10 @@ void Pathtracer::calc_light_power() {
 
 		LightMeshData & light_mesh_data = light_mesh_datas.emplace_back();
 		light_mesh_data.first_triangle_index = light_triangles.size();
-		light_mesh_data.triangle_count = mesh_data.triangle_count;
+		light_mesh_data.triangle_count = mesh_data.triangles.size();
 		light_mesh_data.total_area = 0.0f;
 
-		for (int t = 0; t < mesh_data.triangle_count; t++) {
+		for (int t = 0; t < mesh_data.triangles.size(); t++) {
 			const Triangle & triangle = mesh_data.triangles[t];
 
 			float area = 0.5f * Vector3::length(Vector3::cross(
@@ -691,16 +745,16 @@ void Pathtracer::calc_light_power() {
 			const Material & material = scene.asset_manager.get_material(mesh->material_handle);
 			float power = Math::luminance(material.emission.x, material.emission.y, material.emission.z);
 
-			mesh->light.weight               = power * light_mesh_data.total_area;
+			mesh->light.weight               = power * float(light_mesh_data.total_area);
 			mesh->light.first_triangle_index = light_mesh_data.first_triangle_index;
 			mesh->light.triangle_count       = light_mesh_data.triangle_count;
 		}
 	}
 
 	if (light_triangles.size() > 0) {
-		int       * light_indices       = new int      [light_triangles.size()];
-		double    * light_probabilities = new double   [light_triangles.size()];
-		ProbAlias * light_prob_alias    = new ProbAlias[light_triangles.size()];
+		Array<int>       light_indices      (light_triangles.size());
+		Array<double>    light_probabilities(light_triangles.size());
+		Array<ProbAlias> light_prob_alias   (light_triangles.size());
 
 		for (int m = 0; m < light_mesh_datas.size(); m++) {
 			const LightMeshData & light_mesh_data = light_mesh_datas[m];
@@ -710,22 +764,18 @@ void Pathtracer::calc_light_power() {
 				light_probabilities[i] = light_triangles[i].area / light_mesh_data.total_area;
 			}
 
-			Util::init_alias_method(
+			Random::alias_method(
 				light_mesh_data.triangle_count,
-				light_probabilities + light_mesh_data.first_triangle_index,
-				light_prob_alias    + light_mesh_data.first_triangle_index
+				light_probabilities.data() + light_mesh_data.first_triangle_index,
+				light_prob_alias   .data() + light_mesh_data.first_triangle_index
 			);
 		}
 
-		ptr_light_indices    = CUDAMemory::malloc(light_indices,    light_triangles.size());
-		ptr_light_prob_alias = CUDAMemory::malloc(light_prob_alias, light_triangles.size());
+		ptr_light_indices    = CUDAMemory::malloc(light_indices);
+		ptr_light_prob_alias = CUDAMemory::malloc(light_prob_alias);
 
 		cuda_module.get_global("light_indices")   .set_value_async(ptr_light_indices,    memory_stream);
 		cuda_module.get_global("light_prob_alias").set_value_async(ptr_light_prob_alias, memory_stream);
-
-		delete [] light_indices;
-		delete [] light_probabilities;
-		delete [] light_prob_alias;
 
 		cuda_module.get_global("light_mesh_count").set_value_async(light_mesh_count, memory_stream);
 
@@ -749,23 +799,23 @@ void Pathtracer::calc_light_power() {
 
 // Construct Top Level Acceleration Structure (TLAS) over the Meshes in the Scene
 void Pathtracer::build_tlas() {
-	tlas_bvh_builder.build(scene.meshes.data(), scene.meshes.size());
+	tlas_builder->build(scene.meshes);
+	tlas_converter->convert();
 
-	switch (config.bvh_type) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH:  tlas = tlas_raw;                      CUDAMemory::memcpy_async(ptr_bvh_nodes_2, tlas.nodes._2, tlas.node_count, memory_stream); break;
-		case BVHType::QBVH:  tlas_converter_qbvh .build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_4, tlas.nodes._4, tlas.node_count, memory_stream); break;
-		case BVHType::CWBVH: tlas_converter_cwbvh.build(tlas_raw); CUDAMemory::memcpy_async(ptr_bvh_nodes_8, tlas.nodes._8, tlas.node_count, memory_stream); break;
-		default: abort();
+		case BVHType::SBVH: CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::BVH4: CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		case BVHType::BVH8: CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
+		default: ASSERT(false);
 	}
-	ASSERT(tlas.index_count == scene.meshes.size());
-	ASSERT(tlas.node_count <= 2 * scene.meshes.size());
+	ASSERT(tlas->indices.data());
 
 	int    light_mesh_count    = 0;
 	double lights_total_weight = 0.0;
 
 	for (int i = 0; i < scene.meshes.size(); i++) {
-		const Mesh & mesh = scene.meshes[tlas.indices[i]];
+		const Mesh & mesh = scene.meshes[tlas->indices[i]];
 
 		pinned_mesh_bvh_root_indices[i] = mesh_data_bvh_offsets[mesh.mesh_data_handle.handle] | (mesh.has_identity_transform() << 31);
 
@@ -800,7 +850,7 @@ void Pathtracer::build_tlas() {
 		for (int i = 0; i < light_mesh_count; i++) {
 			light_mesh_probabilites[i] /= lights_total_weight;
 		}
-		Util::init_alias_method(light_mesh_count, light_mesh_probabilites, pinned_light_mesh_prob_alias);
+		Random::alias_method(light_mesh_count, light_mesh_probabilites.data(), pinned_light_mesh_prob_alias);
 
 		CUDAMemory::memcpy_async(ptr_light_mesh_prob_alias,                     pinned_light_mesh_prob_alias,                     light_mesh_count, memory_stream);
 		CUDAMemory::memcpy_async(ptr_light_mesh_first_index_and_triangle_count, pinned_light_mesh_first_index_and_triangle_count, light_mesh_count, memory_stream);
@@ -811,8 +861,8 @@ void Pathtracer::build_tlas() {
 }
 
 void Pathtracer::update(float delta) {
-	if (invalidated_config && config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
-		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"sv);
+	if (invalidated_config && gpu_config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
+		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"_sv);
 		scene.camera.aperture_radius = 0.0f;
 		invalidated_camera = true;
 	}
@@ -820,8 +870,8 @@ void Pathtracer::update(float delta) {
 	if (invalidated_materials) {
 		const Array<Material> & materials = scene.asset_manager.materials;
 
-		Material::Type * cuda_material_types = reinterpret_cast<Material::Type *>(new unsigned char[materials.size() * sizeof(Material::Type)]);
-		CUDAMaterial   * cuda_materials      = reinterpret_cast<CUDAMaterial   *>(new unsigned char[materials.size() * sizeof(CUDAMaterial)]);
+		Array<Material::Type> cuda_material_types(materials.size());
+		Array<CUDAMaterial>   cuda_materials     (materials.size());
 
 		for (int i = 0; i < materials.size(); i++) {
 			const Material & material = materials[i];
@@ -856,15 +906,12 @@ void Pathtracer::update(float delta) {
 					cuda_materials[i].conductor.k         = material.k;
 					break;
 				}
-				default: abort();
+				default: ASSERT(false);
 			}
 		}
 
-		CUDAMemory::memcpy_async(ptr_material_types, cuda_material_types, materials.size(), memory_stream);
-		CUDAMemory::memcpy_async(ptr_materials,      cuda_materials,      materials.size(), memory_stream);
-
-		delete [] cuda_material_types;
-		delete [] cuda_materials;
+		CUDAMemory::memcpy_async(ptr_material_types, cuda_material_types.data(), materials.size(), memory_stream);
+		CUDAMemory::memcpy_async(ptr_materials,      cuda_materials     .data(), materials.size(), memory_stream);
 
 		bool had_diffuse    = scene.has_diffuse;
 		bool had_plastic    = scene.has_plastic;
@@ -914,7 +961,7 @@ void Pathtracer::update(float delta) {
 				bool reversed = material_buffer_index & 1;
 
 				ASSERT((ptr_buffer.ptr & 1) == 0);
-				uintptr_t packed = ptr_buffer.ptr | reversed;
+				uintptr_t packed = uintptr_t(ptr_buffer.ptr) | uintptr_t(reversed);
 				cuda_module.get_global(global_name).set_value_async(packed, memory_stream);
 
 				material_buffer_index++;
@@ -962,29 +1009,27 @@ void Pathtracer::update(float delta) {
 	}
 
 	if (invalidated_mediums) {
-		int medium_count = scene.asset_manager.media.size();
+		size_t medium_count = scene.asset_manager.media.size();
 		if (medium_count > 0) {
-			CUDAMedium * cuda_mediums = new CUDAMedium[medium_count];
+			Array<CUDAMedium> cuda_mediums(medium_count);
 
-			for (int i = 0; i < medium_count; i++) {
+			for (size_t i = 0; i < medium_count; i++) {
 				const Medium & medium = scene.asset_manager.media[i];
 				medium.get_sigmas(cuda_mediums[i].sigma_a, cuda_mediums[i].sigma_s);
 				cuda_mediums[i].g = medium.g;
 			}
 
-			CUDAMemory::memcpy_async(ptr_media, cuda_mediums, medium_count, memory_stream);
-
-			delete [] cuda_mediums;
+			CUDAMemory::memcpy_async(ptr_media, cuda_mediums.data(), medium_count, memory_stream);
 		}
 
 		sample_index = 0;
 		invalidated_mediums = false;
 	}
 
-	if (config.enable_scene_update) {
+	if (cpu_config.enable_scene_update) {
 		scene.update(delta);
 		invalidated_scene = true;
-	} else if (config.enable_svgf || invalidated_scene) {
+	} else if (gpu_config.enable_svgf || invalidated_scene) {
 		scene.camera.update(0.0f);
 		scene.update(0.0f);
 	}
@@ -994,7 +1039,7 @@ void Pathtracer::update(float delta) {
 
 		// If SVGF is enabled we can handle Scene updates using reprojection,
 		// otherwise 'frames_accumulated' needs to be reset in order to avoid ghosting
-		if (!config.enable_svgf) {
+		if (!gpu_config.enable_svgf) {
 			sample_index = 0;
 		}
 
@@ -1025,7 +1070,7 @@ void Pathtracer::update(float delta) {
 
 		global_camera.set_value_async(cuda_camera, memory_stream);
 
-		if (!config.enable_svgf) {
+		if (!gpu_config.enable_svgf) {
 			sample_index = 0;
 		}
 
@@ -1036,7 +1081,7 @@ void Pathtracer::update(float delta) {
 		CUDAMemory::memcpy_async(&pixel_query, CUDAMemory::Ptr<PixelQuery>(global_pixel_query.ptr), 1, memory_stream);
 
 		if (pixel_query.mesh_id != INVALID) {
-			pixel_query.mesh_id = tlas.indices[pixel_query.mesh_id];
+			pixel_query.mesh_id = tlas->indices[pixel_query.mesh_id];
 		}
 
 		// Reset pixel query
@@ -1046,7 +1091,7 @@ void Pathtracer::update(float delta) {
 		pixel_query_status = PixelQueryStatus::INACTIVE;
 	}
 
-	if (config.enable_svgf) {
+	if (gpu_config.enable_svgf) {
 		struct SVGFData {
 			alignas(16) Matrix4 view_projection;
 			alignas(16) Matrix4 view_projection_prev;
@@ -1060,8 +1105,8 @@ void Pathtracer::update(float delta) {
 
 	if (invalidated_config) {
 		sample_index = 0;
-		global_config.set_value_async(config, memory_stream);
-	} else if (scene.camera.moved && !config.enable_svgf) {
+		global_config.set_value_async(gpu_config, memory_stream);
+	} else if (scene.camera.moved && !gpu_config.enable_svgf) {
 		sample_index = 0;
 	} else {
 		sample_index++;
@@ -1086,7 +1131,7 @@ void Pathtracer::render() {
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(sample_index, pixel_offset, pixel_count);
 
-		for (int bounce = 0; bounce < config.num_bounces; bounce++) {
+		for (int bounce = 0; bounce < gpu_config.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
 			event_pool.record(event_desc_trace[bounce]);
 			kernel_trace->execute(bounce);
@@ -1113,7 +1158,7 @@ void Pathtracer::render() {
 			}
 
 			// Trace shadow Rays
-			if (scene.has_lights && config.enable_next_event_estimation) {
+			if (scene.has_lights && gpu_config.enable_next_event_estimation) {
 				event_pool.record(event_desc_shadow_trace[bounce]);
 				kernel_trace_shadow->execute(bounce);
 			}
@@ -1128,7 +1173,7 @@ void Pathtracer::render() {
 		}
 	}
 
-	if (config.enable_svgf) {
+	if (gpu_config.enable_svgf) {
 		// Temporal reprojection + integration
 		event_pool.record(event_desc_svgf_reproject);
 		kernel_svgf_reproject.execute(sample_index);
@@ -1138,7 +1183,7 @@ void Pathtracer::render() {
 		CUdeviceptr indirect_in  = ptr_frame_buffer_indirect    .ptr;
 		CUdeviceptr indirect_out = ptr_frame_buffer_indirect_alt.ptr;
 
-		if (config.enable_spatial_variance) {
+		if (gpu_config.enable_spatial_variance) {
 			// Estimate Variance spatially
 			event_pool.record(event_desc_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
@@ -1148,7 +1193,7 @@ void Pathtracer::render() {
 		}
 
 		// À-Trous Filter
-		for (int i = 0; i < config.num_atrous_iterations; i++) {
+		for (int i = 0; i < gpu_config.num_atrous_iterations; i++) {
 			int step_size = 1 << i;
 
 			event_pool.record(event_desc_svgf_atrous[i]);
@@ -1162,7 +1207,7 @@ void Pathtracer::render() {
 		event_pool.record(event_desc_svgf_finalize);
 		kernel_svgf_finalize.execute(direct_in, indirect_in);
 
-		if (config.enable_taa) {
+		if (gpu_config.enable_taa) {
 			event_pool.record(event_desc_taa);
 
 			kernel_taa         .execute(sample_index);
@@ -1179,7 +1224,7 @@ void Pathtracer::render() {
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	if (config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, memory_stream);
+	if (gpu_config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, memory_stream);
 	CUDAMemory::memset_async(ptr_frame_buffer_direct,   0, screen_pitch * screen_height, memory_stream);
 	CUDAMemory::memset_async(ptr_frame_buffer_indirect, 0, screen_pitch * screen_height, memory_stream);
 

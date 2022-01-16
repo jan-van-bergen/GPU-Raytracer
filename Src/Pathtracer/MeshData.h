@@ -3,13 +3,12 @@
 
 #include "BVH/BVH.h"
 
+#include "Core/Array.h"
+#include "Core/OwnPtr.h"
+
 struct MeshData {
-	int        triangle_count;
-	Triangle * triangles;
-
-	BVH bvh;
-
-	void init_bvh(BVH & bvh);
+	Array<Triangle> triangles;
+	OwnPtr<BVH>     bvh;
 };
 
 struct MeshDataHandle { int handle = INVALID; };

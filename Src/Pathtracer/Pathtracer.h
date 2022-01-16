@@ -1,14 +1,14 @@
 #pragma once
+#include "Core/Random.h"
+
 #include "Device/CUDAModule.h"
 #include "Device/CUDAKernel.h"
 #include "Device/CUDAMemory.h"
 #include "Device/CUDAEvent.h"
 #include "Device/CUDAContext.h"
 
-#include "BVH/Builders/BVHBuilder.h"
-#include "BVH/Builders/SBVHBuilder.h"
-#include "BVH/Builders/QBVHBuilder.h"
-#include "BVH/Builders/CWBVHBuilder.h"
+#include "BVH/Builders/SAHBuilder.h"
+#include "BVH/Converters/BVHConverter.h"
 
 #include "Scene.h"
 #include "Material.h"
@@ -191,14 +191,14 @@ struct Pathtracer {
 
 	PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
-	int * reverse_indices;
+	Array<int> reverse_indices;
 
-	int * mesh_data_bvh_offsets;
-	int * mesh_data_triangle_offsets;
+	Array<int> mesh_data_bvh_offsets;
+	Array<int> mesh_data_triangle_offsets;
 
 	CUDAEventPool event_pool;
 
-	void init(const SceneConfig & scene_config, unsigned frame_buffer_handle, int width, int height);
+	Pathtracer(unsigned frame_buffer_handle, int width, int height);
 
 	void cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height);
 	void cuda_init_module();
@@ -227,16 +227,14 @@ private:
 
 	int pixel_count;
 
-	BVH        tlas_raw;
-	BVH        tlas;
-	BVHBuilder tlas_bvh_builder;
-
-	QBVHBuilder  tlas_converter_qbvh;
-	CWBVHBuilder tlas_converter_cwbvh;
+	BVH2                 tlas_raw;
+	OwnPtr<BVH>          tlas;
+	OwnPtr<SAHBuilder>   tlas_builder;
+	OwnPtr<BVHConverter> tlas_converter;
 
 	CUDAModule cuda_module;
 
-	CUstream memory_stream;
+	CUstream memory_stream = { };
 
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace_bvh;
@@ -276,7 +274,7 @@ private:
 
 	CUDAModule::Global global_ray_buffer_shadow;
 
-	BufferSizes * pinned_buffer_sizes;
+	BufferSizes * pinned_buffer_sizes = nullptr;
 
 	CUDAModule::Global global_camera;
 	CUDAModule::Global global_buffer_sizes;
@@ -314,16 +312,16 @@ private:
 		float cells[12];
 	};
 
-	int       * pinned_mesh_bvh_root_indices;
-	int       * pinned_mesh_material_ids;
-	Matrix3x4 * pinned_mesh_transforms;
-	Matrix3x4 * pinned_mesh_transforms_inv;
-	Matrix3x4 * pinned_mesh_transforms_prev;
-	ProbAlias * pinned_light_mesh_prob_alias;
-	int2      * pinned_light_mesh_first_index_and_triangle_count;
-	int       * pinned_light_mesh_transform_index;
+	int       * pinned_mesh_bvh_root_indices                     = nullptr;
+	int       * pinned_mesh_material_ids                         = nullptr;
+	Matrix3x4 * pinned_mesh_transforms                           = nullptr;
+	Matrix3x4 * pinned_mesh_transforms_inv                       = nullptr;
+	Matrix3x4 * pinned_mesh_transforms_prev                      = nullptr;
+	ProbAlias * pinned_light_mesh_prob_alias                     = nullptr;
+	int2      * pinned_light_mesh_first_index_and_triangle_count = nullptr;
+	int       * pinned_light_mesh_transform_index                = nullptr;
 
-	double * light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
+	Array<double> light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
 
 	union alignas(float4) CUDAMaterial {
 		struct {
@@ -348,6 +346,8 @@ private:
 			float   roughness;
 			Vector3 k;
 		} conductor;
+
+		CUDAMaterial() { }
 	};
 
 	CUDAMemory::Ptr<Material::Type> ptr_material_types;
@@ -365,10 +365,10 @@ private:
 		float       lod_bias;
 	};
 
-	CUDATexture      * textures;
-	CUmipmappedArray * texture_arrays;
+	Array<CUDATexture>      textures;
+	Array<CUmipmappedArray> texture_arrays;
 
-	CUDAMemory::Ptr<CUDATexture>  ptr_textures;
+	CUDAMemory::Ptr<CUDATexture> ptr_textures;
 
 	struct CUDATriangle {
 		Vector3 position_0;
@@ -386,14 +386,14 @@ private:
 
 	CUDAMemory::Ptr<CUDATriangle> ptr_triangles;
 
-	CUDAMemory::Ptr<BVHNode2>    ptr_bvh_nodes_2;
-	CUDAMemory::Ptr<BVHNode4>    ptr_bvh_nodes_4;
-	CUDAMemory::Ptr<BVHNode8>    ptr_bvh_nodes_8;
-	CUDAMemory::Ptr<int>         ptr_mesh_bvh_root_indices;
-	CUDAMemory::Ptr<int>         ptr_mesh_material_ids;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_inv;
-	CUDAMemory::Ptr<Matrix3x4>   ptr_mesh_transforms_prev;
+	CUDAMemory::Ptr<BVHNode2>  ptr_bvh_nodes_2;
+	CUDAMemory::Ptr<BVHNode4>  ptr_bvh_nodes_4;
+	CUDAMemory::Ptr<BVHNode8>  ptr_bvh_nodes_8;
+	CUDAMemory::Ptr<int>       ptr_mesh_bvh_root_indices;
+	CUDAMemory::Ptr<int>       ptr_mesh_material_ids;
+	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms;
+	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms_inv;
+	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms_prev;
 
 	CUDAModule::Global global_lights_total_weight;
 
