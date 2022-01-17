@@ -75,21 +75,21 @@ struct alignas(16) Matrix4 {
 		return result;
 	}
 
-	inline static Matrix4 perspective(float fov, float aspect, float near, float far) {
+	inline static Matrix4 perspective(float fov, float aspect, float near_plane, float far_plane) {
 		float tan_half_fov = tanf(0.5f * fov);
 
 		Matrix4 result;
 		result(0, 0) = 1.0f / tan_half_fov;
 		result(1, 1) = 1.0f / (aspect * tan_half_fov);
-		result(2, 2) = -(far + near) / (far - near);
+		result(2, 2) = -(far_plane + near_plane) / (far_plane - near_plane);
 		result(3, 2) = -1.0f;
-		result(2, 3) = -2.0f * (far * near) / (far - near);
+		result(2, 3) = -2.0f * (far_plane * near_plane) / (far_plane - near_plane);
 		result(3, 3) = 0.0f;
 
 		return result;
 	}
 
-	inline static Matrix4 perspective_infinite(float fov, float aspect, float near) {
+	inline static Matrix4 perspective_infinite(float fov, float aspect, float near_plane) {
 		float tan_half_fov = tanf(0.5f * fov);
 
 		Matrix4 result;
@@ -97,7 +97,7 @@ struct alignas(16) Matrix4 {
 		result(1, 1) =  1.0f / tan_half_fov;
 		result(2, 2) = -1.0f;
 		result(3, 2) = -1.0f;
-		result(2, 3) = -2.0f * near;
+		result(2, 3) = -2.0f * near_plane;
 		result(3, 3) =  0.0f;
 
 		return result;

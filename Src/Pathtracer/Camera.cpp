@@ -35,7 +35,7 @@ void Camera::recalibrate() {
 	y_axis = Vector3(0.0f, 1.0f, 0.0f);
 
 	// Projection matrix (for rasterization)
-	projection = Matrix4::perspective(fov, half_height / half_width, near, far);
+	projection = Matrix4::perspective(fov, half_height / half_width, near_plane, far_plane);
 
 	// See equation 30 of "Texture Level of Detail Strategies for Real-Time Ray Tracing"
 	pixel_spread_angle = atanf(2.0f * tan_half_fov * inv_width);

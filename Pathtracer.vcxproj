@@ -229,6 +229,7 @@
     <ClCompile Include="Src\Device\CUDAContext.cpp" />
     <ClCompile Include="Src\Device\CUDAMemory.cpp" />
     <ClCompile Include="Src\Device\CUDAModule.cpp" />
+    <ClCompile Include="Src\Exporters\EXRExporter.cpp" />
     <ClCompile Include="Src\Exporters\PPMExporter.cpp" />
     <ClCompile Include="Src\Input.cpp" />
     <ClCompile Include="Src\Main.cpp" />
@@ -292,6 +293,7 @@
     <ClInclude Include="Src\Device\CUDAKernel.h" />
     <ClInclude Include="Src\Device\CUDAMemory.h" />
     <ClInclude Include="Src\Device\CUDAModule.h" />
+    <ClInclude Include="Src\Exporters\EXRExporter.h" />
     <ClInclude Include="Src\Exporters\PPMExporter.h" />
     <ClInclude Include="Src\Input.h" />
     <ClInclude Include="Src\Math\AABB.h" />

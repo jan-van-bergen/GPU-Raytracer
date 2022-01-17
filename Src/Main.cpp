@@ -13,6 +13,7 @@
 #include "Input.h"
 #include "Window.h"
 
+#include "Exporters/EXRExporter.h"
 #include "Exporters/PPMExporter.h"
 
 #include "Util/Util.h"
@@ -49,7 +50,7 @@ struct Timing {
 static int last_pixel_query_x;
 static int last_pixel_query_y;
 
-static void capture_screen(const Window & window, const String & filename);
+static void capture_screen(const Window & window, const Pathtracer & pathtracer, const String & filename);
 static void calc_timing();
 static void draw_gui(Window & window, Pathtracer & pathtracer);
 
@@ -97,12 +98,19 @@ int main(int num_args, char ** args) {
 		window.render_framebuffer();
 
 		if (pathtracer.sample_index == cpu_config.output_sample_index) {
-			capture_screen(window, cpu_config.output_name);
+			capture_screen(window, pathtracer, cpu_config.output_filename);
 			break; // Exit game loop and terimate
 		}
 		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
-			String screenshot_name = Format().format("screenshot_{}.ppm"_sv, pathtracer.sample_index);
-			capture_screen(window, screenshot_name);
+			StringView ext = { };
+			switch (cpu_config.screenshot_format) {
+				case OutputFormat::EXR: ext = "exr"_sv; break;
+				case OutputFormat::PPM: ext = "ppm"_sv; break;
+				default: ASSERT(false);
+			}
+
+			String screenshot_name = Format().format("screenshot_{}.{}"_sv, pathtracer.sample_index, ext);
+			capture_screen(window, pathtracer, screenshot_name);
 
 			timing.time_of_last_screenshot = timing.now;
 		}
@@ -138,22 +146,35 @@ int main(int num_args, char ** args) {
 		window.swap();
 	}
 
-	if (pathtracer.sample_index < cpu_config.output_sample_index) {
-		capture_screen(window, cpu_config.output_name);
-	}
-
 	CUDAContext::free();
 
 	return EXIT_SUCCESS;
 }
 
-static void capture_screen(const Window & window, const String & filename) {
+static void capture_screen(const Window & window, const Pathtracer & pathtracer, const String & filename) {
 	ScopeTimer timer("Screenshot"_sv);
 
-	int window_pitch = 0;
-	Array<Vector3> data = window.read_frame_buffer(window_pitch);
+	using Exporter = void (*)(const String & filename, int pitch, int width, int height, const Array<Vector3> & data);
+	Exporter exporter = nullptr;
 
-	PPMExporter::save(filename, window_pitch, window.width, window.height, data);
+	bool hdr = false;
+
+	StringView file_extension = Util::get_file_extension(filename.view());
+	if (file_extension == "ppm"_sv) {
+		exporter = PPMExporter::save;
+		hdr      = false;
+	} else if (file_extension == "exr"_sv) {
+		exporter = EXRExporter::save;
+		hdr      = true;
+	} else {
+		IO::print("WARNING: Unsupported output file extension: {}!\n"_sv, file_extension);
+		return;
+	}
+
+	int pitch = 0;
+	Array<Vector3> data = window.read_frame_buffer(hdr, pitch);
+
+	exporter(filename, pitch, window.width, window.height, data);
 }
 
 static void calc_timing() {
@@ -312,6 +333,8 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 				case BVHType::BVH4: ImGui::TextUnformatted("BVH: BVH4"); break;
 				case BVHType::BVH8: ImGui::TextUnformatted("BVH: BVH8"); break;
 			}
+
+			ImGui::Combo("Output Format", reinterpret_cast<int *>(&cpu_config.screenshot_format), "EXR\0PPM\0");
 
 			bool invalidated_config = ImGui::SliderInt("Num Bounces", &gpu_config.num_bounces, 0, MAX_BOUNCES);
 
@@ -539,12 +562,12 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 			aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
 		}
 
-		auto draw_line_clipped = [draw_list, &window, near = pathtracer.scene.camera.near](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
-			if (a.z < near && b.z < near) return;
+		auto draw_line_clipped = [draw_list, &window, near_plane = pathtracer.scene.camera.near_plane](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
+			if (a.z < near_plane && b.z < near_plane) return;
 
 			// Clip against near plane only
-			if (a.z < near) a = Math::lerp(a, b, Math::inv_lerp(near, a.z, b.z));
-			if (b.z < near) b = Math::lerp(a, b, Math::inv_lerp(near, a.z, b.z));
+			if (a.z < near_plane) a = Math::lerp(a, b, Math::inv_lerp(near_plane, a.z, b.z));
+			if (b.z < near_plane) b = Math::lerp(a, b, Math::inv_lerp(near_plane, a.z, b.z));
 
 			// Clip space to NDC to Window coordinates
 			ImVec2 a_window = { (0.5f + 0.5f * a.x / a.w) * window.width, (0.5f - 0.5f * a.y / a.w) * window.height };

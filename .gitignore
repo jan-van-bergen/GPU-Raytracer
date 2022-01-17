@@ -351,8 +351,9 @@ healthchecksdb
 # Dear ImGui configuration
 imgui.ini
 
-# PPM is used for debug output of images
+# Image Output
 *.ppm
+*.exr
 
 # CUDA PTX assembly
 *.ptx

@@ -562,7 +562,7 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 
 	// Create Frame Buffers
 	ptr_frame_buffer_albedo = CUDAMemory::malloc<float4>(screen_pitch * height);
-	cuda_module.get_global("frame_buffer_albedo")  .set_value(ptr_frame_buffer_albedo);
+	cuda_module.get_global("frame_buffer_albedo").set_value(ptr_frame_buffer_albedo);
 
 	ptr_frame_buffer_direct   = CUDAMemory::malloc<float4>(screen_pitch * height);
 	ptr_frame_buffer_indirect = CUDAMemory::malloc<float4>(screen_pitch * height);

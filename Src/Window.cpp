@@ -207,15 +207,24 @@ void Window::swap() {
 	}
 }
 
-Array<Vector3> Window::read_frame_buffer(int & window_pitch) const {
+Array<Vector3> Window::read_frame_buffer(bool hdr, int & pitch) const {
 	int pack_alignment = 0;
 	glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
 
-	window_pitch = int(Math::round_up(width * sizeof(Vector3), size_t(pack_alignment)) / sizeof(Vector3));
-	Array<Vector3> data(window_pitch * height);
+	pitch = int(Math::round_up(width * sizeof(Vector3), size_t(pack_alignment)) / sizeof(Vector3));
+	Array<Vector3> data(pitch * height);
 
 	glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
-	glReadPixels(0, 0, width, height, GL_RGB, GL_FLOAT, data.data());
+
+	if (hdr) {
+		// For HDR output we use the frame_buffer Texture,
+		// since this is the raw output of the Pathtracer
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, data.data());
+	} else {
+		// For LDR output we use the Window's actual frame buffer,
+		// since this has been tonemapped and gamma corrected
+		glReadPixels(0, 0, width, height, GL_RGB, GL_FLOAT, data.data());
+	}
 
 	return data;
 }

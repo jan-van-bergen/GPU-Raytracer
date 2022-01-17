@@ -28,7 +28,7 @@ void PPMExporter::save(const String & filename, int pitch, int width, int height
 	fopen_s(&file, filename.data(), "wb");
 
 	if (!file) {
-		IO::print("Failed to export '{}'!\n"_sv, filename);
+		IO::print("PPMExporter: Failed to export '{}'!\n"_sv, filename);
 		return;
 	}
 

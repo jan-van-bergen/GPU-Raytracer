@@ -6,6 +6,11 @@
 
 inline GPUConfig gpu_config = { };
 
+enum struct OutputFormat {
+	EXR,
+	PPM
+};
+
 enum struct MipmapFilterType {
 	BOX,
 	LANCZOS,
@@ -26,8 +31,10 @@ struct CPUConfig {
 	Array<String> scene_filenames;
 	String        sky_filename;
 
+	OutputFormat screenshot_format = OutputFormat::PPM;
+
 	int    output_sample_index = INVALID;
-	String output_name         = "render.ppm"_sv;
+	String output_filename     = "render.ppm"_sv;
 
 	bool bvh_force_rebuild        = false;
 	bool enable_bvh_optimization  = false;

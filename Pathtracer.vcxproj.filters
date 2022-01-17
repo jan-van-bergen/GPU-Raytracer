@@ -146,6 +146,9 @@
     <ClCompile Include="Src\Exporters\PPMExporter.cpp">
       <Filter>Exporters</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Exporters\EXRExporter.cpp">
+      <Filter>Exporters</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -389,6 +392,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="Src\Exporters\PPMExporter.h">
+      <Filter>Exporters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Exporters\EXRExporter.h">
       <Filter>Exporters</Filter>
     </ClInclude>
   </ItemGroup>

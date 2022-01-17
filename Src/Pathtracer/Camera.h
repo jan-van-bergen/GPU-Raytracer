@@ -14,8 +14,8 @@ struct Camera {
 	float aperture_radius =  0.1f;
 	float focal_distance  = 10.0f;
 
-	float near;
-	float far;
+	float near_plane;
+	float far_plane;
 
 	float screen_width;
 	float screen_height;
@@ -30,10 +30,10 @@ struct Camera {
 
 	bool moved;
 
-	Camera(float fov, float near = 0.1f, float far = 300.0f) {
+	Camera(float fov, float near_plane = 0.1f, float far_plane = 300.0f) {
 		set_fov(fov);
-		this->near = near;
-		this->far  = far;
+		this->near_plane = near_plane;
+		this->far_plane  = far_plane;
 	}
 
 	void resize(int width, int height);
