@@ -79,6 +79,15 @@ __device__ inline unsigned hash_combine(unsigned a, unsigned b) {
 	return a ^ (b + 0x9e3779b9 + (a << 6) + (a >> 2));
 }
 
+__device__ inline unsigned hash_with(unsigned seed, unsigned hash) {
+	// Wang hash
+	seed = (seed ^ 61) ^ hash;
+	seed += seed << 3;
+	seed ^= seed >> 4;
+	seed *= 0x27d4eb2d;
+	return seed;
+}
+
 // Based on: https://github.com/mmp/pbrt-v4/blob/master/src/pbrt/util/math.h
 __device__ inline unsigned permute(unsigned index, unsigned length, unsigned seed) {
 	// NOTE: Assumes length is a power of two
