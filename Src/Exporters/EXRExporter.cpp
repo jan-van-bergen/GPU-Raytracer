@@ -54,4 +54,6 @@ void EXRExporter::save(const String & filename, int pitch, int width, int height
 	if (error_code != TINYEXR_SUCCESS) {
 		IO::print("EXRExporter: Failed to export {}\n{}\n"_sv, filename, error_string);
 	}
+
+	FreeEXRErrorMessage(error_string);
 }
