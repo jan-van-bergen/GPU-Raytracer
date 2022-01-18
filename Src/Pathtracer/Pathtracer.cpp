@@ -71,15 +71,6 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_lights_total_weight = cuda_module.get_global("lights_total_weight");
 	global_lights_total_weight.set_value(0.0f);
 
-	// Reallocate TLAS BVH nodes as page locked memory, this allows faster copying to the GPU
-	/*switch (config.bvh_type) {
-		case BVHType::BVH:
-		case BVHType::SBVH:  delete [] tlas_raw.nodes; tlas_raw.nodes = CUDAMemory::malloc_pinned<BVHNode2>(2 * scene.meshes.size()); break;
-		case BVHType::QBVH:  delete [] tlas    .nodes; tlas    .nodes = CUDAMemory::malloc_pinned<BVHNode4>(2 * scene.meshes.size()); break;
-		case BVHType::CWBVH: delete [] tlas    .nodes; tlas    .nodes = CUDAMemory::malloc_pinned<BVHNode8>(2 * scene.meshes.size()); break;
-		default: ASSERT(false);
-	}*/
-
 	scene.camera.update(0.0f);
 	scene.update(0.0f);
 
@@ -106,16 +97,16 @@ void Pathtracer::cuda_init_module() {
 
 	kernel_generate           .init(&cuda_module, "kernel_generate");
 	kernel_trace_bvh          .init(&cuda_module, "kernel_trace_bvh");
-	kernel_trace_qbvh         .init(&cuda_module, "kernel_trace_bvh4");
-	kernel_trace_cwbvh        .init(&cuda_module, "kernel_trace_bvh8");
+	kernel_trace_bvh4         .init(&cuda_module, "kernel_trace_bvh4");
+	kernel_trace_bvh8         .init(&cuda_module, "kernel_trace_bvh8");
 	kernel_sort               .init(&cuda_module, "kernel_sort");
 	kernel_material_diffuse   .init(&cuda_module, "kernel_material_diffuse");
 	kernel_material_plastic   .init(&cuda_module, "kernel_material_plastic");
 	kernel_material_dielectric.init(&cuda_module, "kernel_material_dielectric");
 	kernel_material_conductor .init(&cuda_module, "kernel_material_conductor");
 	kernel_trace_shadow_bvh   .init(&cuda_module, "kernel_trace_shadow_bvh");
-	kernel_trace_shadow_qbvh  .init(&cuda_module, "kernel_trace_shadow_bvh4");
-	kernel_trace_shadow_cwbvh .init(&cuda_module, "kernel_trace_shadow_bvh8");
+	kernel_trace_shadow_bvh4  .init(&cuda_module, "kernel_trace_shadow_bvh4");
+	kernel_trace_shadow_bvh8  .init(&cuda_module, "kernel_trace_shadow_bvh8");
 	kernel_svgf_reproject     .init(&cuda_module, "kernel_svgf_reproject");
 	kernel_svgf_variance      .init(&cuda_module, "kernel_svgf_variance");
 	kernel_svgf_atrous        .init(&cuda_module, "kernel_svgf_atrous");
@@ -126,9 +117,9 @@ void Pathtracer::cuda_init_module() {
 
 	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh;   kernel_trace_shadow = &kernel_trace_shadow_bvh;   break;
-		case BVHType::BVH4: kernel_trace = &kernel_trace_qbvh;  kernel_trace_shadow = &kernel_trace_shadow_qbvh;  break;
-		case BVHType::BVH8: kernel_trace = &kernel_trace_cwbvh; kernel_trace_shadow = &kernel_trace_shadow_cwbvh; break;
+		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh;  kernel_trace_shadow = &kernel_trace_shadow_bvh;  break;
+		case BVHType::BVH4: kernel_trace = &kernel_trace_bvh4; kernel_trace_shadow = &kernel_trace_shadow_bvh4; break;
+		case BVHType::BVH8: kernel_trace = &kernel_trace_bvh8; kernel_trace_shadow = &kernel_trace_shadow_bvh8; break;
 		default: ASSERT(false);
 	}
 
@@ -148,14 +139,14 @@ void Pathtracer::cuda_init_module() {
 	kernel_material_dielectric.set_block_dim(256, 1, 1);
 	kernel_material_conductor .set_block_dim(256, 1, 1);
 
-	// CWBVH uses a stack of int2's (8 bytes)
+	// BVH8 uses a stack of int2's (8 bytes)
 	// Other BVH's use a stack of ints (4 bytes)
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_bvh);
-	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_qbvh);
-	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_cwbvh);
+	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_bvh4);
+	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_bvh8);
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh);
-	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_qbvh);
-	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_shadow_cwbvh);
+	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh4);
+	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_shadow_bvh8);
 }
 
 void Pathtracer::cuda_init_materials() {
@@ -1188,8 +1179,8 @@ void Pathtracer::render() {
 			event_pool.record(event_desc_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
 
-			std::swap(direct_in,   direct_out);
-			std::swap(indirect_in, indirect_out);
+			Util::swap(direct_in,   direct_out);
+			Util::swap(indirect_in, indirect_out);
 		}
 
 		// À-Trous Filter
@@ -1200,8 +1191,8 @@ void Pathtracer::render() {
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 
 			// Ping-Pong the Frame Buffers
-			std::swap(direct_in,   direct_out);
-			std::swap(indirect_in, indirect_out);
+			Util::swap(direct_in,   direct_out);
+			Util::swap(indirect_in, indirect_out);
 		}
 
 		event_pool.record(event_desc_svgf_finalize);

@@ -35,5 +35,5 @@ private:
 
 	int count_primitives(int node_index, const Array<BVHNode2> & nodes, const Array<int> & indices_sbvh);
 
-	void collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_cwbvh, int node_index_bvh);
+	void collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_bvh8, int node_index_bvh2);
 };

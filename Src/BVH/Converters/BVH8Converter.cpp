@@ -29,7 +29,7 @@ int BVH8Converter::calculate_cost(int node_index, const Array<BVHNode2> & nodes)
 	if (node.is_leaf()) {
 		num_primitives = node.count;
 		if (num_primitives != 1) {
-			IO::print("ERROR: CWBVH Builder expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
+			IO::print("ERROR: BVH8 Builder expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
 			IO::exit(1);
 		}
 
@@ -196,20 +196,19 @@ void BVH8Converter::order_children(int node_index, const Array<BVHNode2> & nodes
 
 	// Permute children array according to assignment
 	int children_copy[8] = { };
-	memcpy(children_copy, children, sizeof(children_copy));
-
-	for (int i = 0; i < 8; i++) children[i] = INVALID;
-
+	for (int i = 0; i < 8; i++) {
+		children_copy[i] = children[i];
+		children[i] = INVALID;
+	}
 	for (int i = 0; i < child_count; i++) {
 		ASSERT(assignment   [i] != INVALID);
 		ASSERT(children_copy[i] != INVALID);
-
 		children[assignment[i]] = children_copy[i];
 	}
 }
 
 // Recursively count triangles in subtree of the given Node
-// Simultaneously fills the indices buffer of the CWBVH
+// Simultaneously fills the indices buffer of the BVH8
 int BVH8Converter::count_primitives(int node_index, const Array<BVHNode2> & nodes, const Array<int> & indices) {
 	const BVHNode2 & node = nodes[node_index];
 
@@ -228,11 +227,9 @@ int BVH8Converter::count_primitives(int node_index, const Array<BVHNode2> & node
 		count_primitives(node.left + 1, nodes, indices);
 }
 
-void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_cwbvh, int node_index_bvh) {
-	BVHNode8 & node = bvh8.nodes[node_index_cwbvh];
-	const AABB & aabb = nodes_bvh[node_index_bvh].aabb;
-
-	memset(&node, 0, sizeof(BVHNode8));
+void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int> & indices_bvh, int node_index_bvh8, int node_index_bvh2) {
+	BVHNode8 & node = bvh8.nodes[node_index_bvh8];
+	const AABB & aabb = nodes_bvh[node_index_bvh2].aabb;
 
 	node.p = aabb.min;
 
@@ -263,10 +260,10 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 
 	int child_count = 0;
 	int children[8] = { INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID };
-	get_children(node_index_bvh, nodes_bvh, children, child_count, 0);
+	get_children(node_index_bvh2, nodes_bvh, children, child_count, 0);
 	ASSERT(child_count <= 8);
 
-	order_children(node_index_bvh, nodes_bvh, children, child_count);
+	order_children(node_index_bvh2, nodes_bvh, children, child_count);
 
 	node.imask = 0;
 
@@ -320,7 +317,7 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 	for (int i = 0; i < node_internal_count; i++) {
 		bvh8.nodes.emplace_back();
 	}
-	node = bvh8.nodes[node_index_cwbvh]; // NOTE: 'node' may have been invalidated by emplace_back on previous line
+	node = bvh8.nodes[node_index_bvh8]; // NOTE: 'node' may have been invalidated by emplace_back on previous line
 
 	ASSERT(node.base_index_child    + node_internal_count == bvh8.nodes  .size());
 	ASSERT(node.base_index_triangle + node_triangle_count == bvh8.indices.size());
