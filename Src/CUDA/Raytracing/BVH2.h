@@ -16,7 +16,7 @@ struct AABB {
 	}
 };
 
-struct BVHNode {
+struct BVH2Node {
 	AABB aabb;
 	union {
 		int left;
@@ -41,10 +41,10 @@ struct BVHNode {
 	}
 };
 
-__device__ __constant__ BVHNode * bvh_nodes;
+__device__ __constant__ BVH2Node * bvh2_nodes;
 
-__device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
-	extern __shared__ int shared_stack_bvh[];
+__device__ void bvh2_trace(int bounce, int ray_count, int * rays_retired) {
+	extern __shared__ int shared_stack_bvh2[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -74,7 +74,7 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 
 			// Push root on stack
 			stack_size                              = 1;
-			shared_stack_bvh[SHARED_STACK_INDEX(0)] = 0;
+			shared_stack_bvh2[SHARED_STACK_INDEX(0)] = 0;
 		}
 
 		while (true) {
@@ -89,9 +89,9 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 			}
 
 			// Pop Node of the stack
-			int node_index = stack_pop(shared_stack_bvh, stack, stack_size);
+			int node_index = stack_pop(shared_stack_bvh2, stack, stack_size);
 
-			const BVHNode & node = bvh_nodes[node_index];
+			const BVH2Node & node = bvh2_nodes[node_index];
 
 			if (node.aabb.intersects(ray, ray_hit.t)) {
 				if (node.is_leaf()) {
@@ -108,7 +108,7 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 							matrix3x4_transform_direction(transform_inv, ray.direction);
 						}
 
-						stack_push(shared_stack_bvh, stack, stack_size, root_index);
+						stack_push(shared_stack_bvh2, stack, stack_size, root_index);
 					} else {
 						for (int i = node.first; i < node.first + node.count; i++) {
 							triangle_intersect(mesh_id, i, ray, ray_hit);
@@ -125,8 +125,8 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 						first  = node.left + 1;
 					}
 
-					stack_push(shared_stack_bvh, stack, stack_size, second);
-					stack_push(shared_stack_bvh, stack, stack_size, first);
+					stack_push(shared_stack_bvh2, stack, stack_size, second);
+					stack_push(shared_stack_bvh2, stack, stack_size, first);
 				}
 			}
 
@@ -139,8 +139,8 @@ __device__ void bvh_trace(int bounce, int ray_count, int * rays_retired) {
 	}
 }
 
-__device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) {
-	extern __shared__ int shared_stack_bvh[];
+__device__ void bvh2_trace_shadow(int bounce, int ray_count, int * rays_retired) {
+	extern __shared__ int shared_stack_bvh2[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
 	int stack_size = 0;
@@ -170,7 +170,7 @@ __device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) 
 
 			// Push root on stack
 			stack_size                              = 1;
-			shared_stack_bvh[SHARED_STACK_INDEX(0)] = 0;
+			shared_stack_bvh2[SHARED_STACK_INDEX(0)] = 0;
 		}
 
 		while (true) {
@@ -185,9 +185,9 @@ __device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) 
 			}
 
 			// Pop Node of the stack
-			int node_index = stack_pop(shared_stack_bvh, stack, stack_size);
+			int node_index = stack_pop(shared_stack_bvh2, stack, stack_size);
 
-			const BVHNode & node = bvh_nodes[node_index];
+			const BVH2Node & node = bvh2_nodes[node_index];
 
 			if (node.aabb.intersects(ray, max_distance)) {
 				if (node.is_leaf()) {
@@ -204,7 +204,7 @@ __device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) 
 							matrix3x4_transform_direction(transform_inv, ray.direction);
 						}
 
-						stack_push(shared_stack_bvh, stack, stack_size, root_index);
+						stack_push(shared_stack_bvh2, stack, stack_size, root_index);
 					} else {
 						bool hit = false;
 
@@ -233,8 +233,8 @@ __device__ void bvh_trace_shadow(int bounce, int ray_count, int * rays_retired) 
 						first  = node.left + 1;
 					}
 
-					stack_push(shared_stack_bvh, stack, stack_size, second);
-					stack_push(shared_stack_bvh, stack, stack_size, first);
+					stack_push(shared_stack_bvh2, stack, stack_size, second);
+					stack_push(shared_stack_bvh2, stack, stack_size, first);
 				}
 			}
 

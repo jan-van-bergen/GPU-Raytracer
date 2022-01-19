@@ -105,7 +105,7 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 }
 
 extern "C" __global__ void kernel_trace_bvh2(int bounce) {
-	bvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
+	bvh2_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_bvh4(int bounce) {
@@ -117,7 +117,7 @@ extern "C" __global__ void kernel_trace_bvh8(int bounce) {
 }
 
 extern "C" __global__ void kernel_trace_shadow_bvh2(int bounce) {
-	bvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
+	bvh2_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 
 extern "C" __global__ void kernel_trace_shadow_bvh4(int bounce) {
