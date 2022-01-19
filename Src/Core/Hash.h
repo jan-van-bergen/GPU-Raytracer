@@ -8,7 +8,7 @@ namespace FNVHash {
 		constexpr size_t FNV_PRIME        = 1099511628211ull;
 
 		size_t hash = FNV_OFFSET_BASIS;
-		for (size_t i = 0; i < sizeof(bytes); i++) {
+		for (size_t i = 0; i < length; i++) {
 			hash = hash ^ bytes[i];
 			hash = hash * FNV_PRIME;
 		}
