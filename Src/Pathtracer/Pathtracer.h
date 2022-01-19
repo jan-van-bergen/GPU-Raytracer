@@ -237,7 +237,7 @@ private:
 	CUstream memory_stream = { };
 
 	CUDAKernel kernel_generate;
-	CUDAKernel kernel_trace_bvh;
+	CUDAKernel kernel_trace_bvh2;
 	CUDAKernel kernel_trace_bvh4;
 	CUDAKernel kernel_trace_bvh8;
 	CUDAKernel kernel_sort;
@@ -245,7 +245,7 @@ private:
 	CUDAKernel kernel_material_plastic;
 	CUDAKernel kernel_material_dielectric;
 	CUDAKernel kernel_material_conductor;
-	CUDAKernel kernel_trace_shadow_bvh;
+	CUDAKernel kernel_trace_shadow_bvh2;
 	CUDAKernel kernel_trace_shadow_bvh4;
 	CUDAKernel kernel_trace_shadow_bvh8;
 

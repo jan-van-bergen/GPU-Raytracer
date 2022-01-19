@@ -1,5 +1,5 @@
 #pragma once
-#include "BVHCommon.h"
+#include "BVH.h"
 
 struct BVH4Node {
 	float4 aabb_min_x;

@@ -26,7 +26,7 @@ __device__ __constant__ float4 * frame_buffer_indirect;
 // Final Frame Buffer, shared with OpenGL
 __device__ __constant__ Surface<float4> accumulator;
 
-#include "Raytracing/BVH.h"
+#include "Raytracing/BVH2.h"
 #include "Raytracing/BVH4.h"
 #include "Raytracing/BVH8.h"
 
@@ -104,7 +104,7 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 	ray_buffer_trace->pixel_index_and_flags[index] = pixel_index;
 }
 
-extern "C" __global__ void kernel_trace_bvh(int bounce) {
+extern "C" __global__ void kernel_trace_bvh2(int bounce) {
 	bvh_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
@@ -116,7 +116,7 @@ extern "C" __global__ void kernel_trace_bvh8(int bounce) {
 	bvh8_trace(bounce, buffer_sizes.trace[bounce], &buffer_sizes.rays_retired[bounce]);
 }
 
-extern "C" __global__ void kernel_trace_shadow_bvh(int bounce) {
+extern "C" __global__ void kernel_trace_shadow_bvh2(int bounce) {
 	bvh_trace_shadow(bounce, buffer_sizes.shadow[bounce], &buffer_sizes.rays_retired_shadow[bounce]);
 }
 

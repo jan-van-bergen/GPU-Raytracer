@@ -96,7 +96,7 @@ void Pathtracer::cuda_init_module() {
 	cuda_module.init(String("Src/CUDA/Pathtracer.cu"), CUDAContext::compute_capability, MAX_REGISTERS);
 
 	kernel_generate           .init(&cuda_module, "kernel_generate");
-	kernel_trace_bvh          .init(&cuda_module, "kernel_trace_bvh");
+	kernel_trace_bvh2         .init(&cuda_module, "kernel_trace_bvh2");
 	kernel_trace_bvh4         .init(&cuda_module, "kernel_trace_bvh4");
 	kernel_trace_bvh8         .init(&cuda_module, "kernel_trace_bvh8");
 	kernel_sort               .init(&cuda_module, "kernel_sort");
@@ -104,7 +104,7 @@ void Pathtracer::cuda_init_module() {
 	kernel_material_plastic   .init(&cuda_module, "kernel_material_plastic");
 	kernel_material_dielectric.init(&cuda_module, "kernel_material_dielectric");
 	kernel_material_conductor .init(&cuda_module, "kernel_material_conductor");
-	kernel_trace_shadow_bvh   .init(&cuda_module, "kernel_trace_shadow_bvh");
+	kernel_trace_shadow_bvh2  .init(&cuda_module, "kernel_trace_shadow_bvh2");
 	kernel_trace_shadow_bvh4  .init(&cuda_module, "kernel_trace_shadow_bvh4");
 	kernel_trace_shadow_bvh8  .init(&cuda_module, "kernel_trace_shadow_bvh8");
 	kernel_svgf_reproject     .init(&cuda_module, "kernel_svgf_reproject");
@@ -117,7 +117,7 @@ void Pathtracer::cuda_init_module() {
 
 	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
-		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh;  kernel_trace_shadow = &kernel_trace_shadow_bvh;  break;
+		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh2; kernel_trace_shadow = &kernel_trace_shadow_bvh2; break;
 		case BVHType::BVH4: kernel_trace = &kernel_trace_bvh4; kernel_trace_shadow = &kernel_trace_shadow_bvh4; break;
 		case BVHType::BVH8: kernel_trace = &kernel_trace_bvh8; kernel_trace_shadow = &kernel_trace_shadow_bvh8; break;
 		default: ASSERT(false);
@@ -141,10 +141,10 @@ void Pathtracer::cuda_init_module() {
 
 	// BVH8 uses a stack of int2's (8 bytes)
 	// Other BVH's use a stack of ints (4 bytes)
-	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_bvh);
+	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_bvh2);
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_bvh4);
 	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_bvh8);
-	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh);
+	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh2);
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh4);
 	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_shadow_bvh8);
 }

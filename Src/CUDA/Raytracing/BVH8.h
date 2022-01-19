@@ -1,5 +1,5 @@
 #pragma once
-#include "BVHCommon.h"
+#include "BVH.h"
 
 // Inverse of ray octant, encoded in 3 bits, duplicated for each byte
 __device__ inline unsigned ray_get_octant_inv4(const float3 ray_direction) {
