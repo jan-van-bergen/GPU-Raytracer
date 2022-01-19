@@ -63,7 +63,7 @@ void CUDAContext::init() {
 	CUDACALL(cuCtxGetCacheConfig    (&config_cache));
 	CUDACALL(cuCtxGetSharedMemConfig(&config_shared));
 
-	unsigned long long bytes_free;
+	size_t bytes_free = 0;
 	CUDACALL(cuMemGetInfo(&bytes_free, &total_memory));
 
 	int driver_version = 0;
@@ -95,11 +95,10 @@ void CUDAContext::free() {
 	CUDACALL(cuDevicePrimaryCtxReset(device));
 }
 
-unsigned long long CUDAContext::get_available_memory() {
-	unsigned long long bytes_available;
-	unsigned long long bytes_total;
+size_t CUDAContext::get_available_memory() {
+	size_t bytes_available = 0;
+	size_t bytes_total     = 0;
 	CUDACALL(cuMemGetInfo(&bytes_available, &bytes_total));
-
 	return bytes_available;
 }
 

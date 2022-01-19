@@ -85,9 +85,8 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	invalidated_mediums   = true;
 	invalidated_config    = true;
 
-	unsigned long long bytes_available = CUDAContext::get_available_memory();
-	unsigned long long bytes_allocated = CUDAContext::total_memory - bytes_available;
-
+	size_t bytes_available = CUDAContext::get_available_memory();
+	size_t bytes_allocated = CUDAContext::total_memory - bytes_available;
 	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"_sv,   bytes_allocated >> 10, bytes_allocated >> 20);
 	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"_sv, bytes_available >> 10, bytes_available >> 20);
 }
