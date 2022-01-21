@@ -31,19 +31,12 @@ __device__ __constant__ Surface<float4> accumulator;
 #include "Raytracing/BVH8.h"
 
 #include "Sampling.h"
+#include "Camera.h"
 
 #include "SVGF/SVGF.h"
 #include "SVGF/TAA.h"
 
-struct Camera {
-	float3 position;
-	float3 bottom_left_corner;
-	float3 x_axis;
-	float3 y_axis;
-	float  pixel_spread_angle;
-	float  aperture_radius;
-	float  focal_distance;
-} __device__ __constant__ camera;
+__device__ __constant__ Camera camera;
 
 __device__ PixelQuery pixel_query = { INVALID, INVALID, INVALID, INVALID };
 
@@ -56,50 +49,13 @@ extern "C" __global__ void kernel_generate(int sample_index, int pixel_offset, i
 	int y = index_offset / screen_width;
 
 	int pixel_index = x + y * screen_pitch;
-	ASSERT(pixel_index < screen_pitch * screen_height, "Pixel should fit inside the buffer");
 
-	float2 rand_filter   = random<SampleDimension::FILTER>  (pixel_index, 0, sample_index);
-	float2 rand_aperture = random<SampleDimension::APERTURE>(pixel_index, 0, sample_index);
-
-	float2 jitter;
-
-	if (config.enable_svgf) {
-		jitter.x = taa_halton_x[sample_index & (TAA_HALTON_NUM_SAMPLES-1)];
-		jitter.y = taa_halton_y[sample_index & (TAA_HALTON_NUM_SAMPLES-1)];
-	} else {
-		switch (config.reconstruction_filter) {
-			case ReconstructionFilter::BOX: {
-				jitter = rand_filter;
-				break;
-			}
-			case ReconstructionFilter::TENT: {
-				jitter.x = sample_tent(rand_filter.x);
-				jitter.y = sample_tent(rand_filter.y);
-				break;
-			}
-			case ReconstructionFilter::GAUSSIAN: {
-				float2 gaussians = sample_gaussian(rand_filter.x, rand_filter.y);
-				jitter.x = 0.5f + 0.5f * gaussians.x;
-				jitter.y = 0.5f + 0.5f * gaussians.y;
-				break;
-			}
-		}
-	}
-
-	float x_jittered = float(x) + jitter.x;
-	float y_jittered = float(y) + jitter.y;
-
-	float3 focal_point = camera.focal_distance * normalize(camera.bottom_left_corner + x_jittered * camera.x_axis + y_jittered * camera.y_axis);
-	float2 lens_point  = camera.aperture_radius * sample_disk(rand_aperture.x, rand_aperture.y);
-
-	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
-	float3 direction = normalize(focal_point - offset);
+	Ray ray = camera_generate_ray(pixel_index, sample_index, x, y, camera);
 
 	TraceBuffer * ray_buffer_trace = get_ray_buffer_trace(0);
 
-	// Create primary Ray that starts at the Camera's position and goes through the current pixel
-	ray_buffer_trace->origin   .set(index, camera.position + offset);
-	ray_buffer_trace->direction.set(index, direction);
+	ray_buffer_trace->origin   .set(index, ray.origin);
+	ray_buffer_trace->direction.set(index, ray.direction);
 
 	ray_buffer_trace->pixel_index_and_flags[index] = pixel_index;
 }

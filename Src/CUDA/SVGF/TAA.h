@@ -1,11 +1,6 @@
 #pragma once
 #include "../Buffers.h"
 
-constexpr int TAA_HALTON_NUM_SAMPLES = 4;
-
-__device__ __constant__ const float taa_halton_x[TAA_HALTON_NUM_SAMPLES] = { 0.3f, 0.7f, 0.2f, 0.8f };
-__device__ __constant__ const float taa_halton_y[TAA_HALTON_NUM_SAMPLES] = { 0.2f, 0.8f, 0.7f, 0.3f };
-
 extern "C" __global__ void kernel_taa(int sample_index) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
