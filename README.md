@@ -49,6 +49,7 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Lone-Monk](Screenshots/lone-monk.png "Lone Monk")
 ![Dragon](Screenshots/dragon.png "Dragon")
 ![Candles](Screenshots/candles.png "Candles")
+![Still-Life](Screenshots/still-life.png "Still Life")
 
 For more screenshots, see the Screenshots folder
 
@@ -72,10 +73,14 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 
 ## Scene Sources
 
-- [OBJ files](https://casual-effects.com/data/)
+- [Morgan McGuire's OBJ scenes](https://casual-effects.com/data/)
 
-- [Mitsuba files](https://benedikt-bitterli.me/resources/)
+- [Benedikt Bitterli's Mitsuba scenes](https://benedikt-bitterli.me/resources/)
 
-- [Stormtrooper](https://www.blendswap.com/blend/13953)
+- Blendswap
+	- [Stormtrooper](https://www.blendswap.com/blend/13953)
+	- [Candles](https://blendswap.com/blend/1845)
 
 - [Blender Demos](https://www.blender.org/download/demo-files/)
+
+- [Luxcore Demos](https://luxcorerender.org/example-scenes/)
