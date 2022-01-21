@@ -80,6 +80,7 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 - Blendswap
 	- [Stormtrooper](https://www.blendswap.com/blend/13953)
 	- [Candles](https://blendswap.com/blend/1845)
+	- [Piano](https://blendswap.com/blend/29080)
 
 - [Blender Demos](https://www.blender.org/download/demo-files/)
 
