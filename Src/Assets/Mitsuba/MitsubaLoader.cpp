@@ -611,8 +611,9 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		StringView camera_type = node->get_attribute_value<StringView>("type");
 
 		if (camera_type == "perspective" || camera_type == "perspective_rdist" || camera_type == "thinlens") {
-			float fov = node->get_child_value_optional("fov", 110.0f);
-			scene.camera.set_fov(Math::deg_to_rad(fov));
+			if (const XMLNode * fov = node->get_child_by_name("fov")) {
+				scene.camera.set_fov(Math::deg_to_rad(fov->get_attribute_value<float>("value")));
+			}
 
 			if (camera_type == "perspective") {
 				scene.camera.aperture_radius = 0.0f;
