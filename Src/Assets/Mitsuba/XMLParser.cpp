@@ -81,12 +81,14 @@ inline XMLNode parse_tag(Parser & parser) {
 		parser_skip(parser);
 	}
 
-	int i = 0;
+	const char * closing_tag_start = parser.cur;
 	while (!parser.reached_end() && !parser.match('>')) {
-		if (*parser.cur != node.tag.start[i++]) {
-			ERROR(parser.location, "Non matching closing tag for '{}'!\n", node.tag);
-		}
 		parser.advance();
+	}
+
+	StringView closing_tag = { closing_tag_start, parser.cur - 1 };
+	if (node.tag != closing_tag) {
+		ERROR(parser.location, "Non matching closing tag '{}' for Node '{}'!\n", closing_tag, node.tag);
 	}
 
 	return node;
