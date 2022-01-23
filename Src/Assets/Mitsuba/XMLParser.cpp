@@ -1,16 +1,5 @@
 #include "XMLParser.h"
 
-inline void parser_skip(Parser & parser) {
-	parser.skip_whitespace_or_newline();
-
-	while (parser.match("<!--")) {
-		while (!parser.reached_end() && !parser.match("-->")) {
-			parser.advance();
-		}
-		parser.skip_whitespace_or_newline();
-	}
-}
-
 inline XMLNode parse_tag(Parser & parser) {
 	if (parser.reached_end()) return { };
 
@@ -31,7 +20,7 @@ inline XMLNode parse_tag(Parser & parser) {
 		ERROR(parser.location, "Unexpected closing tag '{}', expected open tag!\n", node.tag);
 	}
 
-	parser_skip(parser);
+	parser_skip_xml_whitespace(parser);
 
 	// Parse attributes
 	while (!parser.reached_end() && !parser.match('>')) {
@@ -62,7 +51,7 @@ inline XMLNode parse_tag(Parser & parser) {
 		attribute.value.end = parser.cur;
 
 		parser.expect(quote_type);
-		parser_skip(parser);
+		parser_skip_xml_whitespace(parser);
 
 		node.attributes.push_back(attribute);
 
@@ -73,12 +62,12 @@ inline XMLNode parse_tag(Parser & parser) {
 		}
 	}
 
-	parser_skip(parser);
+	parser_skip_xml_whitespace(parser);
 
 	// Parse children
 	while (!parser.match("</")) {
 		node.children.push_back(parse_tag(parser));
-		parser_skip(parser);
+		parser_skip_xml_whitespace(parser);
 	}
 
 	const char * closing_tag_start = parser.cur;
@@ -99,9 +88,9 @@ XMLNode XMLParser::parse_root() {
 	root.location = parser.location;
 
 	while (!parser.reached_end()) {
-		parser_skip(parser);
+		parser_skip_xml_whitespace(parser);
 		root.children.push_back(parse_tag(parser));
-		parser_skip(parser);
+		parser_skip_xml_whitespace(parser);
 	}
 
 	return root;

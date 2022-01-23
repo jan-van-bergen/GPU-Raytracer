@@ -5,6 +5,17 @@
 #include "Core/Array.h"
 #include "Core/Parser.h"
 
+inline void parser_skip_xml_whitespace(Parser & parser) {
+	parser.skip_whitespace_or_newline();
+
+	while (parser.match("<!--")) {
+		while (!parser.reached_end() && !parser.match("-->")) {
+			parser.advance();
+		}
+		parser.skip_whitespace_or_newline();
+	}
+}
+
 struct XMLAttribute {
 	StringView name;
 	StringView value;
@@ -40,18 +51,19 @@ struct XMLAttribute {
 	template<>
 	Vector3 get_value() const {
 		Parser parser(value, location_of_value);
+		parser_skip_xml_whitespace(parser);
 
 		Vector3 v;
 		v.x = parser.parse_float();
 
 		bool uses_comma = parser.match(',');
-		parser.skip_whitespace();
+		parser_skip_xml_whitespace(parser);
 
 		if (!parser.reached_end()) {
 			v.y = parser.parse_float();
 
 			if (uses_comma) parser.expect(',');
-			parser.skip_whitespace();
+			parser_skip_xml_whitespace(parser);
 
 			v.z = parser.parse_float();
 		} else {
@@ -66,14 +78,10 @@ struct XMLAttribute {
 	Matrix4 get_value() const {
 		Parser parser(value, location_of_value);
 
-		int i = 0;
 		Matrix4 m;
-		while (true) {
+		for (int i = 0; i < 16; i++) {
+			parser_skip_xml_whitespace(parser);
 			m.cells[i] = parser.parse_float();
-
-			if (++i == 16) break;
-
-			parser.expect(' ');
 		}
 
 		return m;
