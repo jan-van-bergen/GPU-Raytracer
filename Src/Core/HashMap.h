@@ -2,9 +2,10 @@
 #include <string.h>
 
 #include "Hash.h"
+#include "Compare.h"
 
 // Hash Map using linear probing
-template<typename Key, typename Value, typename Hash = Hash<Key>, typename Cmp = Cmp<Key>>
+template<typename Key, typename Value, typename Hash = Hash<Key>, typename Cmp = Compare::Equal<Key>>
 struct HashMap {
 	struct Map {
 		size_t count    = 0;

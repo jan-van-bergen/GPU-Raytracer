@@ -274,6 +274,7 @@
     <ClInclude Include="Src\Core\Array.h" />
     <ClInclude Include="Src\Core\Assertion.h" />
     <ClInclude Include="Src\Core\BitArray.h" />
+    <ClInclude Include="Src\Core\Compare.h" />
     <ClInclude Include="Src\Core\Format.h" />
     <ClInclude Include="Src\Core\Hash.h" />
     <ClInclude Include="Src\Core\HashMap.h" />
@@ -284,6 +285,7 @@
     <ClInclude Include="Src\Core\Parser.h" />
     <ClInclude Include="Src\Core\Queue.h" />
     <ClInclude Include="Src\Core\Random.h" />
+    <ClInclude Include="Src\Core\Sort.h" />
     <ClInclude Include="Src\Core\Timer.h" />
     <ClInclude Include="Src\Core\String.h" />
     <ClInclude Include="Src\Core\StringView.h" />

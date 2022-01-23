@@ -5,10 +5,9 @@
 #include "Core/IO.h"
 #include "Core/Assertion.h"
 #include "Core/Timer.h"
+#include "Core/Sort.h"
 
 #include "BVHPartitions.h"
-
-#include "Util/Util.h"
 
 void SBVHBuilder::build(const Array<Triangle> & triangles) {
 	IO::print("Construcing SBVH, this may take a few seconds for large Meshes...\n"_sv);
@@ -40,9 +39,9 @@ void SBVHBuilder::build(const Array<Triangle> & triangles) {
 
 	inv_root_surface_area = 1.0f / root_aabb.surface_area();
 
-	Util::quick_sort(indices[0].begin(), indices[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-	Util::quick_sort(indices[1].begin(), indices[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-	Util::quick_sort(indices[2].begin(), indices[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+	Sort::quick_sort(indices[0].begin(), indices[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+	Sort::quick_sort(indices[1].begin(), indices[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+	Sort::quick_sort(indices[2].begin(), indices[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
 	sbvh.nodes.clear();
 	sbvh.nodes.reserve(2 * triangles.size());
@@ -294,13 +293,13 @@ int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, i
 			}
 		}
 
-		Util::quick_sort(children_left[0].begin(), children_left[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		Util::quick_sort(children_left[1].begin(), children_left[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		Util::quick_sort(children_left[2].begin(), children_left[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+		Sort::quick_sort(children_left[0].begin(), children_left[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+		Sort::quick_sort(children_left[1].begin(), children_left[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+		Sort::quick_sort(children_left[2].begin(), children_left[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
-		Util::quick_sort(children_right[0].begin(), children_right[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		Util::quick_sort(children_right[1].begin(), children_right[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		Util::quick_sort(children_right[2].begin(), children_right[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+		Sort::quick_sort(children_right[0].begin(), children_right[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
+		Sort::quick_sort(children_right[1].begin(), children_right[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
+		Sort::quick_sort(children_right[2].begin(), children_right[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
 
 		// We should have made the same decision (going left/right) in every dimension
 		ASSERT(children_left [0].size() == children_left [1].size() && children_left [1].size() == children_left [2].size());

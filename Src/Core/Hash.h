@@ -26,10 +26,3 @@ struct Hash {
 		return FNVHash::hash(bytes, sizeof(T));
 	}
 };
-
-template<typename T>
-struct Cmp {
-	size_t operator()(const T & a, const T & b) const {
-		return a == b;
-	}
-};

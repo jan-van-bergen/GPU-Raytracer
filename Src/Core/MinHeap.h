@@ -1,7 +1,8 @@
 #pragma once
 #include "Array.h"
+#include "Compare.h"
 
-template<typename T, typename Cmp = std::less<T>>
+template<typename T, typename Cmp = Compare::LessThan<T>>
 struct MinHeap {
 	Array<T> data;
 	Cmp cmp;

@@ -7,6 +7,7 @@
 #include "Config.h"
 #include "Args.h"
 
+#include "Core/Sort.h"
 #include "Core/Parser.h"
 #include "Core/Timer.h"
 
@@ -265,7 +266,7 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 				);
 			}
 
-			Util::stable_sort(event_timings.begin(), event_timings.end(), [](const EventTiming & a, const EventTiming & b) {
+			Sort::stable_sort(event_timings.begin(), event_timings.end(), [](const EventTiming & a, const EventTiming & b) {
 				if (a.desc.display_order == b.desc.display_order) {
 					return a.desc.category < b.desc.category;
 				}

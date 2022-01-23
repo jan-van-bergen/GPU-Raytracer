@@ -2,6 +2,8 @@
 
 #include <new>
 
+#include "Core/Sort.h"
+
 #include "BVH/BVH.h"
 #include "BVHPartitions.h"
 
@@ -77,9 +79,9 @@ static void build_bvh_impl(SAHBuilder & builder, const Array<Primitive> & primit
 	}
 	builder.bvh.nodes[0].aabb = root_aabb;
 
-	Util::quick_sort(builder.indices_x.begin(), builder.indices_x.end(), [&primitives](int a, int b) { return primitives[a].get_center().x < primitives[b].get_center().x; });
-	Util::quick_sort(builder.indices_y.begin(), builder.indices_y.end(), [&primitives](int a, int b) { return primitives[a].get_center().y < primitives[b].get_center().y; });
-	Util::quick_sort(builder.indices_z.begin(), builder.indices_z.end(), [&primitives](int a, int b) { return primitives[a].get_center().z < primitives[b].get_center().z; });
+	Sort::quick_sort(builder.indices_x.begin(), builder.indices_x.end(), [&primitives](int a, int b) { return primitives[a].get_center().x < primitives[b].get_center().x; });
+	Sort::quick_sort(builder.indices_y.begin(), builder.indices_y.end(), [&primitives](int a, int b) { return primitives[a].get_center().y < primitives[b].get_center().y; });
+	Sort::quick_sort(builder.indices_z.begin(), builder.indices_z.end(), [&primitives](int a, int b) { return primitives[a].get_center().z < primitives[b].get_center().z; });
 
 	int * indices[3] = { builder.indices_x.data(), builder.indices_y.data(), builder.indices_z.data() };
 
