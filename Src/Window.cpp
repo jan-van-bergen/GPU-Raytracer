@@ -30,7 +30,7 @@ Window::Window(const String & title, int width, int height) {
 	this->width  = width;
 	this->height = height;
 
-	window  = SDL_CreateWindow(title.data(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+	window  = SDL_CreateWindow(title.data(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
 	context = SDL_GL_CreateContext(window);
 
 	SDL_SetWindowResizable(window, SDL_TRUE);

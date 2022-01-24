@@ -89,7 +89,8 @@ int main(int num_args, char ** args) {
 	timing.last  = timing.start;
 	timing.time_of_last_screenshot = INVALID;
 
-	// Game loop
+	window.show();
+	// Render loop
 	while (!window.is_closed) {
 		perf_test.frame_begin();
 
@@ -100,7 +101,7 @@ int main(int num_args, char ** args) {
 
 		if (pathtracer.sample_index == cpu_config.output_sample_index) {
 			capture_screen(window, pathtracer, cpu_config.output_filename);
-			break; // Exit game loop and terimate
+			break; // Exit render loop and terimate
 		}
 		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
 			StringView ext = { };

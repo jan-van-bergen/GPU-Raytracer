@@ -12,7 +12,7 @@
 struct Vector3;
 
 struct Window {
-	SDL_Window *  window;
+	SDL_Window  * window;
 	SDL_GLContext context;
 
 	Shader shader;
@@ -28,6 +28,9 @@ struct Window {
 	~Window();
 
 	void resize(int new_width, int new_height);
+
+	void hide() { SDL_HideWindow(window); }
+	void show() { SDL_ShowWindow(window); }
 
 	void render_framebuffer() const;
 
