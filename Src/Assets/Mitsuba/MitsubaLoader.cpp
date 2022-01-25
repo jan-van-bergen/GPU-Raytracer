@@ -117,7 +117,7 @@ static Matrix4 parse_transform_matrix(const XMLNode * node) {
 			Vector3 target = transformation.get_attribute_optional("target", Vector3(0.0f, 0.0f, -1.0f));
 			Vector3 up     = transformation.get_attribute_optional("up",     Vector3(0.0f, 1.0f,  0.0f));
 
-			world = Matrix4::create_translation(origin) * Matrix4::create_rotation(Quaternion::look_rotation(origin - target, up)) * world;
+			world = Matrix4::create_translation(origin) * Matrix4::create_rotation(Quaternion::look_rotation(target - origin, up)) * world;
 		} else if (transformation.tag == "scale") {
 			const XMLAttribute * scale = transformation.get_attribute("value");
 			if (scale) {
