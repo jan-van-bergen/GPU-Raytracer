@@ -621,9 +621,14 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		} else {
 			WARNING(node->location, "WARNING: Camera type '{}' not supported!\n", camera_type);
 		}
-	} else if (node->tag == "film") {
-		cpu_config.initial_width  = node->get_child_value_optional("width",  cpu_config.initial_width);
-		cpu_config.initial_height = node->get_child_value_optional("height", cpu_config.initial_height);
+
+		if (const XMLNode * film = node->get_child_by_tag("film")) {
+			cpu_config.initial_width  = film->get_child_value_optional("width",  cpu_config.initial_width);
+			cpu_config.initial_height = film->get_child_value_optional("height", cpu_config.initial_height);
+			scene.camera.resize(cpu_config.initial_width, cpu_config.initial_height);
+		}
+	} else if (node->tag == "integrator") {
+		gpu_config.num_bounces = node->get_child_value_optional("maxDepth", gpu_config.num_bounces);
 	} else if (node->tag == "emitter") {
 		StringView emitter_type = node->get_attribute_value<StringView>("type");
 

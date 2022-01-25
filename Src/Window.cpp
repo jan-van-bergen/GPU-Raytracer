@@ -144,7 +144,12 @@ Window::~Window() {
 	SDL_Quit();
 }
 
-void Window::resize(int new_width, int new_height) {
+void Window::set_size(int new_width, int new_height) {
+	SDL_SetWindowSize(window, new_width, new_height);
+	resize_frame_buffer(new_width, new_height);
+}
+
+void Window::resize_frame_buffer(int new_width, int new_height) {
 	width  = new_width;
 	height = new_height;
 
@@ -196,7 +201,7 @@ void Window::swap() {
 		switch (event.type) {
 			case SDL_WINDOWEVENT: {
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-					resize(event.window.data1, event.window.data2);
+					resize_frame_buffer(event.window.data1, event.window.data2);
 				}
 
 				break;

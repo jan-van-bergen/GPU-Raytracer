@@ -27,7 +27,8 @@ struct Window {
 	Window(const String & title, int width, int height);
 	~Window();
 
-	void resize(int new_width, int new_height);
+	void set_size(int new_width, int new_height);
+	void resize_frame_buffer(int new_width, int new_height);
 
 	void hide() { SDL_HideWindow(window); }
 	void show() { SDL_ShowWindow(window); }
