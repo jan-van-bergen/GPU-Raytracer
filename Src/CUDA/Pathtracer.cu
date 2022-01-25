@@ -375,6 +375,7 @@ __device__ void next_event_estimation(
 	int            bounce,
 	int            sample_index,
 	const BSDF   & bsdf,
+	int            medium_id,
 	const float3 & hit_point,
 	const float3 & normal,
 	const float3 & geometric_normal,
@@ -435,6 +436,13 @@ __device__ void next_event_estimation(
 	}
 
 	float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
+
+	// If inside a Medium, apply absorption and out-scattering
+	if (medium_id != INVALID) {
+		HomogeneousMedium medium = medium_as_homogeneous(medium_id);
+		float3 sigma_t = medium.sigma_a + medium.sigma_s;
+		illumination *= beer_lambert(sigma_t, distance_to_light);
+	}
 
 	// Emit Shadow Ray
 	int shadow_ray_index = atomicAdd(&buffer_sizes.shadow[bounce], 1);
@@ -604,7 +612,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 
 	// Next Event Estimation
 	if (config.enable_next_event_estimation && lights_total_weight > 0.0f && bsdf.is_mis_eligable()) {
-		next_event_estimation(pixel_index, bounce, sample_index, bsdf, hit_point, normal, geometric_normal, throughput);
+		next_event_estimation(pixel_index, bounce, sample_index, bsdf, medium_id, hit_point, normal, geometric_normal, throughput);
 	}
 
 	// Sample BSDF
