@@ -89,7 +89,9 @@ int main(int num_args, char ** args) {
 	timing.last  = timing.start;
 	timing.time_of_last_screenshot = INVALID;
 
+	window.resize(cpu_config.initial_width, cpu_config.initial_height);
 	window.show();
+
 	// Render loop
 	while (!window.is_closed) {
 		perf_test.frame_begin();
