@@ -34,8 +34,23 @@ using SerializedMap = HashMap<String, Serialized>;
 using MaterialMap   = HashMap<String, MaterialHandle>;
 using TextureMap    = HashMap<String, TextureHandle>;
 
-static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene) {
+static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb) {
 	StringView type = node->get_attribute_value("type");
+
+	if (type == "scale") {
+		if (const XMLNode * scale = node->get_child_by_name("scale")) {
+			if (scale->tag == "float") {
+				rgb *= scale->get_attribute_value<float>("value");
+			} else if (scale->tag == "rgb") {
+				rgb *= scale->get_attribute_value<Vector3>("value");
+			} else {
+				WARNING(scale->location, "Invalid scale tag <{}>!\n", scale->tag);
+			}
+		}
+
+		node = node->get_child_by_tag("texture");
+		type = node->get_attribute_value("type");
+	}
 
 	if (type == "bitmap") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
@@ -56,27 +71,27 @@ static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_ma
 }
 
 static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb, TextureHandle & texture_handle) {
-	const XMLNode * reflectance = node->get_child_by_name(name);
-	if (reflectance) {
-		if (reflectance->tag == "rgb") {
-			rgb = reflectance->get_attribute_optional("value", Vector3(1.0f));
-		} else if (reflectance->tag == "srgb") {
-			rgb = reflectance->get_attribute_optional("value", Vector3(1.0f));
+	const XMLNode * colour = node->get_child_by_name(name);
+	if (colour) {
+		if (colour->tag == "rgb") {
+			rgb = colour->get_attribute_optional("value", Vector3(1.0f));
+		} else if (colour->tag == "srgb") {
+			rgb = colour->get_attribute_optional("value", Vector3(1.0f));
 			rgb.x = Math::gamma_to_linear(rgb.x);
 			rgb.y = Math::gamma_to_linear(rgb.y);
 			rgb.z = Math::gamma_to_linear(rgb.z);
-		} else if (reflectance->tag == "texture") {
-			texture_handle = parse_texture(reflectance, texture_map, path, scene);
+		} else if (colour->tag == "texture") {
+			texture_handle = parse_texture(colour, texture_map, path, scene, rgb);
 
-			const XMLNode * scale = reflectance->get_child_by_name("scale");
+			const XMLNode * scale = colour->get_child_by_name("scale");
 			if (scale) {
 				rgb = scale->get_attribute_optional("value", Vector3(1.0f));
 			}
-		} else if (reflectance->tag == "ref") {
-			StringView texture_name = reflectance->get_attribute_value<StringView>("id");
+		} else if (colour->tag == "ref") {
+			StringView texture_name = colour->get_attribute_value<StringView>("id");
 			bool found = texture_map.try_get(texture_name, texture_handle);
 			if (!found) {
-				WARNING(reflectance->location, "Invalid texture ref '{}'!\n", texture_name);
+				WARNING(colour->location, "Invalid texture ref '{}'!\n", texture_name);
 			}
 		}
 	} else {
@@ -523,7 +538,8 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 		material_map.insert(material.name, material_handle);
 	} else if (node->tag == "texture") {
-		parse_texture(node, texture_map, path, scene);
+		Vector3 scale = 1.0f;
+		parse_texture(node, texture_map, path, scene, scale);
 	} else if (node->tag == "shape") {
 		StringView type = node->get_attribute_value<StringView>("type");
 		if (type == "shapegroup") {
