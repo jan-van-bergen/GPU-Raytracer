@@ -84,85 +84,64 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 	}
 }
 
-static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
+static Matrix4 parse_transform_matrix(const XMLNode * node) {
+	Matrix4 world = { };
+
 	const XMLNode * transform = node->get_child_by_tag("transform");
-	if (transform) {
-		const XMLNode * matrix = transform->get_child_by_tag("matrix");
-		if (matrix) {
-			Matrix4 world = matrix->get_attribute_value<Matrix4>("value");
-			Matrix4::decompose(world, position, rotation, scale, forward);
-			return;
-		}
+	if (!transform) {
+		return world;
+	}
 
-		const XMLNode * lookat = transform->get_child_by_tag("lookat");
-		if (lookat) {
-			Vector3 origin = lookat->get_attribute_optional("origin", Vector3(0.0f, 0.0f,  0.0f));
-			Vector3 target = lookat->get_attribute_optional("target", Vector3(0.0f, 0.0f, -1.0f));
-			Vector3 up     = lookat->get_attribute_optional("up",     Vector3(0.0f, 1.0f,  0.0f));
+	for (size_t i = 0; i < transform->children.size(); i++) {
+		const XMLNode & transformation = transform->children[i];
 
-			if (position) *position = origin;
-			if (rotation) *rotation = Quaternion::look_rotation(origin - target, up);
-		}
+		if (transformation.tag == "matrix") {
+			world = transformation.get_attribute_value<Matrix4>("value") * world;
+		} else if (transformation.tag == "lookat") {
+			Vector3 origin = transformation.get_attribute_optional("origin", Vector3(0.0f, 0.0f,  0.0f));
+			Vector3 target = transformation.get_attribute_optional("target", Vector3(0.0f, 0.0f, -1.0f));
+			Vector3 up     = transformation.get_attribute_optional("up",     Vector3(0.0f, 1.0f,  0.0f));
 
-		const XMLNode * scale_node = transform->get_child_by_tag("scale");
-		if (scale_node && scale) {
-			const XMLAttribute * scale_value = scale_node->get_attribute("value");
-			if (scale_value) {
-				*scale = scale_value->get_value<float>();
+			world = Matrix4::create_translation(origin) * Matrix4::create_rotation(Quaternion::look_rotation(origin - target, up)) * world;
+		} else if (transformation.tag == "scale") {
+			const XMLAttribute * scale = transformation.get_attribute("value");
+			if (scale) {
+				world = Matrix4::create_scale(scale->get_value<float>()) * world;
 			} else {
-				float x = scale_node->get_attribute_optional("x", 1.0f);
-				float y = scale_node->get_attribute_optional("y", 1.0f);
-				float z = scale_node->get_attribute_optional("z", 1.0f);
+				float x = transformation.get_attribute_optional("x", 1.0f);
+				float y = transformation.get_attribute_optional("y", 1.0f);
+				float z = transformation.get_attribute_optional("z", 1.0f);
 
-				*scale = cbrtf(x * y * z);
+				world = Matrix4::create_scale(x, y, z) * world;
 			}
-		}
-
-		const XMLNode * rotate = transform->get_child_by_tag("rotate");
-		if (rotate && rotation) {
-			float x = rotate->get_attribute_optional("x", 0.0f);
-			float y = rotate->get_attribute_optional("y", 0.0f);
-			float z = rotate->get_attribute_optional("z", 0.0f);
+		} else if (transformation.tag == "rotate") {
+			float x = transformation.get_attribute_optional("x", 0.0f);
+			float y = transformation.get_attribute_optional("y", 0.0f);
+			float z = transformation.get_attribute_optional("z", 0.0f);
 
 			if (x == 0.0f && y == 0.0f && z == 0.0f) {
-				WARNING(rotate->location, "WARNING: Rotation without axis specified!\n");
-				*rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+				WARNING(transformation.location, "WARNING: Rotation without axis specified!\n");
 			} else {
-				float angle = rotate->get_attribute_optional("angle", 0.0f);
-				*rotation = Quaternion::axis_angle(Vector3(x, y, z), Math::deg_to_rad(angle));
+				float angle = transformation.get_attribute_optional("angle", 0.0f);
+				world = Matrix4::create_rotation(Quaternion::axis_angle(Vector3(x, y, z), Math::deg_to_rad(angle))) * world;
 			}
+		} else if (transformation.tag == "translate") {
+			world = Matrix4::create_translation(Vector3(
+				transformation.get_attribute_optional("x", 0.0f),
+				transformation.get_attribute_optional("y", 0.0f),
+				transformation.get_attribute_optional("z", 0.0f)
+			)) * world;
+		} else {
+			WARNING(transformation.location, "Node <{}> is not a valid transformation!\n", transformation.tag);
 		}
-
-		const XMLNode * translate = transform->get_child_by_tag("translate");
-		if (translate && position) {
-			*position = Vector3(
-				translate->get_attribute_optional("x", 0.0f),
-				translate->get_attribute_optional("y", 0.0f),
-				translate->get_attribute_optional("z", 0.0f)
-			);
-		}
-	} else {
-		if (position) *position = Vector3(0.0f);
-		if (rotation) *rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
-		if (scale)    *scale    = 1.0f;
 	}
+
+	return world;
 }
 
-static Matrix4 parse_transform_matrix(const XMLNode * node) {
-	const XMLNode * transform = node->get_child_by_tag("transform");
-	if (transform) {
-		const XMLNode * matrix = transform->get_child_by_tag("matrix");
-		if (matrix) {
-			return matrix->get_attribute_value<Matrix4>("value");
-		}
-	}
-
-	Vector3    translation;
-	Quaternion rotation;
-	float      scale = 1.0f;
-	parse_transform(node, &translation, &rotation, &scale);
-
-	return Matrix4::create_translation(translation) * Matrix4::create_rotation(rotation) * Matrix4::create_scale(scale);
+static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, 1.0f)) {
+	Matrix4 world = parse_transform_matrix(node);
+	Matrix4::decompose(world, position, rotation, scale, forward);
 }
 
 static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, StringView path) {

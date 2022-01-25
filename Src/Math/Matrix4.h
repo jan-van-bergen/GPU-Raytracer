@@ -75,6 +75,15 @@ struct alignas(16) Matrix4 {
 		return result;
 	}
 
+	inline static Matrix4 create_scale(float x, float y, float z) {
+		Matrix4 result;
+		result(0, 0) = x;
+		result(1, 1) = y;
+		result(2, 2) = z;
+
+		return result;
+	}
+
 	inline static Matrix4 perspective(float fov, float aspect, float near_plane, float far_plane) {
 		float tan_half_fov = tanf(0.5f * fov);
 
