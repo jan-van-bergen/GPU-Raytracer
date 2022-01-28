@@ -67,63 +67,10 @@ Window::Window(const String & title, int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	const char vertex_shader[] =
-		"#version 450\n"
-		"\n"
-		"layout (location = 0) out vec2 uv;\n"
-		"\n"
-		"// Based on: https://rauwendaal.net/2014/06/14/rendering-a-screen-covering-triangle-in-opengl/\n"
-		"void main() {\n"
-		"	float x = float((gl_VertexID & 1) << 2) - 1.0f;\n"
-		"	float y = float((gl_VertexID & 2) << 1) - 1.0f;\n"
-		"\n"
-		"	uv.x = (x + 1.0f) * 0.5f;\n"
-		"	uv.y = (y + 1.0f) * 0.5f;\n"
-		"\n"
-		"	gl_Position = vec4(x, y, 0.0f, 1.0f);\n"
-		"}\n";
-	const char fragment_shader[] =
-		"#version 450\n"
-		"\n"
-		"layout (location = 0) in vec2 in_uv;\n"
-		"\n"
-		"layout (location = 0) out vec3 out_colour;\n"
-		"\n"
-		"uniform sampler2D screen;\n"
-		"\n"
-		"vec3 tonemap_reinhard(vec3 colour) {\n"
-		"	return colour / (1.0f + colour);\n"
-		"}\n"
-		"\n"
-		"// Based on: https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/\n"
-		"vec3 tonemap_aces(vec3 colour) {\n"
-		"	float a = 2.51f;\n"
-		"	float b = 0.03f;\n"
-		"	float c = 2.43f;\n"
-		"	float d = 0.59f;\n"
-		"	float e = 0.14f;\n"
-		"\n"
-		"	return clamp((colour * (a * colour + b)) / (colour * (c * colour + d) + e), 0.0f, 1.0f);\n"
-		"}\n"
-		"\n"
-		"void main() {\n"
-		"	vec3 colour = texture2D(screen, in_uv).rgb;\n"
-		"\n"
-		"	colour = max(vec3(0.0f), colour);\n"
-		"\n"
-		"	// Tone mapping\n"
-		"	colour = tonemap_aces(colour);\n"
-		"\n"
-		"	// Gamma correction\n"
-		"	colour = pow(colour, vec3(1.0f / 2.2f));\n"
-		"\n"
-		"	out_colour = colour;\n"
-		"}\n";
+	String shader_vertex   = IO::file_read("Src/Shaders/post.vert");
+	String shader_fragment = IO::file_read("Src/Shaders/post.frag");
 
-	shader = Shader::load(
-		vertex_shader,   sizeof(vertex_shader)   - 1,
-		fragment_shader, sizeof(fragment_shader) - 1
-	);
+	shader = Shader::load(shader_vertex.view(), shader_fragment.view());
 	shader.bind();
 
 	glUniform1i(shader.get_uniform("screen"), 0);

@@ -6,10 +6,11 @@
 #include "Core/IO.h"
 #include "Util.h"
 
-static GLuint load_shader(const char * source, int source_len, GLuint shader_type) {
+static GLuint load_shader(StringView source, GLuint shader_type) {
 	GLuint shader = glCreateShader(shader_type);
 
-	glShaderSource(shader, 1, &source, &source_len);
+	int length = source.length();
+	glShaderSource(shader, 1, &source.start, &length);
 	glCompileShader(shader);
 
 	GLint success; glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -25,14 +26,14 @@ static GLuint load_shader(const char * source, int source_len, GLuint shader_typ
 	return shader;
 }
 
-Shader Shader::load(const char * vertex_filename, int vertex_len, const char * fragment_filename, int fragment_len) {
+Shader Shader::load(StringView source_vertex, StringView source_fragment) {
 	// Create Program
-	Shader shader;
+	Shader shader = { };
 	shader.program_id = glCreateProgram();
 
 	// Load Shader sources
-	shader.vertex_id   = load_shader(vertex_filename,   vertex_len,   GL_VERTEX_SHADER);
-	shader.fragment_id = load_shader(fragment_filename, fragment_len, GL_FRAGMENT_SHADER);
+	shader.vertex_id   = load_shader(source_vertex,   GL_VERTEX_SHADER);
+	shader.fragment_id = load_shader(source_fragment, GL_FRAGMENT_SHADER);
 
 	// Attach Vertex and Fragment Shaders to the Program
 	glAttachShader(shader.program_id, shader.vertex_id);
