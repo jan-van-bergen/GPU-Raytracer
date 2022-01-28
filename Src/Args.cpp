@@ -46,6 +46,17 @@ static void parse_args(const Array<StringView> & args) {
 	};
 
 	static Array<Option> options = {
+		Option { "I"_sv, "integrator"_sv, "Choose the interagor type. Supported options: pathtracer, ao"_sv, 1, [](const Array<StringView> & args, size_t i) {
+			if (args[i + 1] == "pathtracer") {
+				cpu_config.integrator = IntegratorType::PATHTRACER;
+			} else if (args[i + 1] == "ao") {
+				cpu_config.integrator = IntegratorType::AO;
+			} else {
+				IO::print("'{}' is not a recognized integrator type! Supported options: pathtracer, ao\n"_sv, args[i + 1]);
+				IO::exit(1);
+			}
+		} },
+
 		Option { "W"_sv, "width"_sv,   "Sets the width of the window"_sv,                     1, [](const Array<StringView> & args, size_t i) { cpu_config.initial_width       = parse_arg_int(args[i + 1]); } },
 		Option { "H"_sv, "height"_sv,  "Sets the height of the window"_sv,                    1, [](const Array<StringView> & args, size_t i) { cpu_config.initial_height      = parse_arg_int(args[i + 1]); } },
 		Option { "b"_sv, "bounce"_sv,  "Sets the number of pathtracing bounces"_sv,           1, [](const Array<StringView> & args, size_t i) { gpu_config.num_bounces         = Math::clamp(parse_arg_int(args[i + 1]), 0, MAX_BOUNCES - 1); } },
@@ -55,7 +66,7 @@ static void parse_args(const Array<StringView> & args) {
 		Option { "s"_sv, "scene"_sv, "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.scene_filenames.push_back(args[i + 1]); } },
 		Option { "S"_sv, "sky"_sv,   "Sets path to sky file. Supported formats: HDR"_sv,                         1, [](const Array<StringView> & args, size_t i) { cpu_config.sky_filename = args[i + 1]; } },
 
-		Option { "b"_sv, "bvh"_sv, "Sets type of BLAS BVH used: Supported options: sah, sbvh, bvh4, bvh8"_sv, 1, [](const Array<StringView> & args, size_t i) {
+		Option { "b"_sv, "bvh"_sv, "Sets type of BLAS BVH used. Supported options: sah, sbvh, bvh4, bvh8"_sv, 1, [](const Array<StringView> & args, size_t i) {
 			if (args[i + 1] == "sah") {
 				cpu_config.bvh_type = BVHType::BVH;
 			} else if (args[i + 1] == "sbvh") {

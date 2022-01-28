@@ -14,8 +14,8 @@
 #include "Assets/OBJLoader.h"
 #include "Assets/PLYLoader.h"
 
-#include "Pathtracer/Scene.h"
-#include "Pathtracer/MeshData.h"
+#include "Renderer/Scene.h"
+#include "Renderer/MeshData.h"
 
 #include "Util/Util.h"
 #include "Util/Geometry.h"

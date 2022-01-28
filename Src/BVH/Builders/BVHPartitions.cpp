@@ -1,7 +1,7 @@
 #include "BVHPartitions.h"
 
-#include "Pathtracer/Mesh.h"
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Mesh.h"
+#include "Renderer/Triangle.h"
 
 // Evaluates SAH for every object for every dimension to determine splitting candidate
 template<typename GetAABB>

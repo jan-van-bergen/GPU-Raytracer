@@ -116,7 +116,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <AdditionalIncludeDirectories>Src;.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -173,7 +173,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <AdditionalIncludeDirectories>Src;.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -235,12 +235,14 @@
     <ClCompile Include="Src\Main.cpp" />
     <ClCompile Include="Src\Math\AABB.cpp" />
     <ClCompile Include="Src\Math\Mipmap.cpp" />
-    <ClCompile Include="Src\Pathtracer\Camera.cpp" />
-    <ClCompile Include="Src\Pathtracer\Mesh.cpp" />
-    <ClCompile Include="Src\Pathtracer\Pathtracer.cpp" />
-    <ClCompile Include="Src\Pathtracer\Scene.cpp" />
-    <ClCompile Include="Src\Pathtracer\Sky.cpp" />
-    <ClCompile Include="Src\Pathtracer\Texture.cpp" />
+    <ClCompile Include="Src\Renderer\Camera.cpp" />
+    <ClCompile Include="Src\Renderer\Integrators\AO.cpp" />
+    <ClCompile Include="Src\Renderer\Integrators\Integrator.cpp" />
+    <ClCompile Include="Src\Renderer\Integrators\Pathtracer.cpp" />
+    <ClCompile Include="Src\Renderer\Mesh.cpp" />
+    <ClCompile Include="Src\Renderer\Scene.cpp" />
+    <ClCompile Include="Src\Renderer\Sky.cpp" />
+    <ClCompile Include="Src\Renderer\Texture.cpp" />
     <ClCompile Include="Src\Util\BlueNoise.cpp" />
     <ClCompile Include="Src\Util\Geometry.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />
@@ -306,16 +308,18 @@
     <ClInclude Include="Src\Math\Vector2.h" />
     <ClInclude Include="Src\Math\Vector3.h" />
     <ClInclude Include="Src\Math\Vector4.h" />
-    <ClInclude Include="Src\Pathtracer\Camera.h" />
-    <ClInclude Include="Src\Pathtracer\Material.h" />
-    <ClInclude Include="Src\Pathtracer\Medium.h" />
-    <ClInclude Include="Src\Pathtracer\Mesh.h" />
-    <ClInclude Include="Src\Pathtracer\MeshData.h" />
-    <ClInclude Include="Src\Pathtracer\Pathtracer.h" />
-    <ClInclude Include="Src\Pathtracer\Scene.h" />
-    <ClInclude Include="Src\Pathtracer\Sky.h" />
-    <ClInclude Include="Src\Pathtracer\Texture.h" />
-    <ClInclude Include="Src\Pathtracer\Triangle.h" />
+    <ClInclude Include="Src\Renderer\Camera.h" />
+    <ClInclude Include="Src\Renderer\Integrators\AO.h" />
+    <ClInclude Include="Src\Renderer\Integrators\Integrator.h" />
+    <ClInclude Include="Src\Renderer\Integrators\Pathtracer.h" />
+    <ClInclude Include="Src\Renderer\Material.h" />
+    <ClInclude Include="Src\Renderer\Medium.h" />
+    <ClInclude Include="Src\Renderer\Mesh.h" />
+    <ClInclude Include="Src\Renderer\MeshData.h" />
+    <ClInclude Include="Src\Renderer\Scene.h" />
+    <ClInclude Include="Src\Renderer\Sky.h" />
+    <ClInclude Include="Src\Renderer\Texture.h" />
+    <ClInclude Include="Src\Renderer\Triangle.h" />
     <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\Geometry.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />

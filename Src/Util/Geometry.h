@@ -2,7 +2,7 @@
 #include "Core/Array.h"
 
 #include "Math/Matrix4.h"
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Triangle.h"
 
 namespace Geometry {
 	Array<Triangle> rectangle(const Matrix4 & transform);

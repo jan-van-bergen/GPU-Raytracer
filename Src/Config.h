@@ -6,6 +6,11 @@
 
 inline GPUConfig gpu_config = { };
 
+enum struct IntegratorType {
+	PATHTRACER,
+	AO
+};
+
 enum struct OutputFormat {
 	EXR,
 	PPM
@@ -30,6 +35,8 @@ struct CPUConfig {
 
 	Array<String> scene_filenames;
 	String        sky_filename;
+
+	IntegratorType integrator = IntegratorType::PATHTRACER;
 
 	OutputFormat screenshot_format = OutputFormat::PPM;
 

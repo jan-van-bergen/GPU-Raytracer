@@ -1,7 +1,28 @@
 #pragma once
-#include "../Buffers.h"
 
 #define epsilon 1e-8f // To avoid division by 0
+
+extern __device__ __constant__ float4 * frame_buffer_albedo;
+extern __device__ __constant__ float4 * frame_buffer_direct;
+extern __device__ __constant__ float4 * frame_buffer_indirect;
+
+__device__ __constant__ float4 * frame_buffer_moment;
+
+extern __device__ __constant__ Surface<float4> accumulator;
+
+extern __device__ __constant__ float4 * taa_frame_curr;
+
+// GBuffers
+__device__ __constant__ Surface<float4> gbuffer_normal_and_depth;
+__device__ __constant__ Surface<int2>   gbuffer_mesh_id_and_triangle_id;
+__device__ __constant__ Surface<float2> gbuffer_screen_position_prev;
+
+// SVGF History Buffers (Temporally Integrated)
+__device__ __constant__ int    * history_length;
+__device__ __constant__ float4 * history_direct;
+__device__ __constant__ float4 * history_indirect;
+__device__ __constant__ float4 * history_moment;
+__device__ __constant__ float4 * history_normal_and_depth;
 
 struct Matrix4x4 {
 	float4 row_0;

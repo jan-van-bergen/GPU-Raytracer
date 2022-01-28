@@ -43,7 +43,7 @@ struct BVH2Node {
 
 __device__ __constant__ BVH2Node * bvh2_nodes;
 
-__device__ void bvh2_trace(int bounce, int ray_count, int * rays_retired) {
+__device__ void bvh2_trace(TraversalData * traversal_data, int ray_count, int * rays_retired) {
 	extern __shared__ int shared_stack_bvh2[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -64,8 +64,8 @@ __device__ void bvh2_trace(int bounce, int ray_count, int * rays_retired) {
 			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
-			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
+			ray.origin    = traversal_data->ray_origin   .get(ray_index);
+			ray.direction = traversal_data->ray_direction.get(ray_index);
 
 			ray_hit.t           = INFINITY;
 			ray_hit.triangle_id = INVALID;
@@ -83,8 +83,8 @@ __device__ void bvh2_trace(int bounce, int ray_count, int * rays_retired) {
 
 				if (!mesh_has_identity_transform) {
 					// Reset Ray to untransformed version
-					ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
-					ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
+					ray.origin    = traversal_data->ray_origin   .get(ray_index);
+					ray.direction = traversal_data->ray_direction.get(ray_index);
 				}
 			}
 
@@ -131,15 +131,15 @@ __device__ void bvh2_trace(int bounce, int ray_count, int * rays_retired) {
 			}
 
 			if (stack_size == 0) {
-				get_ray_buffer_trace(bounce)->hits.set(ray_index, ray_hit);
-
+				traversal_data->hits.set(ray_index, ray_hit);
 				break;
 			}
 		}
 	}
 }
 
-__device__ void bvh2_trace_shadow(int bounce, int ray_count, int * rays_retired) {
+template<typename OnMissCallback>
+__device__ void bvh2_trace_shadow(ShadowTraversalData * traveral_data, int ray_count, int * rays_retired, OnMissCallback callback) {
 	extern __shared__ int shared_stack_bvh2[];
 
 	int stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -161,10 +161,10 @@ __device__ void bvh2_trace_shadow(int bounce, int ray_count, int * rays_retired)
 			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
-			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
+			ray.origin    = traveral_data->ray_origin   .get(ray_index);
+			ray.direction = traveral_data->ray_direction.get(ray_index);
 
-			max_distance = ray_buffer_shadow.max_distance[ray_index];
+			max_distance = traveral_data->max_distance[ray_index];
 
 			tlas_stack_size = INVALID;
 
@@ -179,8 +179,8 @@ __device__ void bvh2_trace_shadow(int bounce, int ray_count, int * rays_retired)
 
 				if (!mesh_has_identity_transform) {
 					// Reset Ray to untransformed version
-					ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
-					ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
+					ray.origin    = traveral_data->ray_origin   .get(ray_index);
+					ray.direction = traveral_data->ray_direction.get(ray_index);
 				}
 			}
 
@@ -207,18 +207,14 @@ __device__ void bvh2_trace_shadow(int bounce, int ray_count, int * rays_retired)
 						stack_push(shared_stack_bvh2, stack, stack_size, root_index);
 					} else {
 						bool hit = false;
-
 						for (int i = node.first; i < node.first + node.count; i++) {
 							if (triangle_intersect_shadow(i, ray, max_distance)) {
 								hit = true;
-
 								break;
 							}
 						}
-
 						if (hit) {
 							stack_size = 0;
-
 							break;
 						}
 					}
@@ -239,17 +235,8 @@ __device__ void bvh2_trace_shadow(int bounce, int ray_count, int * rays_retired)
 			}
 
 			if (stack_size == 0) {
-				// We didn't hit anything, apply illumination
-				float4 illumination_and_pixel_index = ray_buffer_shadow.illumination_and_pixel_index[ray_index];
-				float3 illumination = make_float3(illumination_and_pixel_index);
-				int    pixel_index  = __float_as_int(illumination_and_pixel_index.w);
-
-				if (bounce == 0) {
-					frame_buffer_direct[pixel_index] += make_float4(illumination);
-				} else {
-					frame_buffer_indirect[pixel_index] += make_float4(illumination);
-				}
-
+				// We didn't hit anything, call callback
+				callback(ray_index);
 				break;
 			}
 		}

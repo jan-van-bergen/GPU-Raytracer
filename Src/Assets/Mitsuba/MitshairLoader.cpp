@@ -4,7 +4,7 @@
 
 #include "Math/Quaternion.h"
 
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Triangle.h"
 
 Array<Triangle> MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, float radius) {
 	String file = IO::file_read(filename);

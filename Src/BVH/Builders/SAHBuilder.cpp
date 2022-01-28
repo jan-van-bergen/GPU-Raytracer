@@ -7,7 +7,7 @@
 #include "BVH/BVH.h"
 #include "BVHPartitions.h"
 
-#include "Pathtracer/Mesh.h"
+#include "Renderer/Mesh.h"
 
 template<typename Primitive>
 static void build_bvh_recursive(SAHBuilder & builder, BVHNode2 & node, const Array<Primitive> & primitives, int * indices[3], int first_index, int index_count) {

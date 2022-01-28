@@ -1,7 +1,7 @@
 #pragma once
 #include "Config.h"
 
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Triangle.h"
 
 #include "Core/Array.h"
 #include "Core/OwnPtr.h"

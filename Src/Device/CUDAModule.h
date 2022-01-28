@@ -32,7 +32,7 @@ struct CUDAModule {
 		}
 	};
 
-	void init(const String & filename, int compute_capability, int max_registers);
+	void init(const String & module_name, const String & filename, int compute_capability, int max_registers);
 	void free();
 
 	Global get_global(const char * variable_name) const;

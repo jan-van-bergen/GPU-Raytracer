@@ -1,4 +1,5 @@
 #pragma once
+#include "Raytracing/Ray.h"
 #include "Sampling.h"
 
 constexpr int TAA_HALTON_NUM_SAMPLES = 4;

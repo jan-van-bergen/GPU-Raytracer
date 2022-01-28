@@ -76,7 +76,7 @@ __device__ inline void unpack_bvh4_node(unsigned packed, int & index, int & id) 
 	id    = packed >> 30;
 }
 
-__device__ inline void bvh4_trace(int bounce, int ray_count, int * rays_retired) {
+__device__ inline void bvh4_trace(TraversalData * traversal_data, int ray_count, int * rays_retired) {
 	extern __shared__ unsigned shared_stack_bvh4[];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -97,8 +97,8 @@ __device__ inline void bvh4_trace(int bounce, int ray_count, int * rays_retired)
 			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
-			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
+			ray.origin    = traversal_data->ray_origin   .get(ray_index);
+			ray.direction = traversal_data->ray_direction.get(ray_index);
 
 			ray_hit.t           = INFINITY;
 			ray_hit.triangle_id = INVALID;
@@ -116,8 +116,8 @@ __device__ inline void bvh4_trace(int bounce, int ray_count, int * rays_retired)
 
 				if (!mesh_has_identity_transform) {
 					// Reset Ray to untransformed version
-					ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
-					ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
+					ray.origin    = traversal_data->ray_origin   .get(ray_index);
+					ray.direction = traversal_data->ray_direction.get(ray_index);
 				}
 			}
 
@@ -172,15 +172,15 @@ __device__ inline void bvh4_trace(int bounce, int ray_count, int * rays_retired)
 			}
 
 			if (stack_size == 0) {
-				get_ray_buffer_trace(bounce)->hits.set(ray_index, ray_hit);
-
+				traversal_data->hits.set(ray_index, ray_hit);
 				break;
 			}
 		}
 	}
 }
 
-__device__ inline void bvh4_trace_shadow(int bounce, int ray_count, int * rays_retired) {
+template<typename OnMissCallback>
+__device__ inline void bvh4_trace_shadow(ShadowTraversalData * traversal_data, int ray_count, int * rays_retired, OnMissCallback callback) {
 	extern __shared__ unsigned shared_stack_bvh4[];
 
 	unsigned stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -202,10 +202,10 @@ __device__ inline void bvh4_trace_shadow(int bounce, int ray_count, int * rays_r
 			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
-			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
+			ray.origin    = traversal_data->ray_origin   .get(ray_index);
+			ray.direction = traversal_data->ray_direction.get(ray_index);
 
-			max_distance = ray_buffer_shadow.max_distance[ray_index];
+			max_distance = traversal_data->max_distance[ray_index];
 
 			tlas_stack_size = INVALID;
 
@@ -220,8 +220,8 @@ __device__ inline void bvh4_trace_shadow(int bounce, int ray_count, int * rays_r
 
 				if (!mesh_has_identity_transform) {
 					// Reset Ray to untransformed version
-					ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
-					ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
+					ray.origin    = traversal_data->ray_origin   .get(ray_index);
+					ray.direction = traversal_data->ray_direction.get(ray_index);
 				}
 			}
 
@@ -287,17 +287,8 @@ __device__ inline void bvh4_trace_shadow(int bounce, int ray_count, int * rays_r
 			}
 
 			if (stack_size == 0) {
-				// We didn't hit anything, apply illumination
-				float4 illumination_and_pixel_index = ray_buffer_shadow.illumination_and_pixel_index[ray_index];
-				float3 illumination = make_float3(illumination_and_pixel_index);
-				int    pixel_index  = __float_as_int(illumination_and_pixel_index.w);
-
-				if (bounce == 0) {
-					frame_buffer_direct[pixel_index] += make_float4(illumination);
-				} else {
-					frame_buffer_indirect[pixel_index] += make_float4(illumination);
-				}
-
+				// We didn't hit anything, call callback
+				callback(index);
 				break;
 			}
 		}

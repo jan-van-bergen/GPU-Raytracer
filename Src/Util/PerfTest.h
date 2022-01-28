@@ -1,5 +1,8 @@
 #pragma once
-#include "Pathtracer/Pathtracer.h"
+#include "Math/Vector3.h"
+#include "Math/Quaternion.h"
+
+#include "Renderer/Integrators/Integrator.h"
 
 struct PerfTest {
 private:
@@ -19,7 +22,7 @@ private:
 	int index_pov;
 	int index_buffer;
 
-	Pathtracer & pathtracer;
+	Integrator & integrator;
 
 	Array<POV> * povs;
 
@@ -56,7 +59,7 @@ public:
 		{ Vector3(-7.894484f, 2.674741f, 0.916597f),   Quaternion(0.104225f, 0.628730f, 0.085566f, -0.765840f), { } },
 	};
 
-	PerfTest(Pathtracer & pathtracer, bool enabled, StringView scene_name);
+	PerfTest(Integrator & integrator, bool enabled, StringView scene_name);
 
 	void frame_begin();
 	bool frame_end(float frame_time);

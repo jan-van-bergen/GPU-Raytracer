@@ -96,7 +96,7 @@ static String scan_includes_recursive(const String & filename, StringView direct
 	return source;
 }
 
-void CUDAModule::init(const String & filename, int compute_capability, int max_registers) {
+void CUDAModule::init(const String & module_name, const String & filename, int compute_capability, int max_registers) {
 	ScopeTimer timer("CUDA Module Init"_sv);
 
 	if (!IO::file_exists(filename.view())) {
@@ -137,9 +137,7 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 			}
 
 			// Create NVRTC Program from the source and all includes
-			NVRTC_CALL(nvrtcCreateProgram(&program, source.data(), "Pathtracer", int(num_includes), include_sources.data(), include_names.data()));
-
-			includes.clear();
+			NVRTC_CALL(nvrtcCreateProgram(&program, source.data(), module_name.c_str(), int(num_includes), include_sources.data(), include_names.data()));
 
 			// Configure options
 			String option_compute = Format().format("--gpu-architecture=compute_{}"_sv, compute_capability);
@@ -174,17 +172,18 @@ void CUDAModule::init(const String & filename, int compute_capability, int max_r
 			__debugbreak(); // Compile error
 
 			// Reload file and try again
+			includes.clear();
 			source = scan_includes_recursive(filename, path, includes, ptx_filename.view(), should_recompile);
 		}
 
 		// Obtain PTX from NVRTC
-		size_t ptx_size;           NVRTC_CALL(nvrtcGetPTXSize(program, &ptx_size));
-		Array<char> ptx(ptx_size); NVRTC_CALL(nvrtcGetPTX    (program, ptx.data()));
+		size_t ptx_size;      NVRTC_CALL(nvrtcGetPTXSize(program, &ptx_size));
+		String ptx(ptx_size); NVRTC_CALL(nvrtcGetPTX    (program, ptx.data()));
 
 		NVRTC_CALL(nvrtcDestroyProgram(&program));
 
 		// Cache PTX on disk
-		IO::file_write(ptx_filename, StringView { ptx.data(), ptx.data() + ptx.size() });
+		IO::file_write(ptx_filename, ptx.view());
 	} else {
 		IO::print("CUDA Module '{}' did not need to recompile.\n"_sv, filename);
 	}
