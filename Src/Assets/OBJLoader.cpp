@@ -57,6 +57,28 @@ static Index parse_index(Parser & parser) {
 	return index;
 }
 
+static Vector3 parse_v(Parser & parser) {
+	Vector3 v = parse_vector3(parser);
+	parser.skip_whitespace();
+	if (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
+		parser.parse_float(); // w coordinate, ignored
+	}
+	return v;
+}
+
+static Vector2 parse_vt(Parser & parser) {
+	Vector2 vt = parse_vector2(parser);
+	parser.skip_whitespace();
+	if (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
+		parser.parse_float(); // w coordinate, ignored
+	}
+	return vt;
+}
+
+static Vector3 parse_vn(Parser & parser) {
+	return parse_vector3(parser);
+}
+
 static void parse_face(Parser & parser, Array<Face> & faces) {
 	// Parse first triangular face
 	Index index_0 = parse_index(parser);
@@ -100,9 +122,9 @@ static OBJFile parse_obj(const String & filename) {
 				parser.advance();
 			}
 		}
-		else if (parser.match("v "))  obj.positions .push_back(parse_vector3(parser));
-		else if (parser.match("vt ")) obj.tex_coords.push_back(parse_vector2(parser));
-		else if (parser.match("vn ")) obj.normals   .push_back(parse_vector3(parser));
+		else if (parser.match("v "))  obj.positions .push_back(parse_v (parser));
+		else if (parser.match("vt ")) obj.tex_coords.push_back(parse_vt(parser));
+		else if (parser.match("vn ")) obj.normals   .push_back(parse_vn(parser));
 		else if (parser.match("f "))  parse_face(parser, obj.faces);
 		else {
 			while (!parser.reached_end() && !is_newline(*parser.cur)) {
