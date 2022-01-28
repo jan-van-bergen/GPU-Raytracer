@@ -7,6 +7,8 @@ struct OwnPtr {
 
 	OwnPtr() : ptr(nullptr) { }
 
+	OwnPtr(std::nullptr_t) : ptr(nullptr) { }
+
 	explicit OwnPtr(T * ptr) : ptr(ptr) { }
 
 	OwnPtr(const OwnPtr & other) = delete;

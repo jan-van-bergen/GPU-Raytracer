@@ -2,9 +2,23 @@
 #include "Mesh.h"
 #include "Triangle.h"
 
-#include "../Buffers.h"
+#include <Buffers.h>
 
 #define SHARED_STACK_INDEX(offset) ((threadIdx.y * SHARED_STACK_SIZE + offset) * WARP_SIZE + threadIdx.x)
+
+struct TraversalData {
+	Vector3_SoA ray_origin;
+	Vector3_SoA ray_direction;
+
+	HitBuffer hits;
+};
+
+struct ShadowTraversalData {
+	Vector3_SoA ray_origin;
+	Vector3_SoA ray_direction;
+
+	float * max_distance;
+};
 
 // Function that decides whether to push on the shared stack or thread local stack
 template<typename T>

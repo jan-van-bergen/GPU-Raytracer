@@ -7,7 +7,7 @@
 #include "Core/StringView.h"
 
 #include "BVH/BVH.h"
-#include "Pathtracer/MeshData.h"
+#include "Renderer/MeshData.h"
 
 namespace BVHLoader {
 	inline constexpr const char * BVH_FILE_EXTENSION = ".bvh";

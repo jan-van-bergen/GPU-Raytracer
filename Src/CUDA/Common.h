@@ -89,5 +89,4 @@ struct PixelQuery {
 
 	int mesh_id;
 	int triangle_id;
-	int material_id;
 };

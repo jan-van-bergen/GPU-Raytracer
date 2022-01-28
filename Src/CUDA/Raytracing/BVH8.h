@@ -106,7 +106,7 @@ __device__ inline unsigned bvh8_node_intersect(
 #define N_d 4
 #define N_w 16
 
-__device__ inline void bvh8_trace(int bounce, int ray_count, int * rays_retired) {
+__device__ inline void bvh8_trace(TraversalData * traversal_data, int ray_count, int * rays_retired) {
 	extern __shared__ uint2 shared_stack_bvh8[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -133,8 +133,8 @@ __device__ inline void bvh8_trace(int bounce, int ray_count, int * rays_retired)
 			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = get_ray_buffer_trace(bounce)->origin   .get(ray_index);
-			ray.direction = get_ray_buffer_trace(bounce)->direction.get(ray_index);
+			ray.origin    = traversal_data->ray_origin   .get(ray_index);
+			ray.direction = traversal_data->ray_direction.get(ray_index);
 			ray_untransformed = ray;
 
 			oct_inv4 = ray_get_octant_inv4(ray.direction);
@@ -244,7 +244,7 @@ __device__ inline void bvh8_trace(int bounce, int ray_count, int * rays_retired)
 
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
-					get_ray_buffer_trace(bounce)->hits.set(ray_index, ray_hit);
+					traversal_data->hits.set(ray_index, ray_hit);
 
 					current_group.y = 0;
 
@@ -269,7 +269,8 @@ __device__ inline void bvh8_trace(int bounce, int ray_count, int * rays_retired)
 	}
 }
 
-__device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_retired) {
+template<typename OnMissCallback>
+__device__ inline void bvh8_trace_shadow(ShadowTraversalData * traversal_data, int ray_count, int * rays_retired, OnMissCallback callback) {
 	extern __shared__ uint2 shared_stack_bvh8[];
 
 	uint2 stack[BVH_STACK_SIZE - SHARED_STACK_SIZE];
@@ -277,15 +278,13 @@ __device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_r
 
 	uint2 current_group = make_uint2(0, 0);
 
+	int ray_index;
 	Ray ray;
 	Ray ray_untransformed;
 
 	unsigned oct_inv4;
 
 	float max_distance;
-
-	float3 illumination; 
-	int    pixel_index;
 
 	int  tlas_stack_size;
 	int  mesh_id;
@@ -295,22 +294,18 @@ __device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_r
 		bool inactive = stack_size == 0 && current_group.y == 0;
 
 		if (inactive) {
-			int ray_index = atomicAdd(rays_retired, 1);
+			ray_index = atomicAdd(rays_retired, 1);
 			if (ray_index >= ray_count) return;
 
-			ray.origin    = ray_buffer_shadow.ray_origin   .get(ray_index);
-			ray.direction = ray_buffer_shadow.ray_direction.get(ray_index);
+			ray.origin    = traversal_data->ray_origin   .get(ray_index);
+			ray.direction = traversal_data->ray_direction.get(ray_index);
 			ray_untransformed = ray;
 
 			oct_inv4 = ray_get_octant_inv4(ray.direction);
 
 			current_group = make_uint2(0, 0x80000000);
 
-			max_distance = ray_buffer_shadow.max_distance[ray_index];
-
-			float4 illumination_and_pixel_index = ray_buffer_shadow.illumination_and_pixel_index[ray_index];
-			illumination = make_float3(illumination_and_pixel_index);
-			pixel_index  = __float_as_int(illumination_and_pixel_index.w);
+			max_distance = traversal_data->max_distance[ray_index];
 
 			tlas_stack_size = INVALID;
 		}
@@ -331,8 +326,6 @@ __device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_r
 
 				// If the node group is not yet empty, push it on the stack
 				if (current_group.y & 0xff000000) {
-					// assert(stack_size < BVH_STACK_SIZE);
-
 					stack_push(shared_stack_bvh8, stack, stack_size, current_group);
 				}
 
@@ -401,7 +394,6 @@ __device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_r
 					if (thread_count < postpone_threshold) {
 						// Not enough threads currently active that want to check triangle intersection, postpone by pushing on the stack
 						stack_push(shared_stack_bvh8, stack, stack_size, triangle_group);
-
 						break;
 					}
 
@@ -410,7 +402,6 @@ __device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_r
 
 					if (triangle_intersect_shadow(triangle_group.x + triangle_index, ray, max_distance)) {
 						hit = true;
-
 						break;
 					}
 				}
@@ -419,21 +410,14 @@ __device__ inline void bvh8_trace_shadow(int bounce, int ray_count, int * rays_r
 			if (hit) {
 				stack_size      = 0;
 				current_group.y = 0;
-
 				break;
 			}
 
 			if ((current_group.y & 0xff000000) == 0) {
 				if (stack_size == 0) {
-					// We didn't hit anything, apply illumination
-					if (bounce == 0) {
-						frame_buffer_direct[pixel_index] += make_float4(illumination);
-					} else {
-						frame_buffer_indirect[pixel_index] += make_float4(illumination);
-					}
-
+					// We didn't hit anything, call callback
+					callback(ray_index);
 					current_group.y = 0;
-
 					break;
 				}
 

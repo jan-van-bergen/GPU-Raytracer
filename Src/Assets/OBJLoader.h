@@ -1,5 +1,5 @@
 #pragma once
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Triangle.h"
 
 #include "Core/String.h"
 

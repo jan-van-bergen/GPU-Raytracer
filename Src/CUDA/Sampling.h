@@ -1,5 +1,6 @@
 #pragma once
 #include "Util.h"
+#include "Config.h"
 
 __device__ __constant__ float2 * pmj_samples;
 __device__ __constant__ uchar2 * blue_noise_textures;

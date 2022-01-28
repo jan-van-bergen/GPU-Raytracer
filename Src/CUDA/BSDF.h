@@ -23,7 +23,7 @@ struct BSDFDiffuse {
         material = material_as_diffuse(material_id);
     }
 
-	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod) {
+	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod, float4 * frame_buffer_albedo) {
 		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
 
 		if (bounce > 0) {
@@ -109,7 +109,7 @@ struct BSDFPlastic {
 		material = material_as_plastic(material_id);
 	}
 
-	__device__ void calc_albedo(int bounce, int pixel_index, float3 & ray_throughput, float2 tex_coord, const TextureLOD & lod) {
+	__device__ void calc_albedo(int bounce, int pixel_index, float3 & ray_throughput, float2 tex_coord, const TextureLOD & lod, float4 * frame_buffer_albedo) {
 		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
 
 		if (bounce == 0 && (config.enable_albedo || config.enable_svgf)) {
@@ -228,7 +228,7 @@ struct BSDFDielectric {
 		eta = entering_material ? 1.0f / material.ior : material.ior;
 	}
 
-	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod) {
+	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod, float4 * frame_buffer_albedo) {
 		// NO-OP
 	}
 
@@ -351,7 +351,7 @@ struct BSDFConductor {
 		material = material_as_conductor(material_id);
 	}
 
-	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod) {
+	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod, float4 * frame_buffer_albedo) {
 		// NO-OP
 	}
 

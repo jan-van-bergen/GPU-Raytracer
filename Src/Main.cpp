@@ -2,7 +2,8 @@
 
 #include <Imgui/imgui.h>
 
-#include "Pathtracer/Pathtracer.h"
+#include "Renderer/Integrators/AO.h"
+#include "Renderer/Integrators/Pathtracer.h"
 
 #include "Config.h"
 #include "Args.h"
@@ -51,9 +52,11 @@ struct Timing {
 static int last_pixel_query_x;
 static int last_pixel_query_y;
 
-static void capture_screen(const Window & window, const Pathtracer & pathtracer, const String & filename);
+static bool integrator_change_requested = false;
+
+static void capture_screen(const Window & window, const String & filename);
 static void calc_timing();
-static void draw_gui(Window & window, Pathtracer & pathtracer);
+static void draw_gui(Window & window, Integrator & integrator);
 
 int main(int num_args, char ** args) {
 	Args::parse(num_args, args);
@@ -68,18 +71,26 @@ int main(int num_args, char ** args) {
 	Timer timer = { };
 	timer.start();
 
+	for (int i = 1; i < PMJ_NUM_SEQUENCES; i++) {
+		PMJ::shuffle(i);
+	}
+
 	Window window("Pathtracer"_sv, cpu_config.initial_width, cpu_config.initial_height);
 
 	CUDAContext::init();
 
-	Pathtracer pathtracer(window.frame_buffer_handle, cpu_config.initial_width, cpu_config.initial_height);
+	Scene scene = { };
 
-	window.resize_handler = [&pathtracer](unsigned frame_buffer_handle, int width, int height) {
-		pathtracer.resize_free();
-		pathtracer.resize_init(frame_buffer_handle, width, height);
+	OwnPtr<Integrator> integrator = nullptr;
+	integrator_change_requested = true;
+	window.resize_handler = [&integrator](unsigned frame_buffer_handle, int width, int height) {
+		if (integrator) {
+			integrator->resize_free();
+			integrator->resize_init(frame_buffer_handle, width, height);
+		}
 	};
 
-	PerfTest perf_test(pathtracer, false, cpu_config.scene_filenames[0].view());
+	PerfTest perf_test(*integrator.get(), false, cpu_config.scene_filenames[0].view());
 
 	size_t initialization_time = timer.stop();
 	Timer::print_named_duration("Initialization"_sv, initialization_time);
@@ -96,13 +107,27 @@ int main(int num_args, char ** args) {
 	while (!window.is_closed) {
 		perf_test.frame_begin();
 
-		pathtracer.update((float)timing.delta_time);
-		pathtracer.render();
+		if (integrator_change_requested) {
+			integrator_change_requested = false;
+
+			if (integrator) {
+				integrator->cuda_free();
+			}
+
+			switch (cpu_config.integrator) {
+				case IntegratorType::PATHTRACER: integrator = make_owned<Pathtracer>(window.frame_buffer_handle, window.width, window.height, scene); break;
+				case IntegratorType::AO:         integrator = make_owned<AO>        (window.frame_buffer_handle, window.width, window.height, scene); break;
+				default: ASSERT(false);
+			}
+		}
+
+		integrator->update((float)timing.delta_time);
+		integrator->render();
 
 		window.render_framebuffer();
 
-		if (pathtracer.sample_index == cpu_config.output_sample_index) {
-			capture_screen(window, pathtracer, cpu_config.output_filename);
+		if (integrator->sample_index == cpu_config.output_sample_index) {
+			capture_screen(window, cpu_config.output_filename);
 			break; // Exit render loop and terimate
 		}
 		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
@@ -113,34 +138,33 @@ int main(int num_args, char ** args) {
 				default: ASSERT(false);
 			}
 
-			String screenshot_name = Format().format("screenshot_{}.{}"_sv, pathtracer.sample_index, ext);
-			capture_screen(window, pathtracer, screenshot_name);
+			String screenshot_name = Format().format("screenshot_{}.{}"_sv, integrator->sample_index, ext);
+			capture_screen(window, screenshot_name);
 
 			timing.time_of_last_screenshot = timing.now;
 		}
 
 		if (ImGui::IsMouseClicked(1)) {
 			// Deselect current object
-			pathtracer.pixel_query.pixel_index = INVALID;
-			pathtracer.pixel_query.mesh_id     = INVALID;
-			pathtracer.pixel_query.triangle_id = INVALID;
-			pathtracer.pixel_query.material_id = INVALID;
+			integrator->pixel_query.pixel_index = INVALID;
+			integrator->pixel_query.mesh_id     = INVALID;
+			integrator->pixel_query.triangle_id = INVALID;
 		}
 
 		if (ImGui::IsMouseClicked(0) && !ImGui::GetIO().WantCaptureMouse) {
 			Input::mouse_position(&last_pixel_query_x, &last_pixel_query_y);
 
-			pathtracer.set_pixel_query(last_pixel_query_x, last_pixel_query_y);
+			integrator->set_pixel_query(last_pixel_query_x, last_pixel_query_y);
 		}
 
 		calc_timing();
-		draw_gui(window, pathtracer);
+		draw_gui(window, *integrator.get());
 
 		if (Input::is_key_released(SDL_SCANCODE_F5)) {
 			ScopeTimer timer("Hot Reload"_sv);
 
-			pathtracer.cuda_free();
-			pathtracer.cuda_init(window.frame_buffer_handle, window.width, window.height);
+			integrator->cuda_free();
+			integrator->cuda_init(window.frame_buffer_handle, window.width, window.height);
 		}
 
 		if (perf_test.frame_end((float)timing.delta_time)) break;
@@ -155,7 +179,7 @@ int main(int num_args, char ** args) {
 	return EXIT_SUCCESS;
 }
 
-static void capture_screen(const Window & window, const Pathtracer & pathtracer, const String & filename) {
+static void capture_screen(const Window & window, const String & filename) {
 	ScopeTimer timer("Screenshot"_sv);
 
 	using Exporter = void (*)(const String & filename, int pitch, int width, int height, const Array<Vector3> & data);
@@ -236,7 +260,19 @@ static void calc_timing() {
 	}
 }
 
-static void draw_gui(Window & window, Pathtracer & pathtracer) {
+// Helper function to convert any enum to int representation, show in ImGui ComboBox, and convert back to enum representation
+template<typename Enum>
+static bool ImGui_Combo(const char * label, Enum * current_item, const char * items_separated_by_zeros, int height_in_items = -1) {
+	int as_int = int(*current_item);
+	if (ImGui::Combo(label, &as_int, items_separated_by_zeros, height_in_items)) {
+		*current_item = Enum(as_int);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static void draw_gui(Window & window, Integrator & integrator) {
 	window.gui_begin();
 
 	if (ImGui::Begin("Config")) {
@@ -245,7 +281,7 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 			size_t time_in_minutes = time_in_seconds / 60;
 			size_t time_in_hours   = time_in_minutes / 60;
 
-			ImGui::Text("Frame: %i", pathtracer.sample_index);
+			ImGui::Text("Frame: %i", integrator.sample_index);
 			ImGui::Text("Time:  %0.2llu:%0.2llu:%0.2llu", time_in_hours, time_in_minutes % 60, time_in_seconds % 60);
 			ImGui::Text("Delta: %.2f ms (%i fps)", 1000.0f * timing.delta_time, timing.fps);
 			ImGui::Text("Avg:   %.2f ms", 1000.0f * timing.avg);
@@ -260,19 +296,19 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 			}
 		}
 
-		if (ImGui::CollapsingHeader("Kernel Timings")) {
+		if (ImGui::CollapsingHeader("Kernel Timings") && integrator.event_pool.num_used > 0) {
 			struct EventTiming {
 				CUDAEvent::Desc desc;
 				float           timing;
 			};
 
-			Array<EventTiming> event_timings(pathtracer.event_pool.num_used - 1);
+			Array<EventTiming> event_timings(integrator.event_pool.num_used - 1);
 
 			for (size_t i = 0; i < event_timings.size(); i++) {
-				event_timings[i].desc = pathtracer.event_pool.pool[i].desc;
+				event_timings[i].desc = integrator.event_pool.pool[i].desc;
 				event_timings[i].timing = CUDAEvent::time_elapsed_between(
-					pathtracer.event_pool.pool[i],
-					pathtracer.event_pool.pool[i + 1]
+					integrator.event_pool.pool[i],
+					integrator.event_pool.pool[i + 1]
 				);
 			}
 
@@ -337,73 +373,39 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 			}
 		}
 
-		bool invalidated_config = false;
-
 		if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
-			invalidated_config |= ImGui::Combo("Reconstruction Filter", reinterpret_cast<int *>(&gpu_config.reconstruction_filter), "Box\0Tent\0Gaussian\0");
-
-			ImGui::Combo("Output Format", reinterpret_cast<int *>(&cpu_config.screenshot_format), "EXR\0PPM\0");
-
-			invalidated_config |= ImGui::SliderInt("Num Bounces", &gpu_config.num_bounces, 0, MAX_BOUNCES);
-
-			invalidated_config |= ImGui::Checkbox("NEE", &gpu_config.enable_next_event_estimation);
-			invalidated_config |= ImGui::Checkbox("MIS", &gpu_config.enable_multiple_importance_sampling);
-
-			invalidated_config |= ImGui::Checkbox("Russian Roulete", &gpu_config.enable_russian_roulette);
-
-			invalidated_config |= ImGui::Checkbox("Update Scene", &cpu_config.enable_scene_update);
-			invalidated_config |= ImGui::Checkbox("Modulate Albedo",  &gpu_config.enable_albedo);
-		}
-
-		if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-			float fov = Math::rad_to_deg(pathtracer.scene.camera.fov);
-			if (ImGui::SliderFloat("FOV", &fov, 0.0f, 179.0f)) {
-				pathtracer.scene.camera.set_fov(Math::deg_to_rad(fov));
-				pathtracer.invalidated_camera = true;
-			}
-
-			pathtracer.invalidated_camera |= ImGui::SliderFloat("Aperture", &pathtracer.scene.camera.aperture_radius, 0.0f, 1.0f);
-			pathtracer.invalidated_camera |= ImGui::SliderFloat("Focus",    &pathtracer.scene.camera.focal_distance, 0.001f, 50.0f);
-		}
-
-		if (ImGui::CollapsingHeader("SVGF")) {
-			if (ImGui::Checkbox("Enable", &gpu_config.enable_svgf)) {
-				if (gpu_config.enable_svgf) {
-					pathtracer.svgf_init();
-				} else {
-					pathtracer.svgf_free();
+			IntegratorType previous_integrator = cpu_config.integrator;
+			if (ImGui_Combo("Integrator", &cpu_config.integrator, "Pathtracer\0AO\0")) {
+				if (cpu_config.integrator != previous_integrator) {
+					integrator_change_requested = true;
+					ImGui::TextUnformatted("Loading Integrator...");
 				}
-				invalidated_config = true;
 			}
 
-			invalidated_config |= ImGui::Checkbox("Spatial Variance", &gpu_config.enable_spatial_variance);
-			invalidated_config |= ImGui::Checkbox("TAA",              &gpu_config.enable_taa);
+			integrator.invalidated_gpu_config |= ImGui_Combo("Reconstruction Filter", &gpu_config.reconstruction_filter, "Box\0Tent\0Gaussian\0");
 
-			invalidated_config |= ImGui::SliderInt("A Trous iterations", &gpu_config.num_atrous_iterations, 0, MAX_ATROUS_ITERATIONS);
-
-			invalidated_config |= ImGui::SliderFloat("Alpha colour", &gpu_config.alpha_colour, 0.0f, 1.0f);
-			invalidated_config |= ImGui::SliderFloat("Alpha moment", &gpu_config.alpha_moment, 0.0f, 1.0f);
+			ImGui_Combo("Output Format", &cpu_config.screenshot_format, "EXR\0PPM\0");
 		}
 
-		pathtracer.invalidated_config = invalidated_config;
+		integrator.render_gui();
 	}
 	ImGui::End();
 
 	if (ImGui::Begin("Scene")) {
-		if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Has Diffuse:    %s", pathtracer.scene.has_diffuse    ? "True" : "False");
-			ImGui::Text("Has Plastic:    %s", pathtracer.scene.has_plastic    ? "True" : "False");
-			ImGui::Text("Has Dielectric: %s", pathtracer.scene.has_dielectric ? "True" : "False");
-			ImGui::Text("Has Conductor:  %s", pathtracer.scene.has_conductor  ? "True" : "False");
-			ImGui::Text("Has Lights:     %s", pathtracer.scene.has_lights     ? "True" : "False");
+		if (ImGui::CollapsingHeader("General", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Text("Has Diffuse:    %s", integrator.scene.has_diffuse    ? "True" : "False");
+			ImGui::Text("Has Plastic:    %s", integrator.scene.has_plastic    ? "True" : "False");
+			ImGui::Text("Has Dielectric: %s", integrator.scene.has_dielectric ? "True" : "False");
+			ImGui::Text("Has Conductor:  %s", integrator.scene.has_conductor  ? "True" : "False");
+			ImGui::Text("Has Lights:     %s", integrator.scene.has_lights     ? "True" : "False");
 
 			size_t triangle_count       = 0;
 			size_t light_mesh_count     = 0;
 			size_t light_triangle_count = 0;
 
-			for (int i = 0; i < pathtracer.scene.meshes.size(); i++) {
-				const Mesh     & mesh      = pathtracer.scene.meshes[i];
-				const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
+			for (int i = 0; i < integrator.scene.meshes.size(); i++) {
+				const Mesh     & mesh      = integrator.scene.meshes[i];
+				const MeshData & mesh_data = integrator.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
 				triangle_count += mesh_data.triangles.size();
 
@@ -413,25 +415,38 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 				}
 			}
 
-			ImGui::Text("Meshes:          %zu", pathtracer.scene.meshes.size());
+			ImGui::Text("Meshes:          %zu", integrator.scene.meshes.size());
 			ImGui::Text("Triangles:       %zu", triangle_count);
 			ImGui::Text("Light Meshes:    %zu", light_mesh_count);
 			ImGui::Text("Light Triangles: %zu", light_triangle_count);
+			ImGui::Separator();
+
+			ImGui::Checkbox("Update Scene", &cpu_config.enable_scene_update);
+		}
+
+		if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+			float fov = Math::rad_to_deg(integrator.scene.camera.fov);
+			if (ImGui::SliderFloat("FOV", &fov, 0.0f, 179.0f)) {
+				integrator.scene.camera.set_fov(Math::deg_to_rad(fov));
+				integrator.invalidated_camera = true;
+			}
+
+			integrator.invalidated_camera |= ImGui::SliderFloat("Aperture", &integrator.scene.camera.aperture_radius, 0.0f, 1.0f);
+			integrator.invalidated_camera |= ImGui::SliderFloat("Focus",    &integrator.scene.camera.focal_distance, 0.001f, 50.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen)) {
 			ImGui::BeginChild("Meshes", ImVec2(0, 200), true);
 
-			for (int m = 0; m < pathtracer.scene.meshes.size(); m++) {
-				const Mesh & mesh = pathtracer.scene.meshes[m];
+			for (int m = 0; m < integrator.scene.meshes.size(); m++) {
+				const Mesh & mesh = integrator.scene.meshes[m];
 
-				bool is_selected = pathtracer.pixel_query.mesh_id == m;
+				bool is_selected = integrator.pixel_query.mesh_id == m;
 
 				ImGui::PushID(m);
 				if (ImGui::Selectable(mesh.name.data(), &is_selected)) {
-					pathtracer.pixel_query.mesh_id     = m;
-					pathtracer.pixel_query.triangle_id = INVALID;
-					pathtracer.pixel_query.material_id = mesh.material_handle.handle;
+					integrator.pixel_query.mesh_id     = m;
+					integrator.pixel_query.triangle_id = INVALID;
 				}
 				ImGui::PopID();
 			}
@@ -439,8 +454,8 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 			ImGui::EndChild();
 		}
 
-		if (pathtracer.pixel_query.mesh_id != INVALID) {
-			Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
+		if (integrator.pixel_query.mesh_id != INVALID) {
+			Mesh & mesh = integrator.scene.meshes[integrator.pixel_query.mesh_id];
 
 			if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen)) {
 				ImGui::TextUnformatted(mesh.name.data());
@@ -469,91 +484,79 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 
 				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
 
-				if (mesh_changed) pathtracer.invalidated_scene = true;
+				if (mesh_changed) integrator.invalidated_scene = true;
 			}
-		}
 
-		if (pathtracer.pixel_query.material_id != INVALID) {
-			Material & material = pathtracer.scene.asset_manager.get_material(MaterialHandle { pathtracer.pixel_query.material_id });
+			if (mesh.material_handle.handle != INVALID) {
+				Material & material = integrator.scene.asset_manager.get_material(mesh.material_handle);
 
-			if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
-				ImGui::Text("Name: %s", material.name.data());
+				if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
+					ImGui::Text("Name: %s", material.name.data());
 
-				bool material_changed = false;
+					integrator.invalidated_materials |= ImGui_Combo("Type", &material.type, "Light\0Diffuse\0Plastic\0Dielectric\0Conductor\0");
 
-				int material_type = int(material.type);
-				if (ImGui::Combo("Type", &material_type, "Light\0Diffuse\0Plastic\0Dielectric\0Conductor\0")) {
-					material.type = Material::Type(material_type);
-					material_changed = true;
-				}
-
-				const char * texture_name = "None";
-				if (material.texture_id.handle != INVALID) {
-					const Texture & texture = pathtracer.scene.asset_manager.get_texture(material.texture_id);
-					texture_name = texture.name.data();
-				}
-
-				switch (material.type) {
-					case Material::Type::LIGHT: {
-						material_changed |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
-						break;
-					}
-					case Material::Type::DIFFUSE: {
-						material_changed |= ImGui::ColorEdit3("Diffuse", &material.diffuse.x);
-						material_changed |= ImGui::SliderInt ("Texture", &material.texture_id.handle, -1, int(pathtracer.scene.asset_manager.textures.size() - 1), texture_name);
-						break;
-					}
-					case Material::Type::PLASTIC: {
-						material_changed |= ImGui::ColorEdit3  ("Diffuse",   &material.diffuse.x);
-						material_changed |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, int(pathtracer.scene.asset_manager.textures.size() - 1), texture_name);
-						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
-						break;
-					}
-					case Material::Type::DIELECTRIC: {
-						material_changed |= ImGui::SliderInt  ("Medium",    &material.medium_handle.handle, -1, int(pathtracer.scene.asset_manager.media.size() - 1));
-						material_changed |= ImGui::SliderFloat("IOR",       &material.index_of_refraction, 1.0f, 2.5f);
-						material_changed |= ImGui::SliderFloat("Roughness", &material.linear_roughness,    0.0f, 1.0f);
-						break;
-					}
-					case Material::Type::CONDUCTOR: {
-						material_changed |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
-						material_changed |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
-						material_changed |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
-						break;
+					const char * texture_name = "None";
+					if (material.texture_id.handle != INVALID) {
+						const Texture & texture = integrator.scene.asset_manager.get_texture(material.texture_id);
+						texture_name = texture.name.data();
 					}
 
-					default: ASSERT(false);
-				}
+					switch (material.type) {
+						case Material::Type::LIGHT: {
+							integrator.invalidated_materials |= ImGui::DragFloat3("Emission", &material.emission.x, 0.1f, 0.0f, INFINITY);
+							break;
+						}
+						case Material::Type::DIFFUSE: {
+							integrator.invalidated_materials |= ImGui::ColorEdit3("Diffuse", &material.diffuse.x);
+							integrator.invalidated_materials |= ImGui::SliderInt ("Texture", &material.texture_id.handle, -1, int(integrator.scene.asset_manager.textures.size() - 1), texture_name);
+							break;
+						}
+						case Material::Type::PLASTIC: {
+							integrator.invalidated_materials |= ImGui::ColorEdit3  ("Diffuse",   &material.diffuse.x);
+							integrator.invalidated_materials |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, int(integrator.scene.asset_manager.textures.size() - 1), texture_name);
+							integrator.invalidated_materials |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
+							break;
+						}
+						case Material::Type::DIELECTRIC: {
+							integrator.invalidated_materials |= ImGui::SliderInt  ("Medium",    &material.medium_handle.handle, -1, int(integrator.scene.asset_manager.media.size() - 1));
+							integrator.invalidated_materials |= ImGui::SliderFloat("IOR",       &material.index_of_refraction, 1.0f, 2.5f);
+							integrator.invalidated_materials |= ImGui::SliderFloat("Roughness", &material.linear_roughness,    0.0f, 1.0f);
+							break;
+						}
+						case Material::Type::CONDUCTOR: {
+							integrator.invalidated_materials |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
+							integrator.invalidated_materials |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
+							integrator.invalidated_materials |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
+							break;
+						}
 
-				if (material_changed) pathtracer.invalidated_materials = true;
+						default: ASSERT(false);
+					}
 
-				if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {
-					Medium & medium = pathtracer.scene.asset_manager.get_medium(material.medium_handle);
+					if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {
+						Medium & medium = integrator.scene.asset_manager.get_medium(material.medium_handle);
 
-					Vector3 sigma_a = { };
-					Vector3 sigma_s = { };
-					medium.get_sigmas(sigma_a, sigma_s);
+						Vector3 sigma_a = { };
+						Vector3 sigma_s = { };
+						medium.get_sigmas(sigma_a, sigma_s);
 
-					Vector3 sigma_t = sigma_a + sigma_s;
-					ImGui::Text("Sigma A: %.3f, %.3f, %.3f", sigma_a.x, sigma_a.y, sigma_a.z);
-					ImGui::Text("Sigma S: %.3f, %.3f, %.3f", sigma_s.x, sigma_s.y, sigma_s.z);
-					ImGui::Text("Sigma T: %.3f, %.3f, %.3f", sigma_t.x, sigma_t.y, sigma_t.z);
+						Vector3 sigma_t = sigma_a + sigma_s;
+						ImGui::Text("Sigma A: %.3f, %.3f, %.3f", sigma_a.x, sigma_a.y, sigma_a.z);
+						ImGui::Text("Sigma S: %.3f, %.3f, %.3f", sigma_s.x, sigma_s.y, sigma_s.z);
+						ImGui::Text("Sigma T: %.3f, %.3f, %.3f", sigma_t.x, sigma_t.y, sigma_t.z);
 
-					bool medium_changed = false;
-
-					medium_changed |= ImGui::ColorEdit3  ("Albedo",   &medium.A.x);
-					medium_changed |= ImGui::DragFloat3  ("Distance", &medium.d.x, 0.01f, 0.0f, INFINITY);
-					medium_changed |= ImGui::SliderFloat ("Phase g",  &medium.g,  -1.0f,  1.0f);
-
-					if (medium_changed) pathtracer.invalidated_mediums = true;
+						integrator.invalidated_mediums |= ImGui::ColorEdit3 ("Albedo",   &medium.A.x);
+						integrator.invalidated_mediums |= ImGui::DragFloat3 ("Distance", &medium.d.x, 0.01f, 0.0f, INFINITY);
+						integrator.invalidated_mediums |= ImGui::SliderFloat("Phase g",  &medium.g,  -1.0f,  1.0f);
+					}
 				}
 			}
 		}
 	}
 	ImGui::End();
 
-	if (pathtracer.pixel_query.mesh_id != INVALID) {
-		Mesh & mesh = pathtracer.scene.meshes[pathtracer.pixel_query.mesh_id];
+	if (integrator.pixel_query.mesh_id != INVALID) {
+		Mesh & mesh = integrator.scene.meshes[integrator.pixel_query.mesh_id];
 		ImDrawList * draw_list = ImGui::GetBackgroundDrawList();
 
 		Vector4 aabb_corners[8] = {
@@ -569,10 +572,10 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 
 		// Transform from world space to homogeneous clip space
 		for (int i = 0; i < 8; i++) {
-			aabb_corners[i] = Matrix4::transform(pathtracer.scene.camera.view_projection, aabb_corners[i]);
+			aabb_corners[i] = Matrix4::transform(integrator.scene.camera.view_projection, aabb_corners[i]);
 		}
 
-		auto draw_line_clipped = [draw_list, &window, near_plane = pathtracer.scene.camera.near_plane](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
+		auto draw_line_clipped = [draw_list, &window, near_plane = integrator.scene.camera.near_plane](Vector4 a, Vector4 b, ImColor colour, float thickness = 1.0f) {
 			if (a.z < near_plane && b.z < near_plane) return;
 
 			// Clip against near plane only
@@ -601,10 +604,10 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 		draw_line_clipped(aabb_corners[2], aabb_corners[6], aabb_colour);
 		draw_line_clipped(aabb_corners[3], aabb_corners[7], aabb_colour);
 
-		if (pathtracer.pixel_query.triangle_id != INVALID) {
-			const MeshData & mesh_data = pathtracer.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
+		if (integrator.pixel_query.triangle_id != INVALID) {
+			const MeshData & mesh_data = integrator.scene.asset_manager.get_mesh_data(mesh.mesh_data_handle);
 
-			int              index    = mesh_data.bvh->indices[pathtracer.pixel_query.triangle_id - pathtracer.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
+			int              index    = mesh_data.bvh->indices[integrator.pixel_query.triangle_id - integrator.mesh_data_triangle_offsets[mesh.mesh_data_handle.handle]];
 			const Triangle & triangle = mesh_data.triangles[index];
 
 			int mouse_x, mouse_y;
@@ -614,7 +617,7 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 				Vector3 triangle_center_world = Matrix4::transform_position(mesh.transform, triangle.get_center());
 
 				ImGui::BeginTooltip();
-				ImGui::Text("Distance: %f", Vector3::length(triangle_center_world - pathtracer.scene.camera.position));
+				ImGui::Text("Distance: %f", Vector3::length(triangle_center_world - integrator.scene.camera.position));
 				ImGui::EndTooltip();
 			}
 
@@ -631,8 +634,8 @@ static void draw_gui(Window & window, Pathtracer & pathtracer) {
 			};
 
 			for (int i = 0; i < 3; i++) {
-				triangle_positions[i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
-				triangle_normals  [i] = Matrix4::transform(pathtracer.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
+				triangle_positions[i] = Matrix4::transform(integrator.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
+				triangle_normals  [i] = Matrix4::transform(integrator.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
 			}
 
 			ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);

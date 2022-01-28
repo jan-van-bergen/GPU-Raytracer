@@ -1,5 +1,11 @@
 #pragma once
-#include "../Buffers.h"
+
+__device__ __constant__ float4 * taa_frame_curr;
+__device__ __constant__ float4 * taa_frame_prev;
+
+extern __device__ __constant__ Surface<float4> accumulator;
+
+extern __device__ __constant__ Surface<float2> gbuffer_screen_position_prev;
 
 extern "C" __global__ void kernel_taa(int sample_index) {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;

@@ -1,5 +1,5 @@
 #pragma once
-#include "Ray.h"
+#include "Raytracing/Ray.h"
 
 struct Triangle {
 	float4 part_0; // position_0       xyz and position_edge_1  x

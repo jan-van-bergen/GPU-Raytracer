@@ -2,7 +2,7 @@
 
 #include <miniz/miniz.h>
 
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Triangle.h"
 
 #include "XMLParser.h"
 

@@ -3,7 +3,7 @@
 #include "Core/IO.h"
 #include "Util/StringUtil.h"
 
-PerfTest::PerfTest(Pathtracer & pathtracer, bool enabled, StringView scene_name) : pathtracer(pathtracer), enabled(enabled) {
+PerfTest::PerfTest(Integrator & integrator, bool enabled, StringView scene_name) : integrator(integrator), enabled(enabled) {
 	index_pov    = 0;
 	index_buffer = 0;
 
@@ -24,10 +24,10 @@ void PerfTest::frame_begin() {
 	const POV & pov = (*povs)[index_pov];
 
 	if (index_buffer == 0) {
-		pathtracer.scene.camera.position = pov.position;
-		pathtracer.scene.camera.rotation = pov.rotation;
-		pathtracer.invalidated_camera = true;
-		pathtracer.sample_index = 0;
+		integrator.scene.camera.position = pov.position;
+		integrator.scene.camera.rotation = pov.rotation;
+		integrator.invalidated_camera = true;
+		integrator.sample_index = 0;
 
 		IO::print("POV {}\n"_sv, index_pov);
 	}

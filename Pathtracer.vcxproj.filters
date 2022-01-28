@@ -7,21 +7,6 @@
     <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Camera.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Mesh.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Pathtracer.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Scene.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Sky.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Util\PerfTest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -81,9 +66,6 @@
     </ClCompile>
     <ClCompile Include="Src\Assets\Mitsuba\MitshairLoader.cpp">
       <Filter>Assets\Mitsuba</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Texture.cpp">
-      <Filter>Pathtracer</Filter>
     </ClCompile>
     <ClCompile Include="Src\Device\CUDAMemory.cpp">
       <Filter>Device</Filter>
@@ -149,6 +131,30 @@
     <ClCompile Include="Src\Exporters\EXRExporter.cpp">
       <Filter>Exporters</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Renderer\Scene.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Sky.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Texture.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Camera.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Mesh.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Integrators\Pathtracer.cpp">
+      <Filter>Renderer\Integrators</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Integrators\AO.cpp">
+      <Filter>Renderer\Integrators</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Integrators\Integrator.cpp">
+      <Filter>Renderer\Integrators</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">
@@ -159,9 +165,6 @@
     </Filter>
     <Filter Include="BVH">
       <UniqueIdentifier>{ebb62919-8744-439d-9578-09dfe535ab82}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Pathtracer">
-      <UniqueIdentifier>{294a8797-60a4-4a69-b01a-7c9af82a64c9}</UniqueIdentifier>
     </Filter>
     <Filter Include="Assets">
       <UniqueIdentifier>{6f3338e2-ac89-4452-8dcb-2d4fb9144c6e}</UniqueIdentifier>
@@ -186,6 +189,12 @@
     </Filter>
     <Filter Include="Exporters">
       <UniqueIdentifier>{fa13993b-69d4-460f-84c1-41572d053ea4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer">
+      <UniqueIdentifier>{294a8797-60a4-4a69-b01a-7c9af82a64c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\Integrators">
+      <UniqueIdentifier>{19bb3711-1af8-4298-89b6-e719d008a79f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -218,24 +227,6 @@
     </ClInclude>
     <ClInclude Include="Src\Math\Vector4.h">
       <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Camera.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Mesh.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Pathtracer.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Scene.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Sky.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Triangle.h">
-      <Filter>Pathtracer</Filter>
     </ClInclude>
     <ClInclude Include="Src\Util\PerfTest.h">
       <Filter>Util</Filter>
@@ -296,18 +287,6 @@
     </ClInclude>
     <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h">
       <Filter>Assets\Mitsuba</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Texture.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Material.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Medium.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\MeshData.h">
-      <Filter>Pathtracer</Filter>
     </ClInclude>
     <ClInclude Include="Src\Device\CUDAEvent.h">
       <Filter>Device</Filter>
@@ -402,6 +381,42 @@
     </ClInclude>
     <ClInclude Include="Src\Core\Sort.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Scene.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Sky.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Texture.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Triangle.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Camera.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Material.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Medium.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Mesh.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\MeshData.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Integrators\Integrator.h">
+      <Filter>Renderer\Integrators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Integrators\Pathtracer.h">
+      <Filter>Renderer\Integrators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Integrators\AO.h">
+      <Filter>Renderer\Integrators</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,5 +1,8 @@
 #pragma once
 
+#define INFINITY ((float)(1e+300 * 1e+300))
+#define NAN      ((float)(INFINITY * 0.0f))
+
 #if false
 	#define ASSERT(proposition, fmt, ...) do { /*if (!(proposition)) printf(fmt, __VA_ARGS__);*/ assert(proposition); } while (false)
 #else

@@ -5,10 +5,10 @@
 #include "Core/Mutex.h"
 #include "Core/OwnPtr.h"
 
-#include "Pathtracer/MeshData.h"
-#include "Pathtracer/Material.h"
-#include "Pathtracer/Medium.h"
-#include "Pathtracer/Texture.h"
+#include "Renderer/MeshData.h"
+#include "Renderer/Material.h"
+#include "Renderer/Medium.h"
+#include "Renderer/Texture.h"
 
 #include "BVHLoader.h"
 #include "BVH/BVHCollapser.h"
