@@ -658,6 +658,9 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	// Calculate texture level of detail
 	float mesh_scale = mesh_get_scale(hit.mesh_id);
 
+	// Calculate geometric normal to the triangle.
+	// NOTE: geometric normal is kept in local space since ray_cone_get_texture_gradients() requires this,
+	// it is only later transformed into world space
 	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
 	float  triangle_area_inv = 1.0f / length(geometric_normal);
 	geometric_normal *= triangle_area_inv; // Normalize
@@ -696,6 +699,9 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 		aov_framebuffer_set(AOVType::NORMAL,   pixel_index, make_float4(normal));
 		aov_framebuffer_set(AOVType::POSITION, pixel_index, make_float4(hit_point));
 	}
+
+	matrix3x4_transform_direction(world, geometric_normal);
+	geometric_normal = normalize(geometric_normal);
 
 	// Calulate new Ray Cone angle based on Mesh curvature
 	if (config.enable_mipmapping) {
