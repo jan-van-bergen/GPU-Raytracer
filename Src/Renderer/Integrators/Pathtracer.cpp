@@ -617,18 +617,9 @@ void Pathtracer::update(float delta) {
 		invalidated_mediums = false;
 	}
 
-	if (invalidated_scene) {
-		invalidated_scene = false;
-
-		build_tlas();
-		calc_light_mesh_weights();
-
-		// If SVGF is enabled we can handle Scene updates using reprojection,
-		// otherwise 'frames_accumulated' needs to be reset in order to avoid ghosting
-		if (!gpu_config.enable_svgf) {
-			sample_index = 0;
-		}
-	}
+	// Save this here, TLAS will be updated in Integrator::update if invalidated_scene == true,
+	// calc_light_mesh_weights() will need to be called AFTER the TLAS has been updated.
+	bool invalidated_light_mesh_weights = invalidated_scene;
 
 	if (gpu_config.enable_svgf) {
 		struct SVGFData {
@@ -649,6 +640,16 @@ void Pathtracer::update(float delta) {
 	}
 
 	Integrator::update(delta);
+
+	if (invalidated_light_mesh_weights) {
+		calc_light_mesh_weights();
+
+		// If SVGF is enabled we can handle Scene updates using reprojection,
+		// otherwise 'frames_accumulated' needs to be reset in order to avoid ghosting
+		if (!gpu_config.enable_svgf) {
+			sample_index = 0;
+		}
+	}
 }
 
 void Pathtracer::render() {
