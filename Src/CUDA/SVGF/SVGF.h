@@ -1,10 +1,7 @@
 #pragma once
+#include "AOV.h"
 
 #define epsilon 1e-8f // To avoid division by 0
-
-extern __device__ __constant__ float4 * frame_buffer_albedo;
-extern __device__ __constant__ float4 * frame_buffer_direct;
-extern __device__ __constant__ float4 * frame_buffer_indirect;
 
 __device__ __constant__ float4 * frame_buffer_moment;
 
@@ -138,8 +135,8 @@ extern "C" __global__ void kernel_svgf_reproject(int sample_index) {
 
 	int pixel_index = x + y * screen_pitch;
 
-	float4 direct   = frame_buffer_direct  [pixel_index];
-	float4 indirect = frame_buffer_indirect[pixel_index];
+	float4 direct   = aov_framebuffer_get(AOVType::RADIANCE_DIRECT,   pixel_index);
+	float4 indirect = aov_framebuffer_get(AOVType::RADIANCE_INDIRECT, pixel_index);
 
 	// First two raw moments of luminance
 	float4 moment;
@@ -157,9 +154,8 @@ extern "C" __global__ void kernel_svgf_reproject(int sample_index) {
 
 	// Check if this pixel belongs to the Skybox
 	if (depth == 0.0f) {
-		frame_buffer_direct  [pixel_index] = direct;
-		frame_buffer_indirect[pixel_index] = indirect;
-
+//		aov_framebuffer_set(AOVType::RADIANCE_DIRECT,   pixel_index, direct);
+//		aov_framebuffer_set(AOVType::RADIANCE_INDIRECT, pixel_index, indirect);
 		return;
 	}
 
@@ -280,9 +276,9 @@ extern "C" __global__ void kernel_svgf_reproject(int sample_index) {
 		indirect.w = 1.0f;
 	}
 
-	frame_buffer_direct  [pixel_index] = direct;
-	frame_buffer_indirect[pixel_index] = indirect;
-	frame_buffer_moment  [pixel_index] = moment;
+	aov_framebuffer_set(AOVType::RADIANCE_DIRECT,   pixel_index, direct);
+	aov_framebuffer_set(AOVType::RADIANCE_INDIRECT, pixel_index, indirect);
+	frame_buffer_moment[pixel_index] = moment;
 }
 
 extern "C" __global__ void kernel_svgf_variance(
@@ -303,7 +299,6 @@ extern "C" __global__ void kernel_svgf_variance(
 	if (history >= 4) {
 		colour_direct_out  [pixel_index] = colour_direct_in  [pixel_index];
 		colour_indirect_out[pixel_index] = colour_indirect_in[pixel_index];
-
 		return;
 	}
 
@@ -329,7 +324,6 @@ extern "C" __global__ void kernel_svgf_variance(
 	if (center_depth == 0.0f) {
 		colour_direct_out  [pixel_index] = center_colour_direct;
 		colour_indirect_out[pixel_index] = center_colour_indirect;
-
 		return;
 	}
 
@@ -577,11 +571,7 @@ extern "C" __global__ void kernel_svgf_finalize(
 	float4 direct   = colour_direct  [pixel_index];
 	float4 indirect = colour_indirect[pixel_index];
 
-	float4 colour = direct + indirect;
-
-	if (config.enable_albedo) {
-		colour *= frame_buffer_albedo[pixel_index];
-	}
+	float4 colour = (direct + indirect) * aov_framebuffer_get(AOVType::ALBEDO, pixel_index);
 
 	accumulator.set(x, y, colour);
 

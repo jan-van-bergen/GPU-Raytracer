@@ -81,9 +81,8 @@ static void parse_args(const Array<StringView> & args) {
 			}
 		} },
 
-		Option { { }, "albedo"_sv, "Enables or disables albedo"_sv,                       1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_albedo                       = parse_arg_bool(args[i + 1]); } },
-		Option { { }, "nee"_sv,    "Enables or disables Next Event Estimation"_sv,        1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_next_event_estimation        = parse_arg_bool(args[i + 1]); } },
-		Option { { }, "mis"_sv,    "Enables or disables Multiple Importance Sampling"_sv, 1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_multiple_importance_sampling = parse_arg_bool(args[i + 1]); } },
+		Option { { }, "nee"_sv, "Enables or disables Next Event Estimation"_sv,        1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_next_event_estimation        = parse_arg_bool(args[i + 1]); } },
+		Option { { }, "mis"_sv, "Enables or disables Multiple Importance Sampling"_sv, 1, [](const Array<StringView> & args, size_t i) { gpu_config.enable_multiple_importance_sampling = parse_arg_bool(args[i + 1]); } },
 
 		Option { { }, "force-rebuild"_sv, "BVH will not be loaded from disk but rebuild from scratch"_sv, 0, [](const Array<StringView> & args, size_t i) { cpu_config.bvh_force_rebuild = true; } },
 

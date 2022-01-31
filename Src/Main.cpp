@@ -54,7 +54,7 @@ static int last_pixel_query_y;
 
 static bool integrator_change_requested = false;
 
-static void capture_screen(const Window & window, const String & filename);
+static void capture_screen(const Window & window, const Integrator & integrator, const String & filename);
 static void calc_timing();
 static void draw_gui(Window & window, Integrator & integrator);
 
@@ -127,7 +127,7 @@ int main(int num_args, char ** args) {
 		window.render_framebuffer();
 
 		if (integrator->sample_index == cpu_config.output_sample_index) {
-			capture_screen(window, cpu_config.output_filename);
+			capture_screen(window, *integrator.get(), cpu_config.output_filename);
 			break; // Exit render loop and terimate
 		}
 		if (Input::is_key_pressed(SDL_SCANCODE_P)) {
@@ -139,7 +139,7 @@ int main(int num_args, char ** args) {
 			}
 
 			String screenshot_name = Format().format("screenshot_{}.{}"_sv, integrator->sample_index, ext);
-			capture_screen(window, screenshot_name);
+			capture_screen(window, *integrator.get(), screenshot_name);
 
 			timing.time_of_last_screenshot = timing.now;
 		}
@@ -179,7 +179,7 @@ int main(int num_args, char ** args) {
 	return EXIT_SUCCESS;
 }
 
-static void capture_screen(const Window & window, const String & filename) {
+static void capture_screen(const Window & window, const Integrator & integrator, const String & filename) {
 	ScopeTimer timer("Screenshot"_sv);
 
 	using Exporter = void (*)(const String & filename, int pitch, int width, int height, const Array<Vector3> & data);
@@ -203,6 +203,31 @@ static void capture_screen(const Window & window, const String & filename) {
 	Array<Vector3> data = window.read_frame_buffer(hdr, pitch);
 
 	exporter(filename, pitch, window.width, window.height, data);
+
+	auto export_aov = [&integrator](AOVType aov_type, const String & filename) {
+		if (!integrator.aov_is_enabled(aov_type)) return;
+
+		const AOV & aov = integrator.get_aov(aov_type);
+
+		Array<float4> aov_raw(integrator.screen_pitch * integrator.screen_height);
+		CUDAMemory::memcpy(aov_raw.data(), aov.accumulator, integrator.screen_pitch * integrator.screen_height);
+
+		Array<Vector3> aov_data(integrator.screen_width * integrator.screen_height);
+		for (int y = 0; y < integrator.screen_height; y++) {
+			for (int x = 0; x < integrator.screen_width; x++) {
+				aov_data[x + y * integrator.screen_width] = Vector3(
+					aov_raw[x + y * integrator.screen_pitch].x,
+					aov_raw[x + y * integrator.screen_pitch].y,
+					aov_raw[x + y * integrator.screen_pitch].z
+				);
+			}
+		}
+		EXRExporter::save(filename, integrator.screen_width, integrator.screen_width, integrator.screen_height, aov_data);
+	};
+
+	export_aov(AOVType::ALBEDO,   "albedo.exr"_sv);
+	export_aov(AOVType::NORMAL,   "normal.exr"_sv);
+	export_aov(AOVType::POSITION, "position.exr"_sv);
 }
 
 static void calc_timing() {

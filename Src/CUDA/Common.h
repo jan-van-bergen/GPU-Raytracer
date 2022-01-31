@@ -24,15 +24,28 @@ enum struct ReconstructionFilter {
 	GAUSSIAN
 };
 
+// Arbitrary Output Variables
+enum struct AOVType {
+    RADIANCE,
+    RADIANCE_DIRECT,
+    RADIANCE_INDIRECT,
+    ALBEDO,
+    NORMAL,
+    POSITION,
+
+    COUNT
+};
+
 struct GPUConfig {
-	// Screen
+	// Output
 	ReconstructionFilter reconstruction_filter = ReconstructionFilter::GAUSSIAN;
+
+	unsigned aov_mask = 0;
 
 
 	// Pathtracing
 	int num_bounces = 10;
 
-	bool enable_albedo                       = true;
 	bool enable_mipmapping                   = true;
 	bool enable_next_event_estimation        = true;
 	bool enable_multiple_importance_sampling = true;
@@ -46,7 +59,7 @@ struct GPUConfig {
 	float alpha_colour = 0.1f;
 	float alpha_moment = 0.1f;
 
-	int num_atrous_iterations = 4;
+	int num_atrous_iterations = 6;
 
 	float sigma_z =  4.0f;
 	float sigma_n = 16.0f;

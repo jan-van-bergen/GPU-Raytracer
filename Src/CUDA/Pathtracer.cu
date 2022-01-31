@@ -21,11 +21,6 @@
 #include "SVGF/SVGF.h"
 #include "SVGF/TAA.h"
 
-// Frame Buffers
-__device__ __constant__ float4 * frame_buffer_albedo;
-__device__ __constant__ float4 * frame_buffer_direct;
-__device__ __constant__ float4 * frame_buffer_indirect;
-
 // Final Frame Buffer, shared with OpenGL
 __device__ __constant__ Surface<float4> accumulator;
 
@@ -65,7 +60,7 @@ struct MaterialBuffer {
 // Input to the Shadow Trace Kernels in SoA layout
 struct ShadowRayBuffer {
 	ShadowTraversalData traversal_data;
-	
+
 	float4 * illumination_and_pixel_index;
 };
 
@@ -158,11 +153,12 @@ extern "C" __global__ void kernel_trace_shadow_bvh2(int bounce) {
 		float4 illumination_and_pixel_index = ray_buffer_shadow.illumination_and_pixel_index[ray_index];
 		float3 illumination = make_float3(illumination_and_pixel_index);
 		int    pixel_index  = __float_as_int(illumination_and_pixel_index.w);
-		
+
+		aov_framebuffer_add(AOVType::RADIANCE, pixel_index, make_float4(illumination));
 		if (bounce == 0) {
-			frame_buffer_direct[pixel_index] += make_float4(illumination);
+			aov_framebuffer_set(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
 		} else {
-			frame_buffer_indirect[pixel_index] += make_float4(illumination);
+			aov_framebuffer_add(AOVType::RADIANCE_INDIRECT, pixel_index, make_float4(illumination));
 		}
 	});
 }
@@ -172,11 +168,12 @@ extern "C" __global__ void kernel_trace_shadow_bvh4(int bounce) {
 		float4 illumination_and_pixel_index = ray_buffer_shadow.illumination_and_pixel_index[ray_index];
 		float3 illumination = make_float3(illumination_and_pixel_index);
 		int    pixel_index  = __float_as_int(illumination_and_pixel_index.w);
-		
+
+		aov_framebuffer_add(AOVType::RADIANCE, pixel_index, make_float4(illumination));
 		if (bounce == 0) {
-			frame_buffer_direct[pixel_index] += make_float4(illumination);
+			aov_framebuffer_set(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
 		} else {
-			frame_buffer_indirect[pixel_index] += make_float4(illumination);
+			aov_framebuffer_add(AOVType::RADIANCE_INDIRECT, pixel_index, make_float4(illumination));
 		}
 	});
 }
@@ -186,11 +183,12 @@ extern "C" __global__ void kernel_trace_shadow_bvh8(int bounce) {
 		float4 illumination_and_pixel_index = ray_buffer_shadow.illumination_and_pixel_index[ray_index];
 		float3 illumination = make_float3(illumination_and_pixel_index);
 		int    pixel_index  = __float_as_int(illumination_and_pixel_index.w);
-		
+
+		aov_framebuffer_add(AOVType::RADIANCE, pixel_index, make_float4(illumination));
 		if (bounce == 0) {
-			frame_buffer_direct[pixel_index] += make_float4(illumination);
+			aov_framebuffer_set(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
 		} else {
-			frame_buffer_indirect[pixel_index] += make_float4(illumination);
+			aov_framebuffer_add(AOVType::RADIANCE_INDIRECT, pixel_index, make_float4(illumination));
 		}
 	});
 }
@@ -201,9 +199,10 @@ __device__ bool russian_roulette(int pixel_index, int bounce, int sample_index, 
 		return true;
 	}
 	if (config.enable_russian_roulette && bounce > 0) {
-		// Throughput does not include albedo so it doesn't need to be demodulated by SVGF (causing precision issues)
-		// This deteriorates Russian Roulette performance, so albedo is included here
-		float3 throughput_with_albedo = throughput * make_float3(frame_buffer_albedo[pixel_index]);
+		float3 throughput_with_albedo = throughput;
+		if (config.enable_svgf) {
+			throughput_with_albedo *= make_float3(aov_framebuffer_get(AOVType::ALBEDO, pixel_index));
+		}
 
 		float survival_probability  = __saturatef(vmax_max(throughput_with_albedo.x, throughput_with_albedo.y, throughput_with_albedo.z));
 		float rand_russian_roulette = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).x;
@@ -327,16 +326,16 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		float3 illumination = throughput * sample_sky(ray_direction);
 
 		if (bounce == 0) {
-			if (config.enable_albedo || config.enable_svgf) {
-				frame_buffer_albedo[pixel_index] = make_float4(1.0f);
-			}
-			frame_buffer_direct[pixel_index] = make_float4(illumination);
+			aov_framebuffer_set(AOVType::ALBEDO,          pixel_index, make_float4(1.0f));
+			aov_framebuffer_set(AOVType::RADIANCE,        pixel_index, make_float4(illumination));
+			aov_framebuffer_set(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
 		} else if (bounce == 1) {
-			frame_buffer_direct[pixel_index] += make_float4(illumination);
+			aov_framebuffer_add(AOVType::RADIANCE,        pixel_index, make_float4(illumination));
+			aov_framebuffer_add(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
 		} else {
-			frame_buffer_indirect[pixel_index] += make_float4(illumination);
+			aov_framebuffer_add(AOVType::RADIANCE,          pixel_index, make_float4(illumination));
+			aov_framebuffer_add(AOVType::RADIANCE_INDIRECT, pixel_index, make_float4(illumination));
 		}
-
 		return;
 	}
 
@@ -380,16 +379,16 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			float3 illumination = throughput * material_light.emission;
 
 			if (bounce == 0) {
-				if (config.enable_albedo || config.enable_svgf) {
-					frame_buffer_albedo[pixel_index] = make_float4(1.0f);
-				}
-				frame_buffer_direct[pixel_index] = make_float4(material_light.emission);
+				aov_framebuffer_set(AOVType::ALBEDO,          pixel_index, make_float4(1.0f));
+				aov_framebuffer_set(AOVType::RADIANCE,        pixel_index, make_float4(material_light.emission));
+				aov_framebuffer_set(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(material_light.emission));
 			} else if (bounce == 1) {
-				frame_buffer_direct[pixel_index] += make_float4(illumination);
+				aov_framebuffer_add(AOVType::RADIANCE,        pixel_index, make_float4(illumination));
+				aov_framebuffer_add(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
 			} else {
-				frame_buffer_indirect[pixel_index] += make_float4(illumination);
+				aov_framebuffer_add(AOVType::RADIANCE,          pixel_index, make_float4(illumination));
+				aov_framebuffer_add(AOVType::RADIANCE_INDIRECT, pixel_index, make_float4(illumination));
 			}
-
 			return;
 		}
 
@@ -408,13 +407,13 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			float3 illumination = throughput * material_light.emission * mis_weight;
 
 			assert(bounce != 0);
+			aov_framebuffer_add(AOVType::RADIANCE, pixel_index, make_float4(illumination));
 			if (bounce == 1) {
-				frame_buffer_direct[pixel_index] += make_float4(illumination);
+				aov_framebuffer_add(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
 			} else {
-				frame_buffer_indirect[pixel_index] += make_float4(illumination);
+				aov_framebuffer_add(AOVType::RADIANCE_INDIRECT, pixel_index, make_float4(illumination));
 			}
 		}
-
 		return;
 	}
 
@@ -688,9 +687,14 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 			}
 		}
 
-		bsdf.calc_albedo(bounce, pixel_index, throughput, tex_coord, lod, frame_buffer_albedo);
-	} else if (bounce == 0 && (config.enable_albedo || config.enable_svgf)) {
-		frame_buffer_albedo[pixel_index] = make_float4(1.0f);
+		bsdf.calc_albedo(bounce, pixel_index, throughput, tex_coord, lod);
+	} else if (bounce == 0) {
+		aov_framebuffer_set(AOVType::ALBEDO, pixel_index, make_float4(1.0f));
+	}
+
+	if (bounce == 0) {
+		aov_framebuffer_set(AOVType::NORMAL,   pixel_index, make_float4(normal));
+		aov_framebuffer_set(AOVType::POSITION, pixel_index, make_float4(hit_point));
 	}
 
 	// Calulate new Ray Cone angle based on Mesh curvature
@@ -779,20 +783,12 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 
 	int pixel_index = x + y * screen_pitch;
 
-	float4 direct   = frame_buffer_direct  [pixel_index];
-	float4 indirect = frame_buffer_indirect[pixel_index];
+	float4 colour = aov_accumulate(AOVType::RADIANCE, pixel_index, frames_accumulated);
 
-	float4 colour = direct + indirect;
-
-	if (config.enable_albedo) {
-		colour *= frame_buffer_albedo[pixel_index];
-	}
-
-	if (frames_accumulated > 0.0f) {
-		float4 colour_prev = accumulator.get(x, y);
-
-		colour = colour_prev + (colour - colour_prev) / frames_accumulated; // Online average
-	}
+	// Accumulate auxilary AOVs (if present)
+	aov_accumulate(AOVType::ALBEDO,   pixel_index, frames_accumulated);
+	aov_accumulate(AOVType::NORMAL,   pixel_index, frames_accumulated);
+	aov_accumulate(AOVType::POSITION, pixel_index, frames_accumulated);
 
 	if (!isfinite(colour.x + colour.y + colour.z)) {
 		printf("WARNING: pixel (%i, %i) has colour (%f, %f, %f)!\n", x, y, colour.x, colour.y, colour.z);

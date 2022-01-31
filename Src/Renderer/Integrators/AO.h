@@ -84,8 +84,6 @@ struct AO final : Integrator {
 
 	BufferSizesAO * pinned_buffer_sizes = nullptr;
 
-	CUDAMemory::Ptr<float4> ptr_frame_buffer_ambient;
-
 	CUDAEvent::Desc event_desc_primary;
 	CUDAEvent::Desc event_desc_trace;
 	CUDAEvent::Desc event_desc_ambient_occlusion;

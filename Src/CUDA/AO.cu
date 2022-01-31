@@ -1,6 +1,7 @@
 #include "cudart/vector_types.h"
 #include "cudart/cuda_math.h"
 
+#include "AOV.h"
 #include "Sampling.h"
 #include "Buffers.h"
 #include "Camera.h"
@@ -8,8 +9,6 @@
 #include "Raytracing/BVH2.h"
 #include "Raytracing/BVH4.h"
 #include "Raytracing/BVH8.h"
-
-__device__ __constant__ float4 * frame_buffer_ambient;
 
 // Final Frame Buffer, shared with OpenGL
 __device__ __constant__ Surface<float4> accumulator;
@@ -80,21 +79,21 @@ extern "C" __global__ void kernel_trace_bvh8() {
 extern "C" __global__ void kernel_trace_shadow_bvh2() {
 	bvh2_trace_shadow(&ray_buffer_shadow.traversal_data, buffer_sizes.shadow, &buffer_sizes.rays_retired_shadow, [](int ray_index) {
 		int pixel_index = ray_buffer_shadow.pixel_index[ray_index];
-		frame_buffer_ambient[pixel_index] = make_float4(1.0f);
+		aov_framebuffer_set(AOVType::RADIANCE, pixel_index, make_float4(1.0f));
 	});
 }
 
 extern "C" __global__ void kernel_trace_shadow_bvh4() {
 	bvh4_trace_shadow(&ray_buffer_shadow.traversal_data, buffer_sizes.shadow, &buffer_sizes.rays_retired_shadow, [](int ray_index) {
 		int pixel_index = ray_buffer_shadow.pixel_index[ray_index];
-		frame_buffer_ambient[pixel_index] = make_float4(1.0f);
+		aov_framebuffer_set(AOVType::RADIANCE, pixel_index, make_float4(1.0f));
 	});
 }
 
 extern "C" __global__ void kernel_trace_shadow_bvh8() {
 	bvh8_trace_shadow(&ray_buffer_shadow.traversal_data, buffer_sizes.shadow, &buffer_sizes.rays_retired_shadow, [](int ray_index) {
 		int pixel_index = ray_buffer_shadow.pixel_index[ray_index];
-		frame_buffer_ambient[pixel_index] = make_float4(1.0f);
+		aov_framebuffer_set(AOVType::RADIANCE, pixel_index, make_float4(1.0f));
 	});
 }
 
@@ -104,7 +103,7 @@ extern "C" __global__ void kernel_ambient_occlusion(int sample_index, float ao_r
 
 	float3 ray_direction = ray_buffer_trace.traversal_data.ray_direction.get(index);
 	RayHit hit           = ray_buffer_trace.traversal_data.hits         .get(index);
-	
+
 	int pixel_index = ray_buffer_trace.pixel_index[index];
 
 	if (hit.triangle_id == INVALID) {
@@ -137,6 +136,9 @@ extern "C" __global__ void kernel_ambient_occlusion(int sample_index, float ao_r
 		hit_normal = -hit_normal;
 	}
 
+	aov_framebuffer_set(AOVType::NORMAL,   pixel_index, make_float4(hit_normal));
+	aov_framebuffer_set(AOVType::POSITION, pixel_index, make_float4(hit_point));
+
 	// Construct TBN frame
 	float3 tangent, bitangent;
 	orthonormal_basis(hit_normal, tangent, bitangent);
@@ -149,7 +151,7 @@ extern "C" __global__ void kernel_ambient_occlusion(int sample_index, float ao_r
 	float  pdf = omega_o.z * ONE_OVER_PI;
 
 	if (!pdf_is_valid(pdf)) return;
-	
+
 	// Emit Shadow Ray
 	int shadow_ray_index = atomicAdd(&buffer_sizes.shadow, 1);
 
@@ -167,13 +169,11 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 
 	int pixel_index = x + y * screen_pitch;
 
-	float4 colour = frame_buffer_ambient[pixel_index];
+	float4 colour = aov_accumulate(AOVType::RADIANCE, pixel_index, frames_accumulated);
 
-	if (frames_accumulated > 0.0f) {
-		float4 colour_prev = accumulator.get(x, y);
-
-		colour = colour_prev + (colour - colour_prev) / frames_accumulated; // Online average
-	}
+	// Accumulate auxilary AOVs (if present)
+	aov_accumulate(AOVType::NORMAL,   pixel_index, frames_accumulated);
+	aov_accumulate(AOVType::POSITION, pixel_index, frames_accumulated);
 
 	if (!isfinite(colour.x + colour.y + colour.z)) {
 		printf("WARNING: pixel (%i, %i) has colour (%f, %f, %f)!\n", x, y, colour.x, colour.y, colour.z);

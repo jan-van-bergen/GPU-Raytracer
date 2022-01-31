@@ -47,6 +47,12 @@ struct CUDAVector3_SoA {
 	}
 };
 
+// Arbitrary Output Variable
+struct AOV {
+	CUDAMemory::Ptr<float4> framebuffer;
+	CUDAMemory::Ptr<float4> accumulator;
+};
+
 struct Integrator {
 	Scene & scene;
 
@@ -55,6 +61,7 @@ struct Integrator {
 	bool invalidated_mediums    = true;
 	bool invalidated_camera     = true;
 	bool invalidated_gpu_config = true;
+	bool invalidated_aovs       = true;
 
 	int screen_width;
 	int screen_height;
@@ -183,6 +190,9 @@ struct Integrator {
 
 	CUDAEventPool event_pool;
 
+	AOV aovs[size_t(AOVType::COUNT)];
+	CUDAModule::Global global_aovs;
+
 	Integrator(Scene & scene) : scene(scene) {
 		CUDACALL(cuStreamCreate(&memory_stream, CU_STREAM_NON_BLOCKING));
 	}
@@ -193,19 +203,33 @@ struct Integrator {
 		cuda_module.free();
 	}
 
-	void init_camera();
+	void init_globals();
 	void init_materials();
 	void init_geometry();
 	void init_sky();
 	void init_rng();
+	void init_aovs();
 
 	void free_materials();
 	void free_geometry();
 	void free_sky();
 	void free_rng();
+	void free_aovs();
 
 	virtual void resize_free() = 0;
 	virtual void resize_init(unsigned frame_buffer_handle, int width, int height) = 0;
+
+	      AOV & get_aov(AOVType aov_type)       { return aovs[size_t(aov_type)]; }
+	const AOV & get_aov(AOVType aov_type) const { return aovs[size_t(aov_type)]; }
+
+	void aov_enable (AOVType aov_type) { gpu_config.aov_mask |=  (1u << int(aov_type)); invalidated_aovs = true; }
+	void aov_disable(AOVType aov_type) { gpu_config.aov_mask &= ~(1u << int(aov_type)); invalidated_aovs = true; }
+
+	bool aov_is_enabled(AOVType aov_type) const { return gpu_config.aov_mask & (1u << int(aov_type)); }
+
+	void aovs_clear_to_zero();
+
+	bool aov_render_gui_checkbox(AOVType aov_type, const char * aov_name);
 
 	void build_tlas();
 

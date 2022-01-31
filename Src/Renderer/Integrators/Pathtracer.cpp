@@ -4,6 +4,7 @@
 
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	init_module();
+	init_globals();
 
 	pinned_buffer_sizes = CUDAMemory::malloc_pinned<BufferSizes>();
 	pinned_buffer_sizes->reset(BATCH_SIZE);
@@ -13,7 +14,6 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 
 	resize_init(frame_buffer_handle, screen_width, screen_height);
 
-	init_camera();
 	init_materials();
 	init_geometry();
 	init_sky();
@@ -45,6 +45,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	invalidated_materials  = true;
 	invalidated_mediums    = true;
 	invalidated_gpu_config = true;
+	invalidated_aovs       = true;
 
 	size_t bytes_available = CUDAContext::get_available_memory();
 	size_t bytes_allocated = CUDAContext::total_memory - bytes_available;
@@ -186,13 +187,8 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 	cuda_module.get_global("screen_height").set_value(screen_height);
 
 	// Create Frame Buffers
-	ptr_frame_buffer_albedo = CUDAMemory::malloc<float4>(screen_pitch * height);
-	cuda_module.get_global("frame_buffer_albedo").set_value(ptr_frame_buffer_albedo);
-
-	ptr_frame_buffer_direct   = CUDAMemory::malloc<float4>(screen_pitch * height);
-	ptr_frame_buffer_indirect = CUDAMemory::malloc<float4>(screen_pitch * height);
-	cuda_module.get_global("frame_buffer_direct")  .set_value(ptr_frame_buffer_direct);
-	cuda_module.get_global("frame_buffer_indirect").set_value(ptr_frame_buffer_indirect);
+	init_aovs();
+	aov_enable(AOVType::RADIANCE);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
@@ -230,15 +226,14 @@ void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height
 void Pathtracer::resize_free() {
 	CUDACALL(cuStreamSynchronize(memory_stream));
 
-	CUDAMemory::free(ptr_frame_buffer_albedo);
+	free_aovs();
 
 	CUDAMemory::resource_unregister(resource_accumulator);
 	CUDAMemory::free_surface(surf_accumulator);
 
-	CUDAMemory::free(ptr_frame_buffer_direct);
-	CUDAMemory::free(ptr_frame_buffer_indirect);
-
-	if (gpu_config.enable_svgf) svgf_free();
+	if (gpu_config.enable_svgf) {
+		svgf_free();
+	}
 }
 
 void Pathtracer::svgf_init() {
@@ -256,11 +251,12 @@ void Pathtracer::svgf_init() {
 	cuda_module.get_global("gbuffer_screen_position_prev")   .set_value(surf_gbuffer_screen_position_prev);
 
 	// Frame Buffers
+	aov_enable(AOVType::RADIANCE_DIRECT);
+	aov_enable(AOVType::RADIANCE_INDIRECT);
+	aov_enable(AOVType::ALBEDO);
+
 	ptr_frame_buffer_moment = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
 	cuda_module.get_global("frame_buffer_moment").set_value(ptr_frame_buffer_moment);
-
-	ptr_frame_buffer_direct_alt   = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
-	ptr_frame_buffer_indirect_alt = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
 
 	// History Buffers
 	ptr_history_length           = CUDAMemory::malloc<int>   (screen_pitch * screen_height);
@@ -292,10 +288,11 @@ void Pathtracer::svgf_free() {
 	CUDAMemory::free_surface(surf_gbuffer_mesh_id_and_triangle_id);
 	CUDAMemory::free_surface(surf_gbuffer_screen_position_prev);
 
-	CUDAMemory::free(ptr_frame_buffer_moment);
+	aov_disable(AOVType::RADIANCE_DIRECT);
+	aov_disable(AOVType::RADIANCE_INDIRECT);
+	aov_disable(AOVType::ALBEDO);
 
-	CUDAMemory::free(ptr_frame_buffer_direct_alt);
-	CUDAMemory::free(ptr_frame_buffer_indirect_alt);
+	CUDAMemory::free(ptr_frame_buffer_moment);
 
 	CUDAMemory::free(ptr_history_length);
 	CUDAMemory::free(ptr_history_direct);
@@ -645,6 +642,12 @@ void Pathtracer::update(float delta) {
 		global_svgf_data.set_value_async(svgf_data, memory_stream);
 	}
 
+	if (invalidated_aovs) {
+		if (gpu_config.enable_svgf && !aov_is_enabled(AOVType::ALBEDO)) {
+			aov_enable(AOVType::ALBEDO); // SVGF cannot function without ALBEDO
+		}
+	}
+
 	Integrator::update(delta);
 }
 
@@ -713,10 +716,10 @@ void Pathtracer::render() {
 		event_pool.record(event_desc_svgf_reproject);
 		kernel_svgf_reproject.execute(sample_index);
 
-		CUdeviceptr direct_in    = ptr_frame_buffer_direct    .ptr;
-		CUdeviceptr direct_out   = ptr_frame_buffer_direct_alt.ptr;
-		CUdeviceptr indirect_in  = ptr_frame_buffer_indirect    .ptr;
-		CUdeviceptr indirect_out = ptr_frame_buffer_indirect_alt.ptr;
+		CUdeviceptr direct_in    = get_aov(AOVType::RADIANCE_DIRECT)  .framebuffer.ptr;
+		CUdeviceptr indirect_in  = get_aov(AOVType::RADIANCE_INDIRECT).framebuffer.ptr;
+		CUdeviceptr direct_out   = get_aov(AOVType::RADIANCE_DIRECT)  .accumulator.ptr;
+		CUdeviceptr indirect_out = get_aov(AOVType::RADIANCE_INDIRECT).accumulator.ptr;
 
 		if (gpu_config.enable_spatial_variance) {
 			// Estimate Variance spatially
@@ -759,9 +762,7 @@ void Pathtracer::render() {
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	if (gpu_config.enable_albedo) CUDAMemory::memset_async(ptr_frame_buffer_albedo, 0, screen_pitch * screen_height, memory_stream);
-	CUDAMemory::memset_async(ptr_frame_buffer_direct,   0, screen_pitch * screen_height, memory_stream);
-	CUDAMemory::memset_async(ptr_frame_buffer_indirect, 0, screen_pitch * screen_height, memory_stream);
+	aovs_clear_to_zero();
 
 	// If a pixel query was previously pending, it has just been resolved in the current frame
 	if (pixel_query_status == PixelQueryStatus::PENDING) {
@@ -777,8 +778,12 @@ void Pathtracer::render_gui() {
 		invalidated_gpu_config |= ImGui::Checkbox("MIS", &gpu_config.enable_multiple_importance_sampling);
 
 		invalidated_gpu_config |= ImGui::Checkbox("Russian Roulete", &gpu_config.enable_russian_roulette);
+	}
 
-		invalidated_gpu_config |= ImGui::Checkbox("Modulate Albedo",  &gpu_config.enable_albedo);
+	if (ImGui::CollapsingHeader("Auxilary AOVs", ImGuiTreeNodeFlags_DefaultOpen)) {
+		invalidated_aovs |= aov_render_gui_checkbox(AOVType::ALBEDO,   "Albedo");
+		invalidated_aovs |= aov_render_gui_checkbox(AOVType::NORMAL,   "Normal");
+		invalidated_aovs |= aov_render_gui_checkbox(AOVType::POSITION, "Position");
 	}
 
 	if (ImGui::CollapsingHeader("SVGF")) {

@@ -2,15 +2,18 @@
 
 #include <GL/glew.h>
 
+#include <Imgui/imgui.h>
+
 #include "BVH/Converters/BVH4Converter.h"
 #include "BVH/Converters/BVH8Converter.h"
 
 #include "Util/BlueNoise.h"
 
-void Integrator::init_camera() {
+void Integrator::init_globals() {
 	global_camera      = cuda_module.get_global("camera");
 	global_config      = cuda_module.get_global("config");
 	global_pixel_query = cuda_module.get_global("pixel_query");
+	global_aovs        = cuda_module.get_global("aovs");
 }
 
 void Integrator::init_materials() {
@@ -289,6 +292,13 @@ void Integrator::init_rng() {
 	cuda_module.get_global("blue_noise_textures").set_value(ptr_blue_noise_textures);
 }
 
+void Integrator::init_aovs() {
+	for (size_t i = 0; i < size_t(AOVType::COUNT); i++) {
+		aovs[i].framebuffer = CUDAMemory::Ptr<float4>(NULL);
+		aovs[i].accumulator = CUDAMemory::Ptr<float4>(NULL);
+	}
+}
+
 void Integrator::free_materials() {
 	CUDAMemory::free(ptr_material_types);
 	CUDAMemory::free(ptr_materials);
@@ -341,6 +351,36 @@ void Integrator::free_rng() {
 	CUDAMemory::free(ptr_pmj_samples);
 	CUDAMemory::free(ptr_blue_noise_textures);
 }
+
+void Integrator::free_aovs() {
+	for (size_t i = 0; i < size_t(AOVType::COUNT); i++) {
+		if (aov_is_enabled(AOVType(i))) {
+			CUDAMemory::free(aovs[i].framebuffer);
+			CUDAMemory::free(aovs[i].accumulator);
+		}
+	}
+}
+
+void Integrator::aovs_clear_to_zero() {
+	for (size_t i = 0; i < size_t(AOVType::COUNT); i++) {
+		if (aov_is_enabled(AOVType(i))) {
+			CUDAMemory::memset_async(aovs[i].framebuffer, 0, screen_pitch * screen_height, memory_stream);
+		}
+	}
+}
+
+bool Integrator::aov_render_gui_checkbox(AOVType aov_type, const char * aov_name) {
+	bool enabled = aov_is_enabled(aov_type);
+	if (ImGui::Checkbox(aov_name, &enabled)) {
+		if (enabled) {
+			aov_enable(aov_type);
+		} else {
+			aov_disable(aov_type);
+		}
+		return true;
+	}
+	return false;
+};
 
 // Construct Top Level Acceleration Structure (TLAS) over the Meshes in the Scene
 void Integrator::build_tlas() {
@@ -441,6 +481,27 @@ void Integrator::update(float delta) {
 		pixel_query_status = PixelQueryStatus::INACTIVE;
 	}
 
+	if (invalidated_aovs) {
+		invalidated_aovs = false;
+
+		for (size_t i = 0; i < size_t(AOVType::COUNT); i++) {
+			bool is_enabled   = aov_is_enabled(AOVType(i));
+			bool is_allocated = aovs[i].framebuffer.ptr != NULL;
+
+			if (is_enabled && !is_allocated) {
+				aovs[i].framebuffer = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+				aovs[i].accumulator = CUDAMemory::malloc<float4>(screen_pitch * screen_height);
+			} else if (!is_enabled && is_allocated) {
+				CUDAMemory::free(aovs[i].framebuffer);
+				CUDAMemory::free(aovs[i].accumulator);
+			}
+		}
+
+		global_aovs.set_value_async(aovs, memory_stream);
+
+		invalidated_gpu_config = true;
+	}
+
 	if (invalidated_gpu_config) {
 		invalidated_gpu_config = false;
 		sample_index = 0;
@@ -450,4 +511,5 @@ void Integrator::update(float delta) {
 	} else {
 		sample_index++;
 	}
+
 }

@@ -4,6 +4,7 @@
 
 void AO::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	init_module();
+	init_globals();
 
 	pinned_buffer_sizes = CUDAMemory::malloc_pinned<BufferSizesAO>();
 	pinned_buffer_sizes->reset(BATCH_SIZE);
@@ -13,7 +14,6 @@ void AO::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_he
 
 	resize_init(frame_buffer_handle, screen_width, screen_height);
 
-	init_camera();
 	init_geometry();
 	init_rng();
 	init_events();
@@ -36,6 +36,7 @@ void AO::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_he
 	invalidated_materials  = true;
 	invalidated_mediums    = true;
 	invalidated_gpu_config = true;
+	invalidated_aovs       = true;
 
 	size_t bytes_available = CUDAContext::get_available_memory();
 	size_t bytes_allocated = CUDAContext::total_memory - bytes_available;
@@ -116,8 +117,9 @@ void AO::resize_init(unsigned frame_buffer_handle, int width, int height) {
 	cuda_module.get_global("screen_pitch") .set_value(screen_pitch);
 	cuda_module.get_global("screen_height").set_value(screen_height);
 
-	ptr_frame_buffer_ambient = CUDAMemory::malloc<float4>(screen_pitch * height);
-	cuda_module.get_global("frame_buffer_ambient").set_value(ptr_frame_buffer_ambient);
+	init_aovs();
+	aov_enable(AOVType::RADIANCE);
+	cuda_module.get_global("aovs").set_value(aovs);
 
 	// Set Accumulator to a CUDA resource mapping of the GL frame buffer texture
 	resource_accumulator = CUDAMemory::resource_register(frame_buffer_handle, CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST);
@@ -141,7 +143,7 @@ void AO::resize_init(unsigned frame_buffer_handle, int width, int height) {
 void AO::resize_free() {
 	CUDACALL(cuStreamSynchronize(memory_stream));
 
-	CUDAMemory::free(ptr_frame_buffer_ambient);
+	free_aovs();
 
 	CUDAMemory::resource_unregister(resource_accumulator);
 	CUDAMemory::free_surface(surf_accumulator);
@@ -199,7 +201,7 @@ void AO::render() {
 	pinned_buffer_sizes->reset(batch_size);
 	global_buffer_sizes.set_value(*pinned_buffer_sizes);
 
-	CUDAMemory::memset_async(ptr_frame_buffer_ambient, 0, screen_pitch * screen_height, memory_stream);
+	aovs_clear_to_zero();
 
 	// If a pixel query was previously pending, it has just been resolved in the current frame
 	if (pixel_query_status == PixelQueryStatus::PENDING) {
@@ -210,5 +212,10 @@ void AO::render() {
 void AO::render_gui() {
 	if (ImGui::CollapsingHeader("Integrator", ImGuiTreeNodeFlags_DefaultOpen)) {
 		invalidated_gpu_config |= ImGui::SliderFloat("AO Radius", &ao_radius, 0.0001f, 2.0f);
+	}
+
+	if (ImGui::CollapsingHeader("Auxilary AOVs", ImGuiTreeNodeFlags_DefaultOpen)) {
+		invalidated_aovs |= aov_render_gui_checkbox(AOVType::NORMAL,   "Normal");
+		invalidated_aovs |= aov_render_gui_checkbox(AOVType::POSITION, "Position");
 	}
 }

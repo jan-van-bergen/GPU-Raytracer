@@ -180,20 +180,15 @@ struct Pathtracer final : Integrator {
 	CUsurfObject surf_gbuffer_mesh_id_and_triangle_id;
 	CUsurfObject surf_gbuffer_screen_position_prev;
 
-	CUDAMemory::Ptr<float4> ptr_frame_buffer_albedo;
+	// SVGF
 	CUDAMemory::Ptr<float4> ptr_frame_buffer_moment;
-
-	CUDAMemory::Ptr<float4> ptr_frame_buffer_direct;
-	CUDAMemory::Ptr<float4> ptr_frame_buffer_indirect;
-	CUDAMemory::Ptr<float4> ptr_frame_buffer_direct_alt;
-	CUDAMemory::Ptr<float4> ptr_frame_buffer_indirect_alt;
-
 	CUDAMemory::Ptr<int>    ptr_history_length;
 	CUDAMemory::Ptr<float4> ptr_history_direct;
 	CUDAMemory::Ptr<float4> ptr_history_indirect;
 	CUDAMemory::Ptr<float4> ptr_history_moment;
 	CUDAMemory::Ptr<float4> ptr_history_normal_and_depth;
 
+	// TAA
 	CUDAMemory::Ptr<float4> ptr_taa_frame_prev;
 	CUDAMemory::Ptr<float4> ptr_taa_frame_curr;
 
