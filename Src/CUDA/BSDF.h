@@ -58,7 +58,7 @@ struct BSDFDiffuse {
 		return material.texture_id != INVALID;
 	}
 
-	__device__ bool is_mis_eligable() const {
+	__device__ bool allow_nee() const {
 		return true;
 	}
 };
@@ -202,7 +202,7 @@ struct BSDFPlastic {
 		return material.texture_id != INVALID;
 	}
 
-	__device__ bool is_mis_eligable() const {
+	__device__ bool allow_nee() const {
 		return true;
 	}
 };
@@ -329,7 +329,7 @@ struct BSDFDielectric {
 		return false;
 	}
 
-	__device__ bool is_mis_eligable() const {
+	__device__ bool allow_nee() const {
 		return material.roughness >= ROUGHNESS_CUTOFF;
 	}
 };
@@ -410,7 +410,7 @@ struct BSDFConductor {
 		return false;
 	}
 
-	__device__ bool is_mis_eligable() const {
+	__device__ bool allow_nee() const {
 		return material.roughness >= ROUGHNESS_CUTOFF;
 	}
 };

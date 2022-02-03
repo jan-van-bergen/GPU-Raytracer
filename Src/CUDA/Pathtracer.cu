@@ -24,10 +24,10 @@
 // Final Frame Buffer, shared with OpenGL
 __device__ __constant__ Surface<float4> accumulator;
 
-constexpr unsigned FLAG_MIS_ELIGABLE  = 1u << 31; // indicates the previous Material has a BRDF that supports MIS
+constexpr unsigned FLAG_ALLOW_NEE     = 1u << 31; // Indicates the previous Material has a BRDF that supports NEE
 constexpr unsigned FLAG_INSIDE_MEDIUM = 1u << 30;
 
-constexpr unsigned FLAGS_ALL = FLAG_MIS_ELIGABLE | FLAG_INSIDE_MEDIUM;
+constexpr unsigned FLAGS_ALL = FLAG_ALLOW_NEE | FLAG_INSIDE_MEDIUM;
 
 // Input to the Trace and Sort Kernels in SoA layout
 struct TraceBuffer {
@@ -235,7 +235,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	int x = pixel_index % screen_pitch;
 	int y = pixel_index / screen_pitch;
 
-	bool mis_eligable  = pixel_index_and_flags & FLAG_MIS_ELIGABLE;
+	bool allow_nee     = pixel_index_and_flags & FLAG_ALLOW_NEE;
 	bool inside_medium = pixel_index_and_flags & FLAG_INSIDE_MEDIUM;
 
 	float3 throughput;
@@ -374,7 +374,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 		MaterialLight material_light = material_as_light(material_id);
 
-		bool should_count_light_contribution = config.enable_next_event_estimation ? !mis_eligable : true;
+		bool should_count_light_contribution = config.enable_next_event_estimation ? !allow_nee : true;
 		if (should_count_light_contribution) {
 			float3 illumination = throughput * material_light.emission;
 
@@ -728,7 +728,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	}
 
 	// Next Event Estimation
-	if (config.enable_next_event_estimation && lights_total_weight > 0.0f && bsdf.is_mis_eligable()) {
+	if (config.enable_next_event_estimation && lights_total_weight > 0.0f && bsdf.allow_nee()) {
 		next_event_estimation(pixel_index, bounce, sample_index, bsdf, medium_id, hit_point, normal, geometric_normal, throughput);
 	}
 
@@ -757,12 +757,18 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 		ray_buffer_trace->cone[index_out] = make_float2(cone_angle, cone_width);
 	}
 
-	unsigned flags = (bsdf.is_mis_eligable() << 31) | ((medium_id != INVALID) << 30);
+	bool allow_nee = bsdf.allow_nee();
+
+	unsigned flags = 0;
+	if (allow_nee)            flags |= FLAG_ALLOW_NEE;
+	if (medium_id != INVALID) flags |= FLAG_INSIDE_MEDIUM;
 
 	ray_buffer_trace->pixel_index_and_flags[index_out] = pixel_index | flags;
 	ray_buffer_trace->throughput.set(index_out, throughput);
 
-	ray_buffer_trace->last_pdf[index_out] = pdf;
+	if (allow_nee) {
+		ray_buffer_trace->last_pdf[index_out] = pdf;
+	}
 }
 
 extern "C" __global__ void kernel_material_diffuse(int bounce, int sample_index) {
