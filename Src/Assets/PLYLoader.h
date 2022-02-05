@@ -1,6 +1,9 @@
 #pragma once
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Triangle.h"
+
+#include "Core/Array.h"
+#include "Core/String.h"
 
 namespace PLYLoader {
-	void load(const char * filename, Triangle *& triangles, int & triangle_count);
+	Array<Triangle> load(const String & filename);
 }

@@ -1,6 +1,6 @@
 #pragma once
-#include "Pathtracer/Scene.h"
+#include "Renderer/Scene.h"
 
 namespace PBRTLoader {
-	void load(const char * filename, Scene & scene);
+	void load(const String & filename, Scene & scene);
 }

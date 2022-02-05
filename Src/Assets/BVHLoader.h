@@ -3,15 +3,18 @@
 
 #include "Config.h"
 
+#include "Core/String.h"
+#include "Core/StringView.h"
+
 #include "BVH/BVH.h"
-#include "MeshData.h"
+#include "Renderer/MeshData.h"
 
 namespace BVHLoader {
 	inline constexpr const char * BVH_FILE_EXTENSION = ".bvh";
 	inline constexpr int          BVH_FILETYPE_VERSION = 5;
 
-	const char * get_bvh_filename(const char * filename);
+	String get_bvh_filename(StringView filename);
 
-	bool try_to_load(const char * filename, const char * bvh_filename, MeshData & mesh_data, BVH & bvh);
-	bool save(const char * bvh_filename, const MeshData & mesh_data, const BVH & bvh);
+	bool try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH2 & bvh);
+	bool save(const String & bvh_filename, const MeshData & mesh_data, const BVH2 & bvh);
 }

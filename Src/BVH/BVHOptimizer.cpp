@@ -2,21 +2,23 @@
 
 #include "Config.h"
 
+#include "Core/IO.h"
+#include "Core/Array.h"
+#include "Core/MinHeap.h"
+#include "Core/Timer.h"
+#include "Core/Random.h"
+
 #include "Util/Util.h"
-#include "Util/Random.h"
-#include "Util/Array.h"
-#include "Util/MinHeap.h"
-#include "Util/ScopeTimer.h"
 
 // Calculates the SAH cost of a whole tree
-static float bvh_sah_cost(const BVH & bvh) {
+static float bvh_sah_cost(const BVH2 & bvh) {
 	float sum_leaf = 0.0f;
 	float sum_node = 0.0f;
 
-	for (int i = 0; i < bvh.node_count; i++) {
+	for (size_t i = 0; i < bvh.nodes.size(); i++) {
 		if (i == 1) continue;
 
-		const BVHNode2 & node = bvh.nodes._2[i];
+		const BVHNode2 & node = bvh.nodes[i];
 
 		if (node.is_leaf()) {
 			sum_leaf += node.aabb.surface_area() * node.count;
@@ -25,21 +27,24 @@ static float bvh_sah_cost(const BVH & bvh) {
 		}
 	}
 
-	return (config.sah_cost_node * sum_node + config.sah_cost_leaf * sum_leaf) / bvh.nodes._2[0].aabb.surface_area();
+	return (
+		cpu_config.sah_cost_node * sum_node +
+		cpu_config.sah_cost_leaf * sum_leaf
+	) / bvh.nodes[0].aabb.surface_area();
 }
 
 // Initialize array of parent indices by traversing the tree recursively
-static void init_parent_indices(const BVH & bvh, int parent_indices[], int node_index = 0) {
-	const BVHNode2 & node = bvh.nodes._2[node_index];
+static void init_parent_indices(const BVH2 & bvh, Array<int> & parent_indices, int node_index = 0) {
+	const BVHNode2 & node = bvh.nodes[node_index];
 
 	if (node.is_leaf()) {
 		if (node.count != 1) {
-			puts("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!");
-			abort();
+			IO::print("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
+			IO::exit(1);
 		}
 		return;
 	}
-	assert((node.left & 1) == 0);
+	ASSERT((node.left & 1) == 0);
 
 	parent_indices[node.left    ] = node_index;
 	parent_indices[node.left + 1] = node_index;
@@ -49,35 +54,33 @@ static void init_parent_indices(const BVH & bvh, int parent_indices[], int node_
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
-static void select_nodes_random(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[], RNG & rng) {
-	int offset = 0;
-	int * temp = new int[bvh.node_count];
+static void select_nodes_random(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Array<int> & batch_indices, RNG & rng) {
+	size_t offset = 0;
+	Array<int> temp(bvh.nodes.size());
 
 	// Identify Nodes that are valid for selection
-	for (int i = 2; i < bvh.node_count; i++) {
-		if (!bvh.nodes._2[i].is_leaf() && parent_indices[i] != 0) { // Node must be an internal Node and must have a grandparent (i.e. cannot be the child of the root)
-			temp[offset++] = i;
+	for (size_t i = 2; i < bvh.nodes.size(); i++) {
+		if (!bvh.nodes[i].is_leaf() && parent_indices[i] != 0) { // Node must be an internal Node and must have a grandparent (i.e. cannot be the child of the root)
+			temp[offset++] = int(i);
 		}
 	}
 
-	Util::sample(temp, temp + offset, batch_indices, batch_indices + batch_size, rng);
-
-	delete [] temp;
+	Random::sample(temp.data(), temp.data() + offset, batch_indices.data(), batch_indices.data() + batch_size, rng);
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on which Nodes have the highest inefficiency measure
-static void select_nodes_measure(const BVH & bvh, const int parent_indices[], int batch_size, int batch_indices[]) {
-	float * costs = new float[bvh.node_count];
+static void select_nodes_measure(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Array<int> & batch_indices) {
+	Array<float> costs(bvh.nodes.size());
 
 	int offset = 0;
 
-	for (int i = 2; i < bvh.node_count; i++) {
-		const BVHNode2 & node = bvh.nodes._2[i];
+	for (size_t i = 2; i < bvh.nodes.size(); i++) {
+		const BVHNode2 & node = bvh.nodes[i];
 
 		if (!node.is_leaf() && parent_indices[i] != 0) { // Node must be an internal Node and must have a grandparent (i.e. cannot be the child of the root)
 			float area = node.aabb.surface_area();
-			float area_left  = bvh.nodes._2[node.left    ].aabb.surface_area();
-			float area_right = bvh.nodes._2[node.left + 1].aabb.surface_area();
+			float area_left  = bvh.nodes[node.left    ].aabb.surface_area();
+			float area_right = bvh.nodes[node.left + 1].aabb.surface_area();
 
 			float cost_sum  = 2.0f * area / (area_left + area_right);
 			float cost_min  = area / Math::min(area_left, area_right);
@@ -100,12 +103,10 @@ static void select_nodes_measure(const BVH & bvh, const int parent_indices[], in
 	for (int i = 0; i < batch_size; i++) {
 		batch_indices[i] = heap.pop();
 	}
-
-	delete [] costs;
 }
 
 // Finds the global minimum of where best to insert the reinsertion node by traversing the tree using Branch and Bound
-static void find_reinsertion(const BVH & bvh, const BVHNode2 & node_reinsert, float & min_cost, int & min_index) {
+static void find_reinsertion(const BVH2 & bvh, const BVHNode2 & node_reinsert, float & min_cost, int & min_index) {
 	float node_reinsert_area = node_reinsert.aabb.surface_area();
 
 	struct Pair {
@@ -123,7 +124,7 @@ static void find_reinsertion(const BVH & bvh, const BVHNode2 & node_reinsert, fl
 	while (priority_queue.size() > 0) {
 		auto [node_index, induced_cost] = priority_queue.pop();
 
-		const BVHNode2 & node = bvh.nodes._2[node_index];
+		const BVHNode2 & node = bvh.nodes[node_index];
 
 		if (induced_cost + node_reinsert_area >= min_cost) break; // Not possible to reduce min_cost, terminate
 
@@ -147,16 +148,16 @@ static void find_reinsertion(const BVH & bvh, const BVHNode2 & node_reinsert, fl
 }
 
 // Update AABBs bottom up, until the root of the tree is reached
-static void update_aabbs_bottom_up(BVH & bvh, int parent_indices[], int node_index) {
-	assert(node_index >= 0);
+static void update_aabbs_bottom_up(BVH2 & bvh, const Array<int> & parent_indices, int node_index) {
+	ASSERT(node_index >= 0);
 
 	do {
-		BVHNode2 & node = bvh.nodes._2[node_index];
+		BVHNode2 & node = bvh.nodes[node_index];
 
 		if (!node.is_leaf()) {
 			node.aabb = AABB::unify(
-				bvh.nodes._2[node.left    ].aabb,
-				bvh.nodes._2[node.left + 1].aabb
+				bvh.nodes[node.left    ].aabb,
+				bvh.nodes[node.left + 1].aabb
 			);
 		}
 
@@ -168,18 +169,18 @@ static void update_aabbs_bottom_up(BVH & bvh, int parent_indices[], int node_ind
 // The axis on which the Node was originally split on becomes invalidated after reinsertion,
 // which causes performance problems during traversal.
 // This method selects a new split axis and swaps the child nodes such that the left child is also the leftmost node on that axis.
-static void bvh_node_calc_axis(const BVH & bvh, int parent_indices[], int displacement[], int originated[], BVHNode2 & node) {
+static void bvh_node_calc_axis(BVH2 & bvh, Array<int> & parent_indices, Array<int> & displacement, const Array<int> & originated, BVHNode2 & node) {
 	int   max_axis = -1;
 	float max_dist = 0.0f;
 
-	Vector3 center_left  = bvh.nodes._2[node.left    ].aabb.get_center();
-	Vector3 center_right = bvh.nodes._2[node.left + 1].aabb.get_center();
+	Vector3 center_left  = bvh.nodes[node.left    ].aabb.get_center();
+	Vector3 center_right = bvh.nodes[node.left + 1].aabb.get_center();
 
 	// Calculate split axis based on a distance heuristic
 	for (int dim = 0; dim < 3; dim++) {
 		float dist =
-			fabsf(bvh.nodes._2[node.left].aabb.min[dim] - bvh.nodes._2[node.left + 1].aabb.min[dim]) +
-			fabsf(bvh.nodes._2[node.left].aabb.max[dim] - bvh.nodes._2[node.left + 1].aabb.max[dim]);
+			fabsf(bvh.nodes[node.left].aabb.min[dim] - bvh.nodes[node.left + 1].aabb.min[dim]) +
+			fabsf(bvh.nodes[node.left].aabb.max[dim] - bvh.nodes[node.left + 1].aabb.max[dim]);
 
 		if (dist >= max_dist) {
 			max_dist = dist;
@@ -187,18 +188,18 @@ static void bvh_node_calc_axis(const BVH & bvh, int parent_indices[], int displa
 		}
 	}
 
-	assert(max_axis != -1);
+	ASSERT(max_axis != -1);
 
 	// Swap left and right children if needed
 	if (center_left[max_axis] > center_right[max_axis]) {
-		Util::swap(bvh.nodes._2[node.left], bvh.nodes._2[node.left + 1]);
+		Util::swap(bvh.nodes[node.left], bvh.nodes[node.left + 1]);
 
 		displacement[originated[node.left]]     = node.left + 1;
 		displacement[originated[node.left + 1]] = node.left;
 
 		// Update parent indices of grandchildren (if they exist) to account for the swap
-		const BVHNode2 & child_left  = bvh.nodes._2[node.left];
-		const BVHNode2 & child_right = bvh.nodes._2[node.left + 1];
+		const BVHNode2 & child_left  = bvh.nodes[node.left];
+		const BVHNode2 & child_right = bvh.nodes[node.left + 1];
 
 		if (!child_left.is_leaf()) {
 			parent_indices[child_left.left]     = node.left;
@@ -215,14 +216,14 @@ static void bvh_node_calc_axis(const BVH & bvh, int parent_indices[], int displa
 	node.axis  = max_axis;
 }
 
-void BVHOptimizer::optimize(BVH & bvh) {
-	ScopeTimer timer("BVH Optimization");
+void BVHOptimizer::optimize(BVH2 & bvh) {
+	ScopeTimer timer("BVH Optimization"_sv);
 
 	float cost_before = bvh_sah_cost(bvh);
 
-	if (bvh.node_count < 8) return; // Tree too small to optimize
+	if (bvh.nodes.size() < 8) return; // Tree too small to optimize
 
-	int * parent_indices = new int[bvh.node_count];
+	Array<int> parent_indices(bvh.nodes.size());
 	parent_indices[0] = -1; // Root has no parent
 	init_parent_indices(bvh, parent_indices);
 
@@ -232,8 +233,8 @@ void BVHOptimizer::optimize(BVH & bvh) {
 
 	static_assert(P_T >= P_R);
 
-	int   batch_size = bvh.node_count / k;
-	int * batch_indices = new int[bvh.node_count];
+	int        batch_size = Math::max(int(bvh.nodes.size()) / k, 8);
+	Array<int> batch_indices(bvh.nodes.size());
 
 	int batch_count = 0;
 	int batches_since_last_cost_reduction = 0;
@@ -245,11 +246,10 @@ void BVHOptimizer::optimize(BVH & bvh) {
 		MEASURE
 	} node_selection_method = NodeSelectionMethod::MEASURE;
 
-	int * originated   = new int[bvh.node_count];
-	int * displacement = new int[bvh.node_count];
+	Array<int> originated  (bvh.nodes.size());
+	Array<int> displacement(bvh.nodes.size());
 
-	RNG rng = { };
-	rng.init(time(nullptr));
+	RNG rng(time(nullptr));
 
 	clock_t start_time = clock();
 
@@ -259,10 +259,10 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices, rng); break;
 			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, batch_indices); break;
 
-			default: abort();
+			default: ASSERT(false);
 		}
 
-		for (int i = 0; i < bvh.node_count; i++) {
+		for (size_t i = 0; i < bvh.nodes.size(); i++) {
 			originated  [i] = i;
 			displacement[i] = i;
 		}
@@ -271,7 +271,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			int node_index = displacement[batch_indices[i]];
 			if (node_index == -1) continue; // This Node was overwritten by another reinsertion and no longer exists
 
-			const BVHNode2 & node = bvh.nodes._2[node_index];
+			const BVHNode2 & node = bvh.nodes[node_index];
 
 			int parent        = parent_indices[node_index];
 			int parent_parent = parent_indices[parent];
@@ -292,30 +292,30 @@ void BVHOptimizer::optimize(BVH & bvh) {
 			Reinsert nodes_reinsert[2];
 
 			// Child with largest area should be reinserted first
-			float area_left  = bvh.nodes._2[node.left]    .aabb.surface_area();
-			float area_right = bvh.nodes._2[node.left + 1].aabb.surface_area();
+			float area_left  = bvh.nodes[node.left]    .aabb.surface_area();
+			float area_right = bvh.nodes[node.left + 1].aabb.surface_area();
 
 			if (area_left > area_right) {
-				nodes_reinsert[0] = { child_left,  bvh.nodes._2[child_left]  };
-				nodes_reinsert[1] = { child_right, bvh.nodes._2[child_right] };
+				nodes_reinsert[0] = { child_left,  bvh.nodes[child_left]  };
+				nodes_reinsert[1] = { child_right, bvh.nodes[child_right] };
 			} else {
-				nodes_reinsert[0] = { child_right, bvh.nodes._2[child_right] };
-				nodes_reinsert[1] = { child_left,  bvh.nodes._2[child_left]  };
+				nodes_reinsert[0] = { child_right, bvh.nodes[child_right] };
+				nodes_reinsert[1] = { child_left,  bvh.nodes[child_left]  };
 			}
 
 			nodes_unused[0] = node_index & ~1;
 			nodes_unused[1] = child_left;
 
 			// Keep tree topologically consistent
-			bvh.nodes._2[parent] = bvh.nodes._2[sibling];
+			bvh.nodes[parent] = bvh.nodes[sibling];
 			parent_indices[sibling] = parent_parent;
 
 			displacement[originated[sibling]] = parent;
 			originated[parent] = originated[sibling];
 
-			if (!bvh.nodes._2[sibling].is_leaf()) {
-				parent_indices[bvh.nodes._2[sibling].left    ] = parent;
-				parent_indices[bvh.nodes._2[sibling].left + 1] = parent;
+			if (!bvh.nodes[sibling].is_leaf()) {
+				parent_indices[bvh.nodes[sibling].left    ] = parent;
+				parent_indices[bvh.nodes[sibling].left + 1] = parent;
 			}
 
 			displacement[originated[parent]]     = -1;
@@ -328,7 +328,7 @@ void BVHOptimizer::optimize(BVH & bvh) {
 				int      unused   = nodes_unused  [j];
 				Reinsert reinsert = nodes_reinsert[j];
 
-				assert((unused & 1) == 0);
+				ASSERT((unused & 1) == 0);
 
 				// Find the best position to reinsert the given Node
 				float min_cost  = INFINITY;
@@ -337,8 +337,8 @@ void BVHOptimizer::optimize(BVH & bvh) {
 				find_reinsertion(bvh, reinsert.node, min_cost, min_index);
 
 				// Bookkeeping updates to perform the reinsertion
-				bvh.nodes._2[unused    ] = bvh.nodes._2[min_index];
-				bvh.nodes._2[unused + 1] = reinsert.node;
+				bvh.nodes[unused    ] = bvh.nodes[min_index];
+				bvh.nodes[unused + 1] = reinsert.node;
 
 				parent_indices[unused    ] = min_index;
 				parent_indices[unused + 1] = min_index;
@@ -349,9 +349,9 @@ void BVHOptimizer::optimize(BVH & bvh) {
 				originated[unused    ] = originated[min_index];
 				originated[unused + 1] = originated[reinsert.node_index];
 
-				if (!bvh.nodes._2[min_index].is_leaf()) {
-					parent_indices[bvh.nodes._2[min_index].left    ] = unused;
-					parent_indices[bvh.nodes._2[min_index].left + 1] = unused;
+				if (!bvh.nodes[min_index].is_leaf()) {
+					parent_indices[bvh.nodes[min_index].left    ] = unused;
+					parent_indices[bvh.nodes[min_index].left + 1] = unused;
 				}
 
 				if (!reinsert.node.is_leaf()) {
@@ -359,14 +359,14 @@ void BVHOptimizer::optimize(BVH & bvh) {
 					parent_indices[reinsert.node.left + 1] = unused + 1;
 				}
 
-				bvh.nodes._2[min_index].left  = unused;
-				bvh.nodes._2[min_index].count = 0;
+				bvh.nodes[min_index].left  = unused;
+				bvh.nodes[min_index].count = 0;
 
 				update_aabbs_bottom_up(bvh, parent_indices, min_index);
 
-				bvh_node_calc_axis(bvh, parent_indices, displacement, originated, bvh.nodes._2[min_index]);
+				bvh_node_calc_axis(bvh, parent_indices, displacement, originated, bvh.nodes[min_index]);
 
-				assert(!bvh.nodes._2[min_index].is_leaf());
+				ASSERT(!bvh.nodes[min_index].is_leaf());
 			}
 		}
 
@@ -394,21 +394,15 @@ void BVHOptimizer::optimize(BVH & bvh) {
 		clock_t curr_time = clock();
 		size_t  duration  = (curr_time - start_time) * 1000 / CLOCKS_PER_SEC;
 
-		if (duration >= config.bvh_optimizer_max_time || batch_count >= config.bvh_optimizer_max_num_batches) {
+		if (duration >= cpu_config.bvh_optimizer_max_time || batch_count >= cpu_config.bvh_optimizer_max_num_batches) {
 			break;
 		}
 
-		printf("%i: SAH=%f best=%f last_reduction=%i     \r", batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
+		IO::print("{}: SAH={} best={} last_reduction={}     \r"_sv, batch_count, sah_cost, sah_cost_best, batches_since_last_cost_reduction);
 		batch_count++;
 	}
 
-	delete [] originated;
-	delete [] displacement;
-
-	delete [] batch_indices;
-	delete [] parent_indices;
-
 	// Report the improvement of the SAH cost
 	float cost_after = bvh_sah_cost(bvh);
-	printf("\ncost: %f -> %f\n", cost_before, cost_after);
+	IO::print("\ncost: {} -> {}\n"_sv, cost_before, cost_after);
 }

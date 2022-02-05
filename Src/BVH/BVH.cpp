@@ -1,52 +1,58 @@
 #include "BVH.h"
 
-void BVH::aggregate(BVHNodePtr aggregated_bvh_nodes, int index_offset, int bvh_offset) const {
-	switch (config.bvh_type) {
+#include "Core/IO.h"
+#include "Core/Timer.h"
+
+#include "BVH/Builders/SAHBuilder.h"
+#include "BVH/Builders/SBVHBuilder.h"
+#include "BVH/Converters/BVH4Converter.h"
+#include "BVH/Converters/BVH8Converter.h"
+
+#include "BVH/BVHOptimizer.h"
+
+BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
+	IO::print("Constructing BVH...\r"_sv);
+
+	BVH2 bvh = { };
+
+	// Only the SBVH uses SBVH as its starting point,
+	// all other BVH types use the standard BVH as their starting point
+	if (cpu_config.bvh_type == BVHType::SBVH) {
+		ScopeTimer timer("SBVH Construction"_sv);
+
+		SBVHBuilder(bvh, triangles.size()).build(triangles);
+	} else  {
+		ScopeTimer timer("BVH Construction"_sv);
+
+		SAHBuilder(bvh, triangles.size()).build(triangles);
+	}
+
+	if (cpu_config.enable_bvh_optimization) {
+		BVHOptimizer::optimize(bvh);
+	}
+
+	return bvh;
+}
+
+OwnPtr<BVH> BVH::create_from_bvh2(BVH2 bvh) {
+	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
 		case BVHType::SBVH: {
-			BVHNode2 * dst = aggregated_bvh_nodes._2 + bvh_offset;
-
-			for (int n = 0; n < node_count; n++) {
-				BVHNode2 & node = dst[n];
-				node = nodes._2[n];
-
-				if (node.is_leaf()) {
-					node.first += index_offset;
-				} else {
-					node.left += bvh_offset;
-				}
-			}
-			break;
+			return make_owned<BVH2>(std::move(bvh));
 		}
-		case BVHType::QBVH: {
-			BVHNode4 * dst = aggregated_bvh_nodes._4 + bvh_offset;
-
-			for (int n = 0; n < node_count; n++) {
-				BVHNode4 & node = dst[n];
-				node = nodes._4[n];
-
-				int child_count = node.get_child_count();
-				for (int c = 0; c < child_count; c++) {
-					if (node.is_leaf(c)) {
-						node.get_index(c) += index_offset;
-					} else {
-						node.get_index(c) += bvh_offset;
-					}
-				}
-			}
-			break;
+		case BVHType::BVH4: {
+			// Collapse binary BVH into 4-way BVH
+			OwnPtr<BVH4> bvh4 = make_owned<BVH4>();
+			BVH4Converter(*bvh4.get(), bvh).convert();
+			return bvh4;
 		}
-		case BVHType::CWBVH: {
-			BVHNode8 * dst = aggregated_bvh_nodes._8 + bvh_offset;
-
-			for (int n = 0; n < node_count; n++) {
-				BVHNode8 & node = dst[n];
-				node = nodes._8[n];
-
-				node.base_index_triangle += index_offset;
-				node.base_index_child    += bvh_offset;
-			}
-			break;
+		case BVHType::BVH8: {
+			// Collapse binary BVH into 8-way Compressed Wide BVH
+			OwnPtr<BVH8> bvh8 = make_owned<BVH8>();
+			BVH8Converter(*bvh8.get(), bvh).convert();
+			return bvh8;
 		}
+		default: ASSERT(false);
 	}
+	IO::exit(1);
 }

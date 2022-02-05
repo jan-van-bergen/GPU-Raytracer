@@ -4,8 +4,8 @@
 
 #include "PLYLoader.h"
 
+#include "Core/Parser.h"
 #include "Util/Util.h"
-#include "Util/Parser.h"
 #include "Util/Geometry.h"
 
 struct Instance {
@@ -13,10 +13,10 @@ struct Instance {
 	MaterialHandle material_handle;
 };
 
-using PBRTTextureMap  = HashMap<String, TextureHandle,   StringHash>;
-using PBRTMaterialMap = HashMap<String, MaterialHandle,  StringHash>;
-using PBRTMediumMap   = HashMap<String, MediumHandle,    StringHash>;
-using PBRTObjectMap   = HashMap<String, Array<Instance>, StringHash>;
+using PBRTTextureMap  = HashMap<String, TextureHandle>;
+using PBRTMaterialMap = HashMap<String, MaterialHandle>;
+using PBRTMediumMap   = HashMap<String, MediumHandle>;
+using PBRTObjectMap   = HashMap<String, Array<Instance>>;
 
 static void parser_next_line(Parser & parser) {
 	while (true) {
@@ -98,9 +98,9 @@ static Param parse_param(Parser & parser) {
 		param.type = Param::Type::BOOL;
 		do {
 			bool value;
-			if (parser.match("\"true\"")) {
+			if (parser.match("true")) {
 				value = true;
-			} else if (parser.match("\"false\"")) {
+			} else if (parser.match("false")) {
 				value = false;
 			} else {
 				ERROR(parser.location, "Invalid boolean value!\n");
@@ -180,7 +180,7 @@ static Param parse_param(Parser & parser) {
 		} while (has_brackets && !parser.match(']'));
 
 	} else {
-		ERROR(parser.location, "Unrecognized type '%.*s'", unsigned(type.length()), type.start);
+		ERROR(parser.location, "Unrecognized type '{}'", type);
 	}
 
 	pbrt_parser_skip(parser);
@@ -208,7 +208,7 @@ static const Param * find_param_optional(const Array<Param> & params, const char
 static const Param * find_param_optional(const Array<Param> & params, const char * name, Param::Type type) {
 	const Param * param = find_param_optional(params, name);
 	if (param && param->type != type) {
-		ERROR(param->location, "Param '%.*s' has invalid type!\n", unsigned(param->name.length()), param->name.start);
+		ERROR(param->location, "Param '{}' has invalid type!\n", param->name);
 	}
 	return param;
 }
@@ -224,7 +224,7 @@ static const Param & find_param(const Array<Param> & params, const char * name) 
 static const Param & find_param(const Array<Param> & params, const char * name, Param::Type type) {
 	const Param & param = find_param(params, name);
 	if (param.type != type) {
-		ERROR(param.location, "Param '%.*s' has invalid type!\n", unsigned(param.name.length()), param.name.start);
+		ERROR(param.location, "Param '{}' has invalid type!\n", param.name);
 	}
 	return param;
 }
@@ -253,9 +253,9 @@ static const Array<Vector3>    & find_param_float3s (const Array<Param> & params
 static const Array<StringView> & find_param_strings (const Array<Param> & params, const char * name) { return find_param(params, name, Param::Type::STRING) .strings; }
 static const Array<StringView> & find_param_textures(const Array<Param> & params, const char * name) { return find_param(params, name, Param::Type::TEXTURE).strings; }
 
-static Material parse_material(const char * name, const StringView & type, const Array<Param> & params, const PBRTTextureMap & texture_map) {
+static Material parse_material(String name, StringView type, const Array<Param> & params, const PBRTTextureMap & texture_map) {
 	Material material = { };
-	material.name = name;
+	material.name = std::move(name);
 
 	auto parse_reflectance = [&material, &params, &texture_map]() {
 		const Param * param_reflectance = find_param_optional(params, "reflectance");
@@ -267,7 +267,7 @@ static Material parse_material(const char * name, const StringView & type, const
 			StringView texture_name = param_reflectance->strings[0];
 
 			if (!texture_map.try_get(texture_name, material.texture_id)) {
-				WARNING(param_reflectance->location, "Undefined texture '%.*s'!\n", unsigned(texture_name.length()), texture_name.start);
+				WARNING(param_reflectance->location, "Undefined texture '{}'!\n", texture_name);
 			}
 		} else {
 			ERROR(param_reflectance->location, "Invalid type!\n");
@@ -352,8 +352,7 @@ static Material parse_material(const char * name, const StringView & type, const
 				StringView metal_name_full = param_eta->strings[0];
 				StringView metal_name      = { };
 
-				Parser parser = { };
-				parser.init(metal_name_full.start, metal_name_full.end);
+				Parser parser(metal_name_full);
 
 				parser.expect("metal-");
 				metal_name.start = parser.cur;
@@ -374,7 +373,7 @@ static Material parse_material(const char * name, const StringView & type, const
 				}
 
 				if (!found) {
-					WARNING(param_eta->location, "Unknown metal eta '%.*s'!\n", unsigned(metal_name_full.length()), metal_name_full.start);
+					WARNING(param_eta->location, "Unknown metal eta '{}'!\n", metal_name_full);
 				}
 			}
 		}
@@ -388,8 +387,7 @@ static Material parse_material(const char * name, const StringView & type, const
 				StringView metal_name_full = param_k->strings[0];
 				StringView metal_name      = { };
 
-				Parser parser = { };
-				parser.init(metal_name_full.start, metal_name_full.end);
+				Parser parser(metal_name_full);
 
 				parser.expect("metal-");
 				metal_name.start = parser.cur;
@@ -410,7 +408,7 @@ static Material parse_material(const char * name, const StringView & type, const
 				}
 
 				if (!found) {
-					WARNING(param_k->location, "Unknown metal k '%.*s'!\n", unsigned(metal_name_full.length()), metal_name_full.start);
+					WARNING(param_k->location, "Unknown metal k '{}'!\n", metal_name_full);
 				}
 			}
 		}
@@ -422,23 +420,16 @@ static Material parse_material(const char * name, const StringView & type, const
 			material.index_of_refraction = param_eta->floats[0];
 		}
 	} else {
-		printf("WARNING: Material Type '%.*s' is not supported!\n", unsigned(type.length()), type.start);
+		IO::print("WARNING: Material Type '{}' is not supported!\n"_sv, type);
 	}
 
 	return material;
 }
 
-static void load_include(const char * filename, const char * path, int path_length, Scene & scene, PBRTTextureMap & texture_map, PBRTMaterialMap & material_map, PBRTMediumMap & medium_map, PBRTObjectMap & object_map) {
-	int          file_length;
-	const char * file = Util::file_read(filename, file_length);
+static void load_include(const String & filename, StringView path, Scene & scene, PBRTTextureMap & texture_map, PBRTMaterialMap & material_map, PBRTMediumMap & medium_map, PBRTObjectMap & object_map) {
+	String file = IO::file_read(filename);
 
-	SourceLocation location;
-	location.file = filename;
-	location.line = 1;
-	location.col  = 0;
-
-	Parser parser;
-	parser.init(file, file + file_length, location);
+	Parser parser(file.view(), filename.view());
 
 	struct Attribute {
 		MaterialHandle material = MaterialHandle::get_default();
@@ -465,9 +456,8 @@ static void load_include(const char * filename, const char * path, int path_leng
 			StringView name = parse_quoted(parser);
 			pbrt_parser_skip(parser);
 
-			const char * include_abs = Util::get_absolute_filename(path, path_length, name.start, name.length());
-			load_include(include_abs, path, path_length, scene, texture_map, material_map, medium_map, object_map);
-			delete [] include_abs;
+			String include_abs = Util::combine_stringviews(path, name);
+			load_include(include_abs, path, scene, texture_map, material_map, medium_map, object_map);
 
 		} else if (parser.match("AttributeBegin")) {
 			pbrt_parser_skip(parser);
@@ -511,13 +501,13 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 			Array<Instance> shape;
 			if (!object_map.try_get(name, shape)) {
-				ERROR(parser.location, "Trying to create instance of unknown shape '%.*s'!\n", unsigned(name.length()), name.start);
+				ERROR(parser.location, "Trying to create instance of unknown shape '{}'!\n", name);
 			}
 
 			for (int i = 0; i < shape.size(); i++) {
 				const Instance & instance = shape[i];
 
-				Mesh & mesh = scene.add_mesh(name.c_str(), instance.mesh_data_handle, instance.material_handle);
+				Mesh & mesh = scene.add_mesh(name, instance.mesh_data_handle, instance.material_handle);
 				Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 			}
 
@@ -610,7 +600,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 				scene.camera.aperture_radius = find_param_float(params, "lensradius", 0.1f);
 				scene.camera.focal_distance  = find_param_float(params, "focaldistance", 10.0f);
 			} else {
-				WARNING(parser.location, "Unsupported Camera type '%.*s'!\n", unsigned(type.length()), type.start);
+				WARNING(parser.location, "Unsupported Camera type '{}'!\n", type);
 			}
 
 			Matrix4::decompose(attribute_stack.back().transform, &scene.camera.position, &scene.camera.rotation, nullptr);
@@ -623,13 +613,10 @@ static void load_include(const char * filename, const char * path, int path_leng
 			Array<Param> params = parse_params(parser);
 
 			if (clas == "imagemap") {
-				StringView   filename_rel = find_param_string(params, "filename");
-				const char * filename_abs = Util::get_absolute_filename(path, path_length, filename_rel.start, filename_rel.length());
+				String filename_abs = Util::combine_stringviews(path, find_param_string(params, "filename"));
 
 				TextureHandle texture_handle = scene.asset_manager.add_texture(filename_abs);
 				texture_map.insert(name, texture_handle);
-
-				delete [] filename_abs;
 
 			} else if (clas == "scale") {
 				StringView tex = find_param_texture(params, "tex");
@@ -658,7 +645,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 					texture_map.insert(name, texture_handle); // Reinsert under new name
 				}
 			} else {
-				WARNING(parser.location, "Unsupported texture class '%.*s'!\n", unsigned(clas.length()), clas.start);
+				WARNING(parser.location, "Unsupported texture class '{}'!\n", clas);
 			}
 
 		} else if (parser.match("Material")) {
@@ -677,7 +664,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 			Array<Param> params = parse_params(parser);
 			StringView type = find_param_string(params, "type");
 
-			Material       material        = parse_material(name.c_str(), type, params, texture_map);
+			Material       material        = parse_material(name, type, params, texture_map);
 			MaterialHandle material_handle = scene.asset_manager.add_material(material);
 
 			material_map.insert(name, material_handle);
@@ -688,7 +675,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 			if (!material_map.try_get(name, attribute_stack.back().material)) {
 				attribute_stack.back().material = MaterialHandle::get_default();
-				WARNING(parser.location, "Used undefined NamedMaterial '%.*s'!\n", unsigned(name.length()), name.start)
+				WARNING(parser.location, "Used undefined NamedMaterial '{}'!\n", name)
 			}
 
 		} else if (parser.match("MakeNamedMedium")) {
@@ -717,7 +704,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 				}
 
 				Medium medium = { };
-				medium.name = name.c_str();
+				medium.name = name;
 				medium.set_A_and_d(sigma_a, sigma_s);
 
 				MediumHandle medium_handle = scene.asset_manager.add_medium(medium);
@@ -737,7 +724,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 					scene.asset_manager.get_material(material_handle).medium_handle = medium_handle;
 				}
 			} else {
-				WARNING(parser.location, "Named Medium '%.*s' not found!\n", unsigned(medium_name_to.length()), medium_name_to.start);
+				WARNING(parser.location, "Named Medium '{}' not found!\n", medium_name_to);
 			}
 
 		} else if (parser.match("LightSource")) {
@@ -748,7 +735,7 @@ static void load_include(const char * filename, const char * path, int path_leng
 
 			const Param * filename = find_param_optional(params, "filename");
 			if (filename) {
-				scene_config.sky = Util::get_absolute_filename(path, path_length, filename->strings[0].c_str(), filename->strings[0].length());
+				cpu_config.sky_filename = Util::combine_stringviews(path, filename->strings[0]);
 			}
 
 		} else if (parser.match("AreaLightSource")) {
@@ -794,10 +781,8 @@ static void load_include(const char * filename, const char * path, int path_leng
 			Array<Param> params = parse_params(parser);
 
 			if (type == "plymesh") {
-				StringView param_filename = find_param(params, "filename", Param::Type::STRING).strings[0];
-
-				const char * filename_rel = param_filename.c_str();
-				const char * filename_abs = Util::get_absolute_filename(path, path_length, filename_rel, param_filename.length());
+				StringView filename_rel = find_param(params, "filename", Param::Type::STRING).strings[0];
+				String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
 				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
 
@@ -811,7 +796,6 @@ static void load_include(const char * filename, const char * path, int path_leng
 					Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 				}
 
-				delete [] filename_abs;
 			} else if (type == "trianglemesh") {
 				const Param & positions  = find_param         (params, "P",  Param::Type::FLOAT3);
 				const Param * normals    = find_param_optional(params, "N",  Param::Type::FLOAT3);
@@ -824,10 +808,9 @@ static void load_include(const char * filename, const char * path, int path_leng
 					WARNING(param_indices.location, "The number of Triangle Mesh indices should be a multiple of 3!\n");
 				}
 
-				int        triangle_count = indices.size() / 3;
-				Triangle * triangles      = new Triangle[triangle_count];
+				Array<Triangle> triangles(indices.size() / 3);
 
-				for (int i = 0; i < triangle_count; i++) {
+				for (size_t i = 0; i < triangles.size(); i++) {
 					int index_0 = indices[3*i];
 					int index_1 = indices[3*i + 1];
 					int index_2 = indices[3*i + 2];
@@ -865,20 +848,18 @@ static void load_include(const char * filename, const char * path, int path_leng
 					triangle.init();
 				}
 
-				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
+				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
 				Mesh & mesh = scene.add_mesh("Triangle Mesh", mesh_data_handle, attribute_stack.back().material);
 				Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 			} else if (type == "sphere") {
 				float radius = find_param_float(params, "radius", 1.0f);
 
-				int        triangle_count;
-				Triangle * triangles;
-				Geometry::sphere(triangles, triangle_count, attribute_stack.back().transform);
+				Array<Triangle> triangles = Geometry::sphere(attribute_stack.back().transform);
+				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
 
-				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles, triangle_count);
 				scene.add_mesh("Sphere", mesh_data_handle, attribute_stack.back().material);
 			} else {
-				WARNING(parser.location, "Unsupported Shape type '%.*s'!\n", unsigned(type.length()), type.start);
+				WARNING(parser.location, "Unsupported Shape type '{}'!\n", type);
 			}
 
 		} else if (parser.match("WorldBegin")) {
@@ -899,26 +880,22 @@ static void load_include(const char * filename, const char * path, int path_leng
 			Array<Param> params = parse_params(parser);
 
 		} else {
-			SourceLocation line_start = parser.location;
-			const char   * line       = parser.cur;
+			SourceLocation line_location = parser.location;
+			const char   * line_start    = parser.cur;
 
 			parser_next_line(parser);
 
-			WARNING(line_start, "Skipped line: %.*s", unsigned(parser.cur - line), line);
+			WARNING(line_location, "Ignored line: {}", StringView { line_start, parser.cur });
 		}
 	}
-
-	delete [] file;
 }
 
-void PBRTLoader::load(const char * filename, Scene & scene) {
+void PBRTLoader::load(const String & filename, Scene & scene) {
 	PBRTTextureMap  texture_map;
 	PBRTMaterialMap material_map;
 	PBRTMediumMap   medium_map;
 	PBRTObjectMap   object_map;
 
-	char path[512]; Util::get_path(filename, path);
-	int  path_length = strlen(path);
-
-	load_include(filename, path, path_length, scene, texture_map, material_map, medium_map, object_map);
+	StringView path = Util::get_directory(filename.view());
+	load_include(filename, path, scene, texture_map, material_map, medium_map, object_map);
 }

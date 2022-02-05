@@ -116,11 +116,12 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <AdditionalIncludeDirectories>Src;.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -172,7 +173,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <AdditionalIncludeDirectories>Src;.\include;$(CUDA_PATH)\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -196,88 +197,110 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Imgui\imgui.cpp" />
-    <ClCompile Include="Imgui\imgui_demo.cpp" />
-    <ClCompile Include="Imgui\imgui_draw.cpp" />
-    <ClCompile Include="Imgui\imgui_impl_opengl3.cpp" />
-    <ClCompile Include="Imgui\imgui_impl_sdl.cpp" />
-    <ClCompile Include="Imgui\imgui_widgets.cpp" />
+    <ClCompile Include="include\Imgui\imgui.cpp" />
+    <ClCompile Include="include\Imgui\imgui_demo.cpp" />
+    <ClCompile Include="include\Imgui\imgui_draw.cpp" />
+    <ClCompile Include="include\Imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="include\Imgui\imgui_impl_sdl.cpp" />
+    <ClCompile Include="include\Imgui\imgui_widgets.cpp" />
     <ClCompile Include="include\miniz\miniz.c" />
+    <ClCompile Include="Src\Args.cpp" />
     <ClCompile Include="Src\Assets\AssetManager.cpp" />
     <ClCompile Include="Src\Assets\BVHLoader.cpp" />
-    <ClCompile Include="Src\Assets\MeshData.cpp" />
-    <ClCompile Include="Src\Assets\MitsubaLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\MitshairLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\MitsubaLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\SerializedLoader.cpp" />
+    <ClCompile Include="Src\Assets\Mitsuba\XMLParser.cpp" />
     <ClCompile Include="Src\Assets\OBJLoader.cpp" />
     <ClCompile Include="Src\Assets\PBRTLoader.cpp" />
     <ClCompile Include="Src\Assets\PLYLoader.cpp" />
-    <ClCompile Include="Src\Assets\Texture.cpp" />
     <ClCompile Include="Src\Assets\TextureLoader.cpp" />
-    <ClCompile Include="Src\BVH\Builders\BVHBuilder.cpp" />
-    <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp" />
-    <ClCompile Include="Src\BVH\Builders\QBVHBuilder.cpp" />
+    <ClCompile Include="Src\BVH\Builders\BVHPartitions.cpp" />
+    <ClCompile Include="Src\BVH\Builders\SAHBuilder.cpp" />
     <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp" />
     <ClCompile Include="Src\BVH\BVH.cpp" />
     <ClCompile Include="Src\BVH\BVHCollapser.cpp" />
     <ClCompile Include="Src\BVH\BVHOptimizer.cpp" />
-    <ClCompile Include="Src\CUDA\CUDAContext.cpp" />
-    <ClCompile Include="Src\CUDA\CUDAMemory.cpp" />
-    <ClCompile Include="Src\CUDA\CUDAModule.cpp" />
+    <ClCompile Include="Src\BVH\Converters\BVH8Converter.cpp" />
+    <ClCompile Include="Src\BVH\Converters\BVH4Converter.cpp" />
+    <ClCompile Include="Src\Core\Format.cpp" />
+    <ClCompile Include="Src\Core\IO.cpp" />
+    <ClCompile Include="Src\Core\Mutex.cpp" />
+    <ClCompile Include="Src\Core\Random.cpp" />
+    <ClCompile Include="Src\Device\CUDAContext.cpp" />
+    <ClCompile Include="Src\Device\CUDAMemory.cpp" />
+    <ClCompile Include="Src\Device\CUDAModule.cpp" />
+    <ClCompile Include="Src\Exporters\EXRExporter.cpp" />
+    <ClCompile Include="Src\Exporters\PPMExporter.cpp" />
     <ClCompile Include="Src\Input.cpp" />
     <ClCompile Include="Src\Main.cpp" />
     <ClCompile Include="Src\Math\AABB.cpp" />
     <ClCompile Include="Src\Math\Mipmap.cpp" />
-    <ClCompile Include="Src\Pathtracer\Camera.cpp" />
-    <ClCompile Include="Src\Pathtracer\Mesh.cpp" />
-    <ClCompile Include="Src\Pathtracer\Pathtracer.cpp" />
-    <ClCompile Include="Src\Pathtracer\Scene.cpp" />
-    <ClCompile Include="Src\Pathtracer\Sky.cpp" />
-    <ClCompile Include="Src\Util\BitArray.cpp" />
+    <ClCompile Include="Src\Renderer\Camera.cpp" />
+    <ClCompile Include="Src\Renderer\Integrators\AO.cpp" />
+    <ClCompile Include="Src\Renderer\Integrators\Integrator.cpp" />
+    <ClCompile Include="Src\Renderer\Integrators\Pathtracer.cpp" />
+    <ClCompile Include="Src\Renderer\Mesh.cpp" />
+    <ClCompile Include="Src\Renderer\Scene.cpp" />
+    <ClCompile Include="Src\Renderer\Sky.cpp" />
+    <ClCompile Include="Src\Renderer\Texture.cpp" />
     <ClCompile Include="Src\Util\BlueNoise.cpp" />
     <ClCompile Include="Src\Util\Geometry.cpp" />
-    <ClCompile Include="Src\Util\Mutex.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />
     <ClCompile Include="Src\Util\PMJ.cpp" />
     <ClCompile Include="Src\Util\Shader.cpp" />
+    <ClCompile Include="Src\Util\StringUtil.cpp" />
     <ClCompile Include="Src\Util\ThreadPool.cpp" />
-    <ClCompile Include="Src\Util\Util.cpp" />
     <ClCompile Include="Src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CUDA_Source\Common.h" />
-    <ClInclude Include="Imgui\imconfig.h" />
-    <ClInclude Include="Imgui\imgui.h" />
-    <ClInclude Include="Imgui\imgui_impl_opengl3.h" />
-    <ClInclude Include="Imgui\imgui_impl_sdl.h" />
-    <ClInclude Include="Imgui\imgui_internal.h" />
-    <ClInclude Include="Imgui\imstb_rectpack.h" />
-    <ClInclude Include="Imgui\imstb_textedit.h" />
-    <ClInclude Include="Imgui\imstb_truetype.h" />
+    <ClInclude Include="Src\Args.h" />
     <ClInclude Include="Src\Assets\AssetManager.h" />
     <ClInclude Include="Src\Assets\BVHLoader.h" />
-    <ClInclude Include="Src\Assets\Material.h" />
-    <ClInclude Include="Src\Assets\Medium.h" />
-    <ClInclude Include="Src\Assets\MeshData.h" />
-    <ClInclude Include="Src\Assets\MitsubaLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\MitsubaLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\SerializedLoader.h" />
+    <ClInclude Include="Src\Assets\Mitsuba\XMLParser.h" />
     <ClInclude Include="Src\Assets\OBJLoader.h" />
     <ClInclude Include="Src\Assets\PBRTLoader.h" />
     <ClInclude Include="Src\Assets\PLYLoader.h" />
-    <ClInclude Include="Src\Assets\Texture.h" />
     <ClInclude Include="Src\Assets\TextureLoader.h" />
-    <ClInclude Include="Src\BVH\Builders\BVHBuilder.h" />
     <ClInclude Include="Src\BVH\Builders\BVHPartitions.h" />
-    <ClInclude Include="Src\BVH\Builders\CWBVHBuilder.h" />
-    <ClInclude Include="Src\BVH\Builders\QBVHBuilder.h" />
+    <ClInclude Include="Src\BVH\Builders\SAHBuilder.h" />
     <ClInclude Include="Src\BVH\Builders\SBVHBuilder.h" />
     <ClInclude Include="Src\BVH\BVH.h" />
     <ClInclude Include="Src\BVH\BVHCollapser.h" />
     <ClInclude Include="Src\BVH\BVHOptimizer.h" />
+    <ClInclude Include="Src\BVH\Converters\BVHConverter.h" />
+    <ClInclude Include="Src\BVH\Converters\BVH8Converter.h" />
+    <ClInclude Include="Src\BVH\Converters\BVH4Converter.h" />
     <ClInclude Include="Src\Config.h" />
-    <ClInclude Include="Src\CUDA\CUDACall.h" />
-    <ClInclude Include="Src\CUDA\CUDAContext.h" />
-    <ClInclude Include="Src\CUDA\CUDAEvent.h" />
-    <ClInclude Include="Src\CUDA\CUDAKernel.h" />
-    <ClInclude Include="Src\CUDA\CUDAMemory.h" />
-    <ClInclude Include="Src\CUDA\CUDAModule.h" />
+    <ClInclude Include="Src\Core\Array.h" />
+    <ClInclude Include="Src\Core\Assertion.h" />
+    <ClInclude Include="Src\Core\BitArray.h" />
+    <ClInclude Include="Src\Core\Compare.h" />
+    <ClInclude Include="Src\Core\Format.h" />
+    <ClInclude Include="Src\Core\Hash.h" />
+    <ClInclude Include="Src\Core\HashMap.h" />
+    <ClInclude Include="Src\Core\IO.h" />
+    <ClInclude Include="Src\Core\MinHeap.h" />
+    <ClInclude Include="Src\Core\Mutex.h" />
+    <ClInclude Include="Src\Core\OwnPtr.h" />
+    <ClInclude Include="Src\Core\Parser.h" />
+    <ClInclude Include="Src\Core\Queue.h" />
+    <ClInclude Include="Src\Core\Random.h" />
+    <ClInclude Include="Src\Core\Sort.h" />
+    <ClInclude Include="Src\Core\Timer.h" />
+    <ClInclude Include="Src\Core\String.h" />
+    <ClInclude Include="Src\Core\StringView.h" />
+    <ClInclude Include="Src\Device\CUDACall.h" />
+    <ClInclude Include="Src\Device\CUDAContext.h" />
+    <ClInclude Include="Src\Device\CUDAEvent.h" />
+    <ClInclude Include="Src\Device\CUDAKernel.h" />
+    <ClInclude Include="Src\Device\CUDAMemory.h" />
+    <ClInclude Include="Src\Device\CUDAModule.h" />
+    <ClInclude Include="Src\Exporters\EXRExporter.h" />
+    <ClInclude Include="Src\Exporters\PPMExporter.h" />
     <ClInclude Include="Src\Input.h" />
     <ClInclude Include="Src\Math\AABB.h" />
     <ClInclude Include="Src\Math\Math.h" />
@@ -287,28 +310,24 @@
     <ClInclude Include="Src\Math\Vector2.h" />
     <ClInclude Include="Src\Math\Vector3.h" />
     <ClInclude Include="Src\Math\Vector4.h" />
-    <ClInclude Include="Src\Pathtracer\Camera.h" />
-    <ClInclude Include="Src\Pathtracer\Mesh.h" />
-    <ClInclude Include="Src\Pathtracer\Pathtracer.h" />
-    <ClInclude Include="Src\Pathtracer\Scene.h" />
-    <ClInclude Include="Src\Pathtracer\Sky.h" />
-    <ClInclude Include="Src\Pathtracer\Triangle.h" />
-    <ClInclude Include="Src\Util\Array.h" />
-    <ClInclude Include="Src\Util\BitArray.h" />
+    <ClInclude Include="Src\Renderer\Camera.h" />
+    <ClInclude Include="Src\Renderer\Integrators\AO.h" />
+    <ClInclude Include="Src\Renderer\Integrators\Integrator.h" />
+    <ClInclude Include="Src\Renderer\Integrators\Pathtracer.h" />
+    <ClInclude Include="Src\Renderer\Material.h" />
+    <ClInclude Include="Src\Renderer\Medium.h" />
+    <ClInclude Include="Src\Renderer\Mesh.h" />
+    <ClInclude Include="Src\Renderer\MeshData.h" />
+    <ClInclude Include="Src\Renderer\Scene.h" />
+    <ClInclude Include="Src\Renderer\Sky.h" />
+    <ClInclude Include="Src\Renderer\Texture.h" />
+    <ClInclude Include="Src\Renderer\Triangle.h" />
     <ClInclude Include="Src\Util\BlueNoise.h" />
     <ClInclude Include="Src\Util\Geometry.h" />
-    <ClInclude Include="Src\Util\HashMap.h" />
-    <ClInclude Include="Src\Util\Mutex.h" />
-    <ClInclude Include="Src\Util\Parser.h" />
     <ClInclude Include="Src\Util\PerfTest.h" />
     <ClInclude Include="Src\Util\PMJ.h" />
-    <ClInclude Include="Src\Util\MinHeap.h" />
-    <ClInclude Include="Src\Util\Queue.h" />
-    <ClInclude Include="Src\Util\Random.h" />
-    <ClInclude Include="Src\Util\ScopeTimer.h" />
     <ClInclude Include="Src\Util\Shader.h" />
-    <ClInclude Include="Src\Util\String.h" />
-    <ClInclude Include="Src\Util\StringView.h" />
+    <ClInclude Include="Src\Util\StringUtil.h" />
     <ClInclude Include="Src\Util\ThreadPool.h" />
     <ClInclude Include="Src\Util\Util.h" />
     <ClInclude Include="Src\Window.h" />

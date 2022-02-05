@@ -1,11 +1,11 @@
 #include "OBJLoader.h"
 
+#include "Core/Array.h"
+#include "Core/Parser.h"
+#include "Core/String.h"
+
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
-
-#include "Util/Array.h"
-#include "Util/Parser.h"
-#include "Util/String.h"
 
 static float parse_float(Parser & parser) {
 	parser.skip_whitespace();
@@ -44,14 +44,39 @@ static Index parse_index(Parser & parser) {
 	index.v = parse_int(parser);
 
 	if (parser.match('/')) {
-		if (!parser.match('/')) {
+		if (parser.match('/')) {
+			index.n = parse_int(parser);
+		} else {
 			index.t = parse_int(parser);
-			parser.expect('/');
+			if (parser.match('/')) {
+				index.n = parse_int(parser);
+			}
 		}
-		index.n = parse_int(parser);
 	}
 
 	return index;
+}
+
+static Vector3 parse_v(Parser & parser) {
+	Vector3 v = parse_vector3(parser);
+	parser.skip_whitespace();
+	if (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
+		parser.parse_float(); // w coordinate, ignored
+	}
+	return v;
+}
+
+static Vector2 parse_vt(Parser & parser) {
+	Vector2 vt = parse_vector2(parser);
+	parser.skip_whitespace();
+	if (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
+		parser.parse_float(); // w coordinate, ignored
+	}
+	return vt;
+}
+
+static Vector3 parse_vn(Parser & parser) {
+	return parse_vector3(parser);
 }
 
 static void parse_face(Parser & parser, Array<Face> & faces) {
@@ -67,7 +92,7 @@ static void parse_face(Parser & parser, Array<Face> & faces) {
 	while (true) {
 		parser.skip_whitespace();
 
-		if (parser.reached_end() || !is_digit(*parser.cur)) break;
+		if (parser.reached_end() || !(*parser.cur == '-' || is_digit(*parser.cur))) break;
 
 		Index curr_index = parse_index(parser);
 		faces.emplace_back(index_0, prev_index, curr_index);
@@ -84,14 +109,12 @@ struct OBJFile {
 	Array<Face> faces;
 };
 
-static OBJFile parse_obj(const char * filename) {
-	int          file_length;
-	const char * file = Util::file_read(filename, file_length);
+static OBJFile parse_obj(const String & filename) {
+	String file = IO::file_read(filename);
 
 	OBJFile obj = { };
 
-	Parser parser = { };
-	parser.init(file, file + file_length, filename);
+	Parser parser(file.view(), filename.view());
 
 	while (!parser.reached_end()) {
 		if (parser.match('#') || parser.match("o ")) {
@@ -99,9 +122,9 @@ static OBJFile parse_obj(const char * filename) {
 				parser.advance();
 			}
 		}
-		else if (parser.match("v "))  obj.positions .push_back(parse_vector3(parser));
-		else if (parser.match("vt ")) obj.tex_coords.push_back(parse_vector2(parser));
-		else if (parser.match("vn ")) obj.normals   .push_back(parse_vector3(parser));
+		else if (parser.match("v "))  obj.positions .push_back(parse_v (parser));
+		else if (parser.match("vt ")) obj.tex_coords.push_back(parse_vt(parser));
+		else if (parser.match("vn ")) obj.normals   .push_back(parse_vn(parser));
 		else if (parser.match("f "))  parse_face(parser, obj.faces);
 		else {
 			while (!parser.reached_end() && !is_newline(*parser.cur)) {
@@ -114,16 +137,13 @@ static OBJFile parse_obj(const char * filename) {
 		parser.expect('\n');
 	}
 
-	delete [] file;
-
 	return obj;
 }
 
-bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangle_count) {
+Array<Triangle> OBJLoader::load(const String & filename) {
 	OBJFile obj = parse_obj(filename);
 
-	triangle_count = obj.faces.size();
-	triangles      = new Triangle[triangle_count];
+	Array<Triangle> triangles(obj.faces.size());
 
 	for (int f = 0; f < obj.faces.size(); f++) {
 		const Face & face = obj.faces[f];
@@ -154,9 +174,9 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 				return result;
 			};
 
-			int index_v = get_index(obj.positions .size(), v);
-			int index_t = get_index(obj.tex_coords.size(), t);
-			int index_n = get_index(obj.normals   .size(), n);
+			int index_v = get_index(int(obj.positions .size()), v);
+			int index_t = get_index(int(obj.tex_coords.size()), t);
+			int index_n = get_index(int(obj.normals   .size()), n);
 
 			if (index_v != INVALID) {
 				positions[i] = obj.positions[index_v];
@@ -182,7 +202,7 @@ bool OBJLoader::load(const char * filename, Triangle *& triangles, int & triangl
 		triangles[f].init();
 	}
 
-	printf("Loaded OBJ %s from disk (%i triangles)\n", filename, triangle_count);
+	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"_sv, filename, triangles.size());
 
-	return true;
+	return triangles;
 }

@@ -18,14 +18,14 @@ AABB AABB::from_points(const Vector3 * points, int point_count) {
 	}
 
 	aabb.fix_if_needed();
-	assert(aabb.is_valid());
+	ASSERT(aabb.is_valid());
 
 	return aabb;
 }
 
 AABB AABB::unify(const AABB & b1, const AABB & b2) {
-	assert(b1.is_valid() || b1.is_empty());
-	assert(b2.is_valid() || b2.is_empty());
+	ASSERT(b1.is_valid() || b1.is_empty());
+	ASSERT(b2.is_valid() || b2.is_empty());
 
 	AABB aabb;
 	aabb.min = Vector3::min(b1.min, b2.min);
@@ -34,10 +34,9 @@ AABB AABB::unify(const AABB & b1, const AABB & b2) {
 	return aabb;
 }
 
-
 AABB AABB::overlap(const AABB & b1, const AABB & b2) {
-	assert(b1.is_valid() || b1.is_empty());
-	assert(b2.is_valid() || b2.is_empty());
+	ASSERT(b1.is_valid() || b1.is_empty());
+	ASSERT(b2.is_valid() || b2.is_empty());
 
 	AABB aabb;
 	aabb.min = Vector3::max(b1.min, b2.min);

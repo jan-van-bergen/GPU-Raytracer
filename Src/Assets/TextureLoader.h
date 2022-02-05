@@ -1,7 +1,9 @@
 #pragma once
-#include "Texture.h"
+#include "Core/StringView.h"
+
+#include "Renderer/Texture.h"
 
 namespace TextureLoader {
-	bool load_dds(const char * filename, Texture & texture);
-	bool load_stb(const char * filename, Texture & texture);
+	bool load_dds(const String & filename, Texture & texture);
+	bool load_stb(const String & filename, Texture & texture);
 }

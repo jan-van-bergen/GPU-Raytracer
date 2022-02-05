@@ -1,10 +1,10 @@
 #include "PLYLoader.h"
 
-#include "Util/Array.h"
-#include "Util/Parser.h"
-#include "Util/StringView.h"
+#include "Core/Array.h"
+#include "Core/Parser.h"
+#include "Core/StringView.h"
 
-enum struct Format {
+enum struct PLYFormat {
 	ASCII,
 	BINARY_LITTLE_ENDIAN,
 	BINARY_BIG_ENDIAN
@@ -99,7 +99,7 @@ static Property::Type parse_property_type(Parser & parser) {
 }
 
 template<typename T>
-static T parse_value(Parser & parser, Format format) {
+static T parse_value(Parser & parser, PLYFormat format) {
 	const char * start = parser.cur;
 	parser.cur += sizeof(T);
 
@@ -107,8 +107,8 @@ static T parse_value(Parser & parser, Format format) {
 
 	// NOTE: Assumes machine is little endian!
 	switch (format) {
-		case Format::BINARY_LITTLE_ENDIAN: memcpy(&value, start, sizeof(T)); break;
-		case Format::BINARY_BIG_ENDIAN: {
+		case PLYFormat::BINARY_LITTLE_ENDIAN: memcpy(&value, start, sizeof(T)); break;
+		case PLYFormat::BINARY_BIG_ENDIAN: {
 			char       * dst = reinterpret_cast<char *>(&value);
 			const char * src = start;
 			for (int i = 0; i < sizeof(T); i++) {
@@ -116,15 +116,15 @@ static T parse_value(Parser & parser, Format format) {
 			}
 			break;
 		}
-		default: abort();
+		default: ASSERT(false);
 	}
 
 	return value;
 }
 
 template<typename T>
-static T parse_property_value(Parser & parser, Property::Type::Kind kind, Format format) {
-	if (format == Format::ASCII) {
+static T parse_property_value(Parser & parser, Property::Type::Kind kind, PLYFormat format) {
+	if (format == PLYFormat::ASCII) {
 		parser.skip_whitespace();
 		if (kind == Property::Type::Kind::FLOAT32 || kind == Property::Type::Kind::FLOAT64) {
 			return parser.parse_float();
@@ -148,12 +148,10 @@ static T parse_property_value(Parser & parser, Property::Type::Kind kind, Format
 	}
 }
 
-void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangle_count) {
-	int          file_length;
-	const char * file = Util::file_read(filename, file_length);
+Array<Triangle> PLYLoader::load(const String & filename) {
+	String file = IO::file_read(filename);
 
-	Parser parser;
-	parser.init(file, file + file_length, filename);
+	Parser parser(file.view(), filename.view());
 
 	parser.expect("ply");
 	parser.skip_whitespace();
@@ -161,14 +159,14 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 	parser.expect("format");
 	parser.skip_whitespace();
 
-	Format format;
+	PLYFormat format;
 
 	if (parser.match("ascii")) {
-		format = Format::ASCII;
+		format = PLYFormat::ASCII;
 	} else if (parser.match("binary_little_endian")) {
-		format = Format::BINARY_LITTLE_ENDIAN;
+		format = PLYFormat::BINARY_LITTLE_ENDIAN;
 	} else if (parser.match("binary_big_endian")) {
-		format = Format::BINARY_BIG_ENDIAN;
+		format = PLYFormat::BINARY_BIG_ENDIAN;
 	} else {
 		ERROR(parser.location, "Invalid PLY format!\n");
 	}
@@ -199,7 +197,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 				element.type.kind = Element::Type::Kind::FACE;
 			} else {
 				StringView element_name = parser.parse_identifier();
-				ERROR(parser.location, "Unsupported element type '%.*s'!\n", unsigned(element_name.length()), element_name.start);
+				ERROR(parser.location, "Unsupported element type '{}'!\n", element_name);
 			}
 			parser.skip_whitespace();
 
@@ -214,7 +212,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			Element & element = elements.back();
 
 			if (element.property_count == Element::MAX_PROPERTIES) {
-				ERROR(parser.location, "Maximum number of properties (%i) exceeded!\n", Element::MAX_PROPERTIES);
+				ERROR(parser.location, "Maximum number of properties ({}) exceeded!\n", Element::MAX_PROPERTIES);
 			}
 			Property & property = element.properties[element.property_count++];
 
@@ -241,7 +239,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 				property.kind = Property::Kind::VERTEX_INDEX;
 			} else {
 				property.kind = Property::Kind::IGNORED;
-				WARNING(parser.location, "Unknown property '%.*s'!\n", unsigned(name.length()), name.c_str());
+				WARNING(parser.location, "Unknown property '{}'!\n", name);
 			}
 		}
 
@@ -256,7 +254,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 	Array<Vector2> tex_coords;
 	Array<Vector3> normals;
 
-	Array<Triangle> tris;
+	Array<Triangle> triangles;
 
 	for (int e = 0; e < elements.size(); e++) {
 		const Element & element = elements[e];
@@ -276,7 +274,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 					normals   .emplace_back(vertex[3], vertex[4], vertex[5]);
 					tex_coords.emplace_back(vertex[6], 1.0f - vertex[7]);
 
-					if (format == Format::ASCII) {
+					if (format == PLYFormat::ASCII) {
 						parser.skip_whitespace();
 						parser.parse_newline();
 					}
@@ -286,7 +284,6 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 			}
 
 			case Element::Type::Kind::FACE: {
-				tris.reserve(element.count); // Expect as many triangles as there are faces, but there could be more (if faces have more than 3 vertices)
 				for (int i = 0; i < element.count; i++) {
 					for (int p = 0; p < element.property_count; p++) {
 						const Property & property = element.properties[p];
@@ -326,7 +323,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 							triangle.normal_2    = nor[2];
 							triangle.init();
 
-							tris.push_back(triangle);
+							triangles.push_back(triangle);
 
 							pos[1] = pos[2];
 							tex[1] = tex[2];
@@ -334,7 +331,7 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 						}
 					}
 
-					if (format == Format::ASCII && !parser.reached_end()) {
+					if (format == PLYFormat::ASCII && !parser.reached_end()) {
 						parser.skip_whitespace();
 						parser.parse_newline();
 					}
@@ -343,15 +340,11 @@ void PLYLoader::load(const char * filename, Triangle *& triangles, int & triangl
 				break;
 			}
 
-			default: abort();
+			default: ASSERT(false);
 		}
 	}
 
-	assert(parser.reached_end());
+	ASSERT(parser.reached_end());
 
-	delete [] file;
-
-	triangle_count = tris.size();
-	triangles      = new Triangle[triangle_count];
-	memcpy(triangles, tris.data(), triangle_count * sizeof(Triangle));
+	return triangles;
 }

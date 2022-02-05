@@ -4,7 +4,7 @@
 	<sensor type="perspective">
 		<transform name="toWorld" >
 			<translate x="1.272743" y="3.097532" z="-3.189943"/>
-			<rotate y="1" angle="190.33"/>
+			<rotate y="1" angle="10.33"/>
 		</transform>
 	</sensor>
 	<bsdf type="twosided" id="Material__25">

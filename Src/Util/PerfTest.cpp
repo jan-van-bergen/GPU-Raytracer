@@ -1,18 +1,17 @@
 #include "PerfTest.h"
 
-void PerfTest::init(Pathtracer * pathtracer, bool enabled, const char * scene_name) {
-	this->enabled = enabled;
+#include "Core/IO.h"
+#include "Util/StringUtil.h"
 
+PerfTest::PerfTest(Integrator & integrator, bool enabled, StringView scene_name) : integrator(integrator), enabled(enabled) {
 	index_pov    = 0;
 	index_buffer = 0;
 
-	this->pathtracer = pathtracer;
-
-	if (strstr(scene_name, "sponza")) {
+	if (Util::strstr(scene_name, "sponza"_sv)) {
 		povs = &povs_sponza;
-	} else if (strstr(scene_name, "San_Miguel")) {
+	} else if (Util::strstr(scene_name, "San_Miguel"_sv)) {
 		povs = &povs_san_miguel;
-	} else if (strstr(scene_name, "bistro")) {
+	} else if (Util::strstr(scene_name, "bistro"_sv)) {
 		povs = &povs_bistro;
 	} else {
 		this->enabled = false;
@@ -25,12 +24,12 @@ void PerfTest::frame_begin() {
 	const POV & pov = (*povs)[index_pov];
 
 	if (index_buffer == 0) {
-		pathtracer->scene.camera.position = pov.position;
-		pathtracer->scene.camera.rotation = pov.rotation;
-		pathtracer->invalidated_camera = true;
-		pathtracer->frames_accumulated = 0;
+		integrator.scene.camera.position = pov.position;
+		integrator.scene.camera.rotation = pov.rotation;
+		integrator.invalidated_camera = true;
+		integrator.sample_index = 0;
 
-		printf("POV %i\n", index_pov);
+		IO::print("POV {}\n"_sv, index_pov);
 	}
 }
 
@@ -49,9 +48,10 @@ bool PerfTest::frame_end(float frame_time) {
 		if (index_pov == (*povs).size()) {
 			index_pov = 0;
 
-			FILE * file; fopen_s(&file, output_file, "wb");
+			FILE * file = nullptr;
+			fopen_s(&file, output_file, "wb");
 
-			if (file == nullptr) abort();
+			if (file == nullptr) IO::exit(1);
 
 			for (int i = 0; i < (*povs).size(); i++) {
 				const POV & pov = (*povs)[i];

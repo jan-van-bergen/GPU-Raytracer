@@ -35,72 +35,37 @@ struct Quaternion {
 		);
 	}
 
-	// Based on: https://answers.unity.com/questions/467614/what-is-the-source-code-of-quaternionlookrotation.html
-	inline static Quaternion look_rotation(Vector3 forward, Vector3 up) {
-		forward = Vector3::normalize(forward);
-		Vector3 right = Vector3::normalize(Vector3::cross(up, forward));
-		up = Vector3::cross(forward, right);
+	inline static Quaternion look_rotation(const Vector3 & forward, const Vector3 & up) {
+		Vector3 f = Vector3::normalize(forward);
+		Vector3 r = Vector3::normalize(Vector3::cross(up, f));
+		Vector3 u = Vector3::cross(f, r);
 
-		float m00 = right.x;
-		float m01 = right.y;
-		float m02 = right.z;
-		float m10 = up.x;
-		float m11 = up.y;
-		float m12 = up.z;
-		float m20 = forward.x;
-		float m21 = forward.y;
-		float m22 = forward.z;
+		float m00 = r.x; float m01 = r.y; float m02 = r.z;
+		float m10 = u.x; float m11 = u.y; float m12 = u.z;
+		float m20 = f.x; float m21 = f.y; float m22 = f.z;
 
-		float trace = (m00 + m11) + m22;
-
-		Quaternion quaternion;
-
-		if (trace > 0.0f) {
-			float num = sqrtf(trace + 1.0f);
-
-			quaternion.w = num * 0.5f;
-			num = 0.5f / num;
-			quaternion.x = (m12 - m21) * num;
-			quaternion.y = (m20 - m02) * num;
-			quaternion.z = (m01 - m10) * num;
-
-			return quaternion;
+		// Based on: https://math.stackexchange.com/a/3183435
+		if (m22 < 0.0f) {
+			if (m00 > m11) {
+				float t = 1.0f + m00 - m11 - m22;
+				float s = 0.5f / sqrtf(t);
+				return Quaternion(s * t, s * (m01 + m10), s * (m20 + m02), s * (m12 - m21));
+			} else {
+				float t = 1.0f - m00 + m11 - m22;
+				float s = 0.5f / sqrtf(t);
+				return Quaternion(s * (m01 + m10), s * t, s * (m12 + m21), s * (m20 - m02));
+			}
+		} else {
+			if (m00 < -m11) {
+				float t = 1.0f - m00 - m11 + m22;
+				float s = 0.5f / sqrtf(t);
+				return Quaternion(s * (m20 + m02), s * (m12 + m21), s * t, s * (m01 - m10));
+			} else {
+				float t = 1.0f + m00 + m11 + m22;
+				float s = 0.5f / sqrtf(t);
+				return Quaternion(s * (m12 - m21), s * (m20 - m02), s * (m01 - m10), s * t);
+			}
 		}
-
-		if ((m00 >= m11) && (m00 >= m22)) {
-			float num7 = sqrtf(((1.0f + m00) - m11) - m22);
-			float num4 = 0.5f / num7;
-
-			quaternion.x = 0.5f * num7;
-			quaternion.y = (m01 + m10) * num4;
-			quaternion.z = (m02 + m20) * num4;
-			quaternion.w = (m12 - m21) * num4;
-
-			return quaternion;
-		}
-
-		if (m11 > m22)
-		{
-			float num6 = sqrtf(((1.0f + m11) - m00) - m22);
-			float num3 = 0.5f / num6;
-
-			quaternion.x = (m10 + m01) * num3;
-			quaternion.y = 0.5f * num6;
-			quaternion.z = (m21 + m12) * num3;
-			quaternion.w = (m20 - m02) * num3;
-
-			return quaternion;
-		}
-
-		float num5 = sqrtf(((1.0f + m22) - m00) - m11);
-		float num2 = 0.5f / num5;
-
-		quaternion.x = (m20 + m02) * num2;
-		quaternion.y = (m21 + m12) * num2;
-		quaternion.z = 0.5f * num5;
-		quaternion.w = (m01 - m10) * num2;
-
-		return quaternion;
 	}
 
 	// Based on: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles

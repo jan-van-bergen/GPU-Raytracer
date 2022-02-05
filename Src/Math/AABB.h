@@ -1,6 +1,5 @@
 #pragma once
 #include <math.h>
-#include <assert.h>
 
 #include "Math/Vector3.h"
 
@@ -26,16 +25,20 @@ struct AABB {
 
 	// Make sure the AABB is non-zero along every dimension
 	inline void fix_if_needed(float epsilon = 0.001f) {
+		if (is_empty()) return;
+
 		for (int dimension = 0; dimension < 3; dimension++) {
-			if (max[dimension] - min[dimension] < epsilon) {
-				min[dimension] -= epsilon;
-				max[dimension] += epsilon;
+			float eps = epsilon;
+			while (max[dimension] - min[dimension] < eps) {
+				min[dimension] -= eps;
+				max[dimension] += eps;
+				eps *= 2.0f;
 			}
 		}
 	}
 
 	inline float surface_area() const {
-		assert(is_valid() || is_empty());
+		ASSERT(is_valid() || is_empty());
 
 		Vector3 diff = max - min;
 

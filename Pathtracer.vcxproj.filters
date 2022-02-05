@@ -1,73 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Imgui\imgui.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_demo.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_draw.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_impl_opengl3.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_impl_sdl.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Imgui\imgui_widgets.cpp">
-      <Filter>Imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Assets\MeshData.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Assets\OBJLoader.cpp">
       <Filter>Assets</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Assets\Texture.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\BVH\Builders\CWBVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\BVH\Builders\QBVHBuilder.cpp">
-      <Filter>BVH\Builders</Filter>
     </ClCompile>
     <ClCompile Include="Src\BVH\Builders\SBVHBuilder.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
-    <ClCompile Include="Src\CUDA\CUDAContext.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\CUDA\CUDAMemory.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\CUDA\CUDAModule.cpp">
-      <Filter>CUDA</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Camera.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Mesh.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Pathtracer.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Scene.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Pathtracer\Sky.cpp">
-      <Filter>Pathtracer</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Util\BitArray.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Util\PerfTest.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\Util\Util.cpp">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Src\Input.cpp" />
@@ -82,9 +22,6 @@
     <ClCompile Include="Src\Util\Shader.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Assets\MitsubaLoader.cpp">
-      <Filter>Assets</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Assets\AssetManager.cpp">
       <Filter>Assets</Filter>
     </ClCompile>
@@ -95,9 +32,6 @@
       <Filter>Assets</Filter>
     </ClCompile>
     <ClCompile Include="Src\Util\Geometry.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
-    <ClCompile Include="include\miniz\miniz.c">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Src\Util\ThreadPool.cpp">
@@ -127,14 +61,108 @@
     <ClCompile Include="Src\BVH\BVHCollapser.cpp">
       <Filter>BVH</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Util\Mutex.cpp">
+    <ClCompile Include="Src\Assets\Mitsuba\MitsubaLoader.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\Mitsuba\XMLParser.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\Mitsuba\SerializedLoader.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Assets\Mitsuba\MitshairLoader.cpp">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Device\CUDAMemory.cpp">
+      <Filter>Device</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Device\CUDAModule.cpp">
+      <Filter>Device</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Device\CUDAContext.cpp">
+      <Filter>Device</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Util\StringUtil.cpp">
       <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\Mutex.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\Format.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\IO.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Builders\SAHBuilder.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Converters\BVH4Converter.cpp">
+      <Filter>BVH\Converters</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\BVH\Converters\BVH8Converter.cpp">
+      <Filter>BVH\Converters</Filter>
+    </ClCompile>
+    <ClCompile Include="include\miniz\miniz.c">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_draw.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_impl_opengl3.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_impl_sdl.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_widgets.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_demo.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Args.cpp" />
+    <ClCompile Include="Src\BVH\Builders\BVHPartitions.cpp">
+      <Filter>BVH\Builders</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Core\Random.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Exporters\PPMExporter.cpp">
+      <Filter>Exporters</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Exporters\EXRExporter.cpp">
+      <Filter>Exporters</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Scene.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Sky.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Texture.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Camera.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Mesh.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Integrators\Pathtracer.cpp">
+      <Filter>Renderer\Integrators</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Integrators\AO.cpp">
+      <Filter>Renderer\Integrators</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Integrators\Integrator.cpp">
+      <Filter>Renderer\Integrators</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="CUDA">
-      <UniqueIdentifier>{05d166cc-0368-4859-a6e2-171631634c79}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Math">
       <UniqueIdentifier>{8eb0591e-caaa-4325-b7bf-48400ec23114}</UniqueIdentifier>
     </Filter>
@@ -144,94 +172,49 @@
     <Filter Include="BVH">
       <UniqueIdentifier>{ebb62919-8744-439d-9578-09dfe535ab82}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Pathtracer">
-      <UniqueIdentifier>{294a8797-60a4-4a69-b01a-7c9af82a64c9}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Assets">
       <UniqueIdentifier>{6f3338e2-ac89-4452-8dcb-2d4fb9144c6e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Imgui">
-      <UniqueIdentifier>{037b16ff-a350-4457-a943-8623a74530aa}</UniqueIdentifier>
     </Filter>
     <Filter Include="BVH\Builders">
       <UniqueIdentifier>{2a80c523-a358-438a-aead-602c959f8290}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Assets\Mitsuba">
+      <UniqueIdentifier>{03cc5535-b67c-49b7-b23b-c1a84fbdfccf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Device">
+      <UniqueIdentifier>{05d166cc-0368-4859-a6e2-171631634c79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{87976692-3c4f-4690-bdef-efd0d64a9f29}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BVH\Converters">
+      <UniqueIdentifier>{b6bbcdb4-f4d5-47ff-b52f-73177afa4d05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty">
+      <UniqueIdentifier>{b7816568-63dd-49a2-8af3-9802d3c9c530}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Exporters">
+      <UniqueIdentifier>{fa13993b-69d4-460f-84c1-41572d053ea4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer">
+      <UniqueIdentifier>{294a8797-60a4-4a69-b01a-7c9af82a64c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Renderer\Integrators">
+      <UniqueIdentifier>{19bb3711-1af8-4298-89b6-e719d008a79f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Imgui\imconfig.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui_impl_opengl3.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui_impl_sdl.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imgui_internal.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imstb_rectpack.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imstb_textedit.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="Imgui\imstb_truetype.h">
-      <Filter>Imgui</Filter>
-    </ClInclude>
-    <ClInclude Include="CUDA_Source\Common.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Assets\Material.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Assets\MeshData.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Assets\OBJLoader.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Assets\Texture.h">
       <Filter>Assets</Filter>
     </ClInclude>
     <ClInclude Include="Src\BVH\BVH.h">
       <Filter>BVH</Filter>
     </ClInclude>
-    <ClInclude Include="Src\BVH\Builders\BVHBuilder.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
     <ClInclude Include="Src\BVH\Builders\BVHPartitions.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\BVH\Builders\CWBVHBuilder.h">
-      <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\BVH\Builders\QBVHBuilder.h">
       <Filter>BVH\Builders</Filter>
     </ClInclude>
     <ClInclude Include="Src\BVH\Builders\SBVHBuilder.h">
       <Filter>BVH\Builders</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDACall.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAContext.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAEvent.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAKernel.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAMemory.h">
-      <Filter>CUDA</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\CUDA\CUDAModule.h">
-      <Filter>CUDA</Filter>
     </ClInclude>
     <ClInclude Include="Src\Math\Math.h">
       <Filter>Math</Filter>
@@ -251,31 +234,7 @@
     <ClInclude Include="Src\Math\Vector4.h">
       <Filter>Math</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Camera.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Mesh.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Pathtracer.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Scene.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Sky.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Pathtracer\Triangle.h">
-      <Filter>Pathtracer</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\BitArray.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\PerfTest.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\ScopeTimer.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Util\Util.h">
@@ -292,9 +251,6 @@
     <ClInclude Include="Src\Util\Shader.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Assets\MitsubaLoader.h">
-      <Filter>Assets</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Assets\AssetManager.h">
       <Filter>Assets</Filter>
     </ClInclude>
@@ -307,26 +263,11 @@
     <ClInclude Include="Src\Util\Geometry.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\StringView.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Util\ThreadPool.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Math\Mipmap.h">
       <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\HashMap.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Array.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\String.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Parser.h">
-      <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Src\Assets\PLYLoader.h">
       <Filter>Assets</Filter>
@@ -343,21 +284,148 @@
     <ClInclude Include="Src\BVH\BVHCollapser.h">
       <Filter>BVH</Filter>
     </ClInclude>
-    <ClInclude Include="Src\Util\Mutex.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\MinHeap.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Random.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\Util\Queue.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Src\Config.h" />
-    <ClInclude Include="Src\Assets\Medium.h">
-      <Filter>Assets</Filter>
+    <ClInclude Include="Src\Assets\Mitsuba\MitsubaLoader.h">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\Mitsuba\SerializedLoader.h">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\Mitsuba\XMLParser.h">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Assets\Mitsuba\MitshairLoader.h">
+      <Filter>Assets\Mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAEvent.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAKernel.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAMemory.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAModule.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDACall.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Device\CUDAContext.h">
+      <Filter>Device</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Util\StringUtil.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Mutex.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\OwnPtr.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Parser.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Queue.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Timer.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\String.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\StringView.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Array.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Assertion.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\BitArray.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Format.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\HashMap.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\IO.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\MinHeap.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Hash.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Builders\SAHBuilder.h">
+      <Filter>BVH\Builders</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Converters\BVH8Converter.h">
+      <Filter>BVH\Converters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Converters\BVH4Converter.h">
+      <Filter>BVH\Converters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\BVH\Converters\BVHConverter.h">
+      <Filter>BVH\Converters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Args.h" />
+    <ClInclude Include="Src\Core\Random.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Exporters\PPMExporter.h">
+      <Filter>Exporters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Exporters\EXRExporter.h">
+      <Filter>Exporters</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Compare.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Sort.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Scene.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Sky.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Texture.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Triangle.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Camera.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Material.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Medium.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Mesh.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\MeshData.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Integrators\Integrator.h">
+      <Filter>Renderer\Integrators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Integrators\Pathtracer.h">
+      <Filter>Renderer\Integrators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Renderer\Integrators\AO.h">
+      <Filter>Renderer\Integrators</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

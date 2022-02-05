@@ -1,6 +1,8 @@
 #pragma once
 #include <GL/glew.h>
 
+#include "Core/StringView.h"
+
 struct Shader {
 private:
 	GLuint program_id;
@@ -20,5 +22,5 @@ public:
 		return glGetUniformLocation(program_id, name);
 	}
 
-	static Shader load(const char * vertex_filename, int vertex_len, const char * fragment_filename, int fragment_len);
+	static Shader load(StringView source_vertex, StringView source_fragment);
 };

@@ -6,13 +6,16 @@
 #include <Imgui/imgui_impl_sdl.h>
 #include <Imgui/imgui_impl_opengl3.h>
 
+#include "Core/IO.h"
+
+#include "Math/Math.h"
 #include "Util/Util.h"
 
-static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * user_param) {
-	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "", type, severity, message);
+static void GLAPIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char * message, const void * user_param) {
+	IO::print("GL CALLBACK: {} type = 0x{:x}, severity = 0x{:x}, message = {}\n"_sv, type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **"_sv : ""_sv, type, severity, message);
 }
 
-void Window::init(const char * title, int width, int height) {
+Window::Window(const String & title, int width, int height) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
@@ -27,7 +30,7 @@ void Window::init(const char * title, int width, int height) {
 	this->width  = width;
 	this->height = height;
 
-	window  = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+	window  = SDL_CreateWindow(title.data(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
 	context = SDL_GL_CreateContext(window);
 
 	SDL_SetWindowResizable(window, SDL_TRUE);
@@ -36,16 +39,16 @@ void Window::init(const char * title, int width, int height) {
 
 	GLenum status = glewInit();
 	if (status != GLEW_OK) {
-		printf("Glew failed to initialize!\n");
-		abort();
+		IO::print("Glew failed to initialize!\n"_sv);
+		IO::exit(1);
 	}
 
-	puts("OpenGL Info:");
-	printf("Version:  %s\n", glGetString(GL_VERSION));
-	printf("GLSL:     %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-	printf("Vendor:   %s\n", glGetString(GL_VENDOR));
-	printf("Renderer: %s\n", glGetString(GL_RENDERER));
-	puts("");
+	IO::print("OpenGL Info:\n"_sv);
+	IO::print("Version:  {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+	IO::print("GLSL:     {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
+	IO::print("Vendor:   {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
+	IO::print("Renderer: {}\n"_sv, reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
+	IO::print('\n');
 
 #if false
 	glEnable(GL_DEBUG_OUTPUT);
@@ -64,63 +67,10 @@ void Window::init(const char * title, int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	const char vertex_shader[] =
-		"#version 450\n"
-		"\n"
-		"layout (location = 0) out vec2 uv;\n"
-		"\n"
-		"// Based on: https://rauwendaal.net/2014/06/14/rendering-a-screen-covering-triangle-in-opengl/\n"
-		"void main() {\n"
-		"	float x = float((gl_VertexID & 1) << 2) - 1.0f;\n"
-		"	float y = float((gl_VertexID & 2) << 1) - 1.0f;\n"
-		"\n"
-		"	uv.x = (x + 1.0f) * 0.5f;\n"
-		"	uv.y = (y + 1.0f) * 0.5f;\n"
-		"\n"
-		"	gl_Position = vec4(x, y, 0.0f, 1.0f);\n"
-		"}\n";
-	const char fragment_shader[] =
-		"#version 450\n"
-		"\n"
-		"layout (location = 0) in vec2 in_uv;\n"
-		"\n"
-		"layout (location = 0) out vec3 out_colour;\n"
-		"\n"
-		"uniform sampler2D screen;\n"
-		"\n"
-		"vec3 tonemap_reinhard(vec3 colour) {\n"
-		"	return colour / (1.0f + colour);\n"
-		"}\n"
-		"\n"
-		"// Based on: https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/\n"
-		"vec3 tonemap_aces(vec3 colour) {\n"
-		"	float a = 2.51f;\n"
-		"	float b = 0.03f;\n"
-		"	float c = 2.43f;\n"
-		"	float d = 0.59f;\n"
-		"	float e = 0.14f;\n"
-		"\n"
-		"	return clamp((colour * (a * colour + b)) / (colour * (c * colour + d) + e), 0.0f, 1.0f);\n"
-		"}\n"
-		"\n"
-		"void main() {\n"
-		"	vec3 colour = texture2D(screen, in_uv).rgb;\n"
-		"\n"
-		"	colour = max(vec3(0.0f), colour);\n"
-		"\n"
-		"	// Tone mapping\n"
-		"	colour = tonemap_aces(colour);\n"
-		"\n"
-		"	// Gamma correction\n"
-		"	colour = pow(colour, vec3(1.0f / 2.2f));\n"
-		"\n"
-		"	out_colour = colour;\n"
-		"}\n";
+	String shader_vertex   = IO::file_read("Src/Shaders/post.vert");
+	String shader_fragment = IO::file_read("Src/Shaders/post.frag");
 
-	shader = Shader::load(
-		vertex_shader,   sizeof(vertex_shader)   - 1,
-		fragment_shader, sizeof(fragment_shader) - 1
-	);
+	shader = Shader::load(shader_vertex.view(), shader_fragment.view());
 	shader.bind();
 
 	glUniform1i(shader.get_uniform("screen"), 0);
@@ -135,13 +85,18 @@ void Window::init(const char * title, int width, int height) {
 	ImGui::StyleColorsDark();
 }
 
-void Window::free() {
+Window::~Window() {
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
 }
 
-void Window::resize(int new_width, int new_height) {
+void Window::set_size(int new_width, int new_height) {
+	SDL_SetWindowSize(window, new_width, new_height);
+	resize_frame_buffer(new_width, new_height);
+}
+
+void Window::resize_frame_buffer(int new_width, int new_height) {
 	width  = new_width;
 	height = new_height;
 
@@ -193,7 +148,7 @@ void Window::swap() {
 		switch (event.type) {
 			case SDL_WINDOWEVENT: {
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-					resize(event.window.data1, event.window.data2);
+					resize_frame_buffer(event.window.data1, event.window.data2);
 				}
 
 				break;
@@ -204,7 +159,24 @@ void Window::swap() {
 	}
 }
 
-void Window::read_frame_buffer(unsigned char * data) const {
+Array<Vector3> Window::read_frame_buffer(bool hdr, int & pitch) const {
+	int pack_alignment = 0;
+	glGetIntegerv(GL_PACK_ALIGNMENT, &pack_alignment);
+
+	pitch = int(Math::round_up(width * sizeof(Vector3), size_t(pack_alignment)) / sizeof(Vector3));
+	Array<Vector3> data(pitch * height);
+
 	glMemoryBarrier(GL_PIXEL_BUFFER_BARRIER_BIT);
-	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+
+	if (hdr) {
+		// For HDR output we use the frame_buffer Texture,
+		// since this is the raw output of the Pathtracer
+		glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, data.data());
+	} else {
+		// For LDR output we use the Window's actual frame buffer,
+		// since this has been tonemapped and gamma corrected
+		glReadPixels(0, 0, width, height, GL_RGB, GL_FLOAT, data.data());
+	}
+
+	return data;
 }

@@ -1,9 +1,10 @@
 #pragma once
-#include <stdlib.h>
-
 #include "Config.h"
 
-#include "Pathtracer/Triangle.h"
+#include "Renderer/Triangle.h"
+
+#include "Core/Array.h"
+#include "Core/OwnPtr.h"
 
 typedef unsigned char byte;
 
@@ -78,30 +79,41 @@ struct BVHNode8 {
 
 static_assert(sizeof(BVHNode8) == 80);
 
-union BVHNodePtr {
-	BVHNode2 * _2;
-	BVHNode4 * _4;
-	BVHNode8 * _8;
-};
+struct BVH2;
 
 struct BVH {
-	int   index_count;
-	int * indices;
+	Array<int> indices;
 
-	int        node_count;
-	BVHNodePtr nodes;
+	virtual size_t node_count() const = 0;
 
-	// Each individual BVH needs to put its Nodes in a shared aggregated array of BVH Nodes before being upload to the GPU
-	// The procedure to do this is different for each BVH type
-	void aggregate(BVHNodePtr aggregated_bvh_nodes, int index_offset, int bvh_offset) const;
+	static BVH2 create_from_triangles(const Array<Triangle> & triangles);
 
-	// Helper Methods
+	static OwnPtr<BVH> create_from_bvh2(BVH2 bvh);
+
 	static BVHType underlying_bvh_type() {
 		// All BVH use standard BVH as underlying type, only SBVH uses SBVH
-		if (config.bvh_type == BVHType::SBVH) {
+		if (cpu_config.bvh_type == BVHType::SBVH) {
 			return BVHType::SBVH;
 		} else {
 			return BVHType::BVH;
 		}
 	}
+};
+
+struct BVH2 final : BVH {
+	Array<BVHNode2> nodes;
+
+	size_t node_count() const override { return nodes.size(); }
+};
+
+struct BVH4 final : BVH {
+	Array<BVHNode4> nodes;
+
+	size_t node_count() const override{ return nodes.size(); }
+};
+
+struct BVH8 final : BVH {
+	Array<BVHNode8> nodes;
+
+	size_t node_count() const override { return nodes.size(); }
 };

@@ -27,7 +27,7 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 	float scale_x = float(width_dst)  / float(width_src);
 	float scale_y = float(height_dst) / float(height_src);
 
-	assert(scale_x <= 1.0f && scale_y <= 1.0f);
+	ASSERT(scale_x <= 1.0f && scale_y <= 1.0f);
 
 	float inv_scale_x = 1.0f / scale_x;
 	float inv_scale_y = 1.0f / scale_y;
@@ -38,9 +38,9 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 	int window_size_x = int(ceilf(filter_width_x * 2.0f)) + 1;
 	int window_size_y = int(ceilf(filter_width_y * 2.0f)) + 1;
 
-	float * kernels = new float[window_size_x + window_size_y];
-	float * kernel_x = kernels;
-	float * kernel_y = kernels + window_size_x;
+	Array<float> kernels(window_size_x + window_size_y);
+	float * kernel_x = kernels.data();
+	float * kernel_y = kernels.data() + window_size_x;
 
 	memset(kernel_x, 0, window_size_x * sizeof(float));
 	memset(kernel_y, 0, window_size_y * sizeof(float));
@@ -50,7 +50,7 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 
 	// Fill horizontal kernel
 	for (int x = 0; x < window_size_x; x++) {
-		float sample = filter_sample_box<Filter>(x - window_size_x / 2, scale_x);
+		float sample = filter_sample_box<Filter>(float(x - window_size_x / 2), scale_x);
 
 		kernel_x[x] = sample;
 		sum_x += sample;
@@ -58,7 +58,7 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 
 	// Fill vertical kernel
 	for (int y = 0; y < window_size_y; y++) {
-		float sample = filter_sample_box<Filter>(y - window_size_y / 2, scale_y);
+		float sample = filter_sample_box<Filter>(float(y - window_size_y / 2), scale_y);
 
 		kernel_y[y] = sample;
 		sum_y += sample;
@@ -105,15 +105,13 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 			texture_dst[x + y * width_dst] = sum;
 		}
 	}
-
-	delete [] kernels;
 }
 
 void Mipmap::downsample(int width_src, int height_src, int width_dst, int height_dst, const Vector4 texture_src[], Vector4 texture_dst[], Vector4 temp[]) {
-	switch (config.mipmap_filter) {
-		case Config::MipmapFilter::BOX:     downsample_impl<FilterBox>    (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
-		case Config::MipmapFilter::LANCZOS: downsample_impl<FilterLanczos>(width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
-		case Config::MipmapFilter::KAISER:  downsample_impl<FilterKaiser> (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
-		default: abort();
+	switch (cpu_config.mipmap_filter) {
+		case MipmapFilterType::BOX:     downsample_impl<FilterBox>    (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
+		case MipmapFilterType::LANCZOS: downsample_impl<FilterLanczos>(width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
+		case MipmapFilterType::KAISER:  downsample_impl<FilterKaiser> (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
+		default: ASSERT(false);
 	}
 }

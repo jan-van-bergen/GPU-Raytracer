@@ -1,16 +1,13 @@
 #include "ThreadPool.h"
 
-void ThreadPool::init(int thread_count) {
-	this->thread_count = thread_count;
-	threads = new std::thread[thread_count];
-
-	for (int i = 0; i < thread_count; i++) {
+ThreadPool::ThreadPool(int thread_count) : threads(thread_count) {
+	for (size_t i = 0; i < threads.size(); i++) {
 		threads[i] = std::thread([this]() {
 			while (true) {
 				Work work;
 				{
 					std::unique_lock<std::mutex> lock(signal_submit.mutex);
-					signal_submit.condition.wait(lock, [this]{ return !work_queue.empty() || is_done; });
+					signal_submit.condition.wait(lock, [this]{ return !work_queue.is_empty() || is_done; });
 
 					if (is_done) return;
 
@@ -28,17 +25,16 @@ void ThreadPool::init(int thread_count) {
 	num_done      = 0;
 }
 
-void ThreadPool::free() {
+ThreadPool::~ThreadPool() {
 	{
 		std::lock_guard<std::mutex> lock(signal_submit.mutex);
 		is_done = true;
 	}
 	signal_submit.condition.notify_all();
 
-	for (int i = 0; i < thread_count; i++) {
+	for (size_t i = 0; i < threads.size(); i++) {
 		threads[i].join();
 	}
-	delete [] threads;
 }
 
 void ThreadPool::submit(Work && work) {

@@ -3,7 +3,7 @@
 
 #include "Math/Vector3.h"
 
-#include "../CUDA_Source/Common.h"
+#include "CUDA/Common.h"
 
 // Various math util functions
 namespace Math {
@@ -106,6 +106,10 @@ namespace Math {
 
 	inline constexpr float luminance(float r, float g, float b) {
 		return 0.299f * r + 0.587f * g + 0.114f * b;
+	}
+
+	inline constexpr float luminance(const Vector3 & rgb) {
+		return luminance(rgb.x, rgb.y, rgb.z);
 	}
 
 	inline constexpr float rad_to_deg(float rad) { return rad * ONE_OVER_PI * 180.0f; }

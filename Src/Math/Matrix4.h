@@ -19,14 +19,14 @@ struct alignas(16) Matrix4 {
 	}
 
 	inline FORCEINLINE float & operator()(int row, int col) {
-		assert(row >= 0 && row < 4);
-		assert(col >= 0 && col < 4);
+		ASSERT(row >= 0 && row < 4);
+		ASSERT(col >= 0 && col < 4);
 		return cells[col + (row << 2)];
 	}
 
 	inline FORCEINLINE const float & operator()(int row, int col) const {
-		assert(row >= 0 && row < 4);
-		assert(col >= 0 && col < 4);
+		ASSERT(row >= 0 && row < 4);
+		ASSERT(col >= 0 && col < 4);
 		return cells[col + (row << 2)];
 	}
 
@@ -75,21 +75,30 @@ struct alignas(16) Matrix4 {
 		return result;
 	}
 
-	inline static Matrix4 perspective(float fov, float aspect, float near, float far) {
+	inline static Matrix4 create_scale(float x, float y, float z) {
+		Matrix4 result;
+		result(0, 0) = x;
+		result(1, 1) = y;
+		result(2, 2) = z;
+
+		return result;
+	}
+
+	inline static Matrix4 perspective(float fov, float aspect, float near_plane, float far_plane) {
 		float tan_half_fov = tanf(0.5f * fov);
 
 		Matrix4 result;
 		result(0, 0) = 1.0f / tan_half_fov;
 		result(1, 1) = 1.0f / (aspect * tan_half_fov);
-		result(2, 2) = -(far + near) / (far - near);
+		result(2, 2) = -(far_plane + near_plane) / (far_plane - near_plane);
 		result(3, 2) = -1.0f;
-		result(2, 3) = -2.0f * (far * near) / (far - near);
+		result(2, 3) = -2.0f * (far_plane * near_plane) / (far_plane - near_plane);
 		result(3, 3) = 0.0f;
 
 		return result;
 	}
 
-	inline static Matrix4 perspective_infinite(float fov, float aspect, float near) {
+	inline static Matrix4 perspective_infinite(float fov, float aspect, float near_plane) {
 		float tan_half_fov = tanf(0.5f * fov);
 
 		Matrix4 result;
@@ -97,7 +106,7 @@ struct alignas(16) Matrix4 {
 		result(1, 1) =  1.0f / tan_half_fov;
 		result(2, 2) = -1.0f;
 		result(3, 2) = -1.0f;
-		result(2, 3) = -2.0f * near;
+		result(2, 3) = -2.0f * near_plane;
 		result(3, 3) =  0.0f;
 
 		return result;
@@ -174,20 +183,13 @@ struct alignas(16) Matrix4 {
 
 	inline static void decompose(const Matrix4 & matrix, Vector3 * position, Quaternion * rotation, float * scale, const Vector3 & forward = Vector3(0.0f, 0.0f, -1.0f)) {
 		if (position) *position = Vector3(matrix(0, 3), matrix(1, 3), matrix(2, 3));
-		if (rotation) *rotation = Quaternion::look_rotation(
-			Matrix4::transform_direction(matrix, forward),
-			Matrix4::transform_direction(matrix, Vector3(0.0f, 1.0f, 0.0f))
-		);
+		if (rotation) *rotation = Quaternion::look_rotation(Matrix4::transform_direction(matrix, forward), Vector3(0.0f, 1.0f, 0.0f));
 		if (scale) {
 			float scale_x = Vector3::length(Vector3(matrix(0, 0), matrix(0, 1), matrix(0, 2)));
 			float scale_y = Vector3::length(Vector3(matrix(1, 0), matrix(1, 1), matrix(1, 2)));
 			float scale_z = Vector3::length(Vector3(matrix(2, 0), matrix(2, 1), matrix(2, 2)));
 
-			if (Math::approx_equal(scale_x, scale_y) && Math::approx_equal(scale_y, scale_z)) {
-				*scale = scale_x;
-			} else {
-				*scale = cbrtf(scale_x * scale_y * scale_z);
-			}
+			*scale = cbrtf(scale_x * scale_y * scale_z);
 		}
 	}
 
