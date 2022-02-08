@@ -161,6 +161,12 @@
     <ClCompile Include="Src\Renderer\Integrators\Integrator.cpp">
       <Filter>Renderer\Integrators</Filter>
     </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_impl_sdlrenderer.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="include\Imgui\imgui_tables.cpp">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">

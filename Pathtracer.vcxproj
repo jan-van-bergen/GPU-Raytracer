@@ -202,6 +202,8 @@
     <ClCompile Include="include\Imgui\imgui_draw.cpp" />
     <ClCompile Include="include\Imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="include\Imgui\imgui_impl_sdl.cpp" />
+    <ClCompile Include="include\Imgui\imgui_impl_sdlrenderer.cpp" />
+    <ClCompile Include="include\Imgui\imgui_tables.cpp" />
     <ClCompile Include="include\Imgui\imgui_widgets.cpp" />
     <ClCompile Include="include\miniz\miniz.c" />
     <ClCompile Include="Src\Args.cpp" />
