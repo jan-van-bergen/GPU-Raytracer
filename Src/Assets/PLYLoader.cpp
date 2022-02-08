@@ -239,7 +239,7 @@ Array<Triangle> PLYLoader::load(const String & filename) {
 				property.kind = Property::Kind::VERTEX_INDEX;
 			} else {
 				property.kind = Property::Kind::IGNORED;
-				WARNING(parser.location, "Unknown property '{}'!\n", name);
+				WARNING(parser.location, "Ignoring unsupported property '{}'!\n", name);
 			}
 		}
 
@@ -344,7 +344,11 @@ Array<Triangle> PLYLoader::load(const String & filename) {
 		}
 	}
 
-	ASSERT(parser.reached_end());
+	parser.match('\r');
+	parser.match('\n');
+	if (!parser.reached_end()) {
+		WARNING(parser.location, "Parsing done, {} bytes still left in the file.", parser.end - parser.cur);
+	}
 
 	return triangles;
 }
