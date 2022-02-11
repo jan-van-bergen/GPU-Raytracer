@@ -116,7 +116,7 @@ static T parse_value(Parser & parser, PLYFormat format) {
 			}
 			break;
 		}
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 
 	return value;
@@ -340,7 +340,7 @@ Array<Triangle> PLYLoader::load(const String & filename) {
 				break;
 			}
 
-			default: ASSERT(false);
+			default: ASSERT_UNREACHABLE();
 		}
 	}
 

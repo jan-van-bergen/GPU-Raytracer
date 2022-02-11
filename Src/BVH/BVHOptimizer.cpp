@@ -259,7 +259,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices, rng); break;
 			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, batch_indices); break;
 
-			default: ASSERT(false);
+			default: ASSERT_UNREACHABLE();
 		}
 
 		for (size_t i = 0; i < bvh.nodes.size(); i++) {

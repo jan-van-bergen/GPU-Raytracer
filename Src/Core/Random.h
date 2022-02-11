@@ -67,8 +67,7 @@ namespace Random {
 				}
 			}
 		}
-
-		ASSERT(false);
+		ASSERT_UNREACHABLE();
 	}
 
 	void alias_method(int n, double p[], ProbAlias distribution[]);

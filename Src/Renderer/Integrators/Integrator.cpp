@@ -392,7 +392,7 @@ void Integrator::build_tlas() {
 		case BVHType::SBVH: CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::BVH4: CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::BVH8: CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 	ASSERT(tlas->indices.data());
 

@@ -117,7 +117,7 @@ int main(int num_args, char ** args) {
 			switch (cpu_config.integrator) {
 				case IntegratorType::PATHTRACER: integrator = make_owned<Pathtracer>(window.frame_buffer_handle, window.width, window.height, scene); break;
 				case IntegratorType::AO:         integrator = make_owned<AO>        (window.frame_buffer_handle, window.width, window.height, scene); break;
-				default: ASSERT(false);
+				default: ASSERT_UNREACHABLE();
 			}
 		}
 
@@ -135,7 +135,7 @@ int main(int num_args, char ** args) {
 			switch (cpu_config.screenshot_format) {
 				case OutputFormat::EXR: ext = "exr"_sv; break;
 				case OutputFormat::PPM: ext = "ppm"_sv; break;
-				default: ASSERT(false);
+				default: ASSERT_UNREACHABLE();
 			}
 
 			String screenshot_name = Format().format("screenshot_{}.{}"_sv, integrator->sample_index, ext);
@@ -554,8 +554,7 @@ static void draw_gui(Window & window, Integrator & integrator) {
 							integrator.invalidated_materials |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 							break;
 						}
-
-						default: ASSERT(false);
+						default: ASSERT_UNREACHABLE();
 					}
 
 					if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {

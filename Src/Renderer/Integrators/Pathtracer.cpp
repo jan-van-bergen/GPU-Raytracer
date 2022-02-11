@@ -113,7 +113,7 @@ void Pathtracer::init_module() {
 		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh2; kernel_trace_shadow = &kernel_trace_shadow_bvh2; break;
 		case BVHType::BVH4: kernel_trace = &kernel_trace_bvh4; kernel_trace_shadow = &kernel_trace_shadow_bvh4; break;
 		case BVHType::BVH8: kernel_trace = &kernel_trace_bvh8; kernel_trace_shadow = &kernel_trace_shadow_bvh8; break;
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 
 	// Set Block dimensions for all Kernels
@@ -497,7 +497,7 @@ void Pathtracer::update(float delta) {
 					cuda_materials[i].conductor.k         = material.k;
 					break;
 				}
-				default: ASSERT(false);
+				default: ASSERT_UNREACHABLE();
 			}
 		}
 

@@ -112,6 +112,6 @@ void Mipmap::downsample(int width_src, int height_src, int width_dst, int height
 		case MipmapFilterType::BOX:     downsample_impl<FilterBox>    (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
 		case MipmapFilterType::LANCZOS: downsample_impl<FilterLanczos>(width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
 		case MipmapFilterType::KAISER:  downsample_impl<FilterKaiser> (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 }
