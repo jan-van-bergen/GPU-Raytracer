@@ -227,7 +227,6 @@
     <ClCompile Include="Src\Core\Format.cpp" />
     <ClCompile Include="Src\Core\IO.cpp" />
     <ClCompile Include="Src\Core\Mutex.cpp" />
-    <ClCompile Include="Src\Core\Random.cpp" />
     <ClCompile Include="Src\Device\CUDAContext.cpp" />
     <ClCompile Include="Src\Device\CUDAMemory.cpp" />
     <ClCompile Include="Src\Device\CUDAModule.cpp" />

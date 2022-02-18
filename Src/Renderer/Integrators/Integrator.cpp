@@ -147,14 +147,14 @@ void Integrator::init_geometry() {
 	ptr_triangles = CUDAMemory::malloc(aggregated_triangles);
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
 
-	pinned_mesh_bvh_root_indices                     = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
-	pinned_mesh_material_ids                         = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
-	pinned_mesh_transforms                           = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_mesh_transforms_inv                       = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_mesh_transforms_prev                      = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_light_mesh_prob_alias                     = CUDAMemory::malloc_pinned<ProbAlias>(scene.meshes.size());
-	pinned_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc_pinned<int2>     (scene.meshes.size());
-	pinned_light_mesh_transform_index                = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_bvh_root_indices             = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_material_ids                 = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_transforms                   = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_inv               = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_prev              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_light_mesh_cumulative_probability = CUDAMemory::malloc_pinned<float>    (scene.meshes.size());
+	pinned_light_mesh_triangle_span          = CUDAMemory::malloc_pinned<int2>     (scene.meshes.size());
+	pinned_light_mesh_transform_indices      = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.meshes.size());
 	ptr_mesh_material_ids     = CUDAMemory::malloc<int>      (scene.meshes.size());
@@ -324,8 +324,9 @@ void Integrator::free_geometry() {
 	CUDAMemory::free_pinned(pinned_mesh_transforms);
 	CUDAMemory::free_pinned(pinned_mesh_transforms_inv);
 	CUDAMemory::free_pinned(pinned_mesh_transforms_prev);
-	CUDAMemory::free_pinned(pinned_light_mesh_prob_alias);
-	CUDAMemory::free_pinned(pinned_light_mesh_transform_index);
+	CUDAMemory::free_pinned(pinned_light_mesh_cumulative_probability);
+	CUDAMemory::free_pinned(pinned_light_mesh_triangle_span);
+	CUDAMemory::free_pinned(pinned_light_mesh_transform_indices);
 
 	CUDAMemory::free(ptr_mesh_bvh_root_indices);
 	CUDAMemory::free(ptr_mesh_material_ids);

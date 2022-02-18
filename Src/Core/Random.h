@@ -49,11 +49,6 @@ struct RNG {
 	}
 };
 
-struct alignas(8) ProbAlias {
-	float prob;
-	int   alias;
-};
-
 namespace Random {
 	// Based on Knuth's selection sampling algorithm
 	template<typename T>
@@ -69,6 +64,4 @@ namespace Random {
 		}
 		ASSERT_UNREACHABLE();
 	}
-
-	void alias_method(int n, double p[], ProbAlias distribution[]);
 }

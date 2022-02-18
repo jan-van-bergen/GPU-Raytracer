@@ -64,12 +64,12 @@ void Pathtracer::cuda_free() {
 	CUDAMemory::free_pinned(pinned_buffer_sizes);
 
 	if (scene.has_lights) {
-		CUDAMemory::free(ptr_light_indices);
-		CUDAMemory::free(ptr_light_prob_alias);
+		CUDAMemory::free(ptr_light_triangle_indices);
+		CUDAMemory::free(ptr_light_triangle_cumulative_probability);
 
-		CUDAMemory::free(ptr_light_mesh_prob_alias);
-		CUDAMemory::free(ptr_light_mesh_first_index_and_triangle_count);
-		CUDAMemory::free(ptr_light_mesh_transform_index);
+		CUDAMemory::free(ptr_light_mesh_cumulative_probability);
+		CUDAMemory::free(ptr_light_mesh_triangle_span);
+		CUDAMemory::free(ptr_light_mesh_transform_indices);
 
 		ray_buffer_shadow.free();
 	}
@@ -374,48 +374,49 @@ void Pathtracer::calc_light_power() {
 	}
 
 	if (light_triangles.size() > 0) {
-		Array<int>       light_indices      (light_triangles.size());
-		Array<double>    light_probabilities(light_triangles.size());
-		Array<ProbAlias> light_prob_alias   (light_triangles.size());
+		Array<int>   light_triangle_indices               (light_triangles.size());
+		Array<float> light_triangle_cumulative_probability(light_triangles.size());
 
 		for (int m = 0; m < light_mesh_datas.size(); m++) {
 			const LightMeshData & light_mesh_data = light_mesh_datas[m];
 
+			double cumulative_area = 0.0;
+
 			for (int i = light_mesh_data.first_triangle_index; i < light_mesh_data.first_triangle_index + light_mesh_data.triangle_count; i++) {
-				light_indices      [i] = light_triangles[i].index;
-				light_probabilities[i] = light_triangles[i].area / light_mesh_data.total_area;
+				light_triangle_indices[i] = light_triangles[i].index;
+
+				cumulative_area += light_triangles[i].area / light_mesh_data.total_area;
+				light_triangle_cumulative_probability[i] = float(cumulative_area);
 			}
 
-			Random::alias_method(
-				light_mesh_data.triangle_count,
-				light_probabilities.data() + light_mesh_data.first_triangle_index,
-				light_prob_alias   .data() + light_mesh_data.first_triangle_index
-			);
+			for (int i = light_mesh_data.first_triangle_index; i < light_mesh_data.first_triangle_index + light_mesh_data.triangle_count; i++) {
+				light_triangle_cumulative_probability[i] /= float(cumulative_area);
+			}
 		}
 
-		ptr_light_indices    = CUDAMemory::malloc(light_indices);
-		ptr_light_prob_alias = CUDAMemory::malloc(light_prob_alias);
+		ptr_light_triangle_indices                = CUDAMemory::malloc(light_triangle_indices);
+		ptr_light_triangle_cumulative_probability = CUDAMemory::malloc(light_triangle_cumulative_probability);
 
-		cuda_module.get_global("light_indices")   .set_value_async(ptr_light_indices,    memory_stream);
-		cuda_module.get_global("light_prob_alias").set_value_async(ptr_light_prob_alias, memory_stream);
+		cuda_module.get_global("light_triangle_indices")               .set_value_async(ptr_light_triangle_indices,                memory_stream);
+		cuda_module.get_global("light_triangle_cumulative_probability").set_value_async(ptr_light_triangle_cumulative_probability, memory_stream);
 
 		cuda_module.get_global("light_mesh_count").set_value_async(light_mesh_count, memory_stream);
 
-		if (ptr_light_mesh_prob_alias                    .ptr != NULL) CUDAMemory::free(ptr_light_mesh_prob_alias);
-		if (ptr_light_mesh_first_index_and_triangle_count.ptr != NULL) CUDAMemory::free(ptr_light_mesh_first_index_and_triangle_count);
-		if (ptr_light_mesh_transform_index               .ptr != NULL) CUDAMemory::free(ptr_light_mesh_transform_index);
+		if (ptr_light_mesh_cumulative_probability.ptr != NULL) CUDAMemory::free(ptr_light_mesh_cumulative_probability);
+		if (ptr_light_mesh_triangle_span         .ptr != NULL) CUDAMemory::free(ptr_light_mesh_triangle_span);
+		if (ptr_light_mesh_transform_indices     .ptr != NULL) CUDAMemory::free(ptr_light_mesh_transform_indices);
 
 		// The Device pointers below are only filled in and copied to the GPU once the TLAS is constructed,
 		// therefore the scene_invalidated flag is required to be set.
 		invalidated_scene = true;
 
-		ptr_light_mesh_prob_alias                     = CUDAMemory::malloc<ProbAlias>(light_mesh_count);
-		ptr_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc<int2>     (light_mesh_count);
-		ptr_light_mesh_transform_index                = CUDAMemory::malloc<int>      (light_mesh_count);
+		ptr_light_mesh_cumulative_probability = CUDAMemory::malloc<float>(light_mesh_count);
+		ptr_light_mesh_triangle_span          = CUDAMemory::malloc<int2> (light_mesh_count);
+		ptr_light_mesh_transform_indices      = CUDAMemory::malloc<int>  (light_mesh_count);
 
-		cuda_module.get_global("light_mesh_prob_alias")                    .set_value_async(ptr_light_mesh_prob_alias,                     memory_stream);
-		cuda_module.get_global("light_mesh_first_index_and_triangle_count").set_value_async(ptr_light_mesh_first_index_and_triangle_count, memory_stream);
-		cuda_module.get_global("light_mesh_transform_index")               .set_value_async(ptr_light_mesh_transform_index,                memory_stream);
+		cuda_module.get_global("light_mesh_cumulative_probability").set_value_async(ptr_light_mesh_cumulative_probability, memory_stream);
+		cuda_module.get_global("light_mesh_triangle_span")         .set_value_async(ptr_light_mesh_triangle_span,          memory_stream);
+		cuda_module.get_global("light_mesh_transform_indices")     .set_value_async(ptr_light_mesh_transform_indices,      memory_stream);
 	}
 }
 
@@ -423,8 +424,6 @@ void Pathtracer::calc_light_power() {
 void Pathtracer::calc_light_mesh_weights() {
 	int    light_mesh_count    = 0;
 	double lights_total_weight = 0.0;
-
-	light_mesh_probabilites.resize(scene.meshes.size());
 
 	for (int i = 0; i < scene.meshes.size(); i++) {
 		const Mesh & mesh = scene.meshes[tlas->indices[i]];
@@ -436,22 +435,20 @@ void Pathtracer::calc_light_mesh_weights() {
 			double light_weight_scaled = mesh.light.weight * mesh.scale * mesh.scale;
 			lights_total_weight += light_weight_scaled;
 
-			light_mesh_probabilites                         [light_index]   = light_weight_scaled;
-			pinned_light_mesh_first_index_and_triangle_count[light_index].x = mesh.light.first_triangle_index;
-			pinned_light_mesh_first_index_and_triangle_count[light_index].y = mesh.light.triangle_count;
-			pinned_light_mesh_transform_index               [light_index]   = i;
+			pinned_light_mesh_cumulative_probability[light_index]   = float(lights_total_weight);
+			pinned_light_mesh_triangle_span         [light_index].x = mesh.light.first_triangle_index;
+			pinned_light_mesh_triangle_span         [light_index].y = mesh.light.first_triangle_index + mesh.light.triangle_count - 1;
+			pinned_light_mesh_transform_indices     [light_index]   = i;
 		}
 	}
 
 	if (light_mesh_count > 0) {
 		for (int i = 0; i < light_mesh_count; i++) {
-			light_mesh_probabilites[i] /= lights_total_weight;
+			pinned_light_mesh_cumulative_probability[i] /= float(lights_total_weight);
 		}
-		Random::alias_method(light_mesh_count, light_mesh_probabilites.data(), pinned_light_mesh_prob_alias);
-
-		CUDAMemory::memcpy_async(ptr_light_mesh_prob_alias,                     pinned_light_mesh_prob_alias,                     light_mesh_count, memory_stream);
-		CUDAMemory::memcpy_async(ptr_light_mesh_first_index_and_triangle_count, pinned_light_mesh_first_index_and_triangle_count, light_mesh_count, memory_stream);
-		CUDAMemory::memcpy_async(ptr_light_mesh_transform_index,                pinned_light_mesh_transform_index,                light_mesh_count, memory_stream);
+		CUDAMemory::memcpy_async(ptr_light_mesh_cumulative_probability, pinned_light_mesh_cumulative_probability, light_mesh_count, memory_stream);
+		CUDAMemory::memcpy_async(ptr_light_mesh_triangle_span,          pinned_light_mesh_triangle_span,          light_mesh_count, memory_stream);
+		CUDAMemory::memcpy_async(ptr_light_mesh_transform_indices,      pinned_light_mesh_transform_indices,      light_mesh_count, memory_stream);
 	}
 
 	global_lights_total_weight.set_value_async(float(lights_total_weight), memory_stream);
@@ -573,9 +570,9 @@ void Pathtracer::update(float delta) {
 			} else {
 				ray_buffer_shadow.free();
 
-				CUDAMemory::free(ptr_light_mesh_prob_alias);
-				CUDAMemory::free(ptr_light_mesh_first_index_and_triangle_count);
-				CUDAMemory::free(ptr_light_mesh_transform_index);
+				CUDAMemory::free(ptr_light_mesh_cumulative_probability);
+				CUDAMemory::free(ptr_light_mesh_triangle_span);
+				CUDAMemory::free(ptr_light_mesh_transform_indices);
 
 				global_lights_total_weight.set_value_async(0.0f, memory_stream);
 
@@ -588,8 +585,8 @@ void Pathtracer::update(float delta) {
 		}
 
 		if (had_lights) {
-			CUDAMemory::free(ptr_light_indices);
-			CUDAMemory::free(ptr_light_prob_alias);
+			CUDAMemory::free(ptr_light_triangle_indices);
+			CUDAMemory::free(ptr_light_triangle_cumulative_probability);
 		}
 		if (scene.has_lights) {
 			calc_light_power();

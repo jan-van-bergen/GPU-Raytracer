@@ -7,18 +7,13 @@ __device__ __constant__ uchar2 * blue_noise_textures;
 
 __device__ __constant__ float lights_total_weight;
 
-struct alignas(float2) ProbAlias {
-	float prob;
-	int   alias;
-};
+__device__ __constant__ const int   * light_triangle_indices;
+__device__ __constant__ const float * light_triangle_cumulative_probability;
 
-__device__ __constant__ const int       * light_indices;
-__device__ __constant__ const ProbAlias * light_prob_alias;
-
-__device__ __constant__ int               light_mesh_count;
-__device__ __constant__ const ProbAlias * light_mesh_prob_alias;
-__device__ __constant__ const int2      * light_mesh_first_index_and_triangle_count;
-__device__ __constant__ const int       * light_mesh_transform_index;
+__device__ __constant__ int           light_mesh_count;
+__device__ __constant__ const float * light_mesh_cumulative_probability;
+__device__ __constant__ const int2  * light_mesh_triangle_span; // First and last index into 'light_mesh_area_cumulative' array
+__device__ __constant__ const int   * light_mesh_transform_indices;
 
 __device__ inline bool pdf_is_valid(float pdf) {
 	return isfinite(pdf) && pdf > 1e-4f;
@@ -195,35 +190,14 @@ __device__ float3 sample_visible_normals_ggx(const float3 & omega, float alpha_x
 	return normalize(make_float3(alpha_x * n_h.x, alpha_y * n_h.y, n_h.z));
 }
 
-// Draw sample from arbitrary distribution in O(1) time using the alias method
-// Based on: in Vose - A Linear Algorithm for Generating Random Numbers with a Given Distribution (1991)
-__device__ int sample_alias_method(float u, const ProbAlias * distribution, int n) {
-	assert(u < 1.0f);
-	u *= float(n);
-
-	float u_fract = u - floorf(u);
-	int   j       = __float2int_rd(u);
-
-	ProbAlias prob_alias = distribution[j];
-
-	// Choose j according to probability prob using the fractional part of u, otherwise choose the alias index
-	if (u_fract <= prob_alias.prob) {
-		return j;
-	} else {
-		return prob_alias.alias;
-	}
-}
-
 __device__ int sample_light(float u1, float u2, int & transform_id) {
-	// Pick random light emitting Mesh
-	int light_mesh_id = sample_alias_method(u1, light_mesh_prob_alias, light_mesh_count);
-	transform_id = light_mesh_transform_index[light_mesh_id];
+	// Pick light emitting Mesh
+	int light_mesh_id = binary_search(light_mesh_cumulative_probability, 0, light_mesh_count - 1, u1);
+	transform_id = light_mesh_transform_indices[light_mesh_id];
 
-	// Pick random light emitting Triangle on the Mesh
-	int2 first_index_and_triangle_count = light_mesh_first_index_and_triangle_count[light_mesh_id];
-	int  first_index    = first_index_and_triangle_count.x;
-	int  triangle_count = first_index_and_triangle_count.y;
+	// Pick light emitting Triangle on the Mesh
+	int2 triangle_span = light_mesh_triangle_span[light_mesh_id];
+	int light_triangle_id = binary_search(light_triangle_cumulative_probability, triangle_span.x, triangle_span.y, u2);
 
-	int light_triangle_id = first_index + sample_alias_method(u2, light_prob_alias + first_index, triangle_count);
-	return light_indices[light_triangle_id];
+	return light_triangle_indices[light_triangle_id];
 }

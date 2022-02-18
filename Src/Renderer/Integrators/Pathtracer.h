@@ -192,16 +192,15 @@ struct Pathtracer final : Integrator {
 	CUDAMemory::Ptr<float4> ptr_taa_frame_prev;
 	CUDAMemory::Ptr<float4> ptr_taa_frame_curr;
 
-	Array<double> light_mesh_probabilites; // Scratch memory used to compute pinned_light_mesh_prob_alias
-
+	// Light Sampling
 	CUDAModule::Global global_lights_total_weight;
 
-	CUDAMemory::Ptr<int>       ptr_light_indices;
-	CUDAMemory::Ptr<ProbAlias> ptr_light_prob_alias;
+	CUDAMemory::Ptr<int>   ptr_light_triangle_indices;
+	CUDAMemory::Ptr<float> ptr_light_triangle_cumulative_probability;
 
-	CUDAMemory::Ptr<ProbAlias> ptr_light_mesh_prob_alias;
-	CUDAMemory::Ptr<int2>      ptr_light_mesh_first_index_and_triangle_count;
-	CUDAMemory::Ptr<int>       ptr_light_mesh_transform_index;
+	CUDAMemory::Ptr<float> ptr_light_mesh_cumulative_probability;
+	CUDAMemory::Ptr<int2>  ptr_light_mesh_triangle_span;
+	CUDAMemory::Ptr<int>   ptr_light_mesh_transform_indices;
 
 	// Timing Events
 	CUDAEvent::Desc event_desc_primary;

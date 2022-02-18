@@ -122,9 +122,6 @@
     <ClCompile Include="Src\BVH\Builders\BVHPartitions.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Core\Random.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Exporters\PPMExporter.cpp">
       <Filter>Exporters</Filter>
     </ClCompile>
