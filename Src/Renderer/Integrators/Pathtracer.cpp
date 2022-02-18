@@ -315,7 +315,7 @@ void Pathtracer::calc_light_power() {
 		Mesh & mesh = scene.meshes[m];
 		const Material & material = scene.asset_manager.get_material(mesh.material_handle);
 
-		if (material.type == Material::Type::LIGHT) {
+		if (material.type == Material::Type::LIGHT && (material.emission.x > 0.0f || material.emission.y > 0.0f || material.emission.z > 0.0f)) {
 			mesh_data_used_as_lights[mesh.mesh_data_handle.handle].push_back(&mesh);
 			light_mesh_count++;
 		} else {
