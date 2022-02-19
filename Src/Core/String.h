@@ -7,6 +7,8 @@
 struct String {
 	static constexpr size_t SSO_SIZE = 16;
 
+	Allocator * allocator = nullptr;
+
 	size_t length;
 	union {
 		char * ptr;
@@ -15,23 +17,25 @@ struct String {
 
 	constexpr String() : length(0), ptr(nullptr) { }
 
+	constexpr String(Allocator * allocator) : allocator(allocator), length(0), ptr(nullptr) { }
+
 	constexpr String(size_t length) : length(length), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
-			ptr = new char[length + 1];
+			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
 		data()[0] = '\0';
 	}
 
 	constexpr String(const char * str) : length(strlen(str)), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
-			ptr = new char[length + 1];
+			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
 		memcpy(data(), str, length + 1);
 	}
 
 	constexpr String(const char * str, size_t len) : length(len), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
-			ptr = new char[length + 1];
+			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
 		memcpy(data(), str, length);
 		data()[length] = '\0';
@@ -42,12 +46,12 @@ struct String {
 	template<size_t N>
 	constexpr String(const char (& str)[N]) : length(N - 1), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
-			ptr = new char[length + 1];
+			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
 		memcpy(data(), str, length + 1);
 	}
 
-	constexpr String(Array<char> && array) : length(0), ptr(nullptr) {
+	constexpr String(Array<char> && array) : allocator(array.allocator), length(0), ptr(nullptr) {
 		bool is_null_terminated = array.size() > 0 && array.back() == '\0';
 		if (!is_null_terminated) {
 			array.push_back('\0');
@@ -66,28 +70,29 @@ struct String {
 
 	~String() {
 		if (length >= SSO_SIZE && ptr) {
-			delete [] ptr;
+			Allocator::free_array(allocator, ptr);
 		}
 	}
 
-	constexpr String(const String & str) : length(str.length), ptr(nullptr) {
+	constexpr String(const String & str) : allocator(str.allocator), length(str.length), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
-			ptr = new char[length + 1];
+			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
 		memcpy(data(), str.data(), length + 1);
 	}
 
 	constexpr String & operator=(const String & str) {
+		allocator = str.allocator;
 		if (length >= SSO_SIZE) {
 			if (length == str.length) {
 				memcpy(data(), str.data(), length + 1);
 				return *this;
 			}
-			delete [] ptr;
+			Allocator::free_array(allocator, ptr);
 		}
 
 		if (str.length >= SSO_SIZE) {
-			ptr = new char[str.length + 1];
+			ptr = Allocator::alloc_array<char>(allocator, str.length + 1);
 		}
 
 		length = str.length;
@@ -96,7 +101,7 @@ struct String {
 		return *this;
 	}
 
-	constexpr String(String && str) noexcept : length(str.length), ptr(nullptr) {
+	constexpr String(String && str) noexcept : allocator(str.allocator), length(str.length), ptr(nullptr) {
 		if (length < SSO_SIZE) {
 			memcpy(buf, str.buf, length + 1);
 		} else {
@@ -106,8 +111,9 @@ struct String {
 	}
 
 	constexpr String & operator=(String && str) noexcept {
+		allocator = str.allocator;
 		if (length >= SSO_SIZE) {
-			delete [] ptr;
+			Allocator::free_array(allocator, ptr);
 		}
 
 		length = str.length;

@@ -25,6 +25,13 @@ struct Format {
 
 	Array<char> data;
 
+	Format(Allocator * allocator = nullptr) : data(allocator) { }
+
+	NON_COPYABLE(Format);
+	NON_MOVEABLE(Format);
+
+	~Format() { }
+
 	String format(StringView fmt) {
 		append(fmt);
 		append('\0');

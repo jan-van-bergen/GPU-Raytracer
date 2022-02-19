@@ -2,6 +2,8 @@
 
 #include <Imgui/imgui.h>
 
+#include "Core/Allocators/LinearAllocator.h"
+
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	init_module();
 	init_globals();
@@ -305,18 +307,21 @@ void Pathtracer::svgf_free() {
 }
 
 void Pathtracer::calc_light_power() {
-	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights;
+	LinearAllocator<> allocator;
+	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights(&allocator);
 
 	int light_mesh_count = 0;
 
 	// For every Mesh, check whether it is a Light based on its Material
 	// If so, mark the MeshData it is using as being a Light
-	for (int m = 0; m < scene.meshes.size(); m++) {
+	for (size_t m = 0; m < scene.meshes.size(); m++) {
 		Mesh & mesh = scene.meshes[m];
 		const Material & material = scene.asset_manager.get_material(mesh.material_handle);
 
 		if (material.type == Material::Type::LIGHT && (material.emission.x > 0.0f || material.emission.y > 0.0f || material.emission.z > 0.0f)) {
-			mesh_data_used_as_lights[mesh.mesh_data_handle.handle].push_back(&mesh);
+			Array<Mesh *> & meshes = mesh_data_used_as_lights[mesh.mesh_data_handle.handle];
+			meshes.allocator = &allocator;
+			meshes.push_back(&mesh);
 			light_mesh_count++;
 		} else {
 			mesh.light.weight = 0.0f;
@@ -327,7 +332,7 @@ void Pathtracer::calc_light_power() {
 		int    index;
 		double area;
 	};
-	Array<LightTriangle> light_triangles;
+	Array<LightTriangle> light_triangles(&allocator);
 
 	struct LightMeshData {
 		size_t first_triangle_index;
@@ -335,7 +340,7 @@ void Pathtracer::calc_light_power() {
 
 		double total_area;
 	};
-	Array<LightMeshData> light_mesh_datas;
+	Array<LightMeshData> light_mesh_datas(&allocator);
 
 	using It = decltype(mesh_data_used_as_lights)::Iterator;
 
@@ -374,8 +379,8 @@ void Pathtracer::calc_light_power() {
 	}
 
 	if (light_triangles.size() > 0) {
-		Array<int>   light_triangle_indices               (light_triangles.size());
-		Array<float> light_triangle_cumulative_probability(light_triangles.size());
+		Array<int>   light_triangle_indices               (light_triangles.size(), &allocator);
+		Array<float> light_triangle_cumulative_probability(light_triangles.size(), &allocator);
 
 		for (int m = 0; m < light_mesh_datas.size(); m++) {
 			const LightMeshData & light_mesh_data = light_mesh_datas[m];

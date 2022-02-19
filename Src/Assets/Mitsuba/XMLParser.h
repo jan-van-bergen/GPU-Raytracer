@@ -4,6 +4,7 @@
 
 #include "Core/Array.h"
 #include "Core/Parser.h"
+#include "Core/Allocators/LinearAllocator.h"
 
 inline void parser_skip_xml_whitespace(Parser & parser) {
 	parser.skip_whitespace_or_newline();
@@ -98,6 +99,13 @@ struct XMLNode {
 
 	SourceLocation location;
 
+	XMLNode(Allocator * allocator) : attributes(allocator), children(allocator) { }
+
+	DEFAULT_MOVEABLE(XMLNode);
+	DEFAULT_COPYABLE(XMLNode);
+
+	~XMLNode() { }
+
 	template<typename Predicate>
 	const XMLAttribute * get_attribute(Predicate predicate) const {
 		for (int i = 0; i < attributes.size(); i++) {
@@ -180,7 +188,12 @@ struct XMLParser {
 	String source;
 	Parser parser;
 
+	LinearAllocator<GIGABYTE(1)> allocator;
+
 	XMLParser(const String & filename) : source(IO::file_read(filename)), parser(source.view(), filename.view()) { }
 
 	XMLNode parse_root();
+
+private:
+	XMLNode parse_tag();
 };

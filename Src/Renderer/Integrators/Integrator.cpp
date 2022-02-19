@@ -7,6 +7,8 @@
 #include "BVH/Converters/BVH4Converter.h"
 #include "BVH/Converters/BVH8Converter.h"
 
+#include "Core/Allocators/PinnedAllocator.h"
+
 #include "Util/BlueNoise.h"
 
 void Integrator::init_globals() {
@@ -203,7 +205,7 @@ void Integrator::init_geometry() {
 			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes_2);
 
-			tlas           = make_owned<BVH2>();
+			tlas           = make_owned<BVH2>(PinnedAllocator::instance());
 			tlas_converter = make_owned<BVH2Converter>(static_cast<BVH2 &>(*tlas.get()), tlas_raw);
 			break;
 		}
@@ -239,7 +241,7 @@ void Integrator::init_geometry() {
 			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh4_nodes").set_value(ptr_bvh_nodes_4);
 
-			tlas           = make_owned<BVH4>();
+			tlas           = make_owned<BVH4>(PinnedAllocator::instance());
 			tlas_converter = make_owned<BVH4Converter>(static_cast<BVH4 &>(*tlas.get()), tlas_raw);
 			break;
 		}
@@ -269,7 +271,7 @@ void Integrator::init_geometry() {
 			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh8_nodes").set_value(ptr_bvh_nodes_8);
 
-			tlas           = make_owned<BVH8>();
+			tlas           = make_owned<BVH8>(PinnedAllocator::instance());
 			tlas_converter = make_owned<BVH8Converter>(static_cast<BVH8 &>(*tlas.get()), tlas_raw);
 			break;
 		}

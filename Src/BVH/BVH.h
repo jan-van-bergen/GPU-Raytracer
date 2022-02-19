@@ -103,17 +103,23 @@ struct BVH {
 struct BVH2 final : BVH {
 	Array<BVHNode2> nodes;
 
+	BVH2(Allocator * allocator = nullptr) : nodes(allocator) { }
+
 	size_t node_count() const override { return nodes.size(); }
 };
 
 struct BVH4 final : BVH {
 	Array<BVHNode4> nodes;
 
+	BVH4(Allocator * allocator = nullptr) : nodes(allocator) { }
+
 	size_t node_count() const override{ return nodes.size(); }
 };
 
 struct BVH8 final : BVH {
 	Array<BVHNode8> nodes;
+
+	BVH8(Allocator * allocator = nullptr) : nodes(allocator) { }
 
 	size_t node_count() const override { return nodes.size(); }
 };

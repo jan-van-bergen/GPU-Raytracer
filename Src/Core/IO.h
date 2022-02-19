@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "Format.h"
+#include "Allocators/LinearAllocator.h"
 
 namespace IO {
 	inline void print(char c) {
@@ -14,7 +15,8 @@ namespace IO {
 
 	template<typename ... Args>
 	inline void print(StringView fmt, const Args & ... args) {
-		String string = Format().format(fmt, args ...);
+		LinearAllocator<KILOBYTE(4)> allocator;
+		String string = Format(&allocator).format(fmt, args ...);
 		print(string.view());
 	}
 

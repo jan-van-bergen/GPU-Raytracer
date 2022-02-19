@@ -1,11 +1,26 @@
 #include "XMLParser.h"
 
-inline XMLNode parse_tag(Parser & parser) {
-	if (parser.reached_end()) return { };
+XMLNode XMLParser::parse_root() {
+	XMLNode root = XMLNode(&allocator);
+	root.location = parser.location;
+
+	while (!parser.reached_end()) {
+		parser_skip_xml_whitespace(parser);
+		root.children.push_back(parse_tag());
+		parser_skip_xml_whitespace(parser);
+	}
+
+	return root;
+}
+
+XMLNode XMLParser::parse_tag() {
+	XMLNode node = XMLNode(&allocator);
+	if (parser.reached_end()) {
+		return node;
+	}
 
 	parser.expect('<');
 
-	XMLNode node = { };
 	node.location         = parser.location;
 	node.is_question_mark = parser.match('?');
 
@@ -66,7 +81,7 @@ inline XMLNode parse_tag(Parser & parser) {
 
 	// Parse children
 	while (!parser.match("</")) {
-		node.children.push_back(parse_tag(parser));
+		node.children.push_back(parse_tag());
 		parser_skip_xml_whitespace(parser);
 	}
 
@@ -81,17 +96,4 @@ inline XMLNode parse_tag(Parser & parser) {
 	}
 
 	return node;
-}
-
-XMLNode XMLParser::parse_root() {
-	XMLNode root = { };
-	root.location = parser.location;
-
-	while (!parser.reached_end()) {
-		parser_skip_xml_whitespace(parser);
-		root.children.push_back(parse_tag(parser));
-		parser_skip_xml_whitespace(parser);
-	}
-
-	return root;
 }
