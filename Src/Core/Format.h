@@ -76,10 +76,7 @@ struct Format {
 
 private:
 	void append(StringView str) {
-		size_t offset = data.size();
-		size_t length = str.length();
-		data.resize(offset + length);
-		memcpy(data.data() + offset, str.start, length);
+		data.push_back(str.start, str.length());
 	}
 
 	void append(char c, int n = 1) {
