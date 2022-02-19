@@ -80,6 +80,18 @@ struct Array {
 		return *(new (&data()[count++]) T(std::move(element)));
 	}
 
+	constexpr void push_back(const T * elements, size_t element_count) {
+		grow_if_needed(element_count);
+		if constexpr (std::is_trivially_copyable_v<T>) {
+			memcpy(buffer + count, elements, element_count * sizeof(T));
+			count += element_count;
+		} else {
+			for (size_t i = 0; i < element_count; i++) {
+				new (&data()[count++] T(elements[i]));
+			}
+		}
+	}
+
 	template<typename ... Args>
 	constexpr T & emplace_back(Args && ... args) {
 		grow_if_needed();
@@ -209,9 +221,13 @@ private:
 		}
 	}
 
-	constexpr void grow_if_needed() {
-		if (count == capacity) {
-			reserve(capacity + capacity / 2 + 16);
+	constexpr void grow_if_needed(size_t n = 1) {
+		size_t new_capacity = capacity;
+		while (count + n > new_capacity) {
+			new_capacity = new_capacity + new_capacity / 2 + 16;
+		}
+		if (new_capacity != capacity) {
+			reserve(new_capacity);
 		}
 	}
 };
