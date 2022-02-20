@@ -15,7 +15,7 @@
 #include "Util/StringUtil.h"
 
 Scene::Scene() : camera(Math::deg_to_rad(85.0f)) {
-	LinearAllocator<GIGABYTES(1)> allocator;
+	LinearAllocator<MEGABYTES(4)> allocator;
 
 	for (int i = 0; i < cpu_config.scene_filenames.size(); i++) {
 		const String & scene_filename = cpu_config.scene_filenames[i];
