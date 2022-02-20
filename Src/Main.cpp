@@ -11,6 +11,7 @@
 #include "Core/Sort.h"
 #include "Core/Parser.h"
 #include "Core/Timer.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "Input.h"
 #include "Window.h"
@@ -59,8 +60,10 @@ static void calc_timing();
 static void draw_gui(Window & window, Integrator & integrator);
 
 int main(int num_args, char ** args) {
-	Args::parse(num_args, args);
-
+	{
+		StackAllocator<KILOBYTES(4)> allocator;
+		Args::parse(num_args, args, &allocator);
+	}
 	if (cpu_config.scene_filenames.size() == 0) {
 		cpu_config.scene_filenames.push_back("Data/sponza/scene.xml"_sv);
 	}
@@ -138,7 +141,8 @@ int main(int num_args, char ** args) {
 				default: ASSERT_UNREACHABLE();
 			}
 
-			String screenshot_name = Format().format("screenshot_{}.{}"_sv, integrator->sample_index, ext);
+			StackAllocator<BYTES(128)> allocator;
+			String screenshot_name = Format(&allocator).format("screenshot_{}.{}"_sv, integrator->sample_index, ext);
 			capture_screen(window, *integrator.get(), screenshot_name);
 
 			timing.time_of_last_screenshot = timing.now;

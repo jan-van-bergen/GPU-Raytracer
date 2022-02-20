@@ -3,6 +3,7 @@
 
 #include "Util/Util.h"
 
+#define BYTES(n) (n)
 #define KILOBYTES(n) ((n) * 1024)
 #define MEGABYTES(n) ((n) * 1024 * 1024)
 #define GIGABYTES(n) ((n) * 1024 * 1024 * 1024)
