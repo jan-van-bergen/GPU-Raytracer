@@ -493,7 +493,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
-		String bvh_filename = Format(allocator).format("{}.shape_{}.bvh"_sv, filename_abs, shape_index);
+		String bvh_filename = Format().format("{}.shape_{}.bvh"_sv, filename_abs, shape_index);
 
 		auto fallback_loader = [&](const String & filename, Allocator * allocator) {
 			Serialized serialized;
@@ -508,7 +508,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, allocator, fallback_loader);
 
-		name = Format(allocator).format("{}_{}"_sv, filename_rel, shape_index);
+		name = Format().format("{}_{}"_sv, filename_rel, shape_index);
 
 		return mesh_data_handle;
 	} else if (type == "hair") {
