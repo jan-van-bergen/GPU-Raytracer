@@ -106,6 +106,8 @@ int main(int num_args, char ** args) {
 	window.set_size(cpu_config.initial_width, cpu_config.initial_height);
 	window.show();
 
+	LinearAllocator<MEGABYTES(16)> frame_allocator;
+
 	// Render loop
 	while (!window.is_closed) {
 		perf_test.frame_begin();
@@ -124,7 +126,7 @@ int main(int num_args, char ** args) {
 			}
 		}
 
-		integrator->update((float)timing.delta_time);
+		integrator->update((float)timing.delta_time, &frame_allocator);
 		integrator->render();
 
 		window.render_framebuffer();
@@ -176,6 +178,8 @@ int main(int num_args, char ** args) {
 		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
 
 		window.swap();
+
+		frame_allocator.reset();
 	}
 
 	CUDAContext::free();

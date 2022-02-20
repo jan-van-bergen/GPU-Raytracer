@@ -419,7 +419,7 @@ void Integrator::build_tlas() {
 	CUDAMemory::memcpy_async(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.meshes.size(), memory_stream);
 }
 
-void Integrator::update(float delta) {
+void Integrator::update(float delta, Allocator * frame_allocator) {
 	if (invalidated_gpu_config && gpu_config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
 		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"_sv);
 		scene.camera.aperture_radius = 0.0f;

@@ -106,8 +106,8 @@ struct AO final : Integrator {
 	void resize_init(unsigned frame_buffer_handle, int width, int height) override; // Part of resize that initializes new size
 	void resize_free()                                                    override; // Part of resize that cleans up old size
 
-	void update(float delta) override;
-	void render()            override;
+	void update(float delta, Allocator * frame_allocator) override;
+	void render()                                         override;
 
 	void render_gui() override;
 };
