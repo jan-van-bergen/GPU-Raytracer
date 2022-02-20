@@ -3,9 +3,9 @@
 
 #include "Util/Util.h"
 
-#define KILOBYTE(n) (n * 1024)
-#define MEGABYTE(n) (n * 1024 * 1024)
-#define GIGABYTE(n) (n * 1024 * 1024 * 1024)
+#define KILOBYTES(n) ((n) * 1024)
+#define MEGABYTES(n) ((n) * 1024 * 1024)
+#define GIGABYTES(n) ((n) * 1024 * 1024 * 1024)
 
 struct Allocator {
 	Allocator() = default;

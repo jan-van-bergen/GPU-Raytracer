@@ -11,12 +11,14 @@
 #include "Config.h"
 
 #include "Core/Parser.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "Math/Mipmap.h"
 #include "Util/Util.h"
 
 bool TextureLoader::load_dds(const String & filename, Texture & texture) {
-	String file = IO::file_read(filename);
+	StackAllocator<> allocator;
+	String file = IO::file_read(filename, &allocator);
 	Parser parser(file.view(), filename.view());
 
 	// Based on: https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dds-header

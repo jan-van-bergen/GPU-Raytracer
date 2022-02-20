@@ -15,7 +15,7 @@ namespace IO {
 
 	template<typename ... Args>
 	inline void print(StringView fmt, const Args & ... args) {
-		LinearAllocator<KILOBYTE(4)> allocator;
+		LinearAllocator<KILOBYTES(4)> allocator;
 		String string = Format(&allocator).format(fmt, args ...);
 		print(string.view());
 	}
@@ -30,6 +30,6 @@ namespace IO {
 
 	bool file_is_newer(StringView filename_a, StringView filename_b);
 
-	String file_read (const String & filename);
+	String file_read (const String & filename, Allocator * allocator);
 	bool   file_write(const String & filename, StringView data);
 }

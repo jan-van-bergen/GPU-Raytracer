@@ -5,6 +5,7 @@
 
 #include "Core/IO.h"
 #include "Core/Parser.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
@@ -33,7 +34,8 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 		return false;
 	}
 
-	String file = IO::file_read(bvh_filename);
+	StackAllocator<> allocator;
+	String file = IO::file_read(bvh_filename, &allocator);
 	Parser parser(file.view(), bvh_filename.view());
 
 	BVHFileHeader header = parser.parse_binary<BVHFileHeader>();

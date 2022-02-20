@@ -15,6 +15,8 @@
 #include "Util/StringUtil.h"
 
 Scene::Scene() : camera(Math::deg_to_rad(85.0f)) {
+	LinearAllocator<GIGABYTES(1)> allocator;
+
 	for (int i = 0; i < cpu_config.scene_filenames.size(); i++) {
 		const String & scene_filename = cpu_config.scene_filenames[i];
 
@@ -25,11 +27,11 @@ Scene::Scene() : camera(Math::deg_to_rad(85.0f)) {
 		}
 
 		if (file_extension == "obj") {
-			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, OBJLoader::load));
+			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, &allocator, OBJLoader::load));
 		} else if (file_extension == "ply") {
-			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, PLYLoader::load));
+			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, &allocator, PLYLoader::load));
 		} else if (file_extension == "xml") {
-			MitsubaLoader::load(scene_filename, *this);
+			MitsubaLoader::load(scene_filename, &allocator, *this);
 		} else {
 			IO::print("ERROR: '{}' file format is not supported!\n"_sv, file_extension);
 			IO::exit(1);

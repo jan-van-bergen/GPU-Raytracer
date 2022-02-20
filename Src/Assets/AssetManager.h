@@ -37,15 +37,15 @@ private:
 
 public:
 	template<typename FallbackLoader>
-	MeshDataHandle add_mesh_data(const String & filename, FallbackLoader fallback_loader) {
+	MeshDataHandle add_mesh_data(const String & filename, Allocator * allocator, FallbackLoader fallback_loader) {
 		String bvh_filename = BVHLoader::get_bvh_filename(filename.view());
-		MeshDataHandle mesh_data_handle = add_mesh_data(filename, bvh_filename, fallback_loader);
+		MeshDataHandle mesh_data_handle = add_mesh_data(filename, bvh_filename, allocator, fallback_loader);
 
 		return mesh_data_handle;
 	}
 
 	template<typename FallbackLoader>
-	MeshDataHandle add_mesh_data(const String & filename, const String & bvh_filename, FallbackLoader fallback_loader) {
+	MeshDataHandle add_mesh_data(const String & filename, const String & bvh_filename, Allocator * allocator, FallbackLoader fallback_loader) {
 		MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
 
 		if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
@@ -55,7 +55,7 @@ public:
 
 		bool bvh_loaded = BVHLoader::try_to_load(filename, bvh_filename, mesh_data, bvh);
 		if (!bvh_loaded) {
-			mesh_data.triangles = fallback_loader(filename);
+			mesh_data.triangles = fallback_loader(filename, allocator);
 
 			if (mesh_data.triangles.size() == 0) {
 				return { INVALID };

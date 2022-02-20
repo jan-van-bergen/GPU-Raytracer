@@ -3,6 +3,7 @@
 
 #include "Core/String.h"
 #include "Core/StringView.h"
+#include "Core/Allocators/LinearAllocator.h"
 
 namespace Util {
 	StringView get_directory(StringView filename);
@@ -12,7 +13,7 @@ namespace Util {
 
 	StringView substr(StringView str, size_t offset, size_t len = -1);
 
-	String combine_stringviews(StringView path, StringView filename);
+	String combine_stringviews(StringView path, StringView filename, Allocator * allocator = nullptr);
 
 	const char * find_last_after(StringView haystack, StringView needles);
 

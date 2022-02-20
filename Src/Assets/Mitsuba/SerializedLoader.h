@@ -11,5 +11,5 @@ struct Serialized {
 };
 
 namespace SerializedLoader {
-	Serialized load(const String & filename, SourceLocation location_in_mitsuba_file);
+	Serialized load(const String & filename, Allocator * allocator, SourceLocation location_in_mitsuba_file);
 }

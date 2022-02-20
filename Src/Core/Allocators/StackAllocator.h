@@ -1,7 +1,7 @@
 #pragma once
 #include "Allocator.h"
 
-template<size_t Size = KILOBYTE(4)>
+template<size_t Size = KILOBYTES(4)>
 struct StackAllocator final : Allocator {
 	Allocator * fallback_allocator = nullptr;
 

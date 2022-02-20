@@ -19,21 +19,21 @@ struct String {
 
 	constexpr String(Allocator * allocator) : allocator(allocator), length(0), ptr(nullptr) { }
 
-	constexpr String(size_t length) : length(length), ptr(nullptr) {
+	constexpr String(size_t length, Allocator * allocator = nullptr) : allocator(allocator), length(length), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
 			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
 		data()[0] = '\0';
 	}
 
-	constexpr String(const char * str) : length(strlen(str)), ptr(nullptr) {
+	constexpr String(const char * str, Allocator * allocator = nullptr) : allocator(allocator), length(strlen(str)), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
 			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
 		memcpy(data(), str, length + 1);
 	}
 
-	constexpr String(const char * str, size_t len) : length(len), ptr(nullptr) {
+	constexpr String(const char * str, size_t len, Allocator * allocator = nullptr) : allocator(allocator), length(len), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
 			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}
@@ -41,10 +41,10 @@ struct String {
 		data()[length] = '\0';
 	}
 
-	constexpr String(const StringView & str) : String(str.start, str.length()) { }
+	constexpr String(const StringView & str, Allocator * allocator = nullptr) : String(str.start, str.length(), allocator) { }
 
 	template<size_t N>
-	constexpr String(const char (& str)[N]) : length(N - 1), ptr(nullptr) {
+	constexpr String(const char (& str)[N], Allocator * allocator = nullptr) : allocator(allocator), length(N - 1), ptr(nullptr) {
 		if (length >= SSO_SIZE) {
 			ptr = Allocator::alloc_array<char>(allocator, length + 1);
 		}

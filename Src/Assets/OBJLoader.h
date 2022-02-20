@@ -4,5 +4,5 @@
 #include "Core/String.h"
 
 namespace OBJLoader {
-	Array<Triangle> load(const String & filename);
+	Array<Triangle> load(const String & filename, Allocator * allocator);
 }

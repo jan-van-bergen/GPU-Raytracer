@@ -17,7 +17,7 @@ bool IO::file_is_newer(StringView filename_a, StringView filename_b) {
 	return last_write_time_filename_a < last_write_time_filename_b;
 }
 
-String IO::file_read(const String & filename) {
+String IO::file_read(const String & filename, Allocator * allocator) {
 	FILE * file = nullptr;
 	fopen_s(&file, filename.data(), "rb");
 
@@ -28,7 +28,7 @@ String IO::file_read(const String & filename) {
 
 	size_t file_length = std::filesystem::file_size(stringview_to_path(filename.view()));
 
-	String data(file_length);
+	String data(file_length, allocator);
 	fread_s(data.data(), file_length, 1, file_length, file);
 	data.data()[file_length] = '\0';
 

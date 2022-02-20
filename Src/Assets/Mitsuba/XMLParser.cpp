@@ -1,7 +1,7 @@
 #include "XMLParser.h"
 
 XMLNode XMLParser::parse_root() {
-	XMLNode root = XMLNode(&allocator);
+	XMLNode root = XMLNode(allocator);
 	root.location = parser.location;
 
 	while (!parser.reached_end()) {
@@ -14,7 +14,7 @@ XMLNode XMLParser::parse_root() {
 }
 
 XMLNode XMLParser::parse_tag() {
-	XMLNode node = XMLNode(&allocator);
+	XMLNode node = XMLNode(allocator);
 	if (parser.reached_end()) {
 		return node;
 	}

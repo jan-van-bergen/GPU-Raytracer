@@ -185,12 +185,12 @@ struct XMLNode {
 };
 
 struct XMLParser {
+	Allocator * allocator = nullptr;
+
 	String source;
 	Parser parser;
 
-	LinearAllocator<GIGABYTE(1)> allocator;
-
-	XMLParser(const String & filename) : source(IO::file_read(filename)), parser(source.view(), filename.view()) { }
+	XMLParser(const String & filename, Allocator * allocator) : allocator(allocator), source(IO::file_read(filename, allocator)), parser(source.view(), filename.view()) { }
 
 	XMLNode parse_root();
 

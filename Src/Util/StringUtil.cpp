@@ -36,8 +36,8 @@ StringView Util::substr(StringView str, size_t offset, size_t len) {
 	return { str.start + offset, str.start + offset + len };
 }
 
-String Util::combine_stringviews(StringView a, StringView b) {
-	String filename_abs = String(a.length() + b.length());
+String Util::combine_stringviews(StringView a, StringView b, Allocator * allocator) {
+	String filename_abs = String(a.length() + b.length(), allocator);
 
 	memcpy(filename_abs.data(),              a.start, a.length());
 	memcpy(filename_abs.data() + a.length(), b.start, b.length());

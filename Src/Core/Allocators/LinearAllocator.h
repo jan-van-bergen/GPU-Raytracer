@@ -1,7 +1,7 @@
 #pragma once
 #include "Allocator.h"
 
-template<size_t Size = MEGABYTE(4)>
+template<size_t Size = MEGABYTES(4)>
 struct LinearAllocator final : Allocator {
 	char * data   = nullptr;
 	size_t offset = 0;
@@ -19,6 +19,13 @@ struct LinearAllocator final : Allocator {
 		delete [] data;
 		if (next) {
 			next->~LinearAllocator();
+		}
+	}
+
+	void reset() {
+		offset = 0;
+		if (next) {
+			next->reset();
 		}
 	}
 
