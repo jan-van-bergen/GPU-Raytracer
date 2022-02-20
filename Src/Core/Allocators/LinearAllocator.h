@@ -11,6 +11,9 @@ struct LinearAllocator final : Allocator {
 		data = new char[Size];
 	}
 
+	NON_COPYABLE(LinearAllocator);
+	NON_MOVEABLE(LinearAllocator);
+
 	~LinearAllocator() {
 		ASSERT(data);
 		delete [] data;
@@ -19,6 +22,7 @@ struct LinearAllocator final : Allocator {
 		}
 	}
 
+private:
 	char * alloc(size_t num_bytes) override {
 		if (num_bytes >= Size) {
 			return new char[num_bytes]; // Fall back to heap allocation
