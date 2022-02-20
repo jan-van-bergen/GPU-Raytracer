@@ -17,7 +17,7 @@
 #include "Util/Util.h"
 
 bool TextureLoader::load_dds(const String & filename, Texture & texture) {
-	StackAllocator<> allocator;
+	StackAllocator<KILOBYTES(8)> allocator;
 	String file = IO::file_read(filename, &allocator);
 	Parser parser(file.view(), filename.view());
 

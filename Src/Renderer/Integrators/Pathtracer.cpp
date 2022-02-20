@@ -307,7 +307,7 @@ void Pathtracer::svgf_free() {
 }
 
 void Pathtracer::calc_light_power() {
-	LinearAllocator<> allocator;
+	LinearAllocator<MEGABYTES(64)> allocator;
 	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights(&allocator);
 
 	int light_mesh_count = 0;

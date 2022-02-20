@@ -34,7 +34,7 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 		return false;
 	}
 
-	StackAllocator<> allocator;
+	StackAllocator<KILOBYTES(8)> allocator;
 	String file = IO::file_read(bvh_filename, &allocator);
 	Parser parser(file.view(), bvh_filename.view());
 

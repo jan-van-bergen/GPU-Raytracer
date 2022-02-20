@@ -1,7 +1,7 @@
 #pragma once
 #include "Allocator.h"
 
-template<size_t Size = MEGABYTES(4)>
+template<size_t Size>
 struct LinearAllocator final : Allocator {
 	char * data   = nullptr;
 	size_t offset = 0;

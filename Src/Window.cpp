@@ -68,7 +68,7 @@ Window::Window(const String & title, int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	StackAllocator<> allocator;
+	StackAllocator<KILOBYTES(4)> allocator;
 	String shader_source_vertex   = IO::file_read("Src/Shaders/post.vert", &allocator);
 	String shader_source_fragment = IO::file_read("Src/Shaders/post.frag", &allocator);
 
