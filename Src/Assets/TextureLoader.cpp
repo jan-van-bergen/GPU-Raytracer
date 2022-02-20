@@ -139,7 +139,8 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 	int pixel_count = 0;
 	mip_count(texture.width, texture.height, mip_levels, pixel_count);
 
-	Array<Vector4> data_rgba(pixel_count);
+	LinearAllocator<MEGABYTES(8)> allocator;
+	Array<Vector4> data_rgba(pixel_count, &allocator);
 
 	// Copy the data over into Mipmap level 0, and convert it to linear colour space
 	for (int i = 0; i < texture.width * texture.height; i++) {
@@ -167,7 +168,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 
 		int level = 1;
 
-		Array<Vector4> temp((texture.width / 2) * texture.height); // Intermediate storage used when performing seperable filtering
+		Array<Vector4> temp((texture.width / 2) * texture.height, &allocator); // Intermediate storage used when performing seperable filtering
 
 		while (true) {
 			if (cpu_config.mipmap_filter == MipmapFilterType::BOX) {
@@ -214,6 +215,7 @@ bool TextureLoader::load_stb(const String & filename, Texture & texture) {
 		mip_count(new_width, new_height, new_mip_levels, new_pixel_count);
 
 		Array<int> new_mip_offsets;
+		new_mip_offsets.reserve(new_mip_levels);
 
 		constexpr int COMPRESSED_BLOCK_SIZE = 8;
 
