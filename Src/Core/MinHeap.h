@@ -7,6 +7,7 @@ struct MinHeap {
 	Array<T> data;
 	Cmp cmp;
 
+	constexpr MinHeap               (Allocator * allocator = nullptr) : data(allocator) { }
 	constexpr MinHeap(Cmp cmp = { }, Allocator * allocator = nullptr) : data(allocator), cmp(cmp) { }
 
 	constexpr void insert(T item) {
