@@ -8,6 +8,7 @@
 #include "Core/String.h"
 
 #include "Util/Shader.h"
+#include "Math/Math.h"
 
 struct Vector3;
 
@@ -37,9 +38,9 @@ struct Window {
 		if (center) {
 			SDL_DisplayMode display_mode = { };
 			SDL_GetCurrentDisplayMode(0, &display_mode);
-			int monitor_width  = display_mode.w;
-			int monitor_height = display_mode.h;
-			SDL_SetWindowPosition(window, (monitor_width - width) / 2, (monitor_height - height) / 2);
+			int pos_x = Math::max((display_mode.w - width)  / 2, 0);
+			int pos_y = Math::max((display_mode.h - height) / 2, 0);
+			SDL_SetWindowPosition(window, pos_x, pos_y);
 		}
 	}
 
