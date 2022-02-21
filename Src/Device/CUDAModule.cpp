@@ -104,10 +104,12 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 		IO::exit(1);
 	}
 
+	LinearAllocator<KILOBYTES(512)> allocator;
+
 #ifdef _DEBUG
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"_sv);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"_sv, &allocator);
 #else
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"_sv);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"_sv, &allocator);
 #endif
 
 	bool should_recompile = true;
@@ -119,8 +121,6 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 	}
 
 	StringView path = Util::get_directory(filename.view());
-
-	LinearAllocator<KILOBYTES(512)> allocator;
 
 	Array<Include> includes;
 	String source = scan_includes_recursive(filename, &allocator, path, includes, ptx_filename.view(), should_recompile);

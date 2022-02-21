@@ -44,7 +44,7 @@ struct Format {
 		ASSERT(spec.fmt_end != fmt.end);
 		append(StringView { fmt.start, spec.fmt_end });
 
-		String str = Formatter<Arg>::format(spec, arg);
+		String str = Formatter<Arg>::format(spec, data.allocator, arg);
 
 		if (spec.align == 0) {
 			spec.align = '<'; // Default for non-integer/float
@@ -95,14 +95,14 @@ struct Formatter {
 
 template<size_t N, typename T>
 struct Formatter<T[N]> {
-	static String format(Format::Spec & fmt_spec, const T * value) {
-		return Formatter<const T *>::format(fmt_spec, value);
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, const T * value) {
+		return Formatter<const T *>::format(fmt_spec, allocator, value);
 	}
 };
 
 template<>
 struct Formatter<char> {
-	static String format(Format::Spec & fmt_spec, char value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, char value) {
 		if (fmt_spec.type == 'd') {
 			if (fmt_spec.align == 0) {
 				fmt_spec.align = '>';
@@ -116,42 +116,42 @@ struct Formatter<char> {
 
 template<>
 struct Formatter<StringView> {
-	static String format(Format::Spec & fmt_spec, StringView value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, StringView value) {
 		return value;
 	}
 };
 
 template<>
 struct Formatter<String> {
-	static String format(Format::Spec & fmt_spec, const String & value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, const String & value) {
 		return value;
 	}
 };
 
 template<>
 struct Formatter<const char *> {
-	static String format(Format::Spec & fmt_spec, const char * value) {
-		return value;
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, const char * value) {
+		return String(value, allocator);
 	}
 };
 
 template<>
 struct Formatter<bool> {
-	static String format(Format::Spec & fmt_spec, bool value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, bool value) {
 		if (fmt_spec.type == 'd') {
 			if (fmt_spec.align == 0) {
 				fmt_spec.align = '>';
 			}
-			return value ? "1"_sv : "0"_sv;
+			return String(value ? "1"_sv : "0"_sv, allocator);
 		} else {
-			return Util::to_string(value);
+			return Util::to_string(value, allocator);
 		}
 	}
 };
 
 template<>
 struct Formatter<int64_t> {
-	static String format(Format::Spec & fmt_spec, int64_t value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, int64_t value) {
 		if (fmt_spec.align == 0) {
 			fmt_spec.align = '>';
 		}
@@ -163,20 +163,20 @@ struct Formatter<int64_t> {
 			base = 16;
 		}
 
-		return Util::to_string(value, base);
+		return Util::to_string(value, base, allocator);
 	}
 };
 
 template<>
 struct Formatter<int> {
-	static String format(Format::Spec & fmt_spec, int value) {
-		return Formatter<int64_t>::format(fmt_spec, value);
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, int value) {
+		return Formatter<int64_t>::format(fmt_spec, allocator, value);
 	}
 };
 
 template<>
 struct Formatter<uint64_t> {
-	static String format(Format::Spec & fmt_spec, uint64_t value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, uint64_t value) {
 		if (fmt_spec.align == 0) {
 			fmt_spec.align = '>';
 		}
@@ -188,33 +188,33 @@ struct Formatter<uint64_t> {
 			base = 16;
 		}
 
-		return Util::to_string(value, base);
+		return Util::to_string(value, base, allocator);
 	}
 };
 
 template<>
 struct Formatter<unsigned> {
-	static String format(Format::Spec & fmt_spec, unsigned value) {
-		return Formatter<int64_t>::format(fmt_spec, value);
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, unsigned value) {
+		return Formatter<int64_t>::format(fmt_spec, allocator, value);
 	}
 };
 
 template<>
 struct Formatter<double> {
-	static String format(Format::Spec & fmt_spec, double value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, double value) {
 		if (fmt_spec.align == 0) {
 			fmt_spec.align = '>';
 		}
-		return Util::to_string(value);
+		return Util::to_string(value, allocator);
 	}
 };
 
 template<>
 struct Formatter<float> {
-	static String format(Format::Spec & fmt_spec, float value) {
+	static String format(Format::Spec & fmt_spec, Allocator * allocator, float value) {
 		if (fmt_spec.align == 0) {
 			fmt_spec.align = '>';
 		}
-		return Util::to_string(double(value));
+		return Util::to_string(double(value), allocator);
 	}
 };

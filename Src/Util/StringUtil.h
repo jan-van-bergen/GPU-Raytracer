@@ -19,8 +19,8 @@ namespace Util {
 
 	const char * strstr(StringView haystack, StringView needle);
 
-	String to_string(bool     value);
-	String to_string(int64_t  value, int64_t  base = 10);
-	String to_string(uint64_t value, uint64_t base = 10);
-	String to_string(double   value);
+	String to_string(bool     value,                     Allocator * allocator = nullptr);
+	String to_string(int64_t  value, int64_t  base = 10, Allocator * allocator = nullptr);
+	String to_string(uint64_t value, uint64_t base = 10, Allocator * allocator = nullptr);
+	String to_string(double   value,                     Allocator * allocator = nullptr);
 }

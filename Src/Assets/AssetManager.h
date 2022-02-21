@@ -38,7 +38,7 @@ private:
 public:
 	template<typename FallbackLoader>
 	MeshDataHandle add_mesh_data(const String & filename, Allocator * allocator, FallbackLoader fallback_loader) {
-		String bvh_filename = BVHLoader::get_bvh_filename(filename.view());
+		String bvh_filename = BVHLoader::get_bvh_filename(filename.view(), allocator);
 		MeshDataHandle mesh_data_handle = add_mesh_data(filename, bvh_filename, allocator, fallback_loader);
 
 		return mesh_data_handle;

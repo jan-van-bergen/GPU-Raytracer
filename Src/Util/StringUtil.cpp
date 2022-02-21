@@ -133,28 +133,28 @@ static int uint64_to_string(uint64_t value, uint64_t base, char * buf) {
 	return offset;
 }
 
-String Util::to_string(bool value) {
-	return value ? "true"_sv : "false"_sv;
+String Util::to_string(bool value, Allocator * allocator) {
+	return String(value ? "true"_sv : "false"_sv, allocator);
 }
 
-String Util::to_string(int64_t value, int64_t base) {
+String Util::to_string(int64_t value, int64_t base, Allocator * allocator) {
 	char buf[64] = { };
 	int length = int64_to_string(value, base, buf);
-	return String(buf, length);
+	return String(buf, length, allocator);
 }
 
-String Util::to_string(uint64_t value, uint64_t base) {
+String Util::to_string(uint64_t value, uint64_t base, Allocator * allocator) {
 	char buf[64] = { };
 	int length = uint64_to_string(value, base, buf);
-	return String(buf, length);
+	return String(buf, length, allocator);
 }
 
-String Util::to_string(double value) {
+String Util::to_string(double value, Allocator * allocator) {
 	if (isinf(value)) {
-		return value > 0.0f ? "inf"_sv : "-inf"_sv;
+		return String(value > 0.0f ? "inf"_sv : "-inf"_sv, allocator);
 	}
 	if (isnan(value)) {
-		return "nan"_sv;
+		return String("nan"_sv, allocator);
 	}
 
 	// Based on: https://github.com/antongus/stm32tpl/blob/master/ftoa.c
@@ -192,5 +192,5 @@ String Util::to_string(double value) {
 		value = value - floor(value);
 	}
 
-	return String(buf, offset);
+	return String(buf, offset, allocator);
 }

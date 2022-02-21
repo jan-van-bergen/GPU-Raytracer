@@ -10,8 +10,8 @@
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 
-String BVHLoader::get_bvh_filename(StringView filename) {
-	return Util::combine_stringviews(filename, StringView::from_c_str(BVH_FILE_EXTENSION));
+String BVHLoader::get_bvh_filename(StringView filename, Allocator * allocator) {
+	return Util::combine_stringviews(filename, StringView::from_c_str(BVH_FILE_EXTENSION), allocator);
 }
 
 struct BVHFileHeader {
