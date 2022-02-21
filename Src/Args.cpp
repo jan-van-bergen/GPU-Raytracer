@@ -165,6 +165,8 @@ static void parse_args(const Array<StringView> & args, Allocator * allocator) {
 			cpu_config.scene_filenames.push_back(arg);
 		}
 	}
+
+	options = { }; // Free
 }
 
 void Args::parse(int num_args, char ** args, Allocator * allocator) {
