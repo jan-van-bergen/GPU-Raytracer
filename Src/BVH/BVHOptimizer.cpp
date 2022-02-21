@@ -221,8 +221,6 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 	float cost_before = bvh_sah_cost(bvh);
 
-	if (bvh.nodes.size() < 8) return; // Tree too small to optimize
-
 	Array<int> parent_indices(bvh.nodes.size());
 	parent_indices[0] = -1; // Root has no parent
 	init_parent_indices(bvh, parent_indices);
@@ -233,7 +231,15 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 	static_assert(P_T >= P_R);
 
-	int        batch_size = Math::max(int(bvh.nodes.size()) / k, 8);
+	// Calculate the number of BHV Nodes that may be included in a batch
+	// These Nodes must be internal Nodes and must have a grandparent (i.e. cannot be the child of the root)
+	// This means a tree with 7 nodes has 0 batch candidates, and every 2 additional child nodes in the tree account for 1 more batch candidate:
+	int num_batch_candidates = Math::max<int>((bvh.nodes.size() - 7) / 2, 0);
+	if (num_batch_candidates < 8) {
+		return; // Too small to optimize
+	}
+
+	int        batch_size = Math::max<int>(bvh.nodes.size() / k, num_batch_candidates);
 	Array<int> batch_indices(bvh.nodes.size());
 
 	int batch_count = 0;
