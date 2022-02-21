@@ -31,7 +31,17 @@ struct Window {
 	void resize_frame_buffer(int new_width, int new_height);
 
 	void hide() { SDL_HideWindow(window); }
-	void show() { SDL_ShowWindow(window); }
+	void show(bool center = true) {
+		SDL_ShowWindow(window);
+
+		if (center) {
+			SDL_DisplayMode display_mode = { };
+			SDL_GetCurrentDisplayMode(0, &display_mode);
+			int monitor_width  = display_mode.w;
+			int monitor_height = display_mode.h;
+			SDL_SetWindowPosition(window, (monitor_width - width) / 2, (monitor_height - height) / 2);
+		}
+	}
 
 	void render_framebuffer() const;
 
