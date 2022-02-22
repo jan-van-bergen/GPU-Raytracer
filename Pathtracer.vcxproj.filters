@@ -436,5 +436,8 @@
     <ClInclude Include="Src\Core\Allocators\StackAllocator.h">
       <Filter>Core\Allocators</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Constructors.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

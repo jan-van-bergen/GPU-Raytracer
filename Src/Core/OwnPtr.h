@@ -1,5 +1,6 @@
 #pragma once
 #include "Assertion.h"
+#include "Constructors.h"
 
 template<typename T>
 struct OwnPtr {
@@ -11,7 +12,7 @@ struct OwnPtr {
 
 	explicit OwnPtr(T * ptr) : ptr(ptr) { }
 
-	OwnPtr(const OwnPtr & other) = delete;
+	NON_COPYABLE(OwnPtr);
 
 	OwnPtr(OwnPtr && other) noexcept {
 		ptr = other.ptr;
@@ -37,15 +38,6 @@ struct OwnPtr {
 
 	      T * get()       { return ptr; }
 	const T * get() const { return ptr; }
-
-	OwnPtr & operator=(const OwnPtr & other) = delete;
-
-	OwnPtr & operator=(OwnPtr && other) noexcept {
-		release();
-		ptr = other.ptr;
-		other.ptr = nullptr;
-		return *this;
-	}
 
 	template<typename S>
 	OwnPtr & operator=(OwnPtr<S> && other) {
