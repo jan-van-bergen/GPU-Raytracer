@@ -160,14 +160,14 @@ struct Integrator {
 	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms_inv;
 	CUDAMemory::Ptr<Matrix3x4> ptr_mesh_transforms_prev;
 
-	int       * pinned_mesh_bvh_root_indices                     = nullptr;
-	int       * pinned_mesh_material_ids                         = nullptr;
-	Matrix3x4 * pinned_mesh_transforms                           = nullptr;
-	Matrix3x4 * pinned_mesh_transforms_inv                       = nullptr;
-	Matrix3x4 * pinned_mesh_transforms_prev                      = nullptr;
-	ProbAlias * pinned_light_mesh_prob_alias                     = nullptr;
-	int2      * pinned_light_mesh_first_index_and_triangle_count = nullptr;
-	int       * pinned_light_mesh_transform_index                = nullptr;
+	int       * pinned_mesh_bvh_root_indices             = nullptr;
+	int       * pinned_mesh_material_ids                 = nullptr;
+	Matrix3x4 * pinned_mesh_transforms                   = nullptr;
+	Matrix3x4 * pinned_mesh_transforms_inv               = nullptr;
+	Matrix3x4 * pinned_mesh_transforms_prev              = nullptr;
+	float     * pinned_light_mesh_cumulative_probability = nullptr;
+	int2      * pinned_light_mesh_triangle_span          = nullptr;
+	int       * pinned_light_mesh_transform_indices      = nullptr;
 
 	BVH2                 tlas_raw;
 	OwnPtr<BVH>          tlas;
@@ -233,7 +233,7 @@ struct Integrator {
 
 	void build_tlas();
 
-	virtual void update(float delta);
+	virtual void update(float delta, Allocator * frame_allocator);
 	virtual void render() = 0;
 
 	virtual void render_gui() = 0;

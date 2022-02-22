@@ -74,7 +74,7 @@ void AO::init_module() {
 		case BVHType::SBVH: kernel_trace = &kernel_trace_bvh2; kernel_trace_shadow = &kernel_trace_shadow_bvh2; break;
 		case BVHType::BVH4: kernel_trace = &kernel_trace_bvh4; kernel_trace_shadow = &kernel_trace_shadow_bvh4; break;
 		case BVHType::BVH8: kernel_trace = &kernel_trace_bvh8; kernel_trace_shadow = &kernel_trace_shadow_bvh8; break;
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 
 	kernel_generate         .set_block_dim(256, 1, 1);
@@ -149,12 +149,12 @@ void AO::resize_free() {
 	CUDAMemory::free_surface(surf_accumulator);
 }
 
-void AO::update(float delta) {
+void AO::update(float delta, Allocator * frame_allocator) {
 	if (invalidated_scene) {
 		sample_index = 0;
 	}
 
-	Integrator::update(delta);
+	Integrator::update(delta, frame_allocator);
 }
 
 void AO::render() {

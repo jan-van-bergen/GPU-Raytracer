@@ -6,8 +6,8 @@
 
 #include "XMLParser.h"
 
-Serialized SerializedLoader::load(const String & filename, SourceLocation location_in_mitsuba_file) {
-	String serialized = IO::file_read(filename);
+Serialized SerializedLoader::load(const String & filename, Allocator * allocator, SourceLocation location_in_mitsuba_file) {
+	String serialized = IO::file_read(filename, allocator);
 	Parser parser(serialized.view(), filename.view());
 
 	uint16_t file_format_id = parser.parse_binary<uint16_t>();
@@ -22,7 +22,7 @@ Serialized SerializedLoader::load(const String & filename, SourceLocation locati
 	uint32_t num_meshes = parser.parse_binary<uint32_t>();
 	uint64_t eof_dictionary_offset = 0;;
 
-	Array<uint64_t> mesh_offsets(num_meshes + 1);
+	Array<uint64_t> mesh_offsets(num_meshes + 1, allocator);
 
 	if (file_version <= 3) {
 		// Version 0.3.0 and earlier use 32 bit mesh offsets

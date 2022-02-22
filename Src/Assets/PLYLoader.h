@@ -5,5 +5,5 @@
 #include "Core/String.h"
 
 namespace PLYLoader {
-	Array<Triangle> load(const String & filename);
+	Array<Triangle> load(const String & filename, Allocator * allocator);
 }

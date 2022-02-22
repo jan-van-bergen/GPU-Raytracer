@@ -5,5 +5,5 @@
 struct Triangle;
 
 namespace MitshairLoader {
-	Array<Triangle> load(const String & filename, SourceLocation location_in_mitsuba_file, float radius);
+	Array<Triangle> load(const String & filename, Allocator * allocator, SourceLocation location_in_mitsuba_file, float radius);
 }

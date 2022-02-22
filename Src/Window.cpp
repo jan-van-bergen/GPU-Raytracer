@@ -7,6 +7,7 @@
 #include <Imgui/imgui_impl_opengl3.h>
 
 #include "Core/IO.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "Math/Math.h"
 #include "Util/Util.h"
@@ -67,10 +68,11 @@ Window::Window(const String & title, int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
-	String shader_vertex   = IO::file_read("Src/Shaders/post.vert");
-	String shader_fragment = IO::file_read("Src/Shaders/post.frag");
+	StackAllocator<KILOBYTES(4)> allocator;
+	String shader_source_vertex   = IO::file_read("Src/Shaders/post.vert", &allocator);
+	String shader_source_fragment = IO::file_read("Src/Shaders/post.frag", &allocator);
 
-	shader = Shader::load(shader_vertex.view(), shader_fragment.view());
+	shader = Shader::load(shader_source_vertex.view(), shader_source_fragment.view());
 	shader.bind();
 
 	glUniform1i(shader.get_uniform("screen"), 0);

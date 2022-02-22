@@ -5,6 +5,9 @@
 #include "PLYLoader.h"
 
 #include "Core/Parser.h"
+
+#include "Renderer/Scene.h"
+
 #include "Util/Util.h"
 #include "Util/Geometry.h"
 
@@ -426,8 +429,8 @@ static Material parse_material(String name, StringView type, const Array<Param> 
 	return material;
 }
 
-static void load_include(const String & filename, StringView path, Scene & scene, PBRTTextureMap & texture_map, PBRTMaterialMap & material_map, PBRTMediumMap & medium_map, PBRTObjectMap & object_map) {
-	String file = IO::file_read(filename);
+static void load_include(const String & filename, StringView path, Allocator * allocator, Scene & scene, PBRTTextureMap & texture_map, PBRTMaterialMap & material_map, PBRTMediumMap & medium_map, PBRTObjectMap & object_map) {
+	String file = IO::file_read(filename, allocator);
 
 	Parser parser(file.view(), filename.view());
 
@@ -457,7 +460,7 @@ static void load_include(const String & filename, StringView path, Scene & scene
 			pbrt_parser_skip(parser);
 
 			String include_abs = Util::combine_stringviews(path, name);
-			load_include(include_abs, path, scene, texture_map, material_map, medium_map, object_map);
+			load_include(include_abs, path, allocator, scene, texture_map, material_map, medium_map, object_map);
 
 		} else if (parser.match("AttributeBegin")) {
 			pbrt_parser_skip(parser);
@@ -784,7 +787,7 @@ static void load_include(const String & filename, StringView path, Scene & scene
 				StringView filename_rel = find_param(params, "filename", Param::Type::STRING).strings[0];
 				String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
-				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
+				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, allocator, PLYLoader::load);
 
 				if (current_object.inside) {
 					Instance instance = { };
@@ -890,12 +893,12 @@ static void load_include(const String & filename, StringView path, Scene & scene
 	}
 }
 
-void PBRTLoader::load(const String & filename, Scene & scene) {
+void PBRTLoader::load(const String & filename, Allocator * allocator, Scene & scene) {
 	PBRTTextureMap  texture_map;
 	PBRTMaterialMap material_map;
 	PBRTMediumMap   medium_map;
 	PBRTObjectMap   object_map;
 
 	StringView path = Util::get_directory(filename.view());
-	load_include(filename, path, scene, texture_map, material_map, medium_map, object_map);
+	load_include(filename, path, allocator, scene, texture_map, material_map, medium_map, object_map);
 }

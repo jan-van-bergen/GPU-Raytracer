@@ -32,8 +32,8 @@ struct Include {
 // Collects filename and source of included files in 'includes'
 // Also check whether any included file has been modified since last compilation and if so sets 'should_recompile'
 // Returns source code of 'filename'
-static String scan_includes_recursive(const String & filename, StringView directory, Array<Include> & includes, StringView ptx_filename, bool & should_recompile) {
-	String source = IO::file_read(filename);
+static String scan_includes_recursive(const String & filename, Allocator * allocator, StringView directory, Array<Include> & includes, StringView ptx_filename, bool & should_recompile) {
+	String source = IO::file_read(filename, allocator);
 	Parser parser(source.view(), filename.view());
 
 	while (!parser.reached_end()) {
@@ -70,7 +70,7 @@ static String scan_includes_recursive(const String & filename, StringView direct
 
 			// If we haven't seen this include before, recurse
 			if (unseen_include) {
-				String include_full_path = Util::combine_stringviews(directory, include_filename);
+				String include_full_path = Util::combine_stringviews(directory, include_filename, allocator);
 
 				if (IO::file_exists(include_full_path.view())) {
 					if (!should_recompile && IO::file_is_newer(ptx_filename, include_full_path.view())) {
@@ -84,8 +84,8 @@ static String scan_includes_recursive(const String & filename, StringView direct
 					size_t index = includes.size();
 					includes.emplace_back();
 
-					includes[index].filename = String(include_filename);
-					includes[index].source   = scan_includes_recursive(include_full_path, path, includes, ptx_filename, should_recompile);
+					includes[index].filename = String(include_filename, allocator);
+					includes[index].source   = scan_includes_recursive(include_full_path, allocator, path, includes, ptx_filename, should_recompile);
 				}
 			}
 		} else {
@@ -104,10 +104,12 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 		IO::exit(1);
 	}
 
+	LinearAllocator<KILOBYTES(512)> allocator;
+
 #ifdef _DEBUG
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"_sv);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"_sv, &allocator);
 #else
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"_sv);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"_sv, &allocator);
 #endif
 
 	bool should_recompile = true;
@@ -121,15 +123,15 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 	StringView path = Util::get_directory(filename.view());
 
 	Array<Include> includes;
-	String source = scan_includes_recursive(filename, path, includes, ptx_filename.view(), should_recompile);
+	String source = scan_includes_recursive(filename, &allocator, path, includes, ptx_filename.view(), should_recompile);
 
 	if (should_recompile) {
 		nvrtcProgram program;
 
 		while (true) {
 			size_t num_includes = includes.size();
-			Array<const char *> include_names  (num_includes);
-			Array<const char *> include_sources(num_includes);
+			Array<const char *> include_names  (num_includes, &allocator);
+			Array<const char *> include_sources(num_includes, &allocator);
 
 			for (size_t i = 0; i < num_includes; i++) {
 				include_names  [i] = includes[i].filename.data();
@@ -140,8 +142,8 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 			NVRTC_CALL(nvrtcCreateProgram(&program, source.data(), module_name.c_str(), int(num_includes), include_sources.data(), include_names.data()));
 
 			// Configure options
-			String option_compute = Format().format("--gpu-architecture=compute_{}"_sv, compute_capability);
-			String option_maxregs = Format().format("--maxrregcount={}"_sv, max_registers);
+			String option_compute = Format(&allocator).format("--gpu-architecture=compute_{}"_sv, compute_capability);
+			String option_maxregs = Format(&allocator).format("--maxrregcount={}"_sv, max_registers);
 
 			const char * options[] = {
 				"--std=c++11",
@@ -161,7 +163,7 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 			NVRTC_CALL(nvrtcGetProgramLogSize(program, &log_size));
 
 			if (log_size > 1) {
-				String log(log_size);
+				String log(log_size, &allocator);
 				NVRTC_CALL(nvrtcGetProgramLog(program, log.data()));
 
 				IO::print("NVRTC output:\n{}\n"_sv, log);
@@ -172,8 +174,9 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 			__debugbreak(); // Compile error
 
 			// Reload file and try again
+			allocator.reset();
 			includes.clear();
-			source = scan_includes_recursive(filename, path, includes, ptx_filename.view(), should_recompile);
+			source = scan_includes_recursive(filename, &allocator, path, includes, ptx_filename.view(), should_recompile);
 		}
 
 		// Obtain PTX from NVRTC

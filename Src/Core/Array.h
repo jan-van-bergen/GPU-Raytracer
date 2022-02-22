@@ -6,20 +6,20 @@
 #include <initializer_list>
 
 #include "Assertion.h"
+#include "Allocators/Allocator.h"
 
 template<typename T>
 struct Array {
-	using value_type      = T;
-	using reference       = T &;
-	using const_reference = const T &;
-	using size_type       = size_t;
-
 	char * buffer = nullptr;
 
 	size_t count    = 0;
 	size_t capacity = 0;
 
-	constexpr Array(size_t initial_count = 0) {
+	Allocator * allocator = nullptr;
+
+	constexpr Array(Allocator * allocator) : allocator(allocator) { }
+
+	constexpr Array(size_t initial_count = 0, Allocator * allocator = nullptr) : allocator(allocator) {
 		resize(initial_count);
 	}
 
@@ -32,11 +32,8 @@ struct Array {
 		}
 	}
 
-	~Array() {
-		destroy_buffer();
-	}
-
 	constexpr Array(const Array & array) {
+		allocator = array.allocator;
 		resize(array.count);
 		for (size_t i = 0; i < count; i++) {
 			data()[i] = array.data()[i];
@@ -44,6 +41,7 @@ struct Array {
 	}
 
 	constexpr Array & operator=(const Array & array) {
+		allocator = array.allocator;
 		resize(array.count);
 		for (size_t i = 0; i < count; i++) {
 			data()[i] = array.data()[i];
@@ -52,9 +50,10 @@ struct Array {
 	}
 
 	constexpr Array(Array && array) noexcept {
-		buffer   = array.buffer;
-		count    = array.count;
-		capacity = array.capacity;
+		buffer    = array.buffer;
+		count     = array.count;
+		capacity  = array.capacity;
+		allocator = array.allocator;
 
 		array.buffer   = nullptr;
 		array.count    = 0;
@@ -64,9 +63,10 @@ struct Array {
 	constexpr Array & operator=(Array && array) noexcept {
 		destroy_buffer();
 
-		buffer   = array.buffer;
-		count    = array.count;
-		capacity = array.capacity;
+		buffer    = array.buffer;
+		count     = array.count;
+		capacity  = array.capacity;
+		allocator = array.allocator;
 
 		array.buffer   = nullptr;
 		array.count    = 0;
@@ -75,9 +75,25 @@ struct Array {
 		return *this;
 	}
 
+	~Array() {
+		destroy_buffer();
+	}
+
 	constexpr T & push_back(T element) {
 		grow_if_needed();
 		return *(new (&data()[count++]) T(std::move(element)));
+	}
+
+	constexpr void push_back(const T * elements, size_t element_count) {
+		grow_if_needed(element_count);
+		if constexpr (std::is_trivially_copyable_v<T>) {
+			memcpy(buffer + count, elements, element_count * sizeof(T));
+			count += element_count;
+		} else {
+			for (size_t i = 0; i < element_count; i++) {
+				new (&data()[count++] T(elements[i]));
+			}
+		}
 	}
 
 	template<typename ... Args>
@@ -94,7 +110,7 @@ struct Array {
 	constexpr void resize(size_t new_count) {
 		if (new_count == count) return;
 
-		char * new_buffer = new char[new_count * sizeof(T)];
+		char * new_buffer = Allocator::alloc_array<char>(allocator, new_count * sizeof(T));
 
 		if (buffer) {
 			size_t num_move = std::min(count, new_count);
@@ -113,7 +129,7 @@ struct Array {
 				}
 			}
 
-			delete [] buffer;
+			Allocator::free_array(allocator, buffer);
 		}
 		buffer = new_buffer;
 
@@ -137,7 +153,7 @@ struct Array {
 	constexpr void reserve(size_t new_capacity) {
 		if (new_capacity <= capacity) return;
 
-		char * new_buffer = new char[new_capacity * sizeof(T)];
+		char * new_buffer = Allocator::alloc_array<char>(allocator, new_capacity * sizeof(T));
 
 		if (buffer) {
 			if constexpr (std::is_trivially_copyable_v<T>) {
@@ -148,7 +164,7 @@ struct Array {
 					data()[i].~T();
 				}
 			}
-			delete [] buffer;
+			Allocator::free_array(allocator, buffer);
 		}
 		buffer = new_buffer;
 
@@ -204,14 +220,18 @@ private:
 				}
 			}
 
-			delete [] buffer;
+			Allocator::free_array(allocator, buffer);
 			buffer = nullptr;
 		}
 	}
 
-	constexpr void grow_if_needed() {
-		if (count == capacity) {
-			reserve(capacity + capacity / 2 + 16);
+	constexpr void grow_if_needed(size_t n = 1) {
+		size_t new_capacity = capacity;
+		while (count + n > new_capacity) {
+			new_capacity = new_capacity + new_capacity / 2 + 16;
+		}
+		if (new_capacity != capacity) {
+			reserve(new_capacity);
 		}
 	}
 };

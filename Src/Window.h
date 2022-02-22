@@ -1,13 +1,13 @@
 #pragma once
-#include <functional>
-
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
 #include "Core/Array.h"
 #include "Core/String.h"
+#include "Core/Function.h"
 
 #include "Util/Shader.h"
+#include "Math/Math.h"
 
 struct Vector3;
 
@@ -31,7 +31,17 @@ struct Window {
 	void resize_frame_buffer(int new_width, int new_height);
 
 	void hide() { SDL_HideWindow(window); }
-	void show() { SDL_ShowWindow(window); }
+	void show(bool center = true) {
+		SDL_ShowWindow(window);
+
+		if (center) {
+			SDL_DisplayMode display_mode = { };
+			SDL_GetCurrentDisplayMode(0, &display_mode);
+			int pos_x = Math::max((display_mode.w - width)  / 2, 0);
+			int pos_y = Math::max((display_mode.h - height) / 2, 0);
+			SDL_SetWindowPosition(window, pos_x, pos_y);
+		}
+	}
 
 	void render_framebuffer() const;
 
@@ -42,5 +52,5 @@ struct Window {
 
 	Array<Vector3> read_frame_buffer(bool hdr, int & pitch) const;
 
-	std::function<void(unsigned frame_buffer_handle, int width, int height)> resize_handler;
+	Function<void(unsigned, int, int)> resize_handler;
 };

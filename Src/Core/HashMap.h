@@ -3,6 +3,7 @@
 
 #include "Hash.h"
 #include "Compare.h"
+#include "Allocators/Allocator.h"
 
 // Hash Map using linear probing
 template<typename Key, typename Value, typename Hash = Hash<Key>, typename Cmp = Compare::Equal<Key>>
@@ -15,20 +16,20 @@ struct HashMap {
 		char   * keys   = nullptr;
 		char   * values = nullptr;
 
-		constexpr void init(size_t cap) {
+		constexpr void init(Allocator * allocator, size_t cap) {
 			constexpr size_t MIN_CAPACITY = 4;
 
 			count    = 0;
 			capacity = cap < MIN_CAPACITY ? MIN_CAPACITY : cap;
 
-			hashes = new size_t[capacity];
-			keys   = new char  [capacity * sizeof(Key)];
-			values = new char  [capacity * sizeof(Value)];
+			hashes = Allocator::alloc_array<size_t>(allocator, capacity);
+			keys   = Allocator::alloc_array<char>  (allocator, capacity * sizeof(Key));
+			values = Allocator::alloc_array<char>  (allocator, capacity * sizeof(Value));
 
 			memset(hashes, 0, capacity * sizeof(size_t));
 		}
 
-		constexpr void free() {
+		constexpr void free(Allocator * allocator) {
 			Key   * ks = get_keys();
 			Value * vs = get_values();
 
@@ -39,21 +40,26 @@ struct HashMap {
 				}
 			}
 
-			delete [] hashes;
-			delete [] keys;
-			delete [] values;
+			Allocator::free_array(allocator, hashes);
+			Allocator::free_array(allocator, keys);
+			Allocator::free_array(allocator, values);
 		}
 
 		Key   * get_keys  () const { return reinterpret_cast<Key   *>(keys); }
 		Value * get_values() const { return reinterpret_cast<Value *>(values); }
 	} map;
 
-	constexpr HashMap(size_t cap = 0) {
-		map.init(cap);
+	Allocator * allocator = nullptr;
+
+	constexpr HashMap(Allocator * allocator = nullptr, size_t cap = 0) : allocator(allocator) {
+		map.init(allocator, cap);
 	}
 
+	NON_COPYABLE(HashMap);
+	NON_MOVEABLE(HashMap);
+
 	~HashMap() {
-		map.free();
+		map.free(allocator);
 	}
 
 	constexpr Value & insert(const Key & key, const Value & value) {
@@ -94,8 +100,8 @@ struct HashMap {
 	}
 
 	constexpr void clear() {
-		map.free();
-		map.init(0);
+		map.free(allocator);
+		map.init(allocator, 0);
 	}
 
 	struct Iterator {
@@ -187,7 +193,7 @@ private:
 
 	constexpr void grow(size_t new_capacity) {
 		Map new_map = { };
-		new_map.init(new_capacity);
+		new_map.init(allocator, new_capacity);
 
 		for (size_t i = 0; i < map.capacity; i++) {
 			if (map.hashes[i]) {
@@ -195,7 +201,7 @@ private:
 			}
 		}
 
-		map.free();
+		map.free(allocator);
 		map = new_map;
 	}
 };

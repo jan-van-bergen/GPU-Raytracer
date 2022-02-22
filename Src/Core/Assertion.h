@@ -8,3 +8,5 @@
 			__debugbreak();                                                        \
 		}                                                                          \
 	} while(false)
+
+#define ASSERT_UNREACHABLE() abort()

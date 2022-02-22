@@ -289,7 +289,7 @@ int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, i
 				children_right[1].push_back(indices[spatial_split.dimension][i]);
 				children_right[2].push_back(indices[spatial_split.dimension][i]);
 			} else {
-				ASSERT(false);
+				ASSERT_UNREACHABLE();
 			}
 		}
 

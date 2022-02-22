@@ -1,6 +1,8 @@
 #pragma once
-#include "Renderer/Scene.h"
+#include "Core/String.h"
+
+struct Scene;
 
 namespace PBRTLoader {
-	void load(const String & filename, Scene & scene);
+	void load(const String & filename, Allocator * allocator, Scene & scene);
 }

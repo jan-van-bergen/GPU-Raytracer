@@ -116,7 +116,7 @@ static T parse_value(Parser & parser, PLYFormat format) {
 			}
 			break;
 		}
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 
 	return value;
@@ -148,8 +148,8 @@ static T parse_property_value(Parser & parser, Property::Type::Kind kind, PLYFor
 	}
 }
 
-Array<Triangle> PLYLoader::load(const String & filename) {
-	String file = IO::file_read(filename);
+Array<Triangle> PLYLoader::load(const String & filename, Allocator * allocator) {
+	String file = IO::file_read(filename, allocator);
 
 	Parser parser(file.view(), filename.view());
 
@@ -340,7 +340,7 @@ Array<Triangle> PLYLoader::load(const String & filename) {
 				break;
 			}
 
-			default: ASSERT(false);
+			default: ASSERT_UNREACHABLE();
 		}
 	}
 

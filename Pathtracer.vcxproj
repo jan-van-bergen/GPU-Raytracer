@@ -228,7 +228,6 @@
     <ClCompile Include="Src\Core\Format.cpp" />
     <ClCompile Include="Src\Core\IO.cpp" />
     <ClCompile Include="Src\Core\Mutex.cpp" />
-    <ClCompile Include="Src\Core\Random.cpp" />
     <ClCompile Include="Src\Device\CUDAContext.cpp" />
     <ClCompile Include="Src\Device\CUDAMemory.cpp" />
     <ClCompile Include="Src\Device\CUDAModule.cpp" />
@@ -277,11 +276,17 @@
     <ClInclude Include="Src\BVH\Converters\BVH8Converter.h" />
     <ClInclude Include="Src\BVH\Converters\BVH4Converter.h" />
     <ClInclude Include="Src\Config.h" />
+    <ClInclude Include="Src\Core\Allocators\Allocator.h" />
+    <ClInclude Include="Src\Core\Allocators\LinearAllocator.h" />
+    <ClInclude Include="Src\Core\Allocators\PinnedAllocator.h" />
+    <ClInclude Include="Src\Core\Allocators\StackAllocator.h" />
     <ClInclude Include="Src\Core\Array.h" />
     <ClInclude Include="Src\Core\Assertion.h" />
     <ClInclude Include="Src\Core\BitArray.h" />
     <ClInclude Include="Src\Core\Compare.h" />
+    <ClInclude Include="Src\Core\Constructors.h" />
     <ClInclude Include="Src\Core\Format.h" />
+    <ClInclude Include="Src\Core\Function.h" />
     <ClInclude Include="Src\Core\Hash.h" />
     <ClInclude Include="Src\Core\HashMap.h" />
     <ClInclude Include="Src\Core\IO.h" />

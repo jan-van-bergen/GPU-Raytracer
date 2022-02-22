@@ -310,7 +310,7 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 				node_internal_count++;
 				break;
 			}
-			default: ASSERT(false);
+			default: ASSERT_UNREACHABLE();
 		}
 	}
 

@@ -128,9 +128,6 @@
     <ClCompile Include="Src\BVH\Builders\BVHPartitions.cpp">
       <Filter>BVH\Builders</Filter>
     </ClCompile>
-    <ClCompile Include="Src\Core\Random.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="Src\Exporters\PPMExporter.cpp">
       <Filter>Exporters</Filter>
     </ClCompile>
@@ -207,6 +204,9 @@
     </Filter>
     <Filter Include="Renderer\Integrators">
       <UniqueIdentifier>{19bb3711-1af8-4298-89b6-e719d008a79f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Allocators">
+      <UniqueIdentifier>{4b1e0e24-b96c-4dac-884c-8f76c2f50eaf}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -432,6 +432,24 @@
     </ClInclude>
     <ClInclude Include="Src\Renderer\Integrators\AO.h">
       <Filter>Renderer\Integrators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Allocators\Allocator.h">
+      <Filter>Core\Allocators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Allocators\PinnedAllocator.h">
+      <Filter>Core\Allocators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Allocators\LinearAllocator.h">
+      <Filter>Core\Allocators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Allocators\StackAllocator.h">
+      <Filter>Core\Allocators</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Constructors.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Core\Function.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

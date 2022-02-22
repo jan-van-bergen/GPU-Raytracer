@@ -7,6 +7,8 @@
 #include "BVH/Converters/BVH4Converter.h"
 #include "BVH/Converters/BVH8Converter.h"
 
+#include "Core/Allocators/PinnedAllocator.h"
+
 #include "Util/BlueNoise.h"
 
 void Integrator::init_globals() {
@@ -147,14 +149,14 @@ void Integrator::init_geometry() {
 	ptr_triangles = CUDAMemory::malloc(aggregated_triangles);
 	cuda_module.get_global("triangles").set_value(ptr_triangles);
 
-	pinned_mesh_bvh_root_indices                     = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
-	pinned_mesh_material_ids                         = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
-	pinned_mesh_transforms                           = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_mesh_transforms_inv                       = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_mesh_transforms_prev                      = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
-	pinned_light_mesh_prob_alias                     = CUDAMemory::malloc_pinned<ProbAlias>(scene.meshes.size());
-	pinned_light_mesh_first_index_and_triangle_count = CUDAMemory::malloc_pinned<int2>     (scene.meshes.size());
-	pinned_light_mesh_transform_index                = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_bvh_root_indices             = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_material_ids                 = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
+	pinned_mesh_transforms                   = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_inv               = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_mesh_transforms_prev              = CUDAMemory::malloc_pinned<Matrix3x4>(scene.meshes.size());
+	pinned_light_mesh_cumulative_probability = CUDAMemory::malloc_pinned<float>    (scene.meshes.size());
+	pinned_light_mesh_triangle_span          = CUDAMemory::malloc_pinned<int2>     (scene.meshes.size());
+	pinned_light_mesh_transform_indices      = CUDAMemory::malloc_pinned<int>      (scene.meshes.size());
 
 	ptr_mesh_bvh_root_indices = CUDAMemory::malloc<int>      (scene.meshes.size());
 	ptr_mesh_material_ids     = CUDAMemory::malloc<int>      (scene.meshes.size());
@@ -203,7 +205,7 @@ void Integrator::init_geometry() {
 			ptr_bvh_nodes_2 = CUDAMemory::malloc<BVHNode2>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh_nodes").set_value(ptr_bvh_nodes_2);
 
-			tlas           = make_owned<BVH2>();
+			tlas           = make_owned<BVH2>(PinnedAllocator::instance());
 			tlas_converter = make_owned<BVH2Converter>(static_cast<BVH2 &>(*tlas.get()), tlas_raw);
 			break;
 		}
@@ -239,7 +241,7 @@ void Integrator::init_geometry() {
 			ptr_bvh_nodes_4 = CUDAMemory::malloc<BVHNode4>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh4_nodes").set_value(ptr_bvh_nodes_4);
 
-			tlas           = make_owned<BVH4>();
+			tlas           = make_owned<BVH4>(PinnedAllocator::instance());
 			tlas_converter = make_owned<BVH4Converter>(static_cast<BVH4 &>(*tlas.get()), tlas_raw);
 			break;
 		}
@@ -269,7 +271,7 @@ void Integrator::init_geometry() {
 			ptr_bvh_nodes_8 = CUDAMemory::malloc<BVHNode8>(aggregated_bvh_nodes);
 			cuda_module.get_global("bvh8_nodes").set_value(ptr_bvh_nodes_8);
 
-			tlas           = make_owned<BVH8>();
+			tlas           = make_owned<BVH8>(PinnedAllocator::instance());
 			tlas_converter = make_owned<BVH8Converter>(static_cast<BVH8 &>(*tlas.get()), tlas_raw);
 			break;
 		}
@@ -324,8 +326,9 @@ void Integrator::free_geometry() {
 	CUDAMemory::free_pinned(pinned_mesh_transforms);
 	CUDAMemory::free_pinned(pinned_mesh_transforms_inv);
 	CUDAMemory::free_pinned(pinned_mesh_transforms_prev);
-	CUDAMemory::free_pinned(pinned_light_mesh_prob_alias);
-	CUDAMemory::free_pinned(pinned_light_mesh_transform_index);
+	CUDAMemory::free_pinned(pinned_light_mesh_cumulative_probability);
+	CUDAMemory::free_pinned(pinned_light_mesh_triangle_span);
+	CUDAMemory::free_pinned(pinned_light_mesh_transform_indices);
 
 	CUDAMemory::free(ptr_mesh_bvh_root_indices);
 	CUDAMemory::free(ptr_mesh_material_ids);
@@ -392,7 +395,7 @@ void Integrator::build_tlas() {
 		case BVHType::SBVH: CUDAMemory::memcpy_async(ptr_bvh_nodes_2, static_cast<BVH2 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::BVH4: CUDAMemory::memcpy_async(ptr_bvh_nodes_4, static_cast<BVH4 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
 		case BVHType::BVH8: CUDAMemory::memcpy_async(ptr_bvh_nodes_8, static_cast<BVH8 *>(tlas.get())->nodes.data(), tlas->node_count(), memory_stream); break;
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 	ASSERT(tlas->indices.data());
 
@@ -416,7 +419,7 @@ void Integrator::build_tlas() {
 	CUDAMemory::memcpy_async(ptr_mesh_transforms_prev,   pinned_mesh_transforms_prev,  scene.meshes.size(), memory_stream);
 }
 
-void Integrator::update(float delta) {
+void Integrator::update(float delta, Allocator * frame_allocator) {
 	if (invalidated_gpu_config && gpu_config.enable_svgf && scene.camera.aperture_radius > 0.0f) {
 		IO::print("WARNING: SVGF and DoF cannot simultaneously be enabled!\n"_sv);
 		scene.camera.aperture_radius = 0.0f;

@@ -5,6 +5,8 @@
 
 #include "Config.h"
 
+#include "Core/Allocators/StackAllocator.h"
+
 template<typename Filter>
 static float filter_sample_box(float x, float scale) {
 	constexpr int   SAMPLE_COUNT     = 32;
@@ -38,12 +40,11 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 	int window_size_x = int(ceilf(filter_width_x * 2.0f)) + 1;
 	int window_size_y = int(ceilf(filter_width_y * 2.0f)) + 1;
 
-	Array<float> kernels(window_size_x + window_size_y);
-	float * kernel_x = kernels.data();
-	float * kernel_y = kernels.data() + window_size_x;
-
-	memset(kernel_x, 0, window_size_x * sizeof(float));
-	memset(kernel_y, 0, window_size_y * sizeof(float));
+	StackAllocator<KILOBYTES(16)> allocator;
+	Array<float> kernel_x(window_size_x, &allocator);
+	Array<float> kernel_y(window_size_y, &allocator);
+	memset(kernel_x.data(), 0, window_size_x * sizeof(float));
+	memset(kernel_y.data(), 0, window_size_y * sizeof(float));
 
 	float sum_x = 0.0f;
 	float sum_y = 0.0f;
@@ -112,6 +113,6 @@ void Mipmap::downsample(int width_src, int height_src, int width_dst, int height
 		case MipmapFilterType::BOX:     downsample_impl<FilterBox>    (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
 		case MipmapFilterType::LANCZOS: downsample_impl<FilterLanczos>(width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
 		case MipmapFilterType::KAISER:  downsample_impl<FilterKaiser> (width_src, height_src, width_dst, height_dst, texture_src, texture_dst, temp); break;
-		default: ASSERT(false);
+		default: ASSERT_UNREACHABLE();
 	}
 }

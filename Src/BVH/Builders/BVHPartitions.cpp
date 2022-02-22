@@ -30,7 +30,7 @@ ObjectSplit partition_sah_impl(GetAABB get_aabb, int first_index, int index_coun
 			aabb_right.expand(get_aabb(dimension, first_index + i));
 
 			float cost = sah[i] + aabb_right.surface_area() * float(index_count - i);
-			if (cost < split.cost) {
+			if (cost <= split.cost) {
 				split.cost = cost;
 				split.index = first_index + i;
 				split.dimension = dimension;
@@ -44,7 +44,7 @@ ObjectSplit partition_sah_impl(GetAABB get_aabb, int first_index, int index_coun
 
 	// Calculate left AABB, right AABB was already calculated above
 	for (int i = first_index; i < split.index; i++) {
-		split.aabb_left .expand(get_aabb(split.dimension, i));
+		split.aabb_left.expand(get_aabb(split.dimension, i));
 	}
 
 	return split;

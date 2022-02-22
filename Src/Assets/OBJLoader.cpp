@@ -107,12 +107,19 @@ struct OBJFile {
 	Array<Vector3> normals;
 
 	Array<Face> faces;
+
+	OBJFile(Allocator * allocator = nullptr) : positions(allocator), tex_coords(allocator), normals(allocator), faces(allocator) { }
+
+	DEFAULT_COPYABLE(OBJFile);
+	DEFAULT_MOVEABLE(OBJFile);
+
+	~OBJFile() { }
 };
 
-static OBJFile parse_obj(const String & filename) {
-	String file = IO::file_read(filename);
+static OBJFile parse_obj(const String & filename, Allocator * allocator) {
+	String file = IO::file_read(filename, allocator);
 
-	OBJFile obj = { };
+	OBJFile obj = OBJFile(allocator);
 
 	Parser parser(file.view(), filename.view());
 
@@ -140,8 +147,8 @@ static OBJFile parse_obj(const String & filename) {
 	return obj;
 }
 
-Array<Triangle> OBJLoader::load(const String & filename) {
-	OBJFile obj = parse_obj(filename);
+Array<Triangle> OBJLoader::load(const String & filename, Allocator * allocator) {
+	OBJFile obj = parse_obj(filename, allocator);
 
 	Array<Triangle> triangles(obj.faces.size());
 

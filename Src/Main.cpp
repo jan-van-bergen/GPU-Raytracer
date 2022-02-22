@@ -11,6 +11,7 @@
 #include "Core/Sort.h"
 #include "Core/Parser.h"
 #include "Core/Timer.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "Input.h"
 #include "Window.h"
@@ -60,7 +61,6 @@ static void draw_gui(Window & window, Integrator & integrator);
 
 int main(int num_args, char ** args) {
 	Args::parse(num_args, args);
-
 	if (cpu_config.scene_filenames.size() == 0) {
 		cpu_config.scene_filenames.push_back("Data/sponza/scene.xml"_sv);
 	}
@@ -103,6 +103,8 @@ int main(int num_args, char ** args) {
 	window.set_size(cpu_config.initial_width, cpu_config.initial_height);
 	window.show();
 
+	LinearAllocator<MEGABYTES(16)> frame_allocator;
+
 	// Render loop
 	while (!window.is_closed) {
 		perf_test.frame_begin();
@@ -117,11 +119,11 @@ int main(int num_args, char ** args) {
 			switch (cpu_config.integrator) {
 				case IntegratorType::PATHTRACER: integrator = make_owned<Pathtracer>(window.frame_buffer_handle, window.width, window.height, scene); break;
 				case IntegratorType::AO:         integrator = make_owned<AO>        (window.frame_buffer_handle, window.width, window.height, scene); break;
-				default: ASSERT(false);
+				default: ASSERT_UNREACHABLE();
 			}
 		}
 
-		integrator->update((float)timing.delta_time);
+		integrator->update((float)timing.delta_time, &frame_allocator);
 		integrator->render();
 
 		window.render_framebuffer();
@@ -135,10 +137,11 @@ int main(int num_args, char ** args) {
 			switch (cpu_config.screenshot_format) {
 				case OutputFormat::EXR: ext = "exr"_sv; break;
 				case OutputFormat::PPM: ext = "ppm"_sv; break;
-				default: ASSERT(false);
+				default: ASSERT_UNREACHABLE();
 			}
 
-			String screenshot_name = Format().format("screenshot_{}.{}"_sv, integrator->sample_index, ext);
+			StackAllocator<BYTES(128)> allocator;
+			String screenshot_name = Format(&allocator).format("screenshot_{}.{}"_sv, integrator->sample_index, ext);
 			capture_screen(window, *integrator.get(), screenshot_name);
 
 			timing.time_of_last_screenshot = timing.now;
@@ -172,6 +175,8 @@ int main(int num_args, char ** args) {
 		Input::update(); // Save Keyboard State of this frame before SDL_PumpEvents
 
 		window.swap();
+
+		frame_allocator.reset();
 	}
 
 	CUDAContext::free();
@@ -554,8 +559,7 @@ static void draw_gui(Window & window, Integrator & integrator) {
 							integrator.invalidated_materials |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 							break;
 						}
-
-						default: ASSERT(false);
+						default: ASSERT_UNREACHABLE();
 					}
 
 					if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {
