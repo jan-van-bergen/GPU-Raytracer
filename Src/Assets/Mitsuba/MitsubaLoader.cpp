@@ -34,7 +34,7 @@ using SerializedMap = HashMap<String, Serialized>;
 using MaterialMap   = HashMap<String, MaterialHandle>;
 using TextureMap    = HashMap<String, TextureHandle>;
 
-static TextureHandle parse_texture(const XMLNode * node, Allocator * allocator, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb) {
+static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb) {
 	StringView type = node->get_attribute_value("type");
 
 	if (type == "scale") {
@@ -70,7 +70,7 @@ static TextureHandle parse_texture(const XMLNode * node, Allocator * allocator, 
 	return TextureHandle { INVALID };
 }
 
-static void parse_rgb_or_texture(const XMLNode * node, Allocator * allocator, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb, TextureHandle & texture_handle) {
+static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 & rgb, TextureHandle & texture_handle) {
 	const XMLNode * colour = node->get_child_by_name(name);
 	if (colour) {
 		if (colour->tag == "rgb") {
@@ -81,7 +81,7 @@ static void parse_rgb_or_texture(const XMLNode * node, Allocator * allocator, co
 			rgb.y = Math::gamma_to_linear(rgb.y);
 			rgb.z = Math::gamma_to_linear(rgb.z);
 		} else if (colour->tag == "texture") {
-			texture_handle = parse_texture(colour, allocator, texture_map, path, scene, rgb);
+			texture_handle = parse_texture(colour, texture_map, path, scene, rgb);
 
 			const XMLNode * scale = colour->get_child_by_name("scale");
 			if (scale) {
@@ -159,7 +159,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 	Matrix4::decompose(world, position, rotation, scale, forward);
 }
 
-static MaterialHandle parse_material(const XMLNode * node, Allocator * allocator, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, StringView path) {
+static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	Material material = { };
 
 	const XMLNode * bsdf;
@@ -248,7 +248,7 @@ static MaterialHandle parse_material(const XMLNode * node, Allocator * allocator
 	if (inner_bsdf_type == "diffuse") {
 		material.type = Material::Type::DIFFUSE;
 
-		parse_rgb_or_texture(inner_bsdf, allocator, "reflectance", texture_map, path, scene, material.diffuse, material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else if (inner_bsdf_type == "conductor" || inner_bsdf_type == "roughconductor") {
 		material.type = Material::Type::CONDUCTOR;
 
@@ -269,7 +269,7 @@ static MaterialHandle parse_material(const XMLNode * node, Allocator * allocator
 	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic" || inner_bsdf_type == "roughdiffuse") {
 		material.type = Material::Type::PLASTIC;
 
-		parse_rgb_or_texture(inner_bsdf, allocator, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
 		if (inner_bsdf_type == "plastic") {
 			material.linear_roughness = 0.0f;
@@ -279,7 +279,7 @@ static MaterialHandle parse_material(const XMLNode * node, Allocator * allocator
 	} else if (inner_bsdf_type == "phong") {
 		material.type = Material::Type::PLASTIC;
 
-		parse_rgb_or_texture(inner_bsdf, allocator, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, material.diffuse, material.texture_id);
 
 		float exponent = inner_bsdf->get_child_value_optional("exponent", 1.0f);
 		material.linear_roughness = powf(0.5f * exponent + 1.0f, 0.25f);
@@ -361,7 +361,7 @@ static MaterialHandle parse_material(const XMLNode * node, Allocator * allocator
 	} else if (inner_bsdf_type == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
 
-		parse_rgb_or_texture(inner_bsdf, allocator, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, material.diffuse, material.texture_id);
 	} else {
 		WARNING(inner_bsdf->location, "WARNING: BSDF type '{}' not supported!\n", inner_bsdf_type);
 
@@ -533,13 +533,13 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 
 static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	if (node->tag == "bsdf") {
-		MaterialHandle material_handle = parse_material(node, allocator, scene, material_map, texture_map, path);
+		MaterialHandle material_handle = parse_material(node, scene, material_map, texture_map, path);
 		const Material & material = scene.asset_manager.get_material(material_handle);
 
 		material_map.insert(material.name, material_handle);
 	} else if (node->tag == "texture") {
 		Vector3 scale = 1.0f;
-		parse_texture(node, allocator, texture_map, path, scene, scale);
+		parse_texture(node, texture_map, path, scene, scale);
 	} else if (node->tag == "shape") {
 		StringView type = node->get_attribute_value<StringView>("type");
 		if (type == "shapegroup") {
@@ -552,7 +552,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 				String name = { };
 
 				MeshDataHandle mesh_data_handle = parse_shape(shape, allocator, scene, serialized_map, path, name);
-				MaterialHandle material_handle  = parse_material(shape, allocator, scene, material_map, texture_map, path);
+				MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
 
 				StringView id = node->get_attribute_value<StringView>("id");
 				shape_group_map[id] = { mesh_data_handle, material_handle };
@@ -574,7 +574,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			String name = { };
 
 			MeshDataHandle mesh_data_handle = parse_shape(node, allocator, scene, serialized_map, path, name);
-			MaterialHandle material_handle  = parse_material(node, allocator, scene, material_map, texture_map, path);
+			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
 			MediumHandle   medium_handle    = parse_medium(node, scene);
 
 			if (material_handle.handle != INVALID) {
