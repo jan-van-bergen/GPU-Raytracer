@@ -264,7 +264,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 	clock_t start_time = clock();
 
 	while (true) {
-//		loop_allocator.reset();
+		loop_allocator.reset();
 
 		// Select a batch of internal Nodes, either randomly or using a heuristic measure
 		switch (node_selection_method) {
