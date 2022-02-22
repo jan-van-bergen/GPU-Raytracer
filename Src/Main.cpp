@@ -60,10 +60,7 @@ static void calc_timing();
 static void draw_gui(Window & window, Integrator & integrator);
 
 int main(int num_args, char ** args) {
-	{
-		StackAllocator<KILOBYTES(4)> allocator;
-		Args::parse(num_args, args, &allocator);
-	}
+	Args::parse(num_args, args);
 	if (cpu_config.scene_filenames.size() == 0) {
 		cpu_config.scene_filenames.push_back("Data/sponza/scene.xml"_sv);
 	}

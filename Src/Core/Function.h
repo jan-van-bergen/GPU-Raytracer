@@ -11,12 +11,12 @@ struct Function<Result(Args ...)> {
 	struct CallableBase {
 		virtual ~CallableBase() = default;
 
-		virtual Result call(Args ... args) = 0;
+		virtual Result call(Args ... args) const = 0;
 	};
 
 	template<typename T>
 	struct Callable final : CallableBase {
-		T impl;
+		mutable T impl;
 
 		Callable(T impl) : impl(std::move(impl)) { }
 
@@ -25,7 +25,7 @@ struct Function<Result(Args ...)> {
 
 		~Callable() = default;
 
-		Result call(Args ... args) override {
+		Result call(Args ... args) const override {
 			return impl(std::forward<Args>(args) ...);
 		}
 	};
@@ -42,7 +42,7 @@ struct Function<Result(Args ...)> {
 
 	~Function() = default;
 
-	Result operator()(Args ... args) {
+	Result operator()(Args ... args) const {
 		return callable->call(std::forward<Args>(args) ...);
 	}
 

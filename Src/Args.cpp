@@ -3,6 +3,8 @@
 #include "Config.h"
 
 #include "Core/Parser.h"
+#include "Core/Function.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "Math/Math.h"
 
@@ -41,12 +43,11 @@ struct Option {
 
 	int num_args;
 
-	void (* action)(const Array<StringView> & args, size_t i);
+	Function<void(const Array<StringView> &, size_t)> action;
 };
-static Array<Option> options;
 
 static void parse_args(const Array<StringView> & args, Allocator * allocator) {
-	options = Array<Option>(allocator);
+	Array<Option> options(allocator);
 
 	options.emplace_back("I"_sv, "integrator"_sv, "Choose the interagor type. Supported options: pathtracer, ao"_sv, 1, [](const Array<StringView> & args, size_t i) {
 		if (args[i + 1] == "pathtracer") {
@@ -111,7 +112,7 @@ static void parse_args(const Array<StringView> & args, Allocator * allocator) {
 	});
 	options.emplace_back("c"_sv, "compress"_sv, "Enables or disables texture block compression"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.enable_block_compression = parse_arg_bool(args[i + 1]); });
 
-	options.emplace_back("h"_sv, "help"_sv, "Displays this message"_sv, 0, [](const Array<StringView> & args, size_t i) {
+	options.emplace_back("h"_sv, "help"_sv, "Displays this message"_sv, 0, [&options](const Array<StringView> & args, size_t i) {
 		for (int o = 0; o < options.size(); o++) {
 			const Option & option = options[o];
 
@@ -121,7 +122,7 @@ static void parse_args(const Array<StringView> & args, Allocator * allocator) {
 				IO::print("-{},\t--{:16}{}\n"_sv, option.name_short, option.name_full, option.help_text);
 			}
 		}
-		exit(EXIT_SUCCESS);
+		IO::exit(EXIT_SUCCESS);
 	});
 
 	for (size_t i = 1; i < args.size(); i++) {
@@ -165,14 +166,13 @@ static void parse_args(const Array<StringView> & args, Allocator * allocator) {
 			cpu_config.scene_filenames.push_back(arg);
 		}
 	}
-
-	options = { }; // Free
 }
 
-void Args::parse(int num_args, char ** args, Allocator * allocator) {
-	Array<StringView> arguments(num_args, allocator);
+void Args::parse(int num_args, char ** args) {
+	StackAllocator<KILOBYTES(4)> allocator;
+	Array<StringView> arguments(num_args, &allocator);
 	for (int i = 0; i < num_args; i++) {
 		arguments[i] = StringView::from_c_str(args[i]);
 	}
-	parse_args(arguments, allocator);
+	parse_args(arguments, &allocator);
 }
