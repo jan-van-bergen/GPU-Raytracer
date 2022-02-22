@@ -3,6 +3,10 @@
 
 #include "Device/CUDAMemory.h"
 
+// Allocator that allocates CUDA pinned memory
+// This is memory that is guarenteed not to be paged out by the OS
+// This memory should be used to upload data to the GPU
+// See: https://developer.nvidia.com/blog/how-optimize-data-transfers-cuda-cc/
 struct PinnedAllocator final : Allocator {
 private:
 	PinnedAllocator() { }

@@ -1,6 +1,8 @@
 #pragma once
 #include "Allocator.h"
 
+// Linear burn-through Allocator that uses a small in-situ buffer that resides on the program stack
+// A fallback Allocator can be provided when the StackAllocator runs out of space
 template<size_t Size>
 struct StackAllocator final : Allocator {
 	Allocator * fallback_allocator = nullptr;
@@ -28,7 +30,7 @@ private:
 
 	void free(void * ptr) override {
 		if (ptr >= data && ptr < data + Size) {
-			// Do nothing, memory will be freed in bulk inside the destructor
+			// Do nothing
 		} else {
 			Allocator::free_array(fallback_allocator, ptr);
 		}

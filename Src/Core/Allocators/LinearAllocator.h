@@ -1,6 +1,10 @@
 #pragma once
 #include "Allocator.h"
 
+// Linear burn-through Allocator
+// Every new allocation simply increases the offset within the buffer by the desired number of bytes
+// Once a buffer runs out, a new buffer is allocated in a linked-list fashion
+// Memory is freed in bulk at the end of the lifetime of the LinearAllocator
 template<size_t Size>
 struct LinearAllocator final : Allocator {
 	char * data   = nullptr;
