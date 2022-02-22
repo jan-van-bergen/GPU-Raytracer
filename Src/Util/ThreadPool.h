@@ -1,13 +1,13 @@
 #pragma once
 #include <thread>
 #include <mutex>
-#include <functional>
 
 #include "Core/Array.h"
 #include "Core/Queue.h"
+#include "Core/Function.h"
 
 struct ThreadPool {
-	using Work = std::function<void()>;
+	using Work = Function<void()>;
 
 private:
 	Array<std::thread> threads;

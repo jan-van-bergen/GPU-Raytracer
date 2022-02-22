@@ -1,11 +1,10 @@
 #pragma once
-#include <functional>
-
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
 
 #include "Core/Array.h"
 #include "Core/String.h"
+#include "Core/Function.h"
 
 #include "Util/Shader.h"
 #include "Math/Math.h"
@@ -53,5 +52,5 @@ struct Window {
 
 	Array<Vector3> read_frame_buffer(bool hdr, int & pitch) const;
 
-	std::function<void(unsigned frame_buffer_handle, int width, int height)> resize_handler;
+	Function<void(unsigned, int, int)> resize_handler;
 };

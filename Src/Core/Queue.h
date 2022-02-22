@@ -118,7 +118,7 @@ struct Queue {
 	constexpr T pop() {
 		ASSERT(size() > 0);
 
-		T result = *head;
+		T result = std::move(*head);
 		inc_wrap(head);
 		return result;
 	}

@@ -284,6 +284,7 @@
     <ClInclude Include="Src\Core\Compare.h" />
     <ClInclude Include="Src\Core\Constructors.h" />
     <ClInclude Include="Src\Core\Format.h" />
+    <ClInclude Include="Src\Core\Function.h" />
     <ClInclude Include="Src\Core\Hash.h" />
     <ClInclude Include="Src\Core\HashMap.h" />
     <ClInclude Include="Src\Core\IO.h" />
