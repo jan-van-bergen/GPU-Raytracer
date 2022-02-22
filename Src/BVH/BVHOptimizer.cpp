@@ -7,6 +7,7 @@
 #include "Core/MinHeap.h"
 #include "Core/Timer.h"
 #include "Core/Random.h"
+#include "Core/Allocators/LinearAllocator.h"
 
 #include "Util/Util.h"
 
@@ -54,9 +55,9 @@ static void init_parent_indices(const BVH2 & bvh, Array<int> & parent_indices, i
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
-static void select_nodes_random(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Array<int> & batch_indices, RNG & rng) {
+static void select_nodes_random(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Allocator * allocator, Array<int> & batch_indices, RNG & rng) {
 	size_t offset = 0;
-	Array<int> temp(bvh.nodes.size());
+	Array<int> temp(bvh.nodes.size(), allocator);
 
 	// Identify Nodes that are valid for selection
 	for (size_t i = 2; i < bvh.nodes.size(); i++) {
@@ -69,8 +70,8 @@ static void select_nodes_random(const BVH2 & bvh, const Array<int> & parent_indi
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on which Nodes have the highest inefficiency measure
-static void select_nodes_measure(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Array<int> & batch_indices) {
-	Array<float> costs(bvh.nodes.size());
+static void select_nodes_measure(const BVH2 & bvh, const Array<int> & parent_indices, int batch_size, Allocator * allocator, Array<int> & batch_indices) {
+	Array<float> costs(bvh.nodes.size(), allocator);
 
 	int offset = 0;
 
@@ -95,7 +96,7 @@ static void select_nodes_measure(const BVH2 & bvh, const Array<int> & parent_ind
 	auto cmp = [costs](int a, int b) {
 		return costs[a] > costs[b];
 	};
-	MinHeap<int, decltype(cmp)> heap(cmp);
+	MinHeap<int, decltype(cmp)> heap(cmp, allocator);
 
 	for (int i = 0; i < offset; i++) {
 		heap.insert(batch_indices[i]);
@@ -106,7 +107,7 @@ static void select_nodes_measure(const BVH2 & bvh, const Array<int> & parent_ind
 }
 
 // Finds the global minimum of where best to insert the reinsertion node by traversing the tree using Branch and Bound
-static void find_reinsertion(const BVH2 & bvh, const BVHNode2 & node_reinsert, float & min_cost, int & min_index) {
+static void find_reinsertion(const BVH2 & bvh, const BVHNode2 & node_reinsert, Allocator * allocator, float & min_cost, int & min_index) {
 	float node_reinsert_area = node_reinsert.aabb.surface_area();
 
 	struct Pair {
@@ -118,7 +119,7 @@ static void find_reinsertion(const BVH2 & bvh, const BVHNode2 & node_reinsert, f
 		}
 	};
 
-	MinHeap<Pair> priority_queue;
+	MinHeap<Pair> priority_queue(allocator);
 	priority_queue.emplace(0, 0.0f); // Push BVH root with 0 induced cost
 
 	while (priority_queue.size() > 0) {
@@ -217,11 +218,22 @@ static void bvh_node_calc_axis(BVH2 & bvh, Array<int> & parent_indices, Array<in
 }
 
 void BVHOptimizer::optimize(BVH2 & bvh) {
+	// Calculate the number of BHV Nodes that may be included in a batch
+	// These Nodes must be internal Nodes and must have a grandparent (i.e. cannot be the child of the root)
+	// This means a tree with 7 nodes has 0 batch candidates, and every 2 additional child nodes in the tree account for 1 more batch candidate:
+	int num_batch_candidates = Math::max<int>((bvh.nodes.size() - 7) / 2, 0);
+	if (num_batch_candidates < 8) {
+		return; // Too small to optimize
+	}
+
 	ScopeTimer timer("BVH Optimization"_sv);
 
 	float cost_before = bvh_sah_cost(bvh);
 
-	Array<int> parent_indices(bvh.nodes.size());
+	LinearAllocator<MEGABYTES(1)> init_allocator; // Memory used during the entire optimization process
+	LinearAllocator<MEGABYTES(1)> loop_allocator; // Memory reset every batch iteration
+
+	Array<int> parent_indices(bvh.nodes.size(), &init_allocator);
 	parent_indices[0] = -1; // Root has no parent
 	init_parent_indices(bvh, parent_indices);
 
@@ -231,16 +243,8 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 	static_assert(P_T >= P_R);
 
-	// Calculate the number of BHV Nodes that may be included in a batch
-	// These Nodes must be internal Nodes and must have a grandparent (i.e. cannot be the child of the root)
-	// This means a tree with 7 nodes has 0 batch candidates, and every 2 additional child nodes in the tree account for 1 more batch candidate:
-	int num_batch_candidates = Math::max<int>((bvh.nodes.size() - 7) / 2, 0);
-	if (num_batch_candidates < 8) {
-		return; // Too small to optimize
-	}
-
 	int        batch_size = Math::max<int>(bvh.nodes.size() / k, num_batch_candidates);
-	Array<int> batch_indices(bvh.nodes.size());
+	Array<int> batch_indices(bvh.nodes.size(), &init_allocator);
 
 	int batch_count = 0;
 	int batches_since_last_cost_reduction = 0;
@@ -252,19 +256,20 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 		MEASURE
 	} node_selection_method = NodeSelectionMethod::MEASURE;
 
-	Array<int> originated  (bvh.nodes.size());
-	Array<int> displacement(bvh.nodes.size());
+	Array<int> originated  (bvh.nodes.size(), &init_allocator);
+	Array<int> displacement(bvh.nodes.size(), &init_allocator);
 
 	RNG rng(time(nullptr));
 
 	clock_t start_time = clock();
 
 	while (true) {
+		loop_allocator.reset();
+
 		// Select a batch of internal Nodes, either randomly or using a heuristic measure
 		switch (node_selection_method) {
-			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, batch_indices, rng); break;
-			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, batch_indices); break;
-
+			case NodeSelectionMethod::RANDOM:  select_nodes_random (bvh, parent_indices, batch_size, &loop_allocator, batch_indices, rng); break;
+			case NodeSelectionMethod::MEASURE: select_nodes_measure(bvh, parent_indices, batch_size, &loop_allocator, batch_indices);      break;
 			default: ASSERT_UNREACHABLE();
 		}
 
@@ -340,7 +345,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 				float min_cost  = INFINITY;
 				int   min_index = -1;
 
-				find_reinsertion(bvh, reinsert.node, min_cost, min_index);
+				find_reinsertion(bvh, reinsert.node, &loop_allocator, min_cost, min_index);
 
 				// Bookkeeping updates to perform the reinsertion
 				bvh.nodes[unused    ] = bvh.nodes[min_index];

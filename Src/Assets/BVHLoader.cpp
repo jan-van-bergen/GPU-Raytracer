@@ -5,12 +5,13 @@
 
 #include "Core/IO.h"
 #include "Core/Parser.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 
-String BVHLoader::get_bvh_filename(StringView filename) {
-	return Util::combine_stringviews(filename, StringView::from_c_str(BVH_FILE_EXTENSION));
+String BVHLoader::get_bvh_filename(StringView filename, Allocator * allocator) {
+	return Util::combine_stringviews(filename, StringView::from_c_str(BVH_FILE_EXTENSION), allocator);
 }
 
 struct BVHFileHeader {
@@ -33,7 +34,8 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 		return false;
 	}
 
-	String file = IO::file_read(bvh_filename);
+	StackAllocator<KILOBYTES(8)> allocator;
+	String file = IO::file_read(bvh_filename, &allocator);
 	Parser parser(file.view(), bvh_filename.view());
 
 	BVHFileHeader header = parser.parse_binary<BVHFileHeader>();

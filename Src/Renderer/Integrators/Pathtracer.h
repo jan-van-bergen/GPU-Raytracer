@@ -236,11 +236,11 @@ struct Pathtracer final : Integrator {
 	void svgf_init();
 	void svgf_free();
 
-	void update(float delta) override;
-	void render()            override;
+	void update(float delta, Allocator * frame_allocator) override;
+	void render()                                         override;
 
 	void render_gui() override;
 
-	void calc_light_power();
+	void calc_light_power(Allocator * frame_allocator);
 	void calc_light_mesh_weights();
 };

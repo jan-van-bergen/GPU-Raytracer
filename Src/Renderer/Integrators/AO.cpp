@@ -149,12 +149,12 @@ void AO::resize_free() {
 	CUDAMemory::free_surface(surf_accumulator);
 }
 
-void AO::update(float delta) {
+void AO::update(float delta, Allocator * frame_allocator) {
 	if (invalidated_scene) {
 		sample_index = 0;
 	}
 
-	Integrator::update(delta);
+	Integrator::update(delta, frame_allocator);
 }
 
 void AO::render() {

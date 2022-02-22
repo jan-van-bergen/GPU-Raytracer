@@ -148,8 +148,8 @@ static T parse_property_value(Parser & parser, Property::Type::Kind kind, PLYFor
 	}
 }
 
-Array<Triangle> PLYLoader::load(const String & filename) {
-	String file = IO::file_read(filename);
+Array<Triangle> PLYLoader::load(const String & filename, Allocator * allocator) {
+	String file = IO::file_read(filename, allocator);
 
 	Parser parser(file.view(), filename.view());
 

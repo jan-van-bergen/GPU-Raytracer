@@ -233,7 +233,7 @@ struct Integrator {
 
 	void build_tlas();
 
-	virtual void update(float delta);
+	virtual void update(float delta, Allocator * frame_allocator);
 	virtual void render() = 0;
 
 	virtual void render_gui() = 0;

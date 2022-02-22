@@ -431,7 +431,7 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 	return MediumHandle { INVALID };
 }
 
-static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, SerializedMap & serialized_map, StringView path, String & name) {
+static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, Scene & scene, SerializedMap & serialized_map, StringView path, String & name) {
 	StringView type = node->get_attribute_value<StringView>("type");
 
 	if (type == "obj" || type == "ply") {
@@ -439,9 +439,9 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		MeshDataHandle mesh_data_handle;
 		if (type == "obj") {
-			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, OBJLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, allocator, OBJLoader::load);
 		} else {
-			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, PLYLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, allocator, PLYLoader::load);
 		}
 
 		name = Util::remove_directory(filename.view());
@@ -495,18 +495,18 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		String bvh_filename = Format().format("{}.shape_{}.bvh"_sv, filename_abs, shape_index);
 
-		auto fallback_loader = [&](const String & filename) {
+		auto fallback_loader = [&](const String & filename, Allocator * allocator) {
 			Serialized serialized;
 			bool found = serialized_map.try_get(filename_abs, serialized);
 			if (!found) {
-				serialized = SerializedLoader::load(filename_abs, node->location);
+				serialized = SerializedLoader::load(filename_abs, allocator, node->location);
 				serialized_map[filename_rel] = serialized;
 			}
 
 			return std::move(serialized.meshes[shape_index]);
 		};
 
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, fallback_loader);
+		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, allocator, fallback_loader);
 
 		name = Format().format("{}_{}"_sv, filename_rel, shape_index);
 
@@ -517,10 +517,10 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 
 		float radius = node->get_child_value_optional("radius", 0.0025f);
 
-		auto fallback_loader = [&](const String & filename) {
-			return MitshairLoader::load(filename, node->location, radius);
+		auto fallback_loader = [&](const String & filename, Allocator * allocator) {
+			return MitshairLoader::load(filename, allocator, node->location, radius);
 		};
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
+		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, allocator, fallback_loader);
 
 		name = filename_rel;
 
@@ -531,7 +531,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Scene & scene, Serialize
 	}
 }
 
-static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
+static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	if (node->tag == "bsdf") {
 		MaterialHandle material_handle = parse_material(node, scene, material_map, texture_map, path);
 		const Material & material = scene.asset_manager.get_material(material_handle);
@@ -551,7 +551,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 
 				String name = { };
 
-				MeshDataHandle mesh_data_handle = parse_shape(shape, scene, serialized_map, path, name);
+				MeshDataHandle mesh_data_handle = parse_shape(shape, allocator, scene, serialized_map, path, name);
 				MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
 
 				StringView id = node->get_attribute_value<StringView>("id");
@@ -573,7 +573,7 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		} else {
 			String name = { };
 
-			MeshDataHandle mesh_data_handle = parse_shape(node, scene, serialized_map, path, name);
+			MeshDataHandle mesh_data_handle = parse_shape(node, allocator, scene, serialized_map, path, name);
 			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
 			MediumHandle   medium_handle    = parse_medium(node, scene);
 
@@ -665,16 +665,16 @@ static void walk_xml_tree(const XMLNode * node, Scene & scene, ShapeGroupMap & s
 		}
 	} else if (node->tag == "include") {
 		StringView filename_rel = node->get_attribute_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel, allocator);
 
-		MitsubaLoader::load(filename_abs, scene);
+		MitsubaLoader::load(filename_abs, allocator, scene);
 	} else for (int i = 0; i < node->children.size(); i++) {
-		walk_xml_tree(&node->children[i], scene, shape_group_map, serialized_map, material_map, texture_map, path);
+		walk_xml_tree(&node->children[i], allocator, scene, shape_group_map, serialized_map, material_map, texture_map, path);
 	}
 }
 
-void MitsubaLoader::load(const String & filename, Scene & scene) {
-	XMLParser xml_parser(filename);
+void MitsubaLoader::load(const String & filename, Allocator * allocator, Scene & scene) {
+	XMLParser xml_parser(filename, allocator);
 
 	XMLNode root = xml_parser.parse_root();
 
@@ -697,9 +697,9 @@ void MitsubaLoader::load(const String & filename, Scene & scene) {
 		}
 	}
 
-	ShapeGroupMap shape_group_map;
-	SerializedMap serialized_map;
-	MaterialMap   material_map;
-	TextureMap    texture_map;
-	walk_xml_tree(scene_node, scene, shape_group_map, serialized_map, material_map, texture_map, Util::get_directory(filename.view()));
+	ShapeGroupMap shape_group_map(allocator);
+	SerializedMap serialized_map (allocator);
+	MaterialMap   material_map   (allocator);
+	TextureMap    texture_map    (allocator);
+	walk_xml_tree(scene_node, allocator, scene, shape_group_map, serialized_map, material_map, texture_map, Util::get_directory(filename.view()));
 }

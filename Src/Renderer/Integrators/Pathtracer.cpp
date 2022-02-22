@@ -2,6 +2,8 @@
 
 #include <Imgui/imgui.h>
 
+#include "Core/Allocators/LinearAllocator.h"
+
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	init_module();
 	init_globals();
@@ -304,19 +306,21 @@ void Pathtracer::svgf_free() {
 	CUDAMemory::free(ptr_taa_frame_curr);
 }
 
-void Pathtracer::calc_light_power() {
-	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights;
+void Pathtracer::calc_light_power(Allocator * frame_allocator) {
+	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights(frame_allocator);
 
 	int light_mesh_count = 0;
 
 	// For every Mesh, check whether it is a Light based on its Material
 	// If so, mark the MeshData it is using as being a Light
-	for (int m = 0; m < scene.meshes.size(); m++) {
+	for (size_t m = 0; m < scene.meshes.size(); m++) {
 		Mesh & mesh = scene.meshes[m];
 		const Material & material = scene.asset_manager.get_material(mesh.material_handle);
 
 		if (material.type == Material::Type::LIGHT && (material.emission.x > 0.0f || material.emission.y > 0.0f || material.emission.z > 0.0f)) {
-			mesh_data_used_as_lights[mesh.mesh_data_handle.handle].push_back(&mesh);
+			Array<Mesh *> & meshes = mesh_data_used_as_lights[mesh.mesh_data_handle.handle];
+			meshes.allocator = frame_allocator;
+			meshes.push_back(&mesh);
 			light_mesh_count++;
 		} else {
 			mesh.light.weight = 0.0f;
@@ -327,7 +331,7 @@ void Pathtracer::calc_light_power() {
 		int    index;
 		double area;
 	};
-	Array<LightTriangle> light_triangles;
+	Array<LightTriangle> light_triangles(frame_allocator);
 
 	struct LightMeshData {
 		size_t first_triangle_index;
@@ -335,7 +339,7 @@ void Pathtracer::calc_light_power() {
 
 		double total_area;
 	};
-	Array<LightMeshData> light_mesh_datas;
+	Array<LightMeshData> light_mesh_datas(frame_allocator);
 
 	using It = decltype(mesh_data_used_as_lights)::Iterator;
 
@@ -374,8 +378,8 @@ void Pathtracer::calc_light_power() {
 	}
 
 	if (light_triangles.size() > 0) {
-		Array<int>   light_triangle_indices               (light_triangles.size());
-		Array<float> light_triangle_cumulative_probability(light_triangles.size());
+		Array<int>   light_triangle_indices               (light_triangles.size(), frame_allocator);
+		Array<float> light_triangle_cumulative_probability(light_triangles.size(), frame_allocator);
 
 		for (int m = 0; m < light_mesh_datas.size(); m++) {
 			const LightMeshData & light_mesh_data = light_mesh_datas[m];
@@ -454,12 +458,12 @@ void Pathtracer::calc_light_mesh_weights() {
 	global_lights_total_weight.set_value_async(float(lights_total_weight), memory_stream);
 }
 
-void Pathtracer::update(float delta) {
+void Pathtracer::update(float delta, Allocator * frame_allocator) {
 	if (invalidated_materials) {
 		const Array<Material> & materials = scene.asset_manager.materials;
 
-		Array<Material::Type> cuda_material_types(materials.size());
-		Array<CUDAMaterial>   cuda_materials     (materials.size());
+		Array<Material::Type> cuda_material_types(materials.size(), frame_allocator);
+		Array<CUDAMaterial>   cuda_materials     (materials.size(), frame_allocator);
 
 		for (int i = 0; i < materials.size(); i++) {
 			const Material & material = materials[i];
@@ -589,7 +593,7 @@ void Pathtracer::update(float delta) {
 			CUDAMemory::free(ptr_light_triangle_cumulative_probability);
 		}
 		if (scene.has_lights) {
-			calc_light_power();
+			calc_light_power(frame_allocator);
 		}
 
 		sample_index = 0;
@@ -599,7 +603,7 @@ void Pathtracer::update(float delta) {
 	if (invalidated_mediums) {
 		size_t medium_count = scene.asset_manager.media.size();
 		if (medium_count > 0) {
-			Array<CUDAMedium> cuda_mediums(medium_count);
+			Array<CUDAMedium> cuda_mediums(medium_count, frame_allocator);
 
 			for (size_t i = 0; i < medium_count; i++) {
 				const Medium & medium = scene.asset_manager.media[i];
@@ -636,7 +640,7 @@ void Pathtracer::update(float delta) {
 		}
 	}
 
-	Integrator::update(delta);
+	Integrator::update(delta, frame_allocator);
 
 	if (invalidated_light_mesh_weights) {
 		calc_light_mesh_weights();

@@ -1,15 +1,21 @@
 #pragma once
+#include "Allocators/Allocator.h"
 
 template<typename T>
 struct Queue {
-	size_t capacity = 0;
-	T    * data     = nullptr;
+	Allocator * allocator = nullptr;
+	size_t      capacity  = 0;
+	T         * data      = nullptr;
 
-	constexpr Queue() { }
+	T * head = nullptr;
+	T * tail = nullptr;
+
+	constexpr Queue(Allocator * allocator = nullptr) : allocator(allocator) { }
 
 	constexpr Queue(const Queue & other) {
-		capacity = other.capacity;
-		data     = new T[capacity];
+		allocator = other.allocator;
+		capacity  = other.capacity;
+		data      = Allocator::alloc_array<T>(allocator, capacity);
 		memcpy(data, other.data, capacity * sizeof(T));
 
 		head = data + (other.head - other.data);
@@ -17,10 +23,11 @@ struct Queue {
 	}
 
 	constexpr Queue(Queue && other) noexcept {
-		capacity = other.capacity;
-		data     = other.data;
-		head     = other.head;
-		tail     = other.tail;
+		allocator = other.allocator;
+		capacity  = other.capacity;
+		data      = other.data;
+		head      = other.head;
+		tail      = other.tail;
 
 		other.capacity = 0;
 		other.data     = nullptr;
@@ -29,10 +36,13 @@ struct Queue {
 	}
 
 	constexpr Queue & operator=(const Queue & other) {
-		if (data) delete [] data;
+		if (data) {
+			Allocator::free_array(allocator, data);
+		}
 
-		capacity = other.capacity;
-		data     = new T[capacity];
+		allocator = other.allocator;
+		capacity  = other.capacity;
+		data      = Allocator::alloc_array<T>(allocator, capacity);
 		memcpy(data, other.data, capacity * sizeof(T));
 
 		head = data + (other.head - other.data);
@@ -42,12 +52,15 @@ struct Queue {
 	}
 
 	constexpr Queue & operator=(Queue && other) noexcept {
-		if (data) delete [] data;
+		if (data) {
+			Allocator::free_array(allocator, data);
+		}
 
-		capacity = other.capacity;
-		data     = other.data;
-		head     = other.head;
-		tail     = other.tail;
+		allocator = other.allocator;
+		capacity  = other.capacity;
+		data      = other.data;
+		head      = other.head;
+		tail      = other.tail;
 
 		other.capacity = 0;
 		other.data     = nullptr;
@@ -58,22 +71,21 @@ struct Queue {
 	}
 
 	~Queue() {
-		if (data) delete [] data;
+		if (data) {
+			Allocator::free_array(allocator, data);
+		}
 	}
-
-	T * head = nullptr;
-	T * tail = nullptr;
 
 	constexpr void push(T item) {
 		if (!data) {
 			capacity = 16;
-			data = new T[capacity];
+			data = Allocator::alloc_array<T>(allocator, capacity);
 
 			head = data;
 			tail = data;
 		} else if (size() == capacity - 1) {
 			size_t new_capacity = capacity + capacity / 2 + 1;
-			T    * new_data = new T[new_capacity];
+			T    * new_data = Allocator::alloc_array<T>(allocator, new_capacity);
 
 			T * new_head = new_data;
 			T * new_tail = new_data;
@@ -91,8 +103,8 @@ struct Queue {
 				}
 			}
 
-			delete [] data;
-			data = new_data;
+			Allocator::free_array(allocator, data);
+			data     = new_data;
 			capacity = new_capacity;
 
 			head = new_head;

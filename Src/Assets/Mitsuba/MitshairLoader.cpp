@@ -6,13 +6,13 @@
 
 #include "Renderer/Triangle.h"
 
-Array<Triangle> MitshairLoader::load(const String & filename, SourceLocation location_in_mitsuba_file, float radius) {
-	String file = IO::file_read(filename);
+Array<Triangle> MitshairLoader::load(const String & filename, Allocator * allocator, SourceLocation location_in_mitsuba_file, float radius) {
+	String file = IO::file_read(filename, allocator);
 
 	Parser parser(file.view(), filename.view());
 
-	Array<Vector3> hair_vertices;
-	Array<int>     hair_strand_lengths;
+	Array<Vector3> hair_vertices      (allocator);
+	Array<int>     hair_strand_lengths(allocator);
 
 	size_t triangle_count = 0;
 	int strand_size = 0;
