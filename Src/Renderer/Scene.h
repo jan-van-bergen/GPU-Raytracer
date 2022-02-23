@@ -1,12 +1,16 @@
 #pragma once
+#include "Core/Allocators/LinearAllocator.h"
+
+#include "Assets/AssetManager.h"
+
 #include "Camera.h"
 #include "Mesh.h"
 #include "Sky.h"
 
-#include "Assets/AssetManager.h"
-
 struct Scene {
 	AssetManager asset_manager;
+
+	LinearAllocator<MEGABYTES(1)> allocator;
 
 	Camera      camera;
 	Array<Mesh> meshes;

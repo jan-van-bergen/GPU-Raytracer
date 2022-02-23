@@ -54,7 +54,7 @@ static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_ma
 
 	if (type == "bitmap") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel, &scene.allocator);
 
 		TextureHandle texture_handle = scene.asset_manager.add_texture(filename_abs);
 
@@ -435,7 +435,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 	StringView type = node->get_attribute_value<StringView>("type");
 
 	if (type == "obj" || type == "ply") {
-		String filename = Util::combine_stringviews(path, node->get_child_value<StringView>("filename"));
+		String filename = Util::combine_stringviews(path, node->get_child_value<StringView>("filename"), &scene.allocator);
 
 		MeshDataHandle mesh_data_handle;
 		if (type == "obj") {
@@ -489,7 +489,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 		return scene.asset_manager.add_mesh_data(std::move(triangles));
 	} else if (type == "serialized") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel, &scene.allocator);
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
@@ -513,7 +513,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 		return mesh_data_handle;
 	} else if (type == "hair") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel, &scene.allocator);
 
 		float radius = node->get_child_value_optional("radius", 0.0025f);
 
@@ -643,7 +643,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			} else if (extension != "hdr") {
 				WARNING(node->location, "Environment Map '{}' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
 			} else {
-				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel);
+				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel, &scene.allocator);
 			}
 		} else if (emitter_type == "point") {
 			// Make small area light
