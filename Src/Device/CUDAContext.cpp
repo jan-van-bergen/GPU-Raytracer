@@ -6,6 +6,7 @@
 #include <cudaGL.h>
 
 #include "Core/IO.h"
+#include "Core/Allocators/StackAllocator.h"
 
 static CUdevice  device;
 static CUcontext context;
@@ -28,7 +29,8 @@ void CUDAContext::init() {
 		IO::exit(1);
 	}
 
-	Array<CUdevice> devices(device_count);
+	StackAllocator<128> allocator;
+	Array<CUdevice> devices(device_count, &allocator);
 
 	unsigned gl_device_count;
 	CUDACALL(cuGLGetDevices(&gl_device_count, devices.data(), device_count, CU_GL_DEVICE_LIST_ALL));
