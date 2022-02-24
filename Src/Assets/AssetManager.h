@@ -53,7 +53,7 @@ public:
 		BVH2     bvh       = { };
 		MeshData mesh_data = { };
 
-		bool bvh_loaded = BVHLoader::try_to_load(filename, bvh_filename, mesh_data, bvh);
+		bool bvh_loaded = BVHLoader::try_to_load(filename, bvh_filename, &mesh_data, &bvh);
 		if (!bvh_loaded) {
 			mesh_data.triangles = fallback_loader(filename, allocator);
 

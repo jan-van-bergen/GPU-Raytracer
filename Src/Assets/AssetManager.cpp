@@ -79,9 +79,9 @@ TextureHandle AssetManager::add_texture(String filename, String name) {
 		StringView file_extension = Util::get_file_extension(filename.view());
 		if (!file_extension.is_empty()) {
 			if (file_extension == "dds") {
-				success = TextureLoader::load_dds(filename, texture); // DDS is loaded using custom code
+				success = TextureLoader::load_dds(filename, &texture); // DDS is loaded using custom code
 			} else {
-				success = TextureLoader::load_stb(filename, texture); // other file formats use stb_image
+				success = TextureLoader::load_stb(filename, &texture); // other file formats use stb_image
 			}
 		}
 

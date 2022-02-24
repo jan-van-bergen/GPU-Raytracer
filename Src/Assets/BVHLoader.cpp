@@ -29,7 +29,7 @@ struct BVHFileHeader {
 	int num_indices;
 };
 
-bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename, MeshData & mesh_data, BVH2 & bvh) {
+bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename, MeshData * mesh_data, BVH2 * bvh) {
 	if (cpu_config.bvh_force_rebuild || !IO::file_exists(bvh_filename.view()) || IO::file_is_newer(bvh_filename.view(), filename.view())) {
 		return false;
 	}
@@ -57,13 +57,13 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 		return false;
 	}
 
-	mesh_data.triangles.resize(header.num_triangles);
-	bvh.nodes          .resize(header.num_nodes);
-	bvh.indices        .resize(header.num_indices);
+	mesh_data->triangles.resize(header.num_triangles);
+	bvh->nodes          .resize(header.num_nodes);
+	bvh->indices        .resize(header.num_indices);
 
-	for (int i = 0; i < mesh_data.triangles.size(); i++) mesh_data.triangles[i] = parser.parse_binary<Triangle>();
-	for (int i = 0; i < bvh.nodes  .size(); i++) bvh.nodes  [i] = parser.parse_binary<BVHNode2>();
-	for (int i = 0; i < bvh.indices.size(); i++) bvh.indices[i] = parser.parse_binary<int>();
+	for (int i = 0; i < mesh_data->triangles.size(); i++) mesh_data->triangles[i] = parser.parse_binary<Triangle>();
+	for (int i = 0; i < bvh->nodes  .size(); i++) bvh->nodes  [i] = parser.parse_binary<BVHNode2>();
+	for (int i = 0; i < bvh->indices.size(); i++) bvh->indices[i] = parser.parse_binary<int>();
 
 	ASSERT(parser.reached_end());
 
