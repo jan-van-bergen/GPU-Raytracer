@@ -10,7 +10,7 @@
 struct Scene {
 	AssetManager asset_manager;
 
-	LinearAllocator<MEGABYTES(1)> allocator;
+	Allocator * allocator = nullptr;
 
 	Camera      camera;
 	Array<Mesh> meshes;
@@ -22,7 +22,7 @@ struct Scene {
 	bool has_conductor  = false;
 	bool has_lights     = false;
 
-	Scene();
+	Scene(Allocator * allocator);
 
 	Mesh & add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
 

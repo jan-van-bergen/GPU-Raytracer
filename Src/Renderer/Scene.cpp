@@ -14,7 +14,7 @@
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 
-Scene::Scene() : camera(Math::deg_to_rad(85.0f)), meshes(&allocator) {
+Scene::Scene(Allocator * allocator) : allocator(allocator), camera(Math::deg_to_rad(85.0f)), meshes(allocator) {
 	LinearAllocator<MEGABYTES(4)> load_allocator;
 
 	for (int i = 0; i < cpu_config.scene_filenames.size(); i++) {

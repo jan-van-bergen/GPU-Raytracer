@@ -45,20 +45,20 @@ struct HashMap {
 			Allocator::free_array(allocator, values);
 		}
 
-		constexpr Value & insert(size_t hash, const Key & key, const Value & value) {
+		constexpr Value & insert(size_t hash, Key key, Value value) {
 			Cmp cmp = { };
 			size_t i = hash;
 			while (true) {
 				i &= capacity - 1;
 				if (hashes[i] == 0) {
 					hashes[i] = hash;
-					new (&get_keys()  [i]) Key(key);
-					new (&get_values()[i]) Value(value);
+					new (&get_keys()  [i]) Key(std::move(key));
+					new (&get_values()[i]) Value(std::move(value));
 					count++;
 					return get_values()[i];
 				} else if (hashes[i] == hash && cmp(get_keys()[i], key)) {
 					// Replace existing
-					return get_values()[i] = value;
+					return get_values()[i] = std::move(value);
 				}
 				i++;
 			}
@@ -95,32 +95,24 @@ struct HashMap {
 		map.free(allocator);
 	}
 
-	constexpr Value & insert(const Key & key, const Value & value) {
-		return insert_by_hash(Hash()(key), key, value);
+	constexpr Value & insert(Key key, Value value) {
+		size_t hash = Hash()(key);
+		return insert_by_hash(hash, std::move(key), std::move(value));
 	}
 
-	constexpr Value & insert_by_hash(size_t hash, const Key & key, const Value & value) {
+	constexpr Value & insert_by_hash(size_t hash, Key key, Value value) {
 		if (2 * map.count >= map.capacity) {
 			grow(2 * map.capacity);
 		}
-		return map.insert(hash, key, value);
+		return map.insert(hash, std::move(key), std::move(value));
 	}
 
-	constexpr bool try_get(const Key & key, Value & value) const {
-		return try_get_by_hash(Hash()(key), key, value);
+	constexpr Value * try_get(const Key & key) const {
+		return try_get_by_hash(Hash()(key), key);
 	}
 
-	constexpr bool try_get_by_hash(size_t hash, const Key & key, Value & value) const {
-		if (map.count == 0) return false;
-
-		Value * value_ptr = map.get(hash, key);
-
-		if (value_ptr) {
-			value = *value_ptr;
-			return true;
-		} else {
-			return false;
-		}
+	constexpr Value * try_get_by_hash(size_t hash, const Key & key) const {
+		return map.get(hash, key);
 	}
 
 	constexpr Value & operator[](const Key & key) {
@@ -191,7 +183,7 @@ private:
 
 		for (size_t i = 0; i < map.capacity; i++) {
 			if (map.hashes[i]) {
-				new_map.insert(map.hashes[i], map.get_keys()[i], map.get_values()[i]);
+				new_map.insert(map.hashes[i], std::move(map.get_keys()[i]), std::move(map.get_values()[i]));
 			}
 		}
 

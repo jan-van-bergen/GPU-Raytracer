@@ -84,7 +84,7 @@ public:
 
 	MediumHandle add_medium(const Medium & medium);
 
-	TextureHandle add_texture(const String & filename);
+	TextureHandle add_texture(String filename, String name);
 
 	void wait_until_loaded();
 

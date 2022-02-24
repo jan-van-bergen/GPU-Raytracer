@@ -58,7 +58,7 @@ MediumHandle AssetManager::add_medium(const Medium & medium) {
 	return medium_id;
 }
 
-TextureHandle AssetManager::add_texture(const String & filename) {
+TextureHandle AssetManager::add_texture(String filename, String name) {
 	TextureHandle & texture_id = texture_cache[filename];
 
 	// If the cache already contains this Texture simply return its index
@@ -70,11 +70,9 @@ TextureHandle AssetManager::add_texture(const String & filename) {
 	textures.emplace_back();
 	textures_mutex.unlock();
 
-	thread_pool->submit([this, filename, texture_id]() {
-		StringView name = Util::remove_directory(filename.view());
-
+	thread_pool->submit([this, filename = std::move(filename), name = std::move(name), texture_id]() {
 		Texture texture = { };
-		texture.name = name;
+		texture.name = std::move(name);
 
 		bool success = false;
 

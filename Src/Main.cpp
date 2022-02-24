@@ -79,7 +79,9 @@ int main(int num_args, char ** args) {
 
 	CUDAContext::init();
 
-	Scene scene = { };
+
+	LinearAllocator<MEGABYTES(1)> scene_allocator;
+	Scene scene(&scene_allocator);
 
 	OwnPtr<Integrator> integrator = nullptr;
 	integrator_change_requested = true;

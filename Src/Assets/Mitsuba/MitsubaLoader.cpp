@@ -54,12 +54,13 @@ static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_ma
 
 	if (type == "bitmap") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel, &scene.allocator);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel, scene.allocator);
 
-		TextureHandle texture_handle = scene.asset_manager.add_texture(filename_abs);
+		String        texture_name   = String(Util::remove_directory(filename_abs.view()), scene.allocator);
+		TextureHandle texture_handle = scene.asset_manager.add_texture(std::move(filename_abs), std::move(texture_name));
 
 		if (const XMLAttribute * id = node->get_attribute("id")) {
-			texture_map.insert(String(id->value), texture_handle);
+			texture_map.insert(id->value, texture_handle);
 		}
 
 		return texture_handle;
@@ -89,10 +90,11 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 			}
 		} else if (colour->tag == "ref") {
 			StringView texture_name = colour->get_attribute_value<StringView>("id");
-			bool found = texture_map.try_get(texture_name, texture_handle);
-			if (!found) {
+			TextureHandle * ref_handle = texture_map.try_get(texture_name);
+			if (!ref_handle) {
 				WARNING(colour->location, "Invalid texture ref '{}'!\n", texture_name);
 			}
+			texture_handle = *ref_handle;
 		}
 	} else {
 		rgb = Vector3(1.0f);
@@ -180,15 +182,12 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (ref) {
 			StringView material_name = ref->get_attribute_value<StringView>("id");
 
-			MaterialHandle material_id;
-			bool found = material_map.try_get(material_name, material_id);
-			if (!found) {
+			if (MaterialHandle * material_id = material_map.try_get(material_name)) {
+				return *material_id;
+			} else {
 				WARNING(ref->location, "Invalid material Ref '{}'!\n", material_name);
-
 				return MaterialHandle::get_default();
 			}
-
-			return material_id;
 		}
 
 		// Otherwise, parse BSDF
@@ -221,9 +220,8 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			if (ref) {
 				StringView id = ref->get_attribute_value<StringView>("id");
 
-				MaterialHandle material_handle;
-				if (material_map.try_get(id, material_handle)) {
-					return material_handle;
+				if (MaterialHandle * material_handle = material_map.try_get(id)) {
+					return *material_handle;
 				} else {
 					WARNING(ref->location, "Invalid material Ref '{}'!\n", id);
 					return MaterialHandle::get_default();
@@ -240,7 +238,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		}
 	}
 	if (name) {
-		material.name = name->value;
+		material.name = String(name->value, scene.allocator);
 	} else {
 		material.name = "Material";
 	}
@@ -383,7 +381,7 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 		Medium medium = { };
 
 		if (const XMLAttribute * name = xml_medium->get_attribute("name")) {
-			medium.name = name->value;
+			medium.name = String(name->value, scene.allocator);
 		}
 
 		const XMLNode * xml_sigma_a = xml_medium->get_child_by_name("sigmaA");
@@ -435,7 +433,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 	StringView type = node->get_attribute_value<StringView>("type");
 
 	if (type == "obj" || type == "ply") {
-		String filename = Util::combine_stringviews(path, node->get_child_value<StringView>("filename"), &scene.allocator);
+		String filename = Util::combine_stringviews(path, node->get_child_value<StringView>("filename"), scene.allocator);
 
 		MeshDataHandle mesh_data_handle;
 		if (type == "obj") {
@@ -444,7 +442,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, allocator, PLYLoader::load);
 		}
 
-		name = Util::remove_directory(filename.view());
+		name = String(Util::remove_directory(filename.view()), scene.allocator);
 
 		return mesh_data_handle;
 	} else if (type == "rectangle" || type == "cube" || type == "disk" || type == "cylinder" || type == "sphere") {
@@ -484,36 +482,33 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 			ASSERT_UNREACHABLE();
 		}
 
-		name = type;
+		name = String(type, scene.allocator);
 
 		return scene.asset_manager.add_mesh_data(std::move(triangles));
 	} else if (type == "serialized") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel, &scene.allocator);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel, scene.allocator);
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
 		String bvh_filename = Format().format("{}.shape_{}.bvh"_sv, filename_abs, shape_index);
 
 		auto fallback_loader = [&](const String & filename, Allocator * allocator) {
-			Serialized serialized;
-			bool found = serialized_map.try_get(filename_abs, serialized);
-			if (!found) {
-				serialized = SerializedLoader::load(filename_abs, allocator, node->location);
-				serialized_map[filename_rel] = serialized;
+			Serialized * serialized = serialized_map.try_get(filename_abs);
+			if (!serialized) {
+				serialized = &serialized_map.insert(filename_abs, SerializedLoader::load(filename_abs, allocator, node->location));
 			}
-
-			return std::move(serialized.meshes[shape_index]);
+			return std::move(serialized->meshes[shape_index]);
 		};
 
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, allocator, fallback_loader);
 
-		name = Format().format("{}_{}"_sv, filename_rel, shape_index);
+		name = Format(scene.allocator).format("{}_{}"_sv, filename_rel, shape_index);
 
 		return mesh_data_handle;
 	} else if (type == "hair") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel, &scene.allocator);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel, scene.allocator);
 
 		float radius = node->get_child_value_optional("radius", 0.0025f);
 
@@ -522,7 +517,7 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 		};
 		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, allocator, fallback_loader);
 
-		name = filename_rel;
+		name = String(filename_rel, scene.allocator);
 
 		return mesh_data_handle;
 	} else {
@@ -565,9 +560,9 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			}
 			StringView id = ref->get_attribute_value<StringView>("id");
 
-			ShapeGroup shape_group;
-			if (shape_group_map.try_get(id, shape_group) && shape_group.mesh_data_handle.handle != INVALID) {
-				Mesh & mesh = scene.add_mesh(id, shape_group.mesh_data_handle, shape_group.material_handle);
+			const ShapeGroup * shape_group = shape_group_map.try_get(id);
+			if (shape_group && shape_group->mesh_data_handle.handle != INVALID) {
+				Mesh & mesh = scene.add_mesh(id, shape_group->mesh_data_handle, shape_group->material_handle);
 				parse_transform(node, &mesh.position, &mesh.rotation, &mesh.scale);
 			}
 		} else {
@@ -643,7 +638,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			} else if (extension != "hdr") {
 				WARNING(node->location, "Environment Map '{}' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
 			} else {
-				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel, &scene.allocator);
+				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel, scene.allocator);
 			}
 		} else if (emitter_type == "point") {
 			// Make small area light
