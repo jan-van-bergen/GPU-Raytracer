@@ -45,8 +45,41 @@ struct HashMap {
 			Allocator::free_array(allocator, values);
 		}
 
-		Key   * get_keys  () const { return reinterpret_cast<Key   *>(keys); }
-		Value * get_values() const { return reinterpret_cast<Value *>(values); }
+		constexpr Value & insert(size_t hash, const Key & key, const Value & value) {
+			Cmp cmp = { };
+			size_t i = hash;
+			while (true) {
+				i &= capacity - 1;
+				if (hashes[i] == 0) {
+					hashes[i] = hash;
+					new (&get_keys()  [i]) Key(key);
+					new (&get_values()[i]) Value(value);
+					count++;
+					return get_values()[i];
+				} else if (hashes[i] == hash && cmp(get_keys()[i], key)) {
+					// Replace existing
+					return get_values()[i] = value;
+				}
+				i++;
+			}
+		}
+
+		constexpr Value * get(size_t hash, const Key & key) const {
+			Cmp cmp = { };
+			size_t i = hash;
+			while (true) {
+				i &= capacity - 1;
+				if (hashes[i] == hash && cmp(get_keys()[i], key)) {
+					return &get_values()[i];
+				} else if (hashes[i] == 0) {
+					return nullptr;
+				}
+				i++;
+			}
+		}
+
+		constexpr Key   * get_keys  () const { return reinterpret_cast<Key   *>(keys); }
+		constexpr Value * get_values() const { return reinterpret_cast<Value *>(values); }
 	} map;
 
 	Allocator * allocator = nullptr;
@@ -70,7 +103,7 @@ struct HashMap {
 		if (2 * map.count >= map.capacity) {
 			grow(2 * map.capacity);
 		}
-		return insert(map, hash, key, value);
+		return map.insert(hash, key, value);
 	}
 
 	constexpr bool try_get(const Key & key, Value & value) const {
@@ -80,7 +113,7 @@ struct HashMap {
 	constexpr bool try_get_by_hash(size_t hash, const Key & key, Value & value) const {
 		if (map.count == 0) return false;
 
-		Value * value_ptr = get(map, hash, key);
+		Value * value_ptr = map.get(hash, key);
 
 		if (value_ptr) {
 			value = *value_ptr;
@@ -92,7 +125,7 @@ struct HashMap {
 
 	constexpr Value & operator[](const Key & key) {
 		size_t  hash  = Hash()(key);
-		Value * value = get(map, hash, key);
+		Value * value = map.get(hash, key);
 
 		if (value) return *value;
 
@@ -152,52 +185,13 @@ struct HashMap {
 	}
 
 private:
-	static constexpr Value * get(const Map & map, size_t hash, const Key & key) {
-		Cmp cmp = { };
-		size_t i = hash;
-
-		while (true) {
-			i &= map.capacity - 1;
-
-			if (map.hashes[i] == hash && cmp(map.get_keys()[i], key)) {
-				return &map.get_values()[i];
-			} else if (map.hashes[i] == 0) {
-				return nullptr;
-			}
-
-			i++;
-		}
-	}
-
-	constexpr Value & insert(Map & map, size_t hash, const Key & key, const Value & value) {
-		Cmp cmp = { };
-		size_t i = hash;
-
-		while (true) {
-			i &= map.capacity - 1;
-
-			if (map.hashes[i] == 0) {
-				map.hashes[i] = hash;
-				new (&map.get_keys()  [i]) Key(key);
-				new (&map.get_values()[i]) Value(value);
-				map.count++;
-				return map.get_values()[i];
-			} else if (map.hashes[i] == hash && cmp(map.get_keys()[i], key)) {
-				// Replace existing
-				return map.get_values()[i] = value;
-			}
-
-			i++;
-		}
-	}
-
 	constexpr void grow(size_t new_capacity) {
 		Map new_map = { };
 		new_map.init(allocator, new_capacity);
 
 		for (size_t i = 0; i < map.capacity; i++) {
 			if (map.hashes[i]) {
-				insert(new_map, map.hashes[i], map.get_keys()[i], map.get_values()[i]);
+				new_map.insert(map.hashes[i], map.get_keys()[i], map.get_values()[i]);
 			}
 		}
 
