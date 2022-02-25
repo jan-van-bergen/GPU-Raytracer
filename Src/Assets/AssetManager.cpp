@@ -70,7 +70,7 @@ TextureHandle AssetManager::add_texture(String filename, String name) {
 	textures.emplace_back();
 	textures_mutex.unlock();
 
-	thread_pool->submit([this, filename = std::move(filename), name = std::move(name), texture_id]() {
+	thread_pool->submit([this, filename = std::move(filename), name = std::move(name), texture_id]() mutable {
 		Texture texture = { };
 		texture.name = std::move(name);
 
