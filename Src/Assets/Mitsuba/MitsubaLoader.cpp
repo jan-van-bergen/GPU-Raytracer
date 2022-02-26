@@ -30,7 +30,6 @@ struct ShapeGroup {
 };
 
 using ShapeGroupMap = HashMap<String, ShapeGroup>;
-using SerializedMap = HashMap<String, Serialized>;
 using MaterialMap   = HashMap<String, MaterialHandle>;
 using TextureMap    = HashMap<String, TextureHandle>;
 
@@ -430,7 +429,7 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 	return MediumHandle { INVALID };
 }
 
-static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, Scene & scene, SerializedMap & serialized_map, StringView path, String * name) {
+static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, Scene & scene, StringView path, String * name) {
 	StringView type = node->get_attribute_value<StringView>("type");
 
 	if (type == "obj" || type == "ply") {
@@ -438,9 +437,9 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 
 		MeshDataHandle mesh_data_handle;
 		if (type == "obj") {
-			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, allocator, OBJLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, OBJLoader::load);
 		} else {
-			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, allocator, PLYLoader::load);
+			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, PLYLoader::load);
 		}
 
 		*name = String(Util::remove_directory(filename.view()), scene.allocator);
@@ -488,46 +487,37 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 		return scene.asset_manager.add_mesh_data(std::move(triangles));
 	} else if (type == "serialized") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
-		String     filename_abs = Util::combine_stringviews(path, filename_rel, scene.allocator);
+		String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
 		int shape_index = node->get_child_value_optional("shapeIndex", 0);
 
-		String bvh_filename = Format().format("{}.shape_{}.bvh"_sv, filename_abs, shape_index);
-
-		auto fallback_loader = [&](const String & filename, Allocator * allocator) {
-			Serialized * serialized = serialized_map.try_get(filename_abs);
-			if (!serialized) {
-				serialized = &serialized_map.insert(filename_abs, SerializedLoader::load(filename_abs, allocator, node->location));
-			}
-			return std::move(serialized->meshes[shape_index]);
-		};
-
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, allocator, fallback_loader);
-
 		*name = Format(scene.allocator).format("{}_{}"_sv, filename_rel, shape_index);
 
-		return mesh_data_handle;
+		String bvh_filename = Format().format("{}.shape_{}.bvh"_sv, filename_abs, shape_index);
+
+		auto fallback_loader = [filename_abs = std::move(filename_abs), location = node->location, shape_index](const String & filename, Allocator * allocator) {
+			return SerializedLoader::load(filename_abs, allocator, location, shape_index);
+		};
+		return scene.asset_manager.add_mesh_data(bvh_filename, bvh_filename, fallback_loader);
 	} else if (type == "hair") {
 		StringView filename_rel = node->get_child_value<StringView>("filename");
 		String     filename_abs = Util::combine_stringviews(path, filename_rel, scene.allocator);
 
-		float radius = node->get_child_value_optional("radius", 0.0025f);
-
-		auto fallback_loader = [&](const String & filename, Allocator * allocator) {
-			return MitshairLoader::load(filename, allocator, node->location, radius);
-		};
-		MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, allocator, fallback_loader);
-
 		*name = String(filename_rel, scene.allocator);
 
-		return mesh_data_handle;
+		float radius = node->get_child_value_optional("radius", 0.0025f);
+
+		auto fallback_loader = [location = node->location, radius](const String & filename, Allocator * allocator) {
+			return MitshairLoader::load(filename, allocator, location, radius);
+		};
+		return scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
 	} else {
 		WARNING(node->location, "WARNING: Shape type '{}' not supported!\n", type);
 		return MeshDataHandle { INVALID };
 	}
 }
 
-static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & scene, ShapeGroupMap & shape_group_map, SerializedMap & serialized_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
+static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & scene, ShapeGroupMap & shape_group_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	if (node->tag == "bsdf") {
 		MaterialHandle material_handle = parse_material(node, scene, material_map, texture_map, path);
 		const Material & material = scene.asset_manager.get_material(material_handle);
@@ -547,7 +537,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 
 				String name = { };
 
-				MeshDataHandle mesh_data_handle = parse_shape(shape, allocator, scene, serialized_map, path, &name);
+				MeshDataHandle mesh_data_handle = parse_shape(shape, allocator, scene, path, &name);
 				MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
 
 				StringView id = node->get_attribute_value<StringView>("id");
@@ -569,7 +559,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 		} else {
 			String name = { };
 
-			MeshDataHandle mesh_data_handle = parse_shape(node, allocator, scene, serialized_map, path, &name);
+			MeshDataHandle mesh_data_handle = parse_shape(node, allocator, scene, path, &name);
 			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
 			MediumHandle   medium_handle    = parse_medium(node, scene);
 
@@ -665,7 +655,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 
 		MitsubaLoader::load(filename_abs, allocator, scene);
 	} else for (int i = 0; i < node->children.size(); i++) {
-		walk_xml_tree(&node->children[i], allocator, scene, shape_group_map, serialized_map, material_map, texture_map, path);
+		walk_xml_tree(&node->children[i], allocator, scene, shape_group_map, material_map, texture_map, path);
 	}
 }
 
@@ -694,8 +684,7 @@ void MitsubaLoader::load(const String & filename, Allocator * allocator, Scene &
 	}
 
 	ShapeGroupMap shape_group_map(allocator);
-	SerializedMap serialized_map (allocator);
 	MaterialMap   material_map   (allocator);
 	TextureMap    texture_map    (allocator);
-	walk_xml_tree(scene_node, allocator, scene, shape_group_map, serialized_map, material_map, texture_map, Util::get_directory(filename.view()));
+	walk_xml_tree(scene_node, allocator, scene, shape_group_map, material_map, texture_map, Util::get_directory(filename.view()));
 }

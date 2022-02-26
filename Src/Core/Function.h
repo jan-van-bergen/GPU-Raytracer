@@ -11,12 +11,12 @@ struct Function<Result(Args ...)> {
 	struct CallableBase {
 		virtual ~CallableBase() = default;
 
-		virtual Result call(Args ... args) const = 0;
+		virtual Result call(Args ... args) = 0;
 	};
 
 	template<typename T>
 	struct Callable final : CallableBase {
-		mutable T impl;
+		T impl;
 
 		Callable(T impl) : impl(std::move(impl)) { }
 
@@ -25,17 +25,17 @@ struct Function<Result(Args ...)> {
 
 		~Callable() = default;
 
-		Result call(Args ... args) const override {
+		Result call(Args ... args) override {
 			return impl(std::forward<Args>(args) ...);
 		}
 	};
 
-	OwnPtr<CallableBase> callable; // TODO: Perhaps support some in-situ storage here for small callables to avoid indirection
+	mutable OwnPtr<CallableBase> callable; // TODO: Perhaps support some in-situ storage here for small callables to avoid indirection
 
 	Function() = default;
 
 	template<typename T>
-	Function(T && impl) : callable(make_owned<Callable<T>>(std::move(impl))) { }
+	Function(T impl) : callable(make_owned<Callable<T>>(std::move(impl))) { }
 
 	NON_COPYABLE(Function);
 	DEFAULT_MOVEABLE(Function);

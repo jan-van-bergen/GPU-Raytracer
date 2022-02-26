@@ -34,7 +34,9 @@ struct Mesh {
 		int triangle_count;
 	} light;
 
-	Mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, const Scene & scene);
+	Mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle);
+
+	void calc_aabb(const Scene & scene);
 
 	void update();
 

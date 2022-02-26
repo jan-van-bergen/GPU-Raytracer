@@ -99,6 +99,10 @@ void Integrator::init_materials() {
 }
 
 void Integrator::init_geometry() {
+	for (size_t i = 0; i < scene.meshes.size(); i++) {
+		scene.meshes[i].calc_aabb(scene);
+	}
+
 	size_t mesh_data_count = scene.asset_manager.mesh_datas.size();
 
 	mesh_data_bvh_offsets     .resize(mesh_data_count);

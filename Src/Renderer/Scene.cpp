@@ -42,7 +42,7 @@ Scene::Scene(Allocator * allocator) : allocator(allocator), camera(Math::deg_to_
 }
 
 Mesh & Scene::add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
-	return meshes.emplace_back(std::move(name), mesh_data_handle, material_handle, *this);
+	return meshes.emplace_back(std::move(name), mesh_data_handle, material_handle);
 }
 
 void Scene::check_materials() {
