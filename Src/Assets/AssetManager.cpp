@@ -29,18 +29,16 @@ AssetManager::AssetManager(Allocator * allocator) : mesh_datas(allocator), mater
 AssetManager::~AssetManager() = default;
 
 MeshDataHandle AssetManager::new_mesh_data() {
-	mesh_datas_mutex.lock();
+	MutexLock lock(mesh_datas_mutex);
 	MeshDataHandle mesh_data_handle = { mesh_datas.size() };
 	mesh_datas.emplace_back();
-	mesh_datas_mutex.unlock();
 	return mesh_data_handle;
 }
 
 TextureHandle AssetManager::new_texture() {
-	textures_mutex.lock();
+	MutexLock lock(textures_mutex);
 	TextureHandle texture_handle = { textures.size() };
 	textures.emplace_back();
-	textures_mutex.unlock();
 	return texture_handle;
 }
 
@@ -90,9 +88,10 @@ MeshDataHandle AssetManager::add_mesh_data(String filename, String bvh_filename,
 
 		mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
 
-		mesh_datas_mutex.lock();
-		get_mesh_data(mesh_data_handle) = std::move(mesh_data);
-		mesh_datas_mutex.unlock();
+		{
+			MutexLock lock(mesh_datas_mutex);
+			get_mesh_data(mesh_data_handle) = std::move(mesh_data);
+		}
 	});
 
 	return mesh_data_handle;
@@ -108,9 +107,10 @@ MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
 		mesh_data.triangles = std::move(triangles);
 		mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
 
-		mesh_datas_mutex.lock();
-		get_mesh_data(mesh_data_handle) = std::move(mesh_data);
-		mesh_datas_mutex.unlock();
+		{
+			MutexLock mutex(mesh_datas_mutex);
+			get_mesh_data(mesh_data_handle) = std::move(mesh_data);
+		}
 	});
 
 	return mesh_data_handle;
@@ -168,9 +168,10 @@ TextureHandle AssetManager::add_texture(String filename, String name) {
 			texture.mip_offsets = { 0 };
 		}
 
-		textures_mutex.lock();
-		get_texture(texture_handle) = std::move(texture);
-		textures_mutex.unlock();
+		{
+			MutexLock lock(textures_mutex);
+			get_texture(texture_handle) = std::move(texture);
+		}
 	});
 
 	return texture_handle;

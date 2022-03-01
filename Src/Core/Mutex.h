@@ -12,3 +12,18 @@ struct Mutex {
 	void lock();
 	void unlock();
 };
+
+struct MutexLock {
+	Mutex & mutex;
+
+	MutexLock(Mutex & mutex) : mutex(mutex) {
+		mutex.lock();
+	}
+
+	NON_COPYABLE(MutexLock);
+	NON_MOVEABLE(MutexLock);
+
+	~MutexLock() {
+		mutex.unlock();
+	}
+};
