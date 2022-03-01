@@ -22,7 +22,7 @@ struct Material {
 	Vector3 emission;
 
 	Vector3       diffuse = Vector3(1.0f, 1.0f, 1.0f);
-	TextureHandle texture_id;
+	TextureHandle texture_handle;
 
 	MediumHandle medium_handle;
 	float        index_of_refraction = 1.33f;

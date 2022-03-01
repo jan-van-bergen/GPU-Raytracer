@@ -174,7 +174,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			material.name = "emitter";
 			material.emission = emitter->get_child_value<Vector3>("radiance");
 
-			return scene.asset_manager.add_material(material);
+			return scene.asset_manager.add_material(std::move(material));
 		}
 
 		// Check if an existing Material is referenced
@@ -246,7 +246,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	if (inner_bsdf_type == "diffuse") {
 		material.type = Material::Type::DIFFUSE;
 
-		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, &material.diffuse, &material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "reflectance", texture_map, path, scene, &material.diffuse, &material.texture_handle);
 	} else if (inner_bsdf_type == "conductor" || inner_bsdf_type == "roughconductor") {
 		material.type = Material::Type::CONDUCTOR;
 
@@ -267,7 +267,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	} else if (inner_bsdf_type == "plastic" || inner_bsdf_type == "roughplastic" || inner_bsdf_type == "roughdiffuse") {
 		material.type = Material::Type::PLASTIC;
 
-		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, &material.diffuse, &material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, &material.diffuse, &material.texture_handle);
 
 		if (inner_bsdf_type == "plastic") {
 			material.linear_roughness = 0.0f;
@@ -277,7 +277,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	} else if (inner_bsdf_type == "phong") {
 		material.type = Material::Type::PLASTIC;
 
-		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, &material.diffuse, &material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "diffuseReflectance", texture_map, path, scene, &material.diffuse, &material.texture_handle);
 
 		float exponent = inner_bsdf->get_child_value_optional("exponent", 1.0f);
 		material.linear_roughness = powf(0.5f * exponent + 1.0f, 0.25f);
@@ -359,14 +359,14 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	} else if (inner_bsdf_type == "difftrans") {
 		material.type = Material::Type::DIFFUSE;
 
-		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, &material.diffuse, &material.texture_id);
+		parse_rgb_or_texture(inner_bsdf, "transmittance", texture_map, path, scene, &material.diffuse, &material.texture_handle);
 	} else {
 		WARNING(inner_bsdf->location, "WARNING: BSDF type '{}' not supported!\n", inner_bsdf_type);
 
 		return MaterialHandle::get_default();
 	}
 
-	return scene.asset_manager.add_material(material);
+	return scene.asset_manager.add_material(std::move(material));
 }
 
 static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
@@ -572,7 +572,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 					Material material_copy = material;
 					material_copy.medium_handle = medium_handle;
 
-					material_handle = scene.asset_manager.add_material(material_copy);
+					material_handle = scene.asset_manager.add_material(std::move(material_copy));
 				} else {
 					material.medium_handle = medium_handle;
 				}
@@ -643,7 +643,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			material.type = Material::Type::LIGHT;
 			material.emission = node->get_child_value_optional<Vector3>("intensity", Vector3(1.0f));
 
-			MaterialHandle material_handle = scene.asset_manager.add_material(material);
+			MaterialHandle material_handle = scene.asset_manager.add_material(std::move(material));
 
 			scene.add_mesh("PointLight", mesh_data_handle, material_handle);
 		} else {

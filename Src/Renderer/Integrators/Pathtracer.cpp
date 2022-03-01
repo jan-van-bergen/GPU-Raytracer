@@ -477,12 +477,12 @@ void Pathtracer::update(float delta, Allocator * frame_allocator) {
 				}
 				case Material::Type::DIFFUSE: {
 					cuda_materials[i].diffuse.diffuse    = material.diffuse;
-					cuda_materials[i].diffuse.texture_id = material.texture_id.handle;
+					cuda_materials[i].diffuse.texture_id = material.texture_handle.handle;
 					break;
 				}
 				case Material::Type::PLASTIC: {
 					cuda_materials[i].plastic.diffuse    = material.diffuse;
-					cuda_materials[i].plastic.texture_id = material.texture_id.handle;
+					cuda_materials[i].plastic.texture_id = material.texture_handle.handle;
 					cuda_materials[i].plastic.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}

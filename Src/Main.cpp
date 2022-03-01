@@ -303,6 +303,31 @@ static bool ImGui_Combo(const char * label, Enum * current_item, const char * it
 	}
 }
 
+// Helper function for displaying a combobox for selecting Materials, Textures, and Media
+template<typename T, typename Callback>
+static int ImGui_Combo(const char * label, const char * preview, const Array<T> & data, bool allow_none, int selected_index, Callback on_select) {
+	if (ImGui::BeginCombo(label, preview)) {
+		if (allow_none) {
+			bool is_selected = selected_index == INVALID;
+			if (ImGui::Selectable("None", &is_selected)) {
+				selected_index = INVALID;
+				on_select(selected_index);
+			}
+		}
+		for (int i = 0; i < data.size(); i++) {
+			bool is_selected = i == selected_index;
+			ImGui::PushID(i);
+			if (ImGui::Selectable(data[i].name.c_str(), &is_selected)) {
+				selected_index = i;
+				on_select(selected_index);
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndCombo();
+	}
+	return selected_index;
+}
+
 static void draw_gui(Window & window, Integrator & integrator) {
 	window.gui_begin();
 
@@ -423,12 +448,12 @@ static void draw_gui(Window & window, Integrator & integrator) {
 	ImGui::End();
 
 	if (ImGui::Begin("Scene")) {
-		if (ImGui::CollapsingHeader("General", ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::Text("Has Diffuse:    %s", integrator.scene.has_diffuse    ? "True" : "False");
-			ImGui::Text("Has Plastic:    %s", integrator.scene.has_plastic    ? "True" : "False");
-			ImGui::Text("Has Dielectric: %s", integrator.scene.has_dielectric ? "True" : "False");
-			ImGui::Text("Has Conductor:  %s", integrator.scene.has_conductor  ? "True" : "False");
-			ImGui::Text("Has Lights:     %s", integrator.scene.has_lights     ? "True" : "False");
+		if (ImGui::CollapsingHeader("General")) {
+			ImGui::Text("Has Diffuse:     %s", integrator.scene.has_diffuse    ? "True" : "False");
+			ImGui::Text("Has Plastic:     %s", integrator.scene.has_plastic    ? "True" : "False");
+			ImGui::Text("Has Dielectric:  %s", integrator.scene.has_dielectric ? "True" : "False");
+			ImGui::Text("Has Conductor:   %s", integrator.scene.has_conductor  ? "True" : "False");
+			ImGui::Text("Has Lights:      %s", integrator.scene.has_lights     ? "True" : "False");
 
 			size_t triangle_count       = 0;
 			size_t light_mesh_count     = 0;
@@ -516,20 +541,43 @@ static void draw_gui(Window & window, Integrator & integrator) {
 				mesh_changed |= ImGui::DragFloat("Scale", &mesh.scale, 0.1f, 0.0f, INFINITY);
 
 				if (mesh_changed) integrator.invalidated_scene = true;
+
+				ImGui::Separator();
+
+				if (ImGui::Button("+##NewMaterial")) {
+					Material new_material = { };
+					new_material.name = Format().format("Material {}"_sv, integrator.scene.asset_manager.materials.size());
+					mesh.material_handle = integrator.scene.asset_manager.add_material(std::move(new_material));
+
+					integrator.free_materials();
+					integrator.init_materials();
+					integrator.invalidated_materials = true;
+				}
+				ImGui::SameLine();
+
+				const char * material_name = integrator.scene.asset_manager.get_material(mesh.material_handle).name.c_str();
+				mesh.material_handle.handle = ImGui_Combo("Material", material_name, integrator.scene.asset_manager.materials, false, mesh.material_handle.handle, [&integrator](int index) {
+					integrator.invalidated_scene     = true;
+					integrator.invalidated_materials = true;
+				});
 			}
 
 			if (mesh.material_handle.handle != INVALID) {
 				Material & material = integrator.scene.asset_manager.get_material(mesh.material_handle);
 
-				if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
+				if (ImGui::CollapsingHeader("Material##MaterialHeader", ImGuiTreeNodeFlags_DefaultOpen)) {
 					ImGui::Text("Name: %s", material.name.data());
 
 					integrator.invalidated_materials |= ImGui_Combo("Type", &material.type, "Light\0Diffuse\0Plastic\0Dielectric\0Conductor\0");
 
 					const char * texture_name = "None";
-					if (material.texture_id.handle != INVALID) {
-						const Texture & texture = integrator.scene.asset_manager.get_texture(material.texture_id);
-						texture_name = texture.name.data();
+					if (material.texture_handle.handle != INVALID) {
+						texture_name = integrator.scene.asset_manager.get_texture(material.texture_handle).name.c_str();
+					}
+
+					const char * medium_name = "None";
+					if (material.medium_handle.handle != INVALID) {
+						medium_name = integrator.scene.asset_manager.get_medium(material.medium_handle).name.c_str();
 					}
 
 					switch (material.type) {
@@ -539,17 +587,23 @@ static void draw_gui(Window & window, Integrator & integrator) {
 						}
 						case Material::Type::DIFFUSE: {
 							integrator.invalidated_materials |= ImGui::ColorEdit3("Diffuse", &material.diffuse.x);
-							integrator.invalidated_materials |= ImGui::SliderInt ("Texture", &material.texture_id.handle, -1, int(integrator.scene.asset_manager.textures.size() - 1), texture_name);
+							material.texture_handle.handle = ImGui_Combo("Texture", texture_name, integrator.scene.asset_manager.textures, true, material.texture_handle.handle, [&integrator](int index) {
+								integrator.invalidated_materials = true;
+							});
 							break;
 						}
 						case Material::Type::PLASTIC: {
-							integrator.invalidated_materials |= ImGui::ColorEdit3  ("Diffuse",   &material.diffuse.x);
-							integrator.invalidated_materials |= ImGui::SliderInt   ("Texture",   &material.texture_id.handle, -1, int(integrator.scene.asset_manager.textures.size() - 1), texture_name);
-							integrator.invalidated_materials |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
+							integrator.invalidated_materials |= ImGui::ColorEdit3 ("Diffuse", &material.diffuse.x);
+							material.texture_handle.handle = ImGui_Combo("Texture", texture_name, integrator.scene.asset_manager.textures, true, material.texture_handle.handle, [&integrator](int index) {
+								integrator.invalidated_materials = true;
+							});
+							integrator.invalidated_materials |= ImGui::SliderFloat("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 							break;
 						}
 						case Material::Type::DIELECTRIC: {
-							integrator.invalidated_materials |= ImGui::SliderInt  ("Medium",    &material.medium_handle.handle, -1, int(integrator.scene.asset_manager.media.size() - 1));
+							material.medium_handle.handle = ImGui_Combo("Medium", medium_name, integrator.scene.asset_manager.media, true, material.medium_handle.handle, [&integrator](int index) {
+								integrator.invalidated_materials = true;
+							});
 							integrator.invalidated_materials |= ImGui::SliderFloat("IOR",       &material.index_of_refraction, 1.0f, 2.5f);
 							integrator.invalidated_materials |= ImGui::SliderFloat("Roughness", &material.linear_roughness,    0.0f, 1.0f);
 							break;
@@ -563,7 +617,7 @@ static void draw_gui(Window & window, Integrator & integrator) {
 						default: ASSERT_UNREACHABLE();
 					}
 
-					if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium", ImGuiTreeNodeFlags_DefaultOpen)) {
+					if (material.medium_handle.handle != INVALID && ImGui::CollapsingHeader("Medium##MediumHeader", ImGuiTreeNodeFlags_DefaultOpen)) {
 						Medium & medium = integrator.scene.asset_manager.get_medium(material.medium_handle);
 
 						Vector3 sigma_a = { };

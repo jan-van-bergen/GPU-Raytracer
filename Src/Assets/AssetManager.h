@@ -46,9 +46,9 @@ public:
 	MeshDataHandle add_mesh_data(String filename, String bvh_filename, FallbackLoader fallback_loader);
 	MeshDataHandle add_mesh_data(Array<Triangle> triangles);
 
-	MaterialHandle add_material(const Material & material);
+	MaterialHandle add_material(Material material);
 
-	MediumHandle add_medium(const Medium & medium);
+	MediumHandle add_medium(Medium medium);
 
 	TextureHandle add_texture(String filename, String name);
 

@@ -17,11 +17,11 @@ AssetManager::AssetManager() : thread_pool(make_owned<ThreadPool>()) {
 	Material default_material = { };
 	default_material.name    = "Default";
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
-	add_material(default_material);
+	add_material(std::move(default_material));
 
 	Medium default_medium = { };
 	default_medium.name = "Default";
-	add_medium(default_medium);
+	add_medium(std::move(default_medium));
 }
 
 // NOTE: Seemingly pointless desctructor needed here since ThreadPool is
@@ -116,16 +116,16 @@ MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
 	return mesh_data_handle;
 }
 
-MaterialHandle AssetManager::add_material(const Material & material) {
+MaterialHandle AssetManager::add_material(Material material) {
 	MaterialHandle material_handle = { int(materials.size()) };
-	materials.push_back(material);
+	materials.emplace_back(std::move(material));
 
 	return material_handle;
 }
 
-MediumHandle AssetManager::add_medium(const Medium & medium) {
+MediumHandle AssetManager::add_medium(Medium medium) {
 	MediumHandle medium_handle = { int(media.size()) };
-	media.push_back(medium);
+	media.emplace_back(std::move(medium));
 
 	return medium_handle;
 }
