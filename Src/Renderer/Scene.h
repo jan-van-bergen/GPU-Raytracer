@@ -8,9 +8,9 @@
 #include "Sky.h"
 
 struct Scene {
-	AssetManager asset_manager;
-
 	Allocator * allocator = nullptr;
+
+	AssetManager asset_manager;
 
 	Camera      camera;
 	Array<Mesh> meshes;

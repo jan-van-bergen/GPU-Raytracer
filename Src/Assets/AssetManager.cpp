@@ -13,7 +13,7 @@
 #include "Util/ThreadPool.h"
 #include "Util/Geometry.h"
 
-AssetManager::AssetManager() : thread_pool(make_owned<ThreadPool>()) {
+AssetManager::AssetManager(Allocator * allocator) : mesh_datas(allocator), materials(allocator), media(allocator), textures(allocator), mesh_data_cache(allocator), texture_cache(allocator), thread_pool(make_owned<ThreadPool>()) {
 	Material default_material = { };
 	default_material.name    = "Default";
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);

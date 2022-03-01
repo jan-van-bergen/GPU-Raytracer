@@ -5,6 +5,7 @@
 #include "Core/Mutex.h"
 #include "Core/Function.h"
 #include "Core/OwnPtr.h"
+#include "Core/Allocators/Allocator.h"
 
 #include "Renderer/MeshData.h"
 #include "Renderer/Material.h"
@@ -22,7 +23,7 @@ struct AssetManager {
 	Array<Medium>   media;
 	Array<Texture>  textures;
 
-	AssetManager();
+	AssetManager(Allocator * allocator);
 	~AssetManager();
 
 private:
