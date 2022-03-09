@@ -93,11 +93,7 @@ __device__ float sample_tent(float u) {
 __device__ float2 sample_gaussian(float u1, float u2) {
 	float f = sqrt(-2.0f * logf(u1));
 	float a = TWO_PI * u2;
-
-	float sin_a, cos_a;
-	__sincosf(a, &sin_a, &cos_a);
-
-	return make_float2(f * cos_a, f * sin_a);
+	return f * sincos(a);
 }
 
 // Based on: Heitz - A Low-Distortion Map Between Triangle and Square
@@ -126,10 +122,7 @@ __device__ float2 sample_disk(float u1, float u2) {
 		phi = (0.25f * PI) * (a/b) + (0.5f * PI);
 	}
 
-	float sin_phi, cos_phi;
-	__sincosf(phi, &sin_phi, &cos_phi);
-
-	return make_float2(r * cos_phi, r * sin_phi);
+	return r * sincos(phi);
 }
 
 __device__ float3 sample_cosine_weighted_direction(float u1, float u2) {
