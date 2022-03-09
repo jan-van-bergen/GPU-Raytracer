@@ -8,6 +8,8 @@
 #include "Core/IO.h"
 #include "Core/Parser.h"
 #include "Core/Timer.h"
+#include "Core/Allocators/LinearAllocator.h"
+#include "Core/Allocators/StackAllocator.h"
 
 #include "CUDAMemory.h"
 
@@ -104,12 +106,13 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 		IO::exit(1);
 	}
 
+	StackAllocator<128>             stack_allocator;
 	LinearAllocator<KILOBYTES(512)> allocator;
 
 #ifdef _DEBUG
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"_sv, &allocator);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".debug.ptx"_sv, &stack_allocator);
 #else
-	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"_sv, &allocator);
+	String ptx_filename = Util::combine_stringviews(filename.view(), ".release.ptx"_sv, &stack_allocator);
 #endif
 
 	bool should_recompile = true;
