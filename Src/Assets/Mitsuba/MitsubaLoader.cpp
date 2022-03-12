@@ -619,7 +619,19 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 		StringView emitter_type = node->get_attribute_value<StringView>("type");
 
 		if (emitter_type == "area") {
-			WARNING(node->location, "Area emitter defined without geometry!\n");
+			const XMLAttribute * id = node->get_attribute("id");
+			if (id) {
+				StringView emitter_id = id->get_value<StringView>();
+
+				Material material = { };
+				material.type = Material::Type::LIGHT;
+				material.name = String(emitter_id, allocator);
+				material.emission = node->get_child_value<Vector3>("radiance");
+
+				material_map.insert(emitter_id, scene.asset_manager.add_material(std::move(material)));
+			} else {
+				WARNING(node->location, "Emitter defined without an id that is also not attached to any geometry!");
+			}
 		} else if (emitter_type == "envmap") {
 			StringView filename_rel = node->get_child_value<StringView>("filename");
 
