@@ -317,7 +317,7 @@ void Pathtracer::calc_light_power(Allocator * frame_allocator) {
 		Mesh & mesh = scene.meshes[m];
 		const Material & material = scene.asset_manager.get_material(mesh.material_handle);
 
-		if (material.type == Material::Type::LIGHT && (material.emission.x > 0.0f || material.emission.y > 0.0f || material.emission.z > 0.0f)) {
+		if (material.is_light()) {
 			Array<Mesh *> & meshes = mesh_data_used_as_lights[mesh.mesh_data_handle.handle];
 			meshes.allocator = frame_allocator;
 			meshes.push_back(&mesh);
@@ -369,7 +369,7 @@ void Pathtracer::calc_light_power(Allocator * frame_allocator) {
 			Mesh * mesh = meshes[m];
 
 			const Material & material = scene.asset_manager.get_material(mesh->material_handle);
-			float power = Math::luminance(material.emission.x, material.emission.y, material.emission.z);
+			float power = Math::luminance(material.emission);
 
 			mesh->light.weight               = power * float(light_mesh_data.total_area);
 			mesh->light.first_triangle_index = light_mesh_data.first_triangle_index;

@@ -31,6 +31,10 @@ struct Material {
 	Vector3 k   = Vector3(1.0f);
 
 	float linear_roughness = 0.5f;
+
+	bool is_light() const {
+		return type == Type::LIGHT && Vector3::length_squared(emission) > 0.0f;
+	}
 };
 
 struct MaterialHandle {

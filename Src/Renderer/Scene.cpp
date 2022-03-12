@@ -54,12 +54,14 @@ void Scene::check_materials() {
 
 	// Check properties of the Scene, so we know which kernels are required
 	for (int i = 0; i < asset_manager.materials.size(); i++) {
-		switch (asset_manager.materials[i].type) {
+		const Material & material = asset_manager.materials[i];
+		switch (material.type) {
 			case Material::Type::DIFFUSE:    has_diffuse    = true; break;
 			case Material::Type::PLASTIC:    has_plastic    = true; break;
 			case Material::Type::DIELECTRIC: has_dielectric = true; break;
 			case Material::Type::CONDUCTOR:  has_conductor  = true; break;
-			case Material::Type::LIGHT:      has_lights     = true; break;
+			case Material::Type::LIGHT:      has_lights    |= material.is_light(); break;
+			default: ASSERT_UNREACHABLE();
 		}
 	}
 }
