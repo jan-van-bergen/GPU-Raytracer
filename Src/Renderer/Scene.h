@@ -24,7 +24,7 @@ struct Scene {
 
 	Scene(Allocator * allocator);
 
-	Mesh & add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
+	Mesh & add_mesh(String name, Handle<MeshData> mesh_data_handle, Handle<Material> material_handle = Handle<Material>::get_default());
 
 	void check_materials();
 

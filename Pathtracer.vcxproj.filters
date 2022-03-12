@@ -442,5 +442,8 @@
     <ClInclude Include="Src\Core\Function.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Renderer\Handle.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

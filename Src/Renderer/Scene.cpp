@@ -41,7 +41,7 @@ Scene::Scene(Allocator * allocator) : allocator(allocator), asset_manager(alloca
 	sky.load(cpu_config.sky_filename);
 }
 
-Mesh & Scene::add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle) {
+Mesh & Scene::add_mesh(String name, Handle<MeshData> mesh_data_handle, Handle<Material> material_handle) {
 	return meshes.emplace_back(std::move(name), mesh_data_handle, material_handle);
 }
 

@@ -27,8 +27,8 @@ struct AssetManager {
 	~AssetManager();
 
 private:
-	HashMap<String, MeshDataHandle> mesh_data_cache;
-	HashMap<String, TextureHandle>  texture_cache;
+	HashMap<String, Handle<MeshData>> mesh_data_cache;
+	HashMap<String, Handle<Texture>>  texture_cache;
 
 	Mutex mesh_datas_mutex;
 	Mutex textures_mutex;
@@ -37,31 +37,31 @@ private:
 
 	bool assets_loaded = false;
 
-	MeshDataHandle new_mesh_data();
-	TextureHandle  new_texture();
+	Handle<MeshData> new_mesh_data();
+	Handle<Texture>  new_texture();
 
 public:
 	using FallbackLoader = Function<Array<Triangle>(const String & filename, Allocator * allocator)>;
 
-	MeshDataHandle add_mesh_data(String filename,                      FallbackLoader fallback_loader);
-	MeshDataHandle add_mesh_data(String filename, String bvh_filename, FallbackLoader fallback_loader);
-	MeshDataHandle add_mesh_data(Array<Triangle> triangles);
+	Handle<MeshData> add_mesh_data(String filename,                      FallbackLoader fallback_loader);
+	Handle<MeshData> add_mesh_data(String filename, String bvh_filename, FallbackLoader fallback_loader);
+	Handle<MeshData> add_mesh_data(Array<Triangle> triangles);
 
-	MaterialHandle add_material(Material material);
+	Handle<Material> add_material(Material material);
 
-	MediumHandle add_medium(Medium medium);
+	Handle<Medium> add_medium(Medium medium);
 
-	TextureHandle add_texture(String filename, String name);
+	Handle<Texture> add_texture(String filename, String name);
 
 	void wait_until_loaded();
 
-	MeshData & get_mesh_data(MeshDataHandle handle) { return mesh_datas[handle.handle]; }
-	Material & get_material (MaterialHandle handle) { return materials [handle.handle]; }
-	Medium   & get_medium   (MediumHandle   handle) { return media     [handle.handle]; }
-	Texture  & get_texture  (TextureHandle  handle) { return textures  [handle.handle]; }
+	MeshData & get_mesh_data(Handle<MeshData> handle) { return mesh_datas[handle.handle]; }
+	Material & get_material (Handle<Material> handle) { return materials [handle.handle]; }
+	Medium   & get_medium   (Handle<Medium>   handle) { return media     [handle.handle]; }
+	Texture  & get_texture  (Handle<Texture>  handle) { return textures  [handle.handle]; }
 
-	const MeshData & get_mesh_data(MeshDataHandle handle) const { return mesh_datas[handle.handle]; }
-	const Material & get_material (MaterialHandle handle) const { return materials [handle.handle]; }
-	const Medium   & get_medium   (MediumHandle   handle) const { return media     [handle.handle]; }
-	const Texture  & get_texture  (TextureHandle  handle) const { return textures  [handle.handle]; }
+	const MeshData & get_mesh_data(Handle<MeshData> handle) const { return mesh_datas[handle.handle]; }
+	const Material & get_material (Handle<Material> handle) const { return materials [handle.handle]; }
+	const Medium   & get_medium   (Handle<Medium>   handle) const { return media     [handle.handle]; }
+	const Texture  & get_texture  (Handle<Texture>  handle) const { return textures  [handle.handle]; }
 };

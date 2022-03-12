@@ -28,27 +28,27 @@ AssetManager::AssetManager(Allocator * allocator) : mesh_datas(allocator), mater
 // forward declared, so its destructor is not available in the header file
 AssetManager::~AssetManager() = default;
 
-MeshDataHandle AssetManager::new_mesh_data() {
+Handle<MeshData> AssetManager::new_mesh_data() {
 	MutexLock lock(mesh_datas_mutex);
-	MeshDataHandle mesh_data_handle = { mesh_datas.size() };
+	Handle<MeshData> mesh_data_handle = { mesh_datas.size() };
 	mesh_datas.emplace_back();
 	return mesh_data_handle;
 }
 
-TextureHandle AssetManager::new_texture() {
+Handle<Texture> AssetManager::new_texture() {
 	MutexLock lock(textures_mutex);
-	TextureHandle texture_handle = { textures.size() };
+	Handle<Texture> texture_handle = { textures.size() };
 	textures.emplace_back();
 	return texture_handle;
 }
 
-MeshDataHandle AssetManager::add_mesh_data(String filename, FallbackLoader fallback_loader) {
+Handle<MeshData> AssetManager::add_mesh_data(String filename, FallbackLoader fallback_loader) {
 	String bvh_filename = BVHLoader::get_bvh_filename(filename.view(), nullptr);
 	return add_mesh_data(std::move(filename), std::move(bvh_filename), std::move(fallback_loader));
 }
 
-MeshDataHandle AssetManager::add_mesh_data(String filename, String bvh_filename, FallbackLoader fallback_loader) {
-	MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
+Handle<MeshData> AssetManager::add_mesh_data(String filename, String bvh_filename, FallbackLoader fallback_loader) {
+	Handle<MeshData> & mesh_data_handle = mesh_data_cache[filename];
 
 	if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
 
@@ -97,8 +97,8 @@ MeshDataHandle AssetManager::add_mesh_data(String filename, String bvh_filename,
 	return mesh_data_handle;
 }
 
-MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
-	MeshDataHandle mesh_data_handle = new_mesh_data();
+Handle<MeshData> AssetManager::add_mesh_data(Array<Triangle> triangles) {
+	Handle<MeshData> mesh_data_handle = new_mesh_data();
 
 	thread_pool->submit([this, triangles = std::move(triangles), mesh_data_handle]() mutable {
 		BVH2 bvh = BVH::create_from_triangles(triangles);
@@ -116,22 +116,22 @@ MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
 	return mesh_data_handle;
 }
 
-MaterialHandle AssetManager::add_material(Material material) {
-	MaterialHandle material_handle = { int(materials.size()) };
+Handle<Material> AssetManager::add_material(Material material) {
+	Handle<Material> material_handle = { int(materials.size()) };
 	materials.emplace_back(std::move(material));
 
 	return material_handle;
 }
 
-MediumHandle AssetManager::add_medium(Medium medium) {
-	MediumHandle medium_handle = { int(media.size()) };
+Handle<Medium> AssetManager::add_medium(Medium medium) {
+	Handle<Medium> medium_handle = { int(media.size()) };
 	media.emplace_back(std::move(medium));
 
 	return medium_handle;
 }
 
-TextureHandle AssetManager::add_texture(String filename, String name) {
-	TextureHandle & texture_handle = texture_cache[filename];
+Handle<Texture> AssetManager::add_texture(String filename, String name) {
+	Handle<Texture> & texture_handle = texture_cache[filename];
 
 	// If the cache already contains this Texture simply return its index
 	if (texture_handle.handle != INVALID) return texture_handle;

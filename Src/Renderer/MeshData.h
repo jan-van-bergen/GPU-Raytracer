@@ -10,5 +10,3 @@ struct MeshData {
 	Array<Triangle> triangles;
 	OwnPtr<BVH>     bvh;
 };
-
-struct MeshDataHandle { int handle = INVALID; };

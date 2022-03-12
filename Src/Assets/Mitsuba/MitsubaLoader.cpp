@@ -25,15 +25,15 @@
 #include "SerializedLoader.h"
 
 struct ShapeGroup {
-	MeshDataHandle mesh_data_handle;
-	MaterialHandle material_handle;
+	Handle<MeshData> mesh_data_handle;
+	Handle<Material> material_handle;
 };
 
 using ShapeGroupMap = HashMap<String, ShapeGroup>;
-using MaterialMap   = HashMap<String, MaterialHandle>;
-using TextureMap    = HashMap<String, TextureHandle>;
+using MaterialMap   = HashMap<String, Handle<Material>>;
+using TextureMap    = HashMap<String, Handle<Texture>>;
 
-static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene, Vector3 * rgb) {
+static Handle<Texture> parse_texture(const XMLNode * node, TextureMap & texture_map, StringView path, Scene & scene, Vector3 * rgb) {
 	StringView type = node->get_attribute_value("type");
 
 	if (type == "scale") {
@@ -56,7 +56,7 @@ static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_ma
 		String     filename_abs = Util::combine_stringviews(path, filename_rel, scene.allocator);
 
 		String        texture_name   = String(Util::remove_directory(filename_abs.view()), scene.allocator);
-		TextureHandle texture_handle = scene.asset_manager.add_texture(std::move(filename_abs), std::move(texture_name));
+		Handle<Texture> texture_handle = scene.asset_manager.add_texture(std::move(filename_abs), std::move(texture_name));
 
 		if (const XMLAttribute * id = node->get_attribute("id")) {
 			texture_map.insert(id->value, texture_handle);
@@ -67,10 +67,10 @@ static TextureHandle parse_texture(const XMLNode * node, TextureMap & texture_ma
 		WARNING(node->location, "Only bitmap textures are supported!\n");
 	}
 
-	return TextureHandle { INVALID };
+	return Handle<Texture> { INVALID };
 }
 
-static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 * rgb, TextureHandle * texture_handle) {
+static void parse_rgb_or_texture(const XMLNode * node, const char * name, TextureMap & texture_map, StringView path, Scene & scene, Vector3 * rgb, Handle<Texture> * texture_handle) {
 	const XMLNode * colour = node->get_child_by_name(name);
 	if (colour) {
 		if (colour->tag == "rgb") {
@@ -89,7 +89,7 @@ static void parse_rgb_or_texture(const XMLNode * node, const char * name, Textur
 			}
 		} else if (colour->tag == "ref") {
 			StringView texture_name = colour->get_attribute_value<StringView>("id");
-			TextureHandle * ref_handle = texture_map.try_get(texture_name);
+			Handle<Texture> * ref_handle = texture_map.try_get(texture_name);
 			if (ref_handle) {
 				*texture_handle = *ref_handle;
 			} else {
@@ -161,7 +161,7 @@ static void parse_transform(const XMLNode * node, Vector3 * position, Quaternion
 	Matrix4::decompose(world, position, rotation, scale, forward);
 }
 
-static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, StringView path) {
+static Handle<Material> parse_material(const XMLNode * node, Scene & scene, const MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	Material material = { };
 
 	const XMLNode * bsdf;
@@ -182,11 +182,11 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		if (ref) {
 			StringView material_name = ref->get_attribute_value<StringView>("id");
 
-			if (MaterialHandle * material_id = material_map.try_get(material_name)) {
+			if (Handle<Material> * material_id = material_map.try_get(material_name)) {
 				return *material_id;
 			} else {
 				WARNING(ref->location, "Invalid material Ref '{}'!\n", material_name);
-				return MaterialHandle::get_default();
+				return Handle<Material>::get_default();
 			}
 		}
 
@@ -194,7 +194,7 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 		bsdf = node->get_child_by_tag("bsdf");
 		if (bsdf == nullptr) {
 			WARNING(node->location, "Unable to parse BSDF!\n");
-			return MaterialHandle::get_default();
+			return Handle<Material>::get_default();
 		}
 	} else {
 		bsdf = node;
@@ -220,14 +220,14 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 			if (ref) {
 				StringView id = ref->get_attribute_value<StringView>("id");
 
-				if (MaterialHandle * material_handle = material_map.try_get(id)) {
+				if (Handle<Material> * material_handle = material_map.try_get(id)) {
 					return *material_handle;
 				} else {
 					WARNING(ref->location, "Invalid material Ref '{}'!\n", id);
-					return MaterialHandle::get_default();
+					return Handle<Material>::get_default();
 				}
 			} else {
-				return MaterialHandle::get_default();
+				return Handle<Material>::get_default();
 			}
 		}
 
@@ -363,16 +363,16 @@ static MaterialHandle parse_material(const XMLNode * node, Scene & scene, const 
 	} else {
 		WARNING(inner_bsdf->location, "WARNING: BSDF type '{}' not supported!\n", inner_bsdf_type);
 
-		return MaterialHandle::get_default();
+		return Handle<Material>::get_default();
 	}
 
 	return scene.asset_manager.add_material(std::move(material));
 }
 
-static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
+static Handle<Medium> parse_medium(const XMLNode * node, Scene & scene) {
 	const XMLNode * xml_medium = node->get_child_by_tag("medium");
 	if (!xml_medium) {
-		return MediumHandle { INVALID };
+		return Handle<Medium> { INVALID };
 	}
 
 	StringView medium_type = xml_medium->get_attribute_value("type");
@@ -426,16 +426,16 @@ static MediumHandle parse_medium(const XMLNode * node, Scene & scene) {
 		WARNING(xml_medium->location, "WARNING: Medium type '{}' not supported!\n", medium_type);
 	}
 
-	return MediumHandle { INVALID };
+	return Handle<Medium> { INVALID };
 }
 
-static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, Scene & scene, StringView path, String * name) {
+static Handle<MeshData> parse_shape(const XMLNode * node, Allocator * allocator, Scene & scene, StringView path, String * name) {
 	StringView type = node->get_attribute_value<StringView>("type");
 
 	if (type == "obj" || type == "ply") {
 		String filename = Util::combine_stringviews(path, node->get_child_value<StringView>("filename"), scene.allocator);
 
-		MeshDataHandle mesh_data_handle;
+		Handle<MeshData> mesh_data_handle;
 		if (type == "obj") {
 			mesh_data_handle = scene.asset_manager.add_mesh_data(filename, OBJLoader::load);
 		} else {
@@ -513,13 +513,13 @@ static MeshDataHandle parse_shape(const XMLNode * node, Allocator * allocator, S
 		return scene.asset_manager.add_mesh_data(filename_abs, fallback_loader);
 	} else {
 		WARNING(node->location, "WARNING: Shape type '{}' not supported!\n", type);
-		return MeshDataHandle { INVALID };
+		return Handle<MeshData> { INVALID };
 	}
 }
 
 static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & scene, ShapeGroupMap & shape_group_map, MaterialMap & material_map, TextureMap & texture_map, StringView path) {
 	if (node->tag == "bsdf") {
-		MaterialHandle material_handle = parse_material(node, scene, material_map, texture_map, path);
+		Handle<Material> material_handle = parse_material(node, scene, material_map, texture_map, path);
 		const Material & material = scene.asset_manager.get_material(material_handle);
 
 		material_map.insert(material.name, material_handle);
@@ -537,8 +537,8 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 
 				String name = { };
 
-				MeshDataHandle mesh_data_handle = parse_shape(shape, allocator, scene, path, &name);
-				MaterialHandle material_handle  = parse_material(shape, scene, material_map, texture_map, path);
+				Handle<MeshData> mesh_data_handle = parse_shape(shape, allocator, scene, path, &name);
+				Handle<Material> material_handle  = parse_material(shape, scene, material_map, texture_map, path);
 
 				StringView id = node->get_attribute_value<StringView>("id");
 				shape_group_map[id] = { mesh_data_handle, material_handle };
@@ -559,9 +559,9 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 		} else {
 			String name = { };
 
-			MeshDataHandle mesh_data_handle = parse_shape(node, allocator, scene, path, &name);
-			MaterialHandle material_handle  = parse_material(node, scene, material_map, texture_map, path);
-			MediumHandle   medium_handle    = parse_medium(node, scene);
+			Handle<MeshData> mesh_data_handle = parse_shape(node, allocator, scene, path, &name);
+			Handle<Material> material_handle  = parse_material(node, scene, material_map, texture_map, path);
+			Handle<Medium>   medium_handle    = parse_medium(node, scene);
 
 			if (material_handle.handle != INVALID) {
 				Material & material = scene.asset_manager.get_material(material_handle);
@@ -649,13 +649,13 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			Matrix4 transform = parse_transform_matrix(node) * Matrix4::create_scale(RADIUS);
 
 			Array<Triangle> triangles = Geometry::sphere(transform, 0);
-			MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(std::move(triangles));
+			Handle<MeshData> mesh_data_handle = scene.asset_manager.add_mesh_data(std::move(triangles));
 
 			Material material = { };
 			material.type = Material::Type::LIGHT;
 			material.emission = node->get_child_value_optional<Vector3>("intensity", Vector3(1.0f));
 
-			MaterialHandle material_handle = scene.asset_manager.add_material(std::move(material));
+			Handle<Material> material_handle = scene.asset_manager.add_material(std::move(material));
 
 			scene.add_mesh("PointLight", mesh_data_handle, material_handle);
 		} else {

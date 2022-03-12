@@ -316,6 +316,7 @@
     <ClInclude Include="Src\Math\Vector3.h" />
     <ClInclude Include="Src\Math\Vector4.h" />
     <ClInclude Include="Src\Renderer\Camera.h" />
+    <ClInclude Include="Src\Renderer\Handle.h" />
     <ClInclude Include="Src\Renderer\Integrators\AO.h" />
     <ClInclude Include="Src\Renderer\Integrators\Integrator.h" />
     <ClInclude Include="Src\Renderer\Integrators\Pathtracer.h" />

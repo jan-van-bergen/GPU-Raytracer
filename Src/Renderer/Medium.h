@@ -52,5 +52,3 @@ struct Medium {
 		sigma_a = sigma_t - sigma_s;
 	}
 };
-
-struct MediumHandle { int handle = INVALID; };

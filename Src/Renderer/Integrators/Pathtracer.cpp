@@ -307,7 +307,7 @@ void Pathtracer::svgf_free() {
 }
 
 void Pathtracer::calc_light_power(Allocator * frame_allocator) {
-	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights(frame_allocator);
+	HashMap<Handle<MeshData>, Array<Mesh *>> mesh_data_used_as_lights(frame_allocator);
 
 	int light_mesh_count = 0;
 
@@ -318,7 +318,7 @@ void Pathtracer::calc_light_power(Allocator * frame_allocator) {
 		const Material & material = scene.asset_manager.get_material(mesh.material_handle);
 
 		if (material.is_light()) {
-			Array<Mesh *> & meshes = mesh_data_used_as_lights[mesh.mesh_data_handle.handle];
+			Array<Mesh *> & meshes = mesh_data_used_as_lights[mesh.mesh_data_handle];
 			meshes.allocator = frame_allocator;
 			meshes.push_back(&mesh);
 			light_mesh_count++;
@@ -344,7 +344,7 @@ void Pathtracer::calc_light_power(Allocator * frame_allocator) {
 	using It = decltype(mesh_data_used_as_lights)::Iterator;
 
 	for (It it = mesh_data_used_as_lights.begin(); it != mesh_data_used_as_lights.end(); ++it) {
-		MeshDataHandle  mesh_data_handle = MeshDataHandle { it.get_key() };
+		Handle<MeshData>  mesh_data_handle = Handle<MeshData> { it.get_key() };
 		Array<Mesh *> & meshes           = it.get_value();
 
 		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
