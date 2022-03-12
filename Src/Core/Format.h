@@ -6,6 +6,11 @@
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 
+template<typename T>
+struct Formatter {
+
+};
+
 struct Format {
 	struct Spec {
 		const char * fmt_end;
@@ -86,11 +91,6 @@ private:
 	}
 
 	Spec parse_fmt(StringView fmt) const;
-};
-
-template<typename T>
-struct Formatter {
-
 };
 
 template<size_t N, typename T>
