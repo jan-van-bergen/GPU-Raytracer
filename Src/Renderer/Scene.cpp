@@ -27,9 +27,9 @@ Scene::Scene(Allocator * allocator) : allocator(allocator), asset_manager(alloca
 		}
 
 		if (file_extension == "obj") {
-			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, &load_allocator, OBJLoader::load));
+			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, OBJLoader::load));
 		} else if (file_extension == "ply") {
-			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, &load_allocator, PLYLoader::load));
+			add_mesh(scene_filename, asset_manager.add_mesh_data(scene_filename, PLYLoader::load));
 		} else if (file_extension == "xml") {
 			MitsubaLoader::load(scene_filename, &load_allocator, *this);
 		} else {
