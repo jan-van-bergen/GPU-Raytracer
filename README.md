@@ -50,6 +50,8 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Dragon](Screenshots/dragon.png "Dragon")
 ![Candles](Screenshots/candles.png "Candles")
 ![Still-Life](Screenshots/still-life.png "Still Life")
+![Zealot](Screenshots/zealot.png "Zealot")
+![Millennium Falcon](Screenshots/millennium-falcon.png "Millennium-falcon")
 
 For more screenshots, see the Screenshots folder
 
