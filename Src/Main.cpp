@@ -601,6 +601,18 @@ static void draw_gui(Window & window, Integrator & integrator) {
 							break;
 						}
 						case Material::Type::DIELECTRIC: {
+							if (ImGui::Button("+##NewMedium")) {
+								Medium new_medium = { };
+								new_medium.name = Format().format("Material {}"_sv, integrator.scene.asset_manager.media.size());
+								material.medium_handle = integrator.scene.asset_manager.add_medium(std::move(new_medium));
+
+								integrator.free_materials();
+								integrator.init_materials();
+								integrator.invalidated_mediums   = true;
+								integrator.invalidated_materials = true;
+							}
+							ImGui::SameLine();
+
 							material.medium_handle.handle = ImGui_Combo("Medium", medium_name, integrator.scene.asset_manager.media, true, material.medium_handle.handle, [&integrator](int index) {
 								integrator.invalidated_materials = true;
 							});
