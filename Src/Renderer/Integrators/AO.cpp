@@ -14,6 +14,8 @@ void AO::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_he
 
 	resize_init(frame_buffer_handle, screen_width, screen_height);
 
+	scene.asset_manager.wait_until_loaded();
+
 	init_geometry();
 	init_rng();
 	init_events();
