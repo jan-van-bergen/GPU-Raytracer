@@ -156,6 +156,12 @@ __device__ inline float abs_dot(const float3 & a, const float3 & b) {
 	return fabsf(dot(a, b));
 }
 
+__device__ inline float2 sincos(float x) {
+	float sin_x, cos_x;
+	__sincosf(x, &sin_x, &cos_x);
+	return make_float2(sin_x, cos_x);
+}
+
 template<typename T>
 __device__ T lerp(T const & a, T const & b, float t) {
 	return (1.0f - t) * a + t * b;

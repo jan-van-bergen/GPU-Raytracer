@@ -35,5 +35,3 @@ struct Texture {
 
 	inline int mip_levels() const { return int(mip_offsets.size()); }
 };
-
-struct TextureHandle { int handle = INVALID; };

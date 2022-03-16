@@ -60,8 +60,10 @@ static Index parse_index(Parser & parser) {
 static Vector3 parse_v(Parser & parser) {
 	Vector3 v = parse_vector3(parser);
 	parser.skip_whitespace();
-	if (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
-		parser.parse_float(); // w coordinate, ignored
+	// Ignore w coordinate or any vertex colours provided
+	while (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
+		parser.parse_float();
+		parser.skip_whitespace();
 	}
 	return v;
 }
@@ -69,8 +71,10 @@ static Vector3 parse_v(Parser & parser) {
 static Vector2 parse_vt(Parser & parser) {
 	Vector2 vt = parse_vector2(parser);
 	parser.skip_whitespace();
-	if (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
-		parser.parse_float(); // w coordinate, ignored
+	// Ignore w coordinate
+	while (is_digit(*parser.cur) || *parser.cur == '+' || *parser.cur == '-' || *parser.cur == '.') {
+		parser.parse_float();
+		parser.skip_whitespace();
 	}
 	return vt;
 }

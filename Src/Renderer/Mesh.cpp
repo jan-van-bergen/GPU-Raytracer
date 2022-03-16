@@ -2,11 +2,9 @@
 
 #include "Renderer/Scene.h"
 
-Mesh::Mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, const Scene & scene) {
-	this->name             = std::move(name);
-	this->mesh_data_handle = mesh_data_handle;
-	this->material_handle  = material_handle;
+Mesh::Mesh(String name, Handle<MeshData> mesh_data_handle, Handle<Material> material_handle) : name(std::move(name)), mesh_data_handle(mesh_data_handle), material_handle(material_handle) { }
 
+void Mesh::calc_aabb(const Scene & scene) {
 	const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
 
 	aabb_untransformed = AABB::create_empty();

@@ -1,11 +1,15 @@
 #pragma once
+#include "Core/Allocators/LinearAllocator.h"
+
+#include "Assets/AssetManager.h"
+
 #include "Camera.h"
 #include "Mesh.h"
 #include "Sky.h"
 
-#include "Assets/AssetManager.h"
-
 struct Scene {
+	Allocator * allocator = nullptr;
+
 	AssetManager asset_manager;
 
 	Camera      camera;
@@ -20,9 +24,9 @@ struct Scene {
 
 	int triangle_count = 0;
 
-	Scene();
+	Scene(Allocator * allocator);
 
-	Mesh & add_mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle = MaterialHandle::get_default());
+	Mesh & add_mesh(String name, Handle<MeshData> mesh_data_handle, Handle<Material> material_handle = Handle<Material>::get_default());
 
 	void calc_properties();
 

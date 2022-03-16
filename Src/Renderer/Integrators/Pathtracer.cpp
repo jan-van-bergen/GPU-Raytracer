@@ -307,7 +307,7 @@ void Pathtracer::svgf_free() {
 }
 
 void Pathtracer::calc_light_power(Allocator * frame_allocator) {
-	HashMap<int, Array<Mesh *>> mesh_data_used_as_lights(frame_allocator);
+	HashMap<Handle<MeshData>, Array<Mesh *>> mesh_data_used_as_lights(frame_allocator);
 
 	int light_mesh_count = 0;
 
@@ -317,8 +317,8 @@ void Pathtracer::calc_light_power(Allocator * frame_allocator) {
 		Mesh & mesh = scene.meshes[m];
 		const Material & material = scene.asset_manager.get_material(mesh.material_handle);
 
-		if (material.type == Material::Type::LIGHT && (material.emission.x > 0.0f || material.emission.y > 0.0f || material.emission.z > 0.0f)) {
-			Array<Mesh *> & meshes = mesh_data_used_as_lights[mesh.mesh_data_handle.handle];
+		if (material.is_light()) {
+			Array<Mesh *> & meshes = mesh_data_used_as_lights[mesh.mesh_data_handle];
 			meshes.allocator = frame_allocator;
 			meshes.push_back(&mesh);
 			light_mesh_count++;
@@ -344,7 +344,7 @@ void Pathtracer::calc_light_power(Allocator * frame_allocator) {
 	using It = decltype(mesh_data_used_as_lights)::Iterator;
 
 	for (It it = mesh_data_used_as_lights.begin(); it != mesh_data_used_as_lights.end(); ++it) {
-		MeshDataHandle  mesh_data_handle = MeshDataHandle { it.get_key() };
+		Handle<MeshData>  mesh_data_handle = Handle<MeshData> { it.get_key() };
 		Array<Mesh *> & meshes           = it.get_value();
 
 		const MeshData & mesh_data = scene.asset_manager.get_mesh_data(mesh_data_handle);
@@ -369,7 +369,7 @@ void Pathtracer::calc_light_power(Allocator * frame_allocator) {
 			Mesh * mesh = meshes[m];
 
 			const Material & material = scene.asset_manager.get_material(mesh->material_handle);
-			float power = Math::luminance(material.emission.x, material.emission.y, material.emission.z);
+			float power = Math::luminance(material.emission);
 
 			mesh->light.weight               = power * float(light_mesh_data.total_area);
 			mesh->light.first_triangle_index = light_mesh_data.first_triangle_index;
@@ -477,12 +477,12 @@ void Pathtracer::update(float delta, Allocator * frame_allocator) {
 				}
 				case Material::Type::DIFFUSE: {
 					cuda_materials[i].diffuse.diffuse    = material.diffuse;
-					cuda_materials[i].diffuse.texture_id = material.texture_id.handle;
+					cuda_materials[i].diffuse.texture_id = material.texture_handle.handle;
 					break;
 				}
 				case Material::Type::PLASTIC: {
 					cuda_materials[i].plastic.diffuse    = material.diffuse;
-					cuda_materials[i].plastic.texture_id = material.texture_id.handle;
+					cuda_materials[i].plastic.texture_id = material.texture_handle.handle;
 					cuda_materials[i].plastic.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
 					break;
 				}

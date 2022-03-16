@@ -50,6 +50,8 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Dragon](Screenshots/dragon.png "Dragon")
 ![Candles](Screenshots/candles.png "Candles")
 ![Still-Life](Screenshots/still-life.png "Still Life")
+![Zealot](Screenshots/zealot.png "Zealot")
+![Millennium Falcon](Screenshots/millennium-falcon.png "Millennium-falcon")
 
 For more screenshots, see the Screenshots folder
 
@@ -81,6 +83,8 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 	- [Stormtrooper](https://www.blendswap.com/blend/13953)
 	- [Candles](https://blendswap.com/blend/1845)
 	- [Piano](https://blendswap.com/blend/29080)
+	- [Zealot](https://blendswap.com/blend/17301)
+	- [Millennium Falcon](https://blendswap.com/blend/5843)
 
 - [Blender Demos](https://www.blender.org/download/demo-files/)
 

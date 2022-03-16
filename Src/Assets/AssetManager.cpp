@@ -11,79 +11,146 @@
 #include "Util/Util.h"
 #include "Util/StringUtil.h"
 #include "Util/ThreadPool.h"
+#include "Util/Geometry.h"
 
-AssetManager::AssetManager() : thread_pool(make_owned<ThreadPool>()) {
+AssetManager::AssetManager(Allocator * allocator) : mesh_datas(allocator), materials(allocator), media(allocator), textures(allocator), mesh_data_cache(allocator), texture_cache(allocator), thread_pool(make_owned<ThreadPool>()) {
 	Material default_material = { };
 	default_material.name    = "Default";
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
-	add_material(default_material);
+	add_material(std::move(default_material));
 
 	Medium default_medium = { };
 	default_medium.name = "Default";
-	add_medium(default_medium);
+	add_medium(std::move(default_medium));
 }
 
 // NOTE: Seemingly pointless desctructor needed here since ThreadPool is
 // forward declared, so its destructor is not available in the header file
-AssetManager::~AssetManager() { }
+AssetManager::~AssetManager() = default;
 
-MeshDataHandle AssetManager::add_mesh_data(MeshData mesh_data) {
-	MeshDataHandle mesh_data_id = { int(mesh_datas.size()) };
-	mesh_datas.push_back(std::move(mesh_data));
-
-	return mesh_data_id;
+Handle<MeshData> AssetManager::new_mesh_data() {
+	MutexLock lock(mesh_datas_mutex);
+	Handle<MeshData> mesh_data_handle = { mesh_datas.size() };
+	mesh_datas.emplace_back();
+	return mesh_data_handle;
 }
 
-MeshDataHandle AssetManager::add_mesh_data(Array<Triangle> triangles) {
-	BVH2 bvh = BVH::create_from_triangles(triangles);
-
-	MeshData mesh_data = { };
-	mesh_data.triangles = std::move(triangles);
-	mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
-
-	return add_mesh_data(std::move(mesh_data));
+Handle<Texture> AssetManager::new_texture() {
+	MutexLock lock(textures_mutex);
+	Handle<Texture> texture_handle = { textures.size() };
+	textures.emplace_back();
+	return texture_handle;
 }
 
-MaterialHandle AssetManager::add_material(const Material & material) {
-	MaterialHandle material_id = { int(materials.size()) };
-	materials.push_back(material);
-
-	return material_id;
+Handle<MeshData> AssetManager::add_mesh_data(String filename, FallbackLoader fallback_loader) {
+	String bvh_filename = BVHLoader::get_bvh_filename(filename.view(), nullptr);
+	return add_mesh_data(std::move(filename), std::move(bvh_filename), std::move(fallback_loader));
 }
 
-MediumHandle AssetManager::add_medium(const Medium & medium) {
-	MediumHandle medium_id = { int(media.size()) };
-	media.push_back(medium);
+Handle<MeshData> AssetManager::add_mesh_data(String filename, String bvh_filename, FallbackLoader fallback_loader) {
+	Handle<MeshData> & mesh_data_handle = mesh_data_cache[filename];
 
-	return medium_id;
+	if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
+
+	mesh_data_handle = new_mesh_data();
+
+	thread_pool->submit([this, filename = std::move(filename), bvh_filename = std::move(bvh_filename), fallback_loader = std::move(fallback_loader), mesh_data_handle]() mutable {
+		BVH2     bvh       = { };
+		MeshData mesh_data = { };
+
+		bool bvh_loaded = BVHLoader::try_to_load(filename, bvh_filename, &mesh_data, &bvh);
+		if (!bvh_loaded) {
+			mesh_data.triangles = fallback_loader(filename, nullptr);
+
+			if (mesh_data.triangles.size() == 0) {
+				// FIXME: Right now empty MeshData is handled by inserting a dummy Triangle
+				Triangle triangle = { };
+				triangle.position_0 = Vector3(-1.0f, -1.0f, 0.0f);
+				triangle.position_1 = Vector3( 0.0f, +1.0f, 0.0f);
+				triangle.position_2 = Vector3(+1.0f, -1.0f, 0.0f);
+				triangle.tex_coord_0 = Vector2(0.0f, 1.0f);
+				triangle.tex_coord_1 = Vector2(0.5f, 0.0f);
+				triangle.tex_coord_2 = Vector2(1.0f, 1.0f);
+				triangle.normal_0 = Vector3(0.0f, 0.0f, 1.0f);
+				triangle.normal_1 = Vector3(0.0f, 0.0f, 1.0f);
+				triangle.normal_2 = Vector3(0.0f, 0.0f, 1.0f);
+				triangle.init();
+				mesh_data.triangles = { triangle };
+			}
+
+			bvh = BVH::create_from_triangles(mesh_data.triangles);
+			BVHLoader::save(bvh_filename, mesh_data, bvh);
+		}
+
+		if (cpu_config.bvh_type != BVHType::BVH8) {
+			BVHCollapser::collapse(bvh);
+		}
+
+		mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
+
+		{
+			MutexLock lock(mesh_datas_mutex);
+			get_mesh_data(mesh_data_handle) = std::move(mesh_data);
+		}
+	});
+
+	return mesh_data_handle;
 }
 
-TextureHandle AssetManager::add_texture(const String & filename) {
-	TextureHandle & texture_id = texture_cache[filename];
+Handle<MeshData> AssetManager::add_mesh_data(Array<Triangle> triangles) {
+	Handle<MeshData> mesh_data_handle = new_mesh_data();
+
+	thread_pool->submit([this, triangles = std::move(triangles), mesh_data_handle]() mutable {
+		BVH2 bvh = BVH::create_from_triangles(triangles);
+
+		MeshData mesh_data = { };
+		mesh_data.triangles = std::move(triangles);
+		mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
+
+		{
+			MutexLock mutex(mesh_datas_mutex);
+			get_mesh_data(mesh_data_handle) = std::move(mesh_data);
+		}
+	});
+
+	return mesh_data_handle;
+}
+
+Handle<Material> AssetManager::add_material(Material material) {
+	Handle<Material> material_handle = { int(materials.size()) };
+	materials.emplace_back(std::move(material));
+
+	return material_handle;
+}
+
+Handle<Medium> AssetManager::add_medium(Medium medium) {
+	Handle<Medium> medium_handle = { int(media.size()) };
+	media.emplace_back(std::move(medium));
+
+	return medium_handle;
+}
+
+Handle<Texture> AssetManager::add_texture(String filename, String name) {
+	Handle<Texture> & texture_handle = texture_cache[filename];
 
 	// If the cache already contains this Texture simply return its index
-	if (texture_id.handle != INVALID) return texture_id;
+	if (texture_handle.handle != INVALID) return texture_handle;
 
 	// Otherwise, create new Texture and load it from disk
-	textures_mutex.lock();
-	texture_id.handle = textures.size();
-	textures.emplace_back();
-	textures_mutex.unlock();
+	texture_handle = new_texture();
 
-	thread_pool->submit([this, filename, texture_id]() {
-		StringView name = Util::remove_directory(filename.view());
-
+	thread_pool->submit([this, filename = std::move(filename), name = std::move(name), texture_handle]() mutable {
 		Texture texture = { };
-		texture.name = name;
+		texture.name = std::move(name);
 
 		bool success = false;
 
 		StringView file_extension = Util::get_file_extension(filename.view());
 		if (!file_extension.is_empty()) {
 			if (file_extension == "dds") {
-				success = TextureLoader::load_dds(filename, texture); // DDS is loaded using custom code
+				success = TextureLoader::load_dds(filename, &texture); // DDS is loaded using custom code
 			} else {
-				success = TextureLoader::load_stb(filename, texture); // other file formats use stb_image
+				success = TextureLoader::load_stb(filename, &texture); // other file formats use stb_image
 			}
 		}
 
@@ -91,9 +158,8 @@ TextureHandle AssetManager::add_texture(const String & filename) {
 			IO::print("WARNING: Failed to load Texture '{}'!\n"_sv, filename);
 
 			// Use a default 1x1 pink Texture
-			Vector4 pink = Vector4(1.0f, 0.0f, 1.0f, 1.0f);
 			texture.data.resize(sizeof(Vector4));
-			memcpy(texture.data.data(), &pink, sizeof(Vector4));
+			new (texture.data.data()) Vector4(1.0f, 0.0f, 1.0f, 1.0f);
 
 			texture.format = Texture::Format::RGBA;
 			texture.width  = 1;
@@ -102,12 +168,13 @@ TextureHandle AssetManager::add_texture(const String & filename) {
 			texture.mip_offsets = { 0 };
 		}
 
-		textures_mutex.lock();
-		textures[texture_id.handle] = std::move(texture);
-		textures_mutex.unlock();
+		{
+			MutexLock lock(textures_mutex);
+			get_texture(texture_handle) = std::move(texture);
+		}
 	});
 
-	return texture_id;
+	return texture_handle;
 }
 
 void AssetManager::wait_until_loaded() {

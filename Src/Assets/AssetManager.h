@@ -3,7 +3,9 @@
 #include "Core/HashMap.h"
 #include "Core/String.h"
 #include "Core/Mutex.h"
+#include "Core/Function.h"
 #include "Core/OwnPtr.h"
+#include "Core/Allocators/Allocator.h"
 
 #include "Renderer/MeshData.h"
 #include "Renderer/Material.h"
@@ -21,12 +23,12 @@ struct AssetManager {
 	Array<Medium>   media;
 	Array<Texture>  textures;
 
-	AssetManager();
+	AssetManager(Allocator * allocator);
 	~AssetManager();
 
 private:
-	HashMap<String, MeshDataHandle> mesh_data_cache;
-	HashMap<String, TextureHandle>  texture_cache;
+	HashMap<String, Handle<MeshData>> mesh_data_cache;
+	HashMap<String, Handle<Texture>>  texture_cache;
 
 	Mutex mesh_datas_mutex;
 	Mutex textures_mutex;
@@ -35,66 +37,31 @@ private:
 
 	bool assets_loaded = false;
 
+	Handle<MeshData> new_mesh_data();
+	Handle<Texture>  new_texture();
+
 public:
-	template<typename FallbackLoader>
-	MeshDataHandle add_mesh_data(const String & filename, Allocator * allocator, FallbackLoader fallback_loader) {
-		String bvh_filename = BVHLoader::get_bvh_filename(filename.view(), allocator);
-		MeshDataHandle mesh_data_handle = add_mesh_data(filename, bvh_filename, allocator, fallback_loader);
+	using FallbackLoader = Function<Array<Triangle>(const String & filename, Allocator * allocator)>;
 
-		return mesh_data_handle;
-	}
+	Handle<MeshData> add_mesh_data(String filename,                      FallbackLoader fallback_loader);
+	Handle<MeshData> add_mesh_data(String filename, String bvh_filename, FallbackLoader fallback_loader);
+	Handle<MeshData> add_mesh_data(Array<Triangle> triangles);
 
-	template<typename FallbackLoader>
-	MeshDataHandle add_mesh_data(const String & filename, const String & bvh_filename, Allocator * allocator, FallbackLoader fallback_loader) {
-		MeshDataHandle & mesh_data_handle = mesh_data_cache[filename];
+	Handle<Material> add_material(Material material);
 
-		if (mesh_data_handle.handle != INVALID) return mesh_data_handle;
+	Handle<Medium> add_medium(Medium medium);
 
-		BVH2     bvh       = { };
-		MeshData mesh_data = { };
-
-		bool bvh_loaded = BVHLoader::try_to_load(filename, bvh_filename, mesh_data, bvh);
-		if (!bvh_loaded) {
-			mesh_data.triangles = fallback_loader(filename, allocator);
-
-			if (mesh_data.triangles.size() == 0) {
-				return { INVALID };
-			}
-
-			bvh = BVH::create_from_triangles(mesh_data.triangles);
-			BVHLoader::save(bvh_filename, mesh_data, bvh);
-		}
-
-		if (cpu_config.bvh_type != BVHType::BVH8) {
-			BVHCollapser::collapse(bvh);
-		}
-
-		mesh_data.bvh = BVH::create_from_bvh2(std::move(bvh));
-
-		mesh_data_handle.handle = mesh_datas.size();
-		mesh_datas.push_back(std::move(mesh_data));
-
-		return mesh_data_handle;
-	}
-
-	MeshDataHandle add_mesh_data(MeshData mesh_data);
-	MeshDataHandle add_mesh_data(Array<Triangle> triangles);
-
-	MaterialHandle add_material(const Material & material);
-
-	MediumHandle add_medium(const Medium & medium);
-
-	TextureHandle add_texture(const String & filename);
+	Handle<Texture> add_texture(String filename, String name);
 
 	void wait_until_loaded();
 
-	MeshData & get_mesh_data(MeshDataHandle handle) { return mesh_datas[handle.handle]; }
-	Material & get_material (MaterialHandle handle) { return materials [handle.handle]; }
-	Medium   & get_medium   (MediumHandle   handle) { return media     [handle.handle]; }
-	Texture  & get_texture  (TextureHandle  handle) { return textures  [handle.handle]; }
+	MeshData & get_mesh_data(Handle<MeshData> handle) { return mesh_datas[handle.handle]; }
+	Material & get_material (Handle<Material> handle) { return materials [handle.handle]; }
+	Medium   & get_medium   (Handle<Medium>   handle) { return media     [handle.handle]; }
+	Texture  & get_texture  (Handle<Texture>  handle) { return textures  [handle.handle]; }
 
-	const MeshData & get_mesh_data(MeshDataHandle handle) const { return mesh_datas[handle.handle]; }
-	const Material & get_material (MaterialHandle handle) const { return materials [handle.handle]; }
-	const Medium   & get_medium   (MediumHandle   handle) const { return media     [handle.handle]; }
-	const Texture  & get_texture  (TextureHandle  handle) const { return textures  [handle.handle]; }
+	const MeshData & get_mesh_data(Handle<MeshData> handle) const { return mesh_datas[handle.handle]; }
+	const Material & get_material (Handle<Material> handle) const { return materials [handle.handle]; }
+	const Medium   & get_medium   (Handle<Medium>   handle) const { return media     [handle.handle]; }
+	const Texture  & get_texture  (Handle<Texture>  handle) const { return textures  [handle.handle]; }
 };

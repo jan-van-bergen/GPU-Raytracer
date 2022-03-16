@@ -12,13 +12,13 @@
 #include "Util/Geometry.h"
 
 struct Instance {
-	MeshDataHandle mesh_data_handle;
-	MaterialHandle material_handle;
+	Handle<MeshData> mesh_data_handle;
+	Handle<Material> material_handle;
 };
 
-using PBRTTextureMap  = HashMap<String, TextureHandle>;
-using PBRTMaterialMap = HashMap<String, MaterialHandle>;
-using PBRTMediumMap   = HashMap<String, MediumHandle>;
+using PBRTTextureMap  = HashMap<String, Handle<Texture>>;
+using PBRTMaterialMap = HashMap<String, Handle<Material>>;
+using PBRTMediumMap   = HashMap<String, Handle<Medium>>;
 using PBRTObjectMap   = HashMap<String, Array<Instance>>;
 
 static void parser_next_line(Parser & parser) {
@@ -269,7 +269,9 @@ static Material parse_material(String name, StringView type, const Array<Param> 
 		} else if (param_reflectance->type == Param::Type::TEXTURE) {
 			StringView texture_name = param_reflectance->strings[0];
 
-			if (!texture_map.try_get(texture_name, material.texture_id)) {
+			if (Handle<Texture> * texture_handle = texture_map.try_get(texture_name)) {
+				material.texture_handle = *texture_handle;
+			} else {
 				WARNING(param_reflectance->location, "Undefined texture '{}'!\n", texture_name);
 			}
 		} else {
@@ -435,8 +437,8 @@ static void load_include(const String & filename, StringView path, Allocator * a
 	Parser parser(file.view(), filename.view());
 
 	struct Attribute {
-		MaterialHandle material = MaterialHandle::get_default();
-		Matrix4        transform;
+		Handle<Material> material = Handle<Material>::get_default();
+		Matrix4          transform;
 	};
 
 	Array<Attribute> attribute_stack;
@@ -502,13 +504,13 @@ static void load_include(const String & filename, StringView path, Allocator * a
 			StringView name = parse_quoted(parser);
 			pbrt_parser_skip(parser);
 
-			Array<Instance> shape;
-			if (!object_map.try_get(name, shape)) {
+			Array<Instance> * shape = object_map.try_get(name);
+			if (!shape) {
 				ERROR(parser.location, "Trying to create instance of unknown shape '{}'!\n", name);
 			}
 
-			for (int i = 0; i < shape.size(); i++) {
-				const Instance & instance = shape[i];
+			for (int i = 0; i < shape->size(); i++) {
+				const Instance & instance = (*shape)[i];
 
 				Mesh & mesh = scene.add_mesh(name, instance.mesh_data_handle, instance.material_handle);
 				Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
@@ -618,15 +620,14 @@ static void load_include(const String & filename, StringView path, Allocator * a
 			if (clas == "imagemap") {
 				String filename_abs = Util::combine_stringviews(path, find_param_string(params, "filename"));
 
-				TextureHandle texture_handle = scene.asset_manager.add_texture(filename_abs);
+				Handle<Texture> texture_handle = scene.asset_manager.add_texture(filename_abs, name);
 				texture_map.insert(name, texture_handle);
 
 			} else if (clas == "scale") {
 				StringView tex = find_param_texture(params, "tex");
 
-				TextureHandle texture_handle;
-				if (texture_map.try_get(tex, texture_handle)) {
-					texture_map.insert(name, texture_handle); // Reinsert under new name
+				if (Handle<Texture> * texture_handle = texture_map.try_get(tex)) {
+					texture_map.insert(name, *texture_handle); // Reinsert under new name
 				}
 			} else if (clas == "mix") {
 				StringView texture_name = { };
@@ -643,9 +644,8 @@ static void load_include(const String & filename, StringView path, Allocator * a
 					texture_name = param_amount.strings[0];
 				}
 
-				TextureHandle texture_handle;
-				if (texture_map.try_get(texture_name, texture_handle)) {
-					texture_map.insert(name, texture_handle); // Reinsert under new name
+				if (Handle<Texture> * texture_handle = texture_map.try_get(texture_name)) {
+					texture_map.insert(name, *texture_handle); // Reinsert under new name
 				}
 			} else {
 				WARNING(parser.location, "Unsupported texture class '{}'!\n", clas);
@@ -667,8 +667,8 @@ static void load_include(const String & filename, StringView path, Allocator * a
 			Array<Param> params = parse_params(parser);
 			StringView type = find_param_string(params, "type");
 
-			Material       material        = parse_material(name, type, params, texture_map);
-			MaterialHandle material_handle = scene.asset_manager.add_material(material);
+			Material         material        = parse_material(name, type, params, texture_map);
+			Handle<Material> material_handle = scene.asset_manager.add_material(material);
 
 			material_map.insert(name, material_handle);
 
@@ -676,8 +676,10 @@ static void load_include(const String & filename, StringView path, Allocator * a
 			StringView name = parse_quoted(parser);
 			pbrt_parser_skip(parser);
 
-			if (!material_map.try_get(name, attribute_stack.back().material)) {
-				attribute_stack.back().material = MaterialHandle::get_default();
+			if (Handle<Material> * material_handle = material_map.try_get(name)) {
+				attribute_stack.back().material = *material_handle;
+			} else {
+				attribute_stack.back().material = Handle<Material>::get_default();
 				WARNING(parser.location, "Used undefined NamedMaterial '{}'!\n", name)
 			}
 
@@ -710,7 +712,7 @@ static void load_include(const String & filename, StringView path, Allocator * a
 				medium.name = name;
 				medium.set_A_and_d(sigma_a, sigma_s);
 
-				MediumHandle medium_handle = scene.asset_manager.add_medium(medium);
+				Handle<Medium> medium_handle = scene.asset_manager.add_medium(medium);
 				medium_map.insert(name, medium_handle);
 			} else {
 				WARNING(parser.location, "Only homogeneous media are supported!\n");
@@ -720,11 +722,10 @@ static void load_include(const String & filename, StringView path, Allocator * a
 			StringView medium_name_from = parse_quoted(parser); pbrt_parser_skip(parser);
 			StringView medium_name_to   = parse_quoted(parser); pbrt_parser_skip(parser);
 
-			MediumHandle medium_handle;
-			if (medium_map.try_get(medium_name_to, medium_handle)) {
-				MaterialHandle material_handle = attribute_stack.back().material;
+			if (Handle<Medium> * medium_handle = medium_map.try_get(medium_name_to)) {
+				Handle<Material> material_handle = attribute_stack.back().material;
 				if (material_handle.handle != INVALID) {
-					scene.asset_manager.get_material(material_handle).medium_handle = medium_handle;
+					scene.asset_manager.get_material(material_handle).medium_handle = *medium_handle;
 				}
 			} else {
 				WARNING(parser.location, "Named Medium '{}' not found!\n", medium_name_to);
@@ -787,7 +788,7 @@ static void load_include(const String & filename, StringView path, Allocator * a
 				StringView filename_rel = find_param(params, "filename", Param::Type::STRING).strings[0];
 				String     filename_abs = Util::combine_stringviews(path, filename_rel);
 
-				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, allocator, PLYLoader::load);
+				Handle<MeshData> mesh_data_handle = scene.asset_manager.add_mesh_data(filename_abs, PLYLoader::load);
 
 				if (current_object.inside) {
 					Instance instance = { };
@@ -851,14 +852,14 @@ static void load_include(const String & filename, StringView path, Allocator * a
 					triangle.init();
 				}
 
-				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
+				Handle<MeshData> mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
 				Mesh & mesh = scene.add_mesh("Triangle Mesh", mesh_data_handle, attribute_stack.back().material);
 				Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 			} else if (type == "sphere") {
 				float radius = find_param_float(params, "radius", 1.0f);
 
 				Array<Triangle> triangles = Geometry::sphere(attribute_stack.back().transform);
-				MeshDataHandle mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
+				Handle<MeshData> mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
 
 				scene.add_mesh("Sphere", mesh_data_handle, attribute_stack.back().material);
 			} else {

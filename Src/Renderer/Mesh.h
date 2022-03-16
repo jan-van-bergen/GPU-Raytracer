@@ -13,7 +13,7 @@ struct Mesh {
 	AABB aabb_untransformed;
 	AABB aabb;
 
-	MeshDataHandle mesh_data_handle;
+	Handle<MeshData> mesh_data_handle;
 
 	Vector3    position;
 	Quaternion rotation;
@@ -21,7 +21,7 @@ struct Mesh {
 
 	Vector3 euler_angles; // For editor only
 
-	MaterialHandle material_handle;
+	Handle<Material> material_handle;
 
 	Matrix4 transform;
 	Matrix4 transform_inv;
@@ -34,7 +34,9 @@ struct Mesh {
 		int triangle_count;
 	} light;
 
-	Mesh(String name, MeshDataHandle mesh_data_handle, MaterialHandle material_handle, const Scene & scene);
+	Mesh(String name, Handle<MeshData> mesh_data_handle, Handle<Material> material_handle);
+
+	void calc_aabb(const Scene & scene);
 
 	void update();
 

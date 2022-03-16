@@ -69,8 +69,8 @@ Window::Window(const String & title, int width, int height) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 
 	StackAllocator<KILOBYTES(4)> allocator;
-	String shader_source_vertex   = IO::file_read("Src/Shaders/post.vert", &allocator);
-	String shader_source_fragment = IO::file_read("Src/Shaders/post.frag", &allocator);
+	String shader_source_vertex   = IO::file_read(String("Src/Shaders/post.vert", &allocator), &allocator);
+	String shader_source_fragment = IO::file_read(String("Src/Shaders/post.frag", &allocator), &allocator);
 
 	shader = Shader::load(shader_source_vertex.view(), shader_source_fragment.view());
 	shader.bind();

@@ -91,7 +91,7 @@ struct Array {
 			count += element_count;
 		} else {
 			for (size_t i = 0; i < element_count; i++) {
-				new (&data()[count++] T(elements[i]));
+				new (&data()[count++]) T(elements[i]);
 			}
 		}
 	}
