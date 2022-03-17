@@ -85,7 +85,7 @@ void downsample_impl(int width_src, int height_src, int width_dst, int height_ds
 	int window_size_x = int(ceilf(filter_width_x * 2.0f)) + 1;
 	int window_size_y = int(ceilf(filter_width_y * 2.0f)) + 1;
 
-	StackAllocator<KILOBYTES(16)> allocator;
+	StackAllocator<KILOBYTES(1)> allocator;
 	Array<float> kernel_x(window_size_x, &allocator);
 	Array<float> kernel_y(window_size_y, &allocator);
 	memset(kernel_x.data(), 0, window_size_x * sizeof(float));
