@@ -83,7 +83,7 @@ bool TextureLoader::load_dds(const String & filename, Texture * texture) {
 	size_t data_size = file.size() - sizeof(header);
 
 	texture->data.resize(data_size);
-	memcpy(texture->data.data(), parser.cur, data_size);
+	parser.copy_into(texture->data.data(), data_size);
 
 	int block_size = texture->channels * 4;
 
