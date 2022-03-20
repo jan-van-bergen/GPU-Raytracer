@@ -61,9 +61,9 @@ bool BVHLoader::try_to_load(const String & filename, const String & bvh_filename
 	bvh->nodes          .resize(header.num_nodes);
 	bvh->indices        .resize(header.num_indices);
 
-	for (int i = 0; i < mesh_data->triangles.size(); i++) mesh_data->triangles[i] = parser.parse_binary<Triangle>();
-	for (int i = 0; i < bvh->nodes  .size(); i++) bvh->nodes  [i] = parser.parse_binary<BVHNode2>();
-	for (int i = 0; i < bvh->indices.size(); i++) bvh->indices[i] = parser.parse_binary<int>();
+	parser.copy_into(mesh_data->triangles.data(), mesh_data->triangles.size());
+	parser.copy_into(bvh->nodes  .data(), bvh->nodes  .size());
+	parser.copy_into(bvh->indices.data(), bvh->indices.size());
 
 	ASSERT(parser.reached_end());
 

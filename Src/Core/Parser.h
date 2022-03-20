@@ -290,4 +290,14 @@ struct Parser {
 		memcpy(&result, start, sizeof(T));
 		return result;
 	}
+
+	template<typename T>
+	void copy_into(T * buffer, size_t num_elements) {
+		size_t num_bytes = num_elements * sizeof(T);
+		if (cur + num_bytes > end) {
+			ERROR(location, "Parser buffer overflow!");
+		}
+		memcpy(buffer, cur, num_bytes);
+		advance(num_bytes);
+	}
 };
