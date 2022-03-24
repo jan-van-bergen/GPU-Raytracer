@@ -30,14 +30,14 @@ AssetManager::~AssetManager() = default;
 
 Handle<MeshData> AssetManager::new_mesh_data() {
 	MutexLock lock(mesh_datas_mutex);
-	Handle<MeshData> mesh_data_handle = { mesh_datas.size() };
+	Handle<MeshData> mesh_data_handle = { int(mesh_datas.size()) };
 	mesh_datas.emplace_back();
 	return mesh_data_handle;
 }
 
 Handle<Texture> AssetManager::new_texture() {
 	MutexLock lock(textures_mutex);
-	Handle<Texture> texture_handle = { textures.size() };
+	Handle<Texture> texture_handle = { int(textures.size()) };
 	textures.emplace_back();
 	return texture_handle;
 }

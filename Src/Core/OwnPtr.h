@@ -1,4 +1,6 @@
 #pragma once
+#include <cstddef>
+
 #include "Assertion.h"
 #include "Constructors.h"
 
