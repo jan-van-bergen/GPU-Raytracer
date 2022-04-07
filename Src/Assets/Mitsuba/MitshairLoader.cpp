@@ -14,8 +14,7 @@ Array<Triangle> MitshairLoader::load(const String & filename, Allocator * alloca
 	Array<Vector3> hair_vertices      (allocator);
 	Array<int>     hair_strand_lengths(allocator);
 
-	size_t triangle_count = 0;
-	int strand_size = 0;
+	int current_strand_length = 0;
 
 	if (parser.match("BINARY_HAIR")) { // Binary format
 		unsigned num_vertices = parser.parse_binary<unsigned>();
@@ -23,41 +22,32 @@ Array<Triangle> MitshairLoader::load(const String & filename, Allocator * alloca
 		while (parser.cur < parser.end) {
 			float x = parser.parse_binary<float>();
 			if (isinf(x)) { // +INF marks beginning of new hair strand
-				hair_strand_lengths.push_back(strand_size);
-				triangle_count += strand_size - 1;
-				strand_size = 0;
+				hair_strand_lengths.push_back(current_strand_length);
+				current_strand_length = 0;
 			} else {
 				float y = parser.parse_binary<float>();
 				float z = parser.parse_binary<float>();
 				hair_vertices.emplace_back(x, y, z);
-				strand_size++;
+				current_strand_length++;
 			}
 		}
 	} else { // ASCII format
 		while (parser.cur < parser.end) {
 			if (is_newline(*parser.cur)) { // Empty line marks beginning of new hair strand
-				hair_strand_lengths.push_back(strand_size);
-				triangle_count +=strand_size - 1;
-				strand_size = 0;
+				hair_strand_lengths.push_back(current_strand_length);
+				current_strand_length = 0;
 			} else {
 				float x = parser.parse_float(); parser.skip_whitespace();
 				float y = parser.parse_float(); parser.skip_whitespace();
 				float z = parser.parse_float(); parser.skip_whitespace();
 				hair_vertices.emplace_back(x, y, z);
-				strand_size++;
+				current_strand_length++;
 			}
 			parser.parse_newline();
 		}
 	}
 
-	if (strand_size > 0) {
-		triangle_count += strand_size - 1;
-	}
-
-	triangle_count *= 2;
-	Array<Triangle> triangles(triangle_count);
-
-	int current_triangle = 0;
+	Array<Triangle> triangles;
 
 	struct Segment {
 		Vector3 begin;
@@ -76,7 +66,6 @@ Array<Triangle> MitshairLoader::load(const String & filename, Allocator * alloca
 
 		if (strand_size < 2) {
 			WARNING(location_in_mitsuba_file, "WARNING: A hair strand was defined with less than 2 vertices!\n");
-			triangle_count -= 2 * strand_size;
 			continue;
 		}
 
@@ -101,29 +90,29 @@ Array<Triangle> MitshairLoader::load(const String & filename, Allocator * alloca
 			curr_segment.begin = strand[v] + r * orthogonal;
 			curr_segment.end   = strand[v] - r * orthogonal;
 
-			triangles[current_triangle].position_0  = prev_segment.begin;
-			triangles[current_triangle].position_1  = prev_segment.end;
-			triangles[current_triangle].position_2  = curr_segment.begin;
-			triangles[current_triangle].normal_0    = Vector3(0.0f);
-			triangles[current_triangle].normal_1    = Vector3(0.0f);
-			triangles[current_triangle].normal_2    = Vector3(0.0f);
-			triangles[current_triangle].tex_coord_0 = Vector2(0.0f, 0.0f);
-			triangles[current_triangle].tex_coord_1 = Vector2(1.0f, 0.0f);
-			triangles[current_triangle].tex_coord_2 = Vector2(0.0f, 1.0f);
-			triangles[current_triangle].init();
-			current_triangle++;
+			Triangle & triangle_0 = triangles.emplace_back();
+			triangle_0.position_0  = prev_segment.begin;
+			triangle_0.position_1  = prev_segment.end;
+			triangle_0.position_2  = curr_segment.begin;
+			triangle_0.normal_0    = Vector3(0.0f);
+			triangle_0.normal_1    = Vector3(0.0f);
+			triangle_0.normal_2    = Vector3(0.0f);
+			triangle_0.tex_coord_0 = Vector2(0.0f, 0.0f);
+			triangle_0.tex_coord_1 = Vector2(1.0f, 0.0f);
+			triangle_0.tex_coord_2 = Vector2(0.0f, 1.0f);
+			triangle_0.init();
 
-			triangles[current_triangle].position_0  = prev_segment.end;
-			triangles[current_triangle].position_1  = curr_segment.end;
-			triangles[current_triangle].position_2  = curr_segment.begin;
-			triangles[current_triangle].normal_0    = Vector3(0.0f);
-			triangles[current_triangle].normal_1    = Vector3(0.0f);
-			triangles[current_triangle].normal_2    = Vector3(0.0f);
-			triangles[current_triangle].tex_coord_0 = Vector2(0.0f, 0.0f);
-			triangles[current_triangle].tex_coord_1 = Vector2(1.0f, 0.0f);
-			triangles[current_triangle].tex_coord_2 = Vector2(0.0f, 1.0f);
-			triangles[current_triangle].init();
-			current_triangle++;
+			Triangle & triangle_1 = triangles.emplace_back();
+			triangle_1.position_0  = prev_segment.end;
+			triangle_1.position_1  = curr_segment.end;
+			triangle_1.position_2  = curr_segment.begin;
+			triangle_1.normal_0    = Vector3(0.0f);
+			triangle_1.normal_1    = Vector3(0.0f);
+			triangle_1.normal_2    = Vector3(0.0f);
+			triangle_1.tex_coord_0 = Vector2(0.0f, 0.0f);
+			triangle_1.tex_coord_1 = Vector2(1.0f, 0.0f);
+			triangle_1.tex_coord_2 = Vector2(0.0f, 1.0f);
+			triangle_1.init();
 
 			prev_segment = curr_segment;
 		}
