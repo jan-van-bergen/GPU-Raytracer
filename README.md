@@ -50,7 +50,7 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Dragon](Screenshots/dragon.png "Dragon")
 ![Candles](Screenshots/candles.png "Candles")
 ![Still-Life](Screenshots/still-life.png "Still Life")
-![Zealot](Screenshots/zealot.png "Zealot")
+![Marble](Screenshots/marble.png "Marble")
 ![LEGO Bulldozer](Screenshots/lego-bulldozer.png "LEGO Bulldozer")
 
 For more screenshots, see the Screenshots folder
