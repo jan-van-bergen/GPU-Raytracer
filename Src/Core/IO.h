@@ -26,6 +26,8 @@ namespace IO {
 		::exit(code);
 	}
 
+	String get_error_message(errno_t error_code, Allocator * allocator = nullptr);
+
 	bool file_exists(StringView filename);
 
 	bool file_is_newer(StringView filename_a, StringView filename_b);

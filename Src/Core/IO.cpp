@@ -2,6 +2,12 @@
 
 #include <filesystem>
 
+String IO::get_error_message(errno_t error_code, Allocator * allocator) {
+	char error_message[512];
+	strerror_s(error_message, error_code);
+	return String(static_cast<const char *>(error_message), allocator);
+}
+
 static std::filesystem::path stringview_to_path(StringView str) {
 	return { str.start, str.end };
 }
@@ -19,10 +25,10 @@ bool IO::file_is_newer(StringView filename_a, StringView filename_b) {
 
 String IO::file_read(const String & filename, Allocator * allocator) {
 	FILE * file = nullptr;
-	fopen_s(&file, filename.data(), "rb");
+	errno_t err = fopen_s(&file, filename.data(), "rb");
 
 	if (!file) {
-		IO::print("ERROR: Unable to open '{}'!\n"_sv, filename);
+		IO::print("ERROR: Unable to open '{}'! ({})\n"_sv, filename, get_error_message(err));
 		IO::exit(1);
 	}
 
