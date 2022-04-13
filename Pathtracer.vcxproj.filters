@@ -446,4 +446,7 @@
       <Filter>Renderer</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="Debug.natvis" />
+  </ItemGroup>
 </Project>

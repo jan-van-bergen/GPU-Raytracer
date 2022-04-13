@@ -338,6 +338,9 @@
     <ClInclude Include="Src\Util\Util.h" />
     <ClInclude Include="Src\Window.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="Debug.natvis" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
