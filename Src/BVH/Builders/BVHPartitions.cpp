@@ -52,7 +52,7 @@ ObjectSplit partition_sah_impl(GetAABB get_aabb, int first_index, int index_coun
 
 ObjectSplit BVHPartitions::partition_sah(const Array<Triangle> & triangles, int * indices[3], int first_index, int index_count, float * sah) {
 	auto get_aabb = [&triangles, &indices](int dimension, int index) {
-		return triangles[indices[dimension][index]].aabb;
+		return triangles[indices[dimension][index]].get_aabb();
 	};
 	return partition_sah_impl(get_aabb, first_index, index_count, sah);
 }

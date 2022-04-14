@@ -75,7 +75,7 @@ static void build_bvh_impl(SAHBuilder & builder, const Array<Primitive> & primit
 
 	AABB root_aabb = AABB::create_empty();
 	for (size_t i = 0; i < primitives.size(); i++) {
-		root_aabb.expand(primitives[i].aabb);
+		root_aabb.expand(primitives[i].get_aabb());
 	}
 	builder.bvh.nodes[0].aabb = root_aabb;
 

@@ -11,7 +11,7 @@
 
 namespace BVHLoader {
 	inline constexpr const char * BVH_FILE_EXTENSION = ".bvh";
-	inline constexpr int          BVH_FILETYPE_VERSION = 6;
+	inline constexpr int          BVH_FILETYPE_VERSION = 7;
 
 	String get_bvh_filename(StringView filename, Allocator * allocator);
 
