@@ -55,7 +55,7 @@ static Handle<Texture> parse_texture(const XMLNode * node, TextureMap & texture_
 		StringView filename_rel = node->get_child_value<StringView>("filename");
 		String     filename_abs = Util::combine_stringviews(path, filename_rel, scene.allocator);
 
-		String        texture_name   = String(Util::remove_directory(filename_abs.view()), scene.allocator);
+		String          texture_name   = String(Util::remove_directory(filename_abs.view()), scene.allocator);
 		Handle<Texture> texture_handle = scene.asset_manager.add_texture(std::move(filename_abs), std::move(texture_name));
 
 		if (const XMLAttribute * id = node->get_attribute("id")) {
