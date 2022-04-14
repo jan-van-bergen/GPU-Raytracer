@@ -2,7 +2,7 @@
 #include <string.h>
 #include <utility>
 
-#define FORCEINLINE __forceinline
+#define FORCE_INLINE __forceinline
 
 namespace Util {
 	template<typename T>

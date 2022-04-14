@@ -39,9 +39,13 @@ void SBVHBuilder::build(const Array<Triangle> & triangles) {
 
 	inv_root_surface_area = 1.0f / root_aabb.surface_area();
 
-	Sort::quick_sort(indices[0].begin(), indices[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-	Sort::quick_sort(indices[1].begin(), indices[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-	Sort::quick_sort(indices[2].begin(), indices[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+	{
+		Array<PrimitiveRef> radix_sort_tmp = Array<PrimitiveRef>(triangles.size());
+
+		Sort::radix_sort(indices[0].begin(), indices[0].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().x); });
+		Sort::radix_sort(indices[1].begin(), indices[1].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().y); });
+		Sort::radix_sort(indices[2].begin(), indices[2].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().z); });
+	}
 
 	sbvh.nodes.clear();
 	sbvh.nodes.reserve(2 * triangles.size());
@@ -293,13 +297,17 @@ int SBVHBuilder::build_sbvh(int node_index, const Array<Triangle> & triangles, i
 			}
 		}
 
-		Sort::quick_sort(children_left[0].begin(), children_left[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		Sort::quick_sort(children_left[1].begin(), children_left[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		Sort::quick_sort(children_left[2].begin(), children_left[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+		{
+			Array<PrimitiveRef> radix_sort_tmp = Array<PrimitiveRef>(index_count);
 
-		Sort::quick_sort(children_right[0].begin(), children_right[0].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().x < b.aabb.get_center().x; });
-		Sort::quick_sort(children_right[1].begin(), children_right[1].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().y < b.aabb.get_center().y; });
-		Sort::quick_sort(children_right[2].begin(), children_right[2].end(), [](const PrimitiveRef & a, const PrimitiveRef & b) { return a.aabb.get_center().z < b.aabb.get_center().z; });
+			Sort::radix_sort(children_left[0].begin(), children_left[0].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().x); });
+			Sort::radix_sort(children_left[1].begin(), children_left[1].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().y); });
+			Sort::radix_sort(children_left[2].begin(), children_left[2].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().z); });
+
+			Sort::radix_sort(children_right[0].begin(), children_right[0].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().x); });
+			Sort::radix_sort(children_right[1].begin(), children_right[1].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().y); });
+			Sort::radix_sort(children_right[2].begin(), children_right[2].end(), radix_sort_tmp.data(), [](const PrimitiveRef & prim) { return Sort::RadixSortAdapter<float>()(prim.aabb.get_center().z); });
+		}
 
 		// We should have made the same decision (going left/right) in every dimension
 		ASSERT(children_left [0].size() == children_left [1].size() && children_left [1].size() == children_left [2].size());
