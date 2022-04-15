@@ -84,6 +84,8 @@ struct BVH2;
 struct BVH {
 	Array<int> indices;
 
+	virtual ~BVH() = default;
+
 	virtual size_t node_count() const = 0;
 
 	static BVH2 create_from_triangles(const Array<Triangle> & triangles);
@@ -105,6 +107,9 @@ struct BVH2 final : BVH {
 
 	BVH2(Allocator * allocator = nullptr) : nodes(allocator) { }
 
+	DEFAULT_COPYABLE(BVH2);
+	DEFAULT_MOVEABLE(BVH2);
+
 	size_t node_count() const override { return nodes.size(); }
 };
 
@@ -112,6 +117,9 @@ struct BVH4 final : BVH {
 	Array<BVHNode4> nodes;
 
 	BVH4(Allocator * allocator = nullptr) : nodes(allocator) { }
+
+	NON_COPYABLE(BVH4);
+	DEFAULT_MOVEABLE(BVH4);
 
 	size_t node_count() const override{ return nodes.size(); }
 };

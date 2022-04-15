@@ -49,6 +49,12 @@ struct OwnPtr {
 		return *this;
 	}
 
+	OwnPtr & operator=(std::nullptr_t null_ptr) {
+		release();
+		ptr = nullptr;
+		return *this;
+	}
+
 	T * operator->() {
 		ASSERT(ptr);
 		return ptr;

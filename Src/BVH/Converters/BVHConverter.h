@@ -3,6 +3,13 @@
 
 // Converts a binary BVH (BVH2) into an n-ary BVH
 struct BVHConverter {
+	BVHConverter() = default;
+
+	NON_COPYABLE(BVHConverter);
+	NON_MOVEABLE(BVHConverter);
+
+	virtual ~BVHConverter() = default;
+
 	virtual void convert() = 0;
 };
 

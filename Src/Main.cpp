@@ -180,6 +180,9 @@ int main(int num_args, char ** args) {
 		frame_allocator.reset();
 	}
 
+	// Free Integrator before freeing CUDA Context
+	integrator = nullptr;
+
 	CUDAContext::free();
 
 	return EXIT_SUCCESS;
