@@ -522,22 +522,16 @@ static void draw_gui(Window & window, Integrator & integrator) {
 				bool mesh_changed = false;
 				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
 
-				static bool dragging = false;
-
 				if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
 					mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
 					mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
 					mesh.euler_angles.z = Math::wrap(mesh.euler_angles.z, 0.0f, 360.0f);
 
-					if (!dragging) {
-						mesh.euler_angles = Quaternion::to_euler(mesh.rotation);
-						mesh.euler_angles.x = Math::rad_to_deg(mesh.euler_angles.x);
-						mesh.euler_angles.y = Math::rad_to_deg(mesh.euler_angles.y);
-						mesh.euler_angles.z = Math::rad_to_deg(mesh.euler_angles.z);
-						dragging = true;
-					}
-
-					mesh.rotation = Quaternion::from_euler(Math::deg_to_rad(mesh.euler_angles.x), Math::deg_to_rad(mesh.euler_angles.y), Math::deg_to_rad(mesh.euler_angles.z));
+					mesh.rotation = Quaternion::from_euler(
+						Math::deg_to_rad(mesh.euler_angles.x),
+						Math::deg_to_rad(mesh.euler_angles.y),
+						Math::deg_to_rad(mesh.euler_angles.z)
+					);
 					mesh_changed = true;
 				}
 
