@@ -481,6 +481,8 @@ static void draw_gui(Window & window, Integrator & integrator) {
 			ImGui::Separator();
 
 			ImGui::Checkbox("Update Scene", &cpu_config.enable_scene_update);
+
+			integrator.invalidated_sky = ImGui::DragFloat("Sky Scale", &integrator.scene.sky.scale, 0.01f, 0.0f, INFINITY);
 		}
 
 		if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {

@@ -34,25 +34,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	global_lights_total_weight = cuda_module.get_global("lights_total_weight");
 	global_lights_total_weight.set_value(0.0f);
 
-	scene.camera.update(0.0f);
-	scene.update(0.0f);
-
-	scene.has_diffuse    = false;
-	scene.has_plastic    = false;
-	scene.has_dielectric = false;
-	scene.has_conductor  = false;
-	scene.has_lights     = false;
-
-	invalidated_scene      = true;
-	invalidated_materials  = true;
-	invalidated_mediums    = true;
-	invalidated_gpu_config = true;
-	invalidated_aovs       = true;
-
-	size_t bytes_available = CUDAContext::get_available_memory();
-	size_t bytes_allocated = CUDAContext::total_memory - bytes_available;
-	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"_sv,   bytes_allocated >> 10, bytes_allocated >> 20);
-	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"_sv, bytes_available >> 10, bytes_available >> 20);
+	Integrator::cuda_init(frame_buffer_handle, screen_width, screen_height);
 }
 
 void Pathtracer::cuda_free() {
@@ -459,6 +441,13 @@ void Pathtracer::calc_light_mesh_weights() {
 }
 
 void Pathtracer::update(float delta, Allocator * frame_allocator) {
+	if (invalidated_sky) {
+		invalidated_sky = false;
+		global_sky_scale.set_value_async(scene.sky.scale, memory_stream);
+
+		sample_index = 0;
+	}
+
 	if (invalidated_materials) {
 		const Array<Material> & materials = scene.asset_manager.materials;
 

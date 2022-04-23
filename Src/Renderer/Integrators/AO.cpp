@@ -25,25 +25,7 @@ void AO::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_he
 	cuda_module.get_global("ray_buffer_trace") .set_value(ray_buffer_trace);
 	cuda_module.get_global("ray_buffer_shadow").set_value(ray_buffer_shadow);
 
-	scene.camera.update(0.0f);
-	scene.update(0.0f);
-
-	scene.has_diffuse    = false;
-	scene.has_plastic    = false;
-	scene.has_dielectric = false;
-	scene.has_conductor  = false;
-	scene.has_lights     = false;
-
-	invalidated_scene      = true;
-	invalidated_materials  = true;
-	invalidated_mediums    = true;
-	invalidated_gpu_config = true;
-	invalidated_aovs       = true;
-
-	size_t bytes_available = CUDAContext::get_available_memory();
-	size_t bytes_allocated = CUDAContext::total_memory - bytes_available;
-	IO::print("CUDA Memory allocated: {} KB ({} MB)\n"_sv,   bytes_allocated >> 10, bytes_allocated >> 20);
-	IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"_sv, bytes_available >> 10, bytes_available >> 20);
+	Integrator::cuda_init(frame_buffer_handle, screen_width, screen_height);
 }
 
 void AO::cuda_free() {

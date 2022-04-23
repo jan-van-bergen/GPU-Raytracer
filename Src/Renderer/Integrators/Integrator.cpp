@@ -288,6 +288,9 @@ void Integrator::init_sky() {
 	cuda_module.get_global("sky_width") .set_value(scene.sky.width);
 	cuda_module.get_global("sky_height").set_value(scene.sky.height);
 	cuda_module.get_global("sky_data")  .set_value(ptr_sky_data);
+
+	global_sky_scale = cuda_module.get_global("sky_scale");
+	global_sky_scale.set_value(scene.sky.scale);
 }
 
 void Integrator::init_rng() {

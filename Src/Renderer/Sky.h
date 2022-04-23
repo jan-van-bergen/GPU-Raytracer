@@ -4,9 +4,10 @@
 #include "Core/String.h"
 
 struct Sky {
-	int width;
-	int height;
 	Array<Vector3> data;
+	int            width;
+	int            height;
+	float          scale = 1.0f;
 
 	void load(const String & file_name);
 };
