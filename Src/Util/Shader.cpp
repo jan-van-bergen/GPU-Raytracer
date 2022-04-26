@@ -9,7 +9,7 @@
 static GLuint load_shader(StringView source, GLuint shader_type) {
 	GLuint shader = glCreateShader(shader_type);
 
-	int length = source.length();
+	int length = source.size();
 	glShaderSource(shader, 1, &source.start, &length);
 	glCompileShader(shader);
 

@@ -10,7 +10,7 @@ namespace IO {
 	}
 
 	inline void print(StringView str) {
-		fwrite(str.start, sizeof(char), str.length(), stdout);
+		fwrite(str.data(), sizeof(char), str.size(), stdout);
 	}
 
 	template<typename ... Args>

@@ -48,7 +48,7 @@ bool IO::file_write(const String & filename, StringView data) {
 
 	if (!file) return false;
 
-	fwrite(data.start, 1, data.length(), file);
+	fwrite(data.data(), 1, data.size(), file);
 	fclose(file);
 
 	return true;

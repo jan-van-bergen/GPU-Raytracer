@@ -155,16 +155,16 @@ void AO::render() {
 		int pixel_count  = Math::min(batch_size, pixels_left);
 
 		// Generate primary Rays from the current Camera orientation
-		event_pool.record(event_desc_primary);
+		event_pool.record(&event_desc_primary);
 		kernel_generate.execute(sample_index, pixel_offset, pixel_count);
 
-		event_pool.record(event_desc_trace);
+		event_pool.record(&event_desc_trace);
 		kernel_trace->execute();
 
-		event_pool.record(event_desc_ambient_occlusion);
+		event_pool.record(&event_desc_ambient_occlusion);
 		kernel_ambient_occlusion.execute(sample_index, ao_radius);
 
-		event_pool.record(event_desc_shadow_trace);
+		event_pool.record(&event_desc_shadow_trace);
 		kernel_trace_shadow->execute();
 
 		pixels_left -= batch_size;
@@ -176,10 +176,10 @@ void AO::render() {
 		}
 	}
 
-	event_pool.record(event_desc_accumulate);
+	event_pool.record(&event_desc_accumulate);
 	kernel_accumulate.execute(float(sample_index));
 
-	event_pool.record(event_desc_end);
+	event_pool.record(&event_desc_end);
 
 	// Reset buffer sizes to default for next frame
 	pinned_buffer_sizes->reset(batch_size);

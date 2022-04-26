@@ -655,40 +655,40 @@ void Pathtracer::render() {
 		int pixel_offset = pixel_count - pixels_left;
 		int pixel_count  = Math::min(batch_size, pixels_left);
 
-		event_pool.record(event_desc_primary);
+		event_pool.record(&event_desc_primary);
 
 		// Generate primary Rays from the current Camera orientation
 		kernel_generate.execute(sample_index, pixel_offset, pixel_count);
 
 		for (int bounce = 0; bounce < gpu_config.num_bounces; bounce++) {
 			// Extend all Rays that are still alive to their next Triangle intersection
-			event_pool.record(event_desc_trace[bounce]);
+			event_pool.record(&event_desc_trace[bounce]);
 			kernel_trace->execute(bounce);
 
-			event_pool.record(event_desc_sort[bounce]);
+			event_pool.record(&event_desc_sort[bounce]);
 			kernel_sort.execute(bounce, sample_index);
 
 			// Process the various Material types in different Kernels
 			if (scene.has_diffuse) {
-				event_pool.record(event_desc_material_diffuse[bounce]);
+				event_pool.record(&event_desc_material_diffuse[bounce]);
 				kernel_material_diffuse.execute(bounce, sample_index);
 			}
 			if (scene.has_plastic) {
-				event_pool.record(event_desc_material_plastic[bounce]);
+				event_pool.record(&event_desc_material_plastic[bounce]);
 				kernel_material_plastic.execute(bounce, sample_index);
 			}
 			if (scene.has_dielectric) {
-				event_pool.record(event_desc_material_dielectric[bounce]);
+				event_pool.record(&event_desc_material_dielectric[bounce]);
 				kernel_material_dielectric.execute(bounce, sample_index);
 			}
 			if (scene.has_conductor) {
-				event_pool.record(event_desc_material_conductor[bounce]);
+				event_pool.record(&event_desc_material_conductor[bounce]);
 				kernel_material_conductor.execute(bounce, sample_index);
 			}
 
 			// Trace shadow Rays
 			if (scene.has_lights && gpu_config.enable_next_event_estimation) {
-				event_pool.record(event_desc_shadow_trace[bounce]);
+				event_pool.record(&event_desc_shadow_trace[bounce]);
 				kernel_trace_shadow->execute(bounce);
 			}
 		}
@@ -704,7 +704,7 @@ void Pathtracer::render() {
 
 	if (gpu_config.enable_svgf) {
 		// Temporal reprojection + integration
-		event_pool.record(event_desc_svgf_reproject);
+		event_pool.record(&event_desc_svgf_reproject);
 		kernel_svgf_reproject.execute(sample_index);
 
 		CUdeviceptr direct_in    = get_aov(AOVType::RADIANCE_DIRECT)  .framebuffer.ptr;
@@ -714,7 +714,7 @@ void Pathtracer::render() {
 
 		if (gpu_config.enable_spatial_variance) {
 			// Estimate Variance spatially
-			event_pool.record(event_desc_svgf_variance);
+			event_pool.record(&event_desc_svgf_variance);
 			kernel_svgf_variance.execute(direct_in, indirect_in, direct_out, indirect_out);
 
 			Util::swap(direct_in,   direct_out);
@@ -725,7 +725,7 @@ void Pathtracer::render() {
 		for (int i = 0; i < gpu_config.num_atrous_iterations; i++) {
 			int step_size = 1 << i;
 
-			event_pool.record(event_desc_svgf_atrous[i]);
+			event_pool.record(&event_desc_svgf_atrous[i]);
 			kernel_svgf_atrous.execute(direct_in, indirect_in, direct_out, indirect_out, step_size);
 
 			// Ping-Pong the Frame Buffers
@@ -733,21 +733,21 @@ void Pathtracer::render() {
 			Util::swap(indirect_in, indirect_out);
 		}
 
-		event_pool.record(event_desc_svgf_finalize);
+		event_pool.record(&event_desc_svgf_finalize);
 		kernel_svgf_finalize.execute(direct_in, indirect_in);
 
 		if (gpu_config.enable_taa) {
-			event_pool.record(event_desc_taa);
+			event_pool.record(&event_desc_taa);
 
 			kernel_taa         .execute(sample_index);
 			kernel_taa_finalize.execute();
 		}
 	} else {
-		event_pool.record(event_desc_accumulate);
+		event_pool.record(&event_desc_accumulate);
 		kernel_accumulate.execute(float(sample_index));
 	}
 
-	event_pool.record(event_desc_end);
+	event_pool.record(&event_desc_end);
 
 	// Reset buffer sizes to default for next frame
 	pinned_buffer_sizes->reset(batch_size);

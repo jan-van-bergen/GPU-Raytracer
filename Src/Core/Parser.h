@@ -15,7 +15,7 @@
 #define TAB_WIDTH 4
 
 #define WARNING(loc, msg, ...) \
-	if (loc.file.length() > 0) { \
+	if (loc.file.size() > 0) { \
 		IO::print("{}:{}:{}: " msg ""_sv, loc.file, loc.line, loc.col, __VA_ARGS__); \
 	} else { \
 		IO::print(msg ""_sv, __VA_ARGS__); \
@@ -142,7 +142,7 @@ struct Parser {
 	}
 
 	bool match(StringView target) {
-		size_t length = target.length();
+		size_t length = target.size();
 		if (cur + length <= end && target == StringView { cur, cur + length }) {
 			for (size_t i = 0; i < length; i++) {
 				advance();

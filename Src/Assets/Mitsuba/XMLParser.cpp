@@ -29,9 +29,9 @@ XMLNode XMLParser::parse_tag() {
 	while (!parser.reached_end() && !is_whitespace(*parser.cur) && *parser.cur != '>') parser.advance();
 	node.tag.end = parser.cur;
 
-	if (node.tag.length() == 0) {
+	if (node.tag.size() == 0) {
 		ERROR(parser.location, "Empty open tag!\n");
-	} else if (node.tag.start[0] == '/') {
+	} else if (node.tag.data()[0] == '/') {
 		ERROR(parser.location, "Unexpected closing tag '{}', expected open tag!\n", node.tag);
 	}
 
