@@ -16,16 +16,51 @@ namespace Sort {
 	}
 
 	template<typename T, typename Cmp = Compare::LessThan<T>>
+	constexpr void insertion_sort(T * first, T * last, Cmp cmp = { }) {
+		size_t count = last - first;
+
+		for (size_t i = 1; i < count; i++) {
+			T key = std::move(first[i]);
+
+			// Move all elements appearing before the key that are greater than it over by one place
+			size_t j = i - 1;
+			while (j < count && cmp(key, first[j])) {
+				first[j + 1] = std::move(first[j]);
+				j--;
+			}
+
+			// Insert key at sorted position
+			first[j + 1] = std::move(key);
+		}
+	}
+
+	template<typename T, typename Cmp = Compare::LessThan<T>>
 	constexpr void quick_sort(T * first, T * last, Cmp cmp = { }) {
-		if (first >= last - 1) return;
+		size_t count = last - first;
 
-		T pivot = first[(last - first) / 2];
+		if (count <= 1) return;
+		if (count <= 10) {
+			insertion_sort(first, last, cmp);
+			return;
+		}
 
+		// Median of three pivot selection
+		T * three[3] = {
+			first,
+			first + (last - first) / 2,
+			first + (last - first) - 1,
+		};
+		if (cmp(*three[1], *three[0])) Util::swap(three[0], three[1]);
+		if (cmp(*three[2], *three[1])) Util::swap(three[1], three[2]);
+		if (cmp(*three[1], *three[0])) Util::swap(three[0], three[1]);
+
+		T pivot = *three[1];
+
+		// Dutch National Flag algorithm
 		T * i = first;
 		T * j = first;
 		T * k = last;
 
-		// Dutch National Flag algorithm
 		while (j < k) {
 			if (cmp(*j, pivot)) { // *j < pivot
 				Util::swap(*i, *j);
