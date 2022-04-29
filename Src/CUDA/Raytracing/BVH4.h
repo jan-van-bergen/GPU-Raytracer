@@ -288,7 +288,7 @@ __device__ inline void bvh4_trace_shadow(ShadowTraversalData * traversal_data, i
 
 			if (stack_size == 0) {
 				// We didn't hit anything, call callback
-				callback(index);
+				callback(ray_index);
 				break;
 			}
 		}
