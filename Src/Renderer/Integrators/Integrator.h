@@ -57,6 +57,7 @@ struct Integrator {
 	Scene & scene;
 
 	bool invalidated_scene      = true;
+	bool invalidated_sky        = true;
 	bool invalidated_materials  = true;
 	bool invalidated_mediums    = true;
 	bool invalidated_camera     = true;
@@ -180,6 +181,7 @@ struct Integrator {
 	Array<int> mesh_data_triangle_offsets;
 
 	CUDAModule::Global global_camera;
+	CUDAModule::Global global_sky_scale;
 	CUDAModule::Global global_config;
 	CUDAModule::Global global_buffer_sizes;
 
@@ -197,7 +199,29 @@ struct Integrator {
 		CUDACALL(cuStreamCreate(&memory_stream, CU_STREAM_NON_BLOCKING));
 	}
 
-	virtual void cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) = 0;
+	virtual void cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
+		scene.camera.update(0.0f);
+		scene.update(0.0f);
+
+		scene.has_diffuse    = false;
+		scene.has_plastic    = false;
+		scene.has_dielectric = false;
+		scene.has_conductor  = false;
+		scene.has_lights     = false;
+
+		invalidated_scene      = true;
+		invalidated_sky        = true;
+		invalidated_materials  = true;
+		invalidated_mediums    = true;
+		invalidated_gpu_config = true;
+		invalidated_aovs       = true;
+
+		size_t bytes_available = CUDAContext::get_available_memory();
+		size_t bytes_allocated = CUDAContext::total_memory - bytes_available;
+		IO::print("CUDA Memory allocated: {} KB ({} MB)\n"_sv,   bytes_allocated >> 10, bytes_allocated >> 20);
+		IO::print("CUDA Memory free:      {} KB ({} MB)\n\n"_sv, bytes_available >> 10, bytes_available >> 20);
+	}
+
 	virtual void cuda_free() {
 		resize_free();
 		cuda_module.free();

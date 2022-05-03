@@ -33,7 +33,8 @@ constexpr unsigned FLAGS_ALL = FLAG_ALLOW_NEE | FLAG_INSIDE_MEDIUM;
 struct TraceBuffer {
 	TraversalData traversal_data;
 
-	float2 * cone;
+	float * cone_angle;
+	float * cone_width;
 
 	int * medium;
 
@@ -47,11 +48,12 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	Vector3_SoA ray_direction;
 
-	int * medium;
-
-	float2 * cone;
-
 	HitBuffer hits;
+
+	float * cone_angle;
+	float * cone_width;
+
+	int * medium;
 
 	int       * pixel_index_and_flags;
 	Vector3_SoA throughput;
@@ -224,9 +226,11 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	float3 ray_direction = ray_buffer_trace->traversal_data.ray_direction.get(index);
 	RayHit hit           = ray_buffer_trace->traversal_data.hits         .get(index);
 
-	float2 ray_cone;
+	float ray_cone_angle;
+	float ray_cone_width;
 	if (bounce > 0 && config.enable_mipmapping) {
-		ray_cone = ray_buffer_trace->cone[index];
+		ray_cone_angle = ray_buffer_trace->cone_angle[index];
+		ray_cone_angle = ray_buffer_trace->cone_width[index];
 	}
 
 	unsigned pixel_index_and_flags = ray_buffer_trace->pixel_index_and_flags[index];
@@ -300,12 +304,11 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 					if (bounce == 0) {
 						// Ray Cone is normally initialized on the first bounce in the Material kernel.
 						// Since a scattered Ray does not invoke a Material kernel, initialize the Ray Cone here
-						ray_cone = make_float2(
-							camera.pixel_spread_angle,
-							camera.pixel_spread_angle * scatter_distance
-						);
+						ray_cone_angle = camera.pixel_spread_angle;
+						ray_cone_width = camera.pixel_spread_angle * scatter_distance;
 					}
-					ray_buffer_trace_next->cone[index_out] = ray_cone;
+					ray_buffer_trace_next->cone_angle[index_out] = ray_cone_angle;
+					ray_buffer_trace_next->cone_width[index_out] = ray_cone_width;
 				}
 
 				ray_buffer_trace_next->pixel_index_and_flags[index_out] = pixel_index | FLAG_INSIDE_MEDIUM;
@@ -427,7 +430,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		int                * buffer_size,
 		const float3       & ray_direction,
 		int                  medium_id,
-		float2               ray_cone,
+		float                ray_cone_angle,
+		float                ray_cone_width,
 		const RayHit         hit,
 		unsigned             pixel_index_and_flags,
 		const float3       & throughput
@@ -446,7 +450,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		}
 
 		if (bounce > 0 && config.enable_mipmapping) {
-			material_buffer.buffer->cone[index_out] = ray_cone;
+			material_buffer.buffer->cone_angle[index_out] = ray_cone_angle;
+			material_buffer.buffer->cone_width[index_out] = ray_cone_width;
 		}
 
 		material_buffer.buffer->hits.set(index_out, hit);
@@ -459,19 +464,19 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 	switch (material_type) {
 		case MaterialType::DIFFUSE: {
-			material_buffer_write(bounce, material_buffer_diffuse, &buffer_sizes.diffuse[bounce], ray_direction, medium_id, ray_cone, hit, pixel_index | flags, throughput);
+			material_buffer_write(bounce, material_buffer_diffuse, &buffer_sizes.diffuse[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
 			break;
 		}
 		case MaterialType::PLASTIC: {
-			material_buffer_write(bounce, material_buffer_plastic, &buffer_sizes.plastic[bounce], ray_direction, medium_id, ray_cone, hit, pixel_index | flags, throughput);
+			material_buffer_write(bounce, material_buffer_plastic, &buffer_sizes.plastic[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
 			break;
 		}
 		case MaterialType::DIELECTRIC: {
-			material_buffer_write(bounce, material_buffer_dielectric, &buffer_sizes.dielectric[bounce], ray_direction, medium_id, ray_cone, hit, pixel_index | flags, throughput);
+			material_buffer_write(bounce, material_buffer_dielectric, &buffer_sizes.dielectric[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
 			break;
 		}
 		case MaterialType::CONDUCTOR: {
-			material_buffer_write(bounce, material_buffer_conductor, &buffer_sizes.conductor[bounce], ray_direction, medium_id, ray_cone, hit, pixel_index | flags, throughput);
+			material_buffer_write(bounce, material_buffer_conductor, &buffer_sizes.conductor[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
 			break;
 		}
 	}
@@ -630,9 +635,8 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 			cone_angle = camera.pixel_spread_angle;
 			cone_width = cone_angle * hit.t;
 		} else {
-			float2 cone = material_buffer.buffer->cone[index];
-			cone_angle = cone.x;
-			cone_width = cone.y + cone_angle * hit.t;
+			cone_angle = material_buffer.buffer->cone_angle[index];
+			cone_width = material_buffer.buffer->cone_width[index] + cone_angle * hit.t;
 		}
 	}
 
@@ -754,7 +758,8 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	}
 
 	if (config.enable_mipmapping) {
-		ray_buffer_trace->cone[index_out] = make_float2(cone_angle, cone_width);
+		ray_buffer_trace->cone_angle[index_out] = cone_angle;
+		ray_buffer_trace->cone_width[index_out] = cone_width;
 	}
 
 	bool allow_nee = bsdf.allow_nee();

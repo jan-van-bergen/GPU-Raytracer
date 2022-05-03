@@ -42,5 +42,9 @@ struct Mesh {
 
 	bool has_identity_transform() const;
 
-	inline Vector3 get_center() const { return aabb.get_center(); }
+	Vector3 get_center() const { return aabb.get_center(); }
+
+	AABB get_aabb() const {
+		return aabb;
+	}
 };

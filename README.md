@@ -50,7 +50,8 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 ![Dragon](Screenshots/dragon.png "Dragon")
 ![Candles](Screenshots/candles.png "Candles")
 ![Still-Life](Screenshots/still-life.png "Still Life")
-![Zealot](Screenshots/zealot.png "Zealot")
+![Marble](Screenshots/marble.png "Marble")
+![LEGO Bulldozer](Screenshots/lego-bulldozer.png "LEGO Bulldozer")
 
 For more screenshots, see the Screenshots folder
 
@@ -84,6 +85,8 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 	- [Piano](https://blendswap.com/blend/29080)
 	- [Zealot](https://blendswap.com/blend/17301)
 	- [Millennium Falcon](https://blendswap.com/blend/5843)
+	- [LEGO Bulldozer](https://blendswap.com/blend/11490)
+	- [Rhetorician](https://blendswap.com/blend/21704)
 
 - [Blender Demos](https://www.blender.org/download/demo-files/)
 

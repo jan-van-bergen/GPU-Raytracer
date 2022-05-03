@@ -421,7 +421,7 @@ static Handle<Medium> parse_medium(const XMLNode * node, Scene & scene) {
 			}
 		}
 
-		return scene.asset_manager.add_medium(medium);
+		return scene.asset_manager.add_medium(std::move(medium));
 	} else {
 		WARNING(xml_medium->location, "WARNING: Medium type '{}' not supported!\n", medium_type);
 	}

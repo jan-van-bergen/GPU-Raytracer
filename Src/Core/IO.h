@@ -10,7 +10,7 @@ namespace IO {
 	}
 
 	inline void print(StringView str) {
-		fwrite(str.start, sizeof(char), str.length(), stdout);
+		fwrite(str.data(), sizeof(char), str.size(), stdout);
 	}
 
 	template<typename ... Args>
@@ -25,6 +25,8 @@ namespace IO {
 		__debugbreak();
 		::exit(code);
 	}
+
+	String get_error_message(errno_t error_code, Allocator * allocator = nullptr);
 
 	bool file_exists(StringView filename);
 

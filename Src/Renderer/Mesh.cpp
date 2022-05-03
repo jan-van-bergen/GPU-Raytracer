@@ -9,7 +9,7 @@ void Mesh::calc_aabb(const Scene & scene) {
 
 	aabb_untransformed = AABB::create_empty();
 	for (int i = 0; i < mesh_data.triangles.size(); i++) {
-		aabb_untransformed.expand(mesh_data.triangles[i].aabb);
+		aabb_untransformed.expand(mesh_data.triangles[i].get_aabb());
 	}
 }
 

@@ -81,7 +81,7 @@ struct Format {
 
 private:
 	void append(StringView str) {
-		data.push_back(str.start, str.length());
+		data.push_back(str.data(), str.size());
 	}
 
 	void append(char c, int n = 1) {

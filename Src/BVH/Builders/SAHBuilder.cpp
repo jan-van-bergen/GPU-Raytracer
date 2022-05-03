@@ -75,13 +75,17 @@ static void build_bvh_impl(SAHBuilder & builder, const Array<Primitive> & primit
 
 	AABB root_aabb = AABB::create_empty();
 	for (size_t i = 0; i < primitives.size(); i++) {
-		root_aabb.expand(primitives[i].aabb);
+		root_aabb.expand(primitives[i].get_aabb());
 	}
 	builder.bvh.nodes[0].aabb = root_aabb;
 
-	Sort::quick_sort(builder.indices_x.begin(), builder.indices_x.end(), [&primitives](int a, int b) { return primitives[a].get_center().x < primitives[b].get_center().x; });
-	Sort::quick_sort(builder.indices_y.begin(), builder.indices_y.end(), [&primitives](int a, int b) { return primitives[a].get_center().y < primitives[b].get_center().y; });
-	Sort::quick_sort(builder.indices_z.begin(), builder.indices_z.end(), [&primitives](int a, int b) { return primitives[a].get_center().z < primitives[b].get_center().z; });
+	{
+		Array<int> radix_sort_tmp = Array<int>(primitives.size());
+
+		Sort::radix_sort(builder.indices_x.begin(), builder.indices_x.end(), radix_sort_tmp.data(), [&primitives](int index) { return Sort::RadixSortAdapter<float>()(primitives[index].get_center().x); });
+		Sort::radix_sort(builder.indices_y.begin(), builder.indices_y.end(), radix_sort_tmp.data(), [&primitives](int index) { return Sort::RadixSortAdapter<float>()(primitives[index].get_center().y); });
+		Sort::radix_sort(builder.indices_z.begin(), builder.indices_z.end(), radix_sort_tmp.data(), [&primitives](int index) { return Sort::RadixSortAdapter<float>()(primitives[index].get_center().z); });
+	}
 
 	int * indices[3] = { builder.indices_x.data(), builder.indices_y.data(), builder.indices_z.data() };
 

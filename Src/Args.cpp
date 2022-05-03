@@ -64,7 +64,7 @@ static void parse_args(const Array<StringView> & args, Allocator * allocator) {
 	options.emplace_back("H"_sv, "height"_sv,  "Sets the height of the window"_sv,                         1, [](const Array<StringView> & args, size_t i) { cpu_config.initial_height      = parse_arg_int(args[i + 1]); });
 	options.emplace_back("b"_sv, "bounce"_sv,  "Sets the number of pathtracing bounces"_sv,                1, [](const Array<StringView> & args, size_t i) { gpu_config.num_bounces         = Math::clamp(parse_arg_int(args[i + 1]), 0, MAX_BOUNCES - 1); });
 	options.emplace_back("N"_sv, "samples"_sv, "Sets a target number of samples to use"_sv,                1, [](const Array<StringView> & args, size_t i) { cpu_config.output_sample_index = parse_arg_int(args[i + 1]); });
-	options.emplace_back("o"_sv, "output"_sv,  "Sets path to output file. Supported formats: ppm, exr"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.output_filename     = args[i + 1].start; });
+	options.emplace_back("o"_sv, "output"_sv,  "Sets path to output file. Supported formats: ppm, exr"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.output_filename     = args[i + 1]; });
 
 	options.emplace_back("s"_sv, "scene"_sv, "Sets path to scene file. Supported formats: Mitsuba XML, OBJ, and PLY"_sv, 1, [](const Array<StringView> & args, size_t i) { cpu_config.scene_filenames.push_back(args[i + 1]); });
 	options.emplace_back("S"_sv, "sky"_sv,   "Sets path to sky file. Supported formats: HDR"_sv,                         1, [](const Array<StringView> & args, size_t i) { cpu_config.sky_filename = args[i + 1]; });

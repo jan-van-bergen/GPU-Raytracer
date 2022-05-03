@@ -15,7 +15,7 @@
 #define TAB_WIDTH 4
 
 #define WARNING(loc, msg, ...) \
-	if (loc.file.length() > 0) { \
+	if (loc.file.size() > 0) { \
 		IO::print("{}:{}:{}: " msg ""_sv, loc.file, loc.line, loc.col, __VA_ARGS__); \
 	} else { \
 		IO::print(msg ""_sv, __VA_ARGS__); \
@@ -76,7 +76,7 @@ inline const char * char_to_str(char c) {
 		"0xe0", "0xe1", "0xe2", "0xe3", "0xe4", "0xe5", "0xe6", "0xe7", "0xe8", "0xe9", "0xea", "0xeb", "0xec", "0xed", "0xee", "0xef",
 		"0xf0", "0xf1", "0xf2", "0xf3", "0xf4", "0xf5", "0xf6", "0xf7", "0xf8", "0xf9", "0xfa", "0xfb", "0xfc", "0xfd", "0xfe", "0xff"
 	};
-	return table[unsigned char(c)];
+	return table[(unsigned char)(c)];
 }
 
 struct Parser {
@@ -142,7 +142,7 @@ struct Parser {
 	}
 
 	bool match(StringView target) {
-		size_t length = target.length();
+		size_t length = target.size();
 		if (cur + length <= end && target == StringView { cur, cur + length }) {
 			for (size_t i = 0; i < length; i++) {
 				advance();

@@ -9,9 +9,10 @@ struct StringView {
 
 	inline char operator[](size_t index) const { return start[index]; }
 
-	size_t length() const { return end - start; }
+	const char * data() const { return start; }
+	size_t       size() const { return end - start; }
 
-	bool is_empty() const { return length() == 0; }
+	bool is_empty() const { return size() == 0; }
 
 	template<int N>
 	constexpr static StringView from_c_str(const char (& str)[N]) {
@@ -34,13 +35,13 @@ inline constexpr StringView operator "" _sv(const char * str, size_t length) {
 template<>
 struct Hash<StringView> {
 	size_t operator()(StringView str) const {
-		return FNVHash::hash(str.start, str.length());
+		return FNVHash::hash(str.data(), str.size());
 	}
 };
 
 template<int N>
 inline bool operator==(const StringView & a, const char (&b)[N]) {
-	if (a.length() != N - 1) return false;
+	if (a.size() != N - 1) return false;
 
 	for (int i = 0; i < N - 1; i++) {
 		if (a[i] != b[i]) return false;
@@ -51,7 +52,7 @@ inline bool operator==(const StringView & a, const char (&b)[N]) {
 
 template<int N>
 inline bool operator!=(const StringView & a, const char (&b)[N]) {
-	if (a.length() != N - 1) return true;
+	if (a.size() != N - 1) return true;
 
 	for (int i = 0; i < N - 1; i++) {
 		if (a[i] == b[i]) return false;
@@ -61,7 +62,7 @@ inline bool operator!=(const StringView & a, const char (&b)[N]) {
 }
 
 inline bool operator==(const StringView & a, const char * b) {
-	size_t length = a.length();
+	size_t length = a.size();
 
 	for (int i = 0; i < length; i++) {
 		if (a[i] != b[i] || b[i] == '\0') return false;
@@ -71,8 +72,8 @@ inline bool operator==(const StringView & a, const char * b) {
 }
 
 inline bool operator==(const StringView & a, const StringView & b) {
-	size_t length_b = b.length();
-	size_t length_a = a.length();
+	size_t length_b = b.size();
+	size_t length_a = a.size();
 
 	if (length_a != length_b) return false;
 

@@ -41,7 +41,7 @@ struct String {
 		data()[length] = '\0';
 	}
 
-	constexpr String(const StringView & str, Allocator * allocator = nullptr) : String(str.start, str.length(), allocator) { }
+	constexpr String(const StringView & str, Allocator * allocator = nullptr) : String(str.start, str.size(), allocator) { }
 
 	template<size_t N>
 	constexpr String(const char (& str)[N], Allocator * allocator = nullptr) : allocator(allocator), length(N - 1), ptr(nullptr) {

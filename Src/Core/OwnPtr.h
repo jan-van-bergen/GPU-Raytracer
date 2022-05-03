@@ -1,4 +1,6 @@
 #pragma once
+#include <cstddef>
+
 #include "Assertion.h"
 #include "Constructors.h"
 
@@ -44,6 +46,12 @@ struct OwnPtr {
 		release();
 		ptr = other.ptr;
 		other.ptr = nullptr;
+		return *this;
+	}
+
+	OwnPtr & operator=(std::nullptr_t null_ptr) {
+		release();
+		ptr = nullptr;
 		return *this;
 	}
 

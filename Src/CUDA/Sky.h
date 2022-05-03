@@ -1,8 +1,9 @@
 #pragma once
 
+__device__ __constant__ float3 * sky_data;
 __device__ __constant__ int      sky_width;
 __device__ __constant__ int      sky_height;
-__device__ __constant__ float3 * sky_data;
+__device__ __constant__ float    sky_scale;
 
 __device__ float3 sample_sky(const float3 & direction) {
 	// Convert direction to spherical coordinates
@@ -18,5 +19,5 @@ __device__ float3 sample_sky(const float3 & direction) {
 
 	int index = clamp(x + y * sky_width, 0, sky_width * sky_height - 1);
 
-	return sky_data[index];
+	return sky_scale * sky_data[index];
 }

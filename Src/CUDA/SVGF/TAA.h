@@ -123,9 +123,9 @@ extern "C" __global__ void kernel_taa(int sample_index) {
 		// Compute variance and standard deviation
 		float3 sigma2 = colour_var - colour_avg * colour_avg;
 		float3 sigma = make_float3(
-			sqrt(max(0.0f, sigma2.x)),
-			sqrt(max(0.0f, sigma2.y)),
-			sqrt(max(0.0f, sigma2.z))
+			safe_sqrt(sigma2.x),
+			safe_sqrt(sigma2.y),
+			safe_sqrt(sigma2.z)
 		);
 
 		// Clamp based on average and standard deviation

@@ -430,11 +430,6 @@ extern "C" __global__ void kernel_svgf_atrous(
 	float variance_blurred_direct   = 0.0f;
 	float variance_blurred_indirect = 0.0f;
 
-	const float kernel_gaussian[2][2] = {
-		{ 1.0f / 4.0f, 1.0f / 8.0f  },
-		{ 1.0f / 8.0f, 1.0f / 16.0f }
-	};
-
 	// Filter Variance using a 3x3 Gaussian Blur
 	for (int j = -1; j <= 1; j++) {
 		int tap_y = clamp(y + j, 0, screen_height - 1);
@@ -447,7 +442,11 @@ extern "C" __global__ void kernel_svgf_atrous(
 			float variance_direct   = colour_direct_in  [tap_x + tap_y * screen_pitch].w;
 			float variance_indirect = colour_indirect_in[tap_x + tap_y * screen_pitch].w;
 
-			float kernel_weight = kernel_gaussian[abs(i)][abs(j)];
+			// Gaussian kernel weights:
+			// 1/16  1/8  1/16
+			// 1/8   1/4  1/8
+			// 1/16  1/8  1/16
+			float kernel_weight = scalbnf(0.25f, -(abs(i) + abs(j)));
 
 			variance_blurred_direct   += variance_direct   * kernel_weight;
 			variance_blurred_indirect += variance_indirect * kernel_weight;
@@ -580,9 +579,9 @@ extern "C" __global__ void kernel_svgf_finalize(
 		colour = colour / (1.0f + luminance(colour.x, colour.y, colour.z));
 
 		// Convert to gamma space
-		colour.x = sqrtf(fmaxf(0.0f, colour.x));
-		colour.y = sqrtf(fmaxf(0.0f, colour.y));
-		colour.z = sqrtf(fmaxf(0.0f, colour.z));
+		colour.x = safe_sqrt(colour.x);
+		colour.y = safe_sqrt(colour.y);
+		colour.z = safe_sqrt(colour.z);
 
 		taa_frame_curr[pixel_index] = colour;
 	}

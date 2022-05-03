@@ -10,7 +10,15 @@ struct CUDAEvent {
 		int display_order;
 		String category;
 		String name;
-	} desc;
+	};
+	const Desc * desc;
+
+	CUDAEvent(CUevent event, const Desc * desc) : event(event), desc(desc) { }
+
+	DEFAULT_COPYABLE(CUDAEvent);
+	DEFAULT_MOVEABLE(CUDAEvent);
+
+	~CUDAEvent() = default;
 
 	inline static float time_elapsed_between(const CUDAEvent & start, const CUDAEvent & end) {
 		float result;
@@ -22,23 +30,24 @@ struct CUDAEvent {
 
 struct CUDAEventPool {
 	Array<CUDAEvent> pool;
-	int              num_used;
+	size_t           num_used;
 
-	inline void record(const CUDAEvent::Desc & event_desc, CUstream stream = nullptr) {
+	void record(const CUDAEvent::Desc * event_desc, CUstream stream = nullptr) {
 		// Check if the Pool is already using its maximum capacity
 		if (num_used == pool.size()) {
 			// Create new Event
-			CUDAEvent event = { };
-			CUDACALL(cuEventCreate(&event.event, CU_EVENT_DEFAULT));
-			pool.push_back(event);
+			CUevent event = { };
+			CUDACALL(cuEventCreate(&event, CU_EVENT_DEFAULT));
+			pool.emplace_back(event, event_desc);
 		}
 
 		CUDAEvent & event = pool[num_used++];
 		event.desc = event_desc;
+
 		CUDACALL(cuEventRecord(event.event, stream));
 	}
 
-	inline void reset() {
+	void reset() {
 		num_used = 0;
 	}
 };

@@ -18,13 +18,13 @@ struct alignas(16) Matrix4 {
 		cells[15] = 1.0f;
 	}
 
-	inline FORCEINLINE float & operator()(int row, int col) {
+	inline FORCE_INLINE float & operator()(int row, int col) {
 		ASSERT(row >= 0 && row < 4);
 		ASSERT(col >= 0 && col < 4);
 		return cells[col + (row << 2)];
 	}
 
-	inline FORCEINLINE const float & operator()(int row, int col) const {
+	inline FORCE_INLINE const float & operator()(int row, int col) const {
 		ASSERT(row >= 0 && row < 4);
 		ASSERT(col >= 0 && col < 4);
 		return cells[col + (row << 2)];

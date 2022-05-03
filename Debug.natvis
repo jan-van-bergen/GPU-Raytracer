@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="Array&lt;*&gt;">
+    <DisplayString>count={ count }</DisplayString>
+    <Expand>
+      <Item Name="allocator">allocator</Item>
+      <Item Name="capacity">capacity</Item>
+      <IndexListItems>
+        <Size>count</Size>
+        <ValueNode>*($T1 *)&amp;buffer[$i * sizeof($T1)]</ValueNode>
+      </IndexListItems>
+    </Expand>
+  </Type>
+
+  <Type Name="String">
+    <DisplayString>{ length &lt; SSO_SIZE ? buf : ptr, na }</DisplayString>
+    <Expand>
+      <Item Name="allocator">allocator</Item>
+      <Item Name="length">length</Item>
+      <Item Name="ptr">ptr, na</Item>
+      <Item Name="buf">buf, na</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="StringView">
+    <DisplayString>{ start, sb } { end, sb }</DisplayString>
+    <Expand>
+      <Item Name="length">end - start</Item>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>

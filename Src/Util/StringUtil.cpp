@@ -30,28 +30,26 @@ StringView Util::get_file_extension(StringView filename) {
 }
 
 StringView Util::substr(StringView str, size_t offset, size_t len) {
-	if (offset + len >= str.length()) {
-		len = str.length() - offset;
+	if (offset + len >= str.size()) {
+		len = str.size() - offset;
 	}
-	return { str.start + offset, str.start + offset + len };
+	return { str.data() + offset, str.data() + offset + len };
 }
 
 String Util::combine_stringviews(StringView a, StringView b, Allocator * allocator) {
-	String filename_abs = String(a.length() + b.length(), allocator);
-
-	memcpy(filename_abs.data(),              a.start, a.length());
-	memcpy(filename_abs.data() + a.length(), b.start, b.length());
-	filename_abs[a.length() + b.length()] = '\0';
-
+	String filename_abs = String(a.size() + b.size(), allocator);
+	memcpy(filename_abs.data(),            a.start, a.size());
+	memcpy(filename_abs.data() + a.size(), b.start, b.size());
+	filename_abs[a.size() + b.size()] = '\0';
 	return filename_abs;
 }
 
 const char * Util::find_last_after(StringView haystack, StringView needles) {
-	const char * cur        = haystack.start;
+	const char * cur        = haystack.data();
 	const char * last_match = nullptr;
 
 	while (cur < haystack.end) {
-		for (int i = 0; i < needles.length(); i++) {
+		for (int i = 0; i < needles.size(); i++) {
 			if (*cur == needles[i]) {
 				last_match = cur;
 				break;
@@ -70,10 +68,10 @@ const char * Util::find_last_after(StringView haystack, StringView needles) {
 const char * Util::strstr(StringView haystack, StringView needle) {
 	if (needle.is_empty()) return haystack.end;
 
-	const char * cur = haystack.start;
-	while (cur <= haystack.end - needle.length()) {
+	const char * cur = haystack.data();
+	while (cur <= haystack.end - needle.size()) {
 		bool match = true;
-		for (int i = 0; i < needle.length(); i++) {
+		for (int i = 0; i < needle.size(); i++) {
 			if (cur[i] != needle[i]) {
 				match = false;
 				break;

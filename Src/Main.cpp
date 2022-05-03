@@ -180,6 +180,9 @@ int main(int num_args, char ** args) {
 		frame_allocator.reset();
 	}
 
+	// Free Integrator before freeing CUDA Context
+	integrator = nullptr;
+
 	CUDAContext::free();
 
 	return EXIT_SUCCESS;
@@ -354,8 +357,8 @@ static void draw_gui(Window & window, Integrator & integrator) {
 
 		if (ImGui::CollapsingHeader("Kernel Timings") && integrator.event_pool.num_used > 0) {
 			struct EventTiming {
-				CUDAEvent::Desc desc;
-				float           timing;
+				const CUDAEvent::Desc * desc;
+				float                   timing;
 			};
 
 			Array<EventTiming> event_timings(integrator.event_pool.num_used - 1);
@@ -369,10 +372,10 @@ static void draw_gui(Window & window, Integrator & integrator) {
 			}
 
 			Sort::stable_sort(event_timings.begin(), event_timings.end(), [](const EventTiming & a, const EventTiming & b) {
-				if (a.desc.display_order == b.desc.display_order) {
-					return a.desc.category < b.desc.category;
+				if (a.desc->display_order == b.desc->display_order) {
+					return a.desc->category < b.desc->category;
 				}
-				return a.desc.display_order < b.desc.display_order;
+				return a.desc->display_order < b.desc->display_order;
 			});
 
 			bool category_changed = true;
@@ -388,15 +391,15 @@ static void draw_gui(Window & window, Integrator & integrator) {
 
 					size_t j;
 					for (j = i; j < event_timings.size(); j++) {
-						int length = int(event_timings[j].desc.name.size());
+						int length = int(event_timings[j].desc->name.size());
 						if (length > padding) padding = length;
 
 						time_sum += event_timings[j].timing;
 
-						if (j < event_timings.size() - 1 && event_timings[j].desc.category != event_timings[j + 1].desc.category) break;
+						if (j < event_timings.size() - 1 && event_timings[j].desc->category != event_timings[j + 1].desc->category) break;
 					}
 
-					bool category_visible = ImGui::TreeNode(event_timings[i].desc.category.data(), "%s: %.2f ms", event_timings[i].desc.category.data(), time_sum);
+					bool category_visible = ImGui::TreeNode(event_timings[i].desc->category.data(), "%s: %.2f ms", event_timings[i].desc->category.data(), time_sum);
 					if (!category_visible) {
 						// Skip ahead to next category
 						i = j;
@@ -410,19 +413,19 @@ static void draw_gui(Window & window, Integrator & integrator) {
 				while (true) {
 					timing += event_timings[i].timing;
 
-					if (i == event_timings.size() - 1 || event_timings[i].desc.name != event_timings[i+1].desc.name) break;
+					if (i == event_timings.size() - 1 || event_timings[i].desc->name != event_timings[i+1].desc->name) break;
 
 					i++;
 				};
 
-				ImGui::Text("%s: %*.2f ms", event_timings[i].desc.name.data(), 5 + padding - int(event_timings[i].desc.name.size()), timing);
+				ImGui::Text("%s: %*.2f ms", event_timings[i].desc->name.data(), 5 + padding - int(event_timings[i].desc->name.size()), timing);
 
 				if (i == event_timings.size() - 1) {
 					ImGui::TreePop();
 					break;
 				}
 
-				category_changed = event_timings[i].desc.category != event_timings[i + 1].desc.category;
+				category_changed = event_timings[i].desc->category != event_timings[i + 1].desc->category;
 				if (category_changed) {
 					ImGui::TreePop();
 				}
@@ -478,6 +481,8 @@ static void draw_gui(Window & window, Integrator & integrator) {
 			ImGui::Separator();
 
 			ImGui::Checkbox("Update Scene", &cpu_config.enable_scene_update);
+
+			integrator.invalidated_sky = ImGui::DragFloat("Sky Scale", &integrator.scene.sky.scale, 0.01f, 0.0f, INFINITY);
 		}
 
 		if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -519,22 +524,16 @@ static void draw_gui(Window & window, Integrator & integrator) {
 				bool mesh_changed = false;
 				mesh_changed |= ImGui::DragFloat3("Position", &mesh.position.x);
 
-				static bool dragging = false;
-
 				if (ImGui::DragFloat3("Rotation", &mesh.euler_angles.x)) {
 					mesh.euler_angles.x = Math::wrap(mesh.euler_angles.x, 0.0f, 360.0f);
 					mesh.euler_angles.y = Math::wrap(mesh.euler_angles.y, 0.0f, 360.0f);
 					mesh.euler_angles.z = Math::wrap(mesh.euler_angles.z, 0.0f, 360.0f);
 
-					if (!dragging) {
-						mesh.euler_angles = Quaternion::to_euler(mesh.rotation);
-						mesh.euler_angles.x = Math::rad_to_deg(mesh.euler_angles.x);
-						mesh.euler_angles.y = Math::rad_to_deg(mesh.euler_angles.y);
-						mesh.euler_angles.z = Math::rad_to_deg(mesh.euler_angles.z);
-						dragging = true;
-					}
-
-					mesh.rotation = Quaternion::from_euler(Math::deg_to_rad(mesh.euler_angles.x), Math::deg_to_rad(mesh.euler_angles.y), Math::deg_to_rad(mesh.euler_angles.z));
+					mesh.rotation = Quaternion::from_euler(
+						Math::deg_to_rad(mesh.euler_angles.x),
+						Math::deg_to_rad(mesh.euler_angles.y),
+						Math::deg_to_rad(mesh.euler_angles.z)
+					);
 					mesh_changed = true;
 				}
 

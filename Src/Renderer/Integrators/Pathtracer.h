@@ -8,7 +8,8 @@ struct TraceBuffer {
 
 	CUDAMemory::Ptr<float4> hits;
 
-	CUDAMemory::Ptr<float2> cone;
+	CUDAMemory::Ptr<float> cone_angle;
+	CUDAMemory::Ptr<float> cone_width;
 
 	CUDAMemory::Ptr<int> medium;
 
@@ -21,10 +22,12 @@ struct TraceBuffer {
 		ray_origin   .init(buffer_size);
 		ray_direction.init(buffer_size);
 
-		medium = CUDAMemory::malloc<int>(buffer_size);
-
-		cone = CUDAMemory::malloc<float2>(buffer_size);
 		hits = CUDAMemory::malloc<float4>(buffer_size);
+
+		cone_angle = CUDAMemory::malloc<float>(buffer_size);
+		cone_width = CUDAMemory::malloc<float>(buffer_size);
+
+		medium = CUDAMemory::malloc<int>(buffer_size);
 
 		pixel_index_and_flags = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -36,10 +39,12 @@ struct TraceBuffer {
 		ray_origin.free();
 		ray_direction.free();
 
-		CUDAMemory::free(medium);
-
-		CUDAMemory::free(cone);
 		CUDAMemory::free(hits);
+
+		CUDAMemory::free(cone_angle);
+		CUDAMemory::free(cone_width);
+
+		CUDAMemory::free(medium);
 
 		CUDAMemory::free(pixel_index_and_flags);
 		throughput.free();
@@ -51,10 +56,12 @@ struct TraceBuffer {
 struct MaterialBuffer {
 	CUDAVector3_SoA direction;
 
-	CUDAMemory::Ptr<int> medium;
-
-	CUDAMemory::Ptr<float2> cone;
 	CUDAMemory::Ptr<float4> hits;
+
+	CUDAMemory::Ptr<float> cone_angle;
+	CUDAMemory::Ptr<float> cone_width;
+
+	CUDAMemory::Ptr<int> medium;
 
 	CUDAMemory::Ptr<int> pixel_index;
 	CUDAVector3_SoA      throughput;
@@ -62,10 +69,12 @@ struct MaterialBuffer {
 	void init(int buffer_size) {
 		direction.init(buffer_size);
 
-		medium = CUDAMemory::malloc<int>(buffer_size);
-
-		cone = CUDAMemory::malloc<float2>(buffer_size);
 		hits = CUDAMemory::malloc<float4>(buffer_size);
+
+		cone_angle = CUDAMemory::malloc<float>(buffer_size);
+		cone_width = CUDAMemory::malloc<float>(buffer_size);
+
+		medium = CUDAMemory::malloc<int>(buffer_size);
 
 		pixel_index = CUDAMemory::malloc<int>(buffer_size);
 		throughput.init(buffer_size);
@@ -74,10 +83,12 @@ struct MaterialBuffer {
 	void free() {
 		direction.free();
 
-		CUDAMemory::free(medium);
-
-		CUDAMemory::free(cone);
 		CUDAMemory::free(hits);
+
+		CUDAMemory::free(cone_angle);
+		CUDAMemory::free(cone_width);
+
+		CUDAMemory::free(medium);
 
 		CUDAMemory::free(pixel_index);
 		throughput.free();

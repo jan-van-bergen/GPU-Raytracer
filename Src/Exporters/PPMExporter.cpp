@@ -11,9 +11,9 @@ static Array<unsigned char> convert(int pitch, int width, int height, const Arra
 	// NOTE: Image needs to be flipped vertically
 	for (int y = height - 1; y >= 0; y--) {
 		for (int x = 0; x < width; x++) {
-			result.push_back(unsigned char(Math::clamp(data[x + y * pitch].x * 255.0f, 0.0f, 255.0f)));
-			result.push_back(unsigned char(Math::clamp(data[x + y * pitch].y * 255.0f, 0.0f, 255.0f)));
-			result.push_back(unsigned char(Math::clamp(data[x + y * pitch].z * 255.0f, 0.0f, 255.0f)));
+			result.push_back((unsigned char)(Math::clamp(data[x + y * pitch].x * 255.0f, 0.0f, 255.0f)));
+			result.push_back((unsigned char)(Math::clamp(data[x + y * pitch].y * 255.0f, 0.0f, 255.0f)));
+			result.push_back((unsigned char)(Math::clamp(data[x + y * pitch].z * 255.0f, 0.0f, 255.0f)));
 		}
 	}
 
