@@ -13,7 +13,7 @@
 #include "Util/ThreadPool.h"
 #include "Util/Geometry.h"
 
-AssetManager::AssetManager(Allocator * allocator) : mesh_datas(allocator), materials(allocator), media(allocator), textures(allocator), mesh_data_cache(allocator), texture_cache(allocator), thread_pool(make_owned<ThreadPool>()) {
+AssetManager::AssetManager(Allocator * allocator) : mesh_datas(allocator), materials(allocator), media(allocator), textures(allocator), mesh_data_cache(allocator), texture_cache(allocator) {
 	Material default_material = { };
 	default_material.name    = "Default";
 	default_material.diffuse = Vector3(1.0f, 0.0f, 1.0f);
@@ -54,7 +54,7 @@ Handle<MeshData> AssetManager::add_mesh_data(String filename, String bvh_filenam
 
 	mesh_data_handle = new_mesh_data();
 
-	thread_pool->submit([this, filename = std::move(filename), bvh_filename = std::move(bvh_filename), fallback_loader = std::move(fallback_loader), mesh_data_handle]() mutable {
+	ThreadPool::submit([this, filename = std::move(filename), bvh_filename = std::move(bvh_filename), fallback_loader = std::move(fallback_loader), mesh_data_handle]() mutable {
 		BVH2     bvh       = { };
 		MeshData mesh_data = { };
 
@@ -100,7 +100,7 @@ Handle<MeshData> AssetManager::add_mesh_data(String filename, String bvh_filenam
 Handle<MeshData> AssetManager::add_mesh_data(Array<Triangle> triangles) {
 	Handle<MeshData> mesh_data_handle = new_mesh_data();
 
-	thread_pool->submit([this, triangles = std::move(triangles), mesh_data_handle]() mutable {
+	ThreadPool::submit([this, triangles = std::move(triangles), mesh_data_handle]() mutable {
 		BVH2 bvh = BVH::create_from_triangles(triangles);
 
 		MeshData mesh_data = { };
@@ -139,7 +139,7 @@ Handle<Texture> AssetManager::add_texture(String filename, String name) {
 	// Otherwise, create new Texture and load it from disk
 	texture_handle = new_texture();
 
-	thread_pool->submit([this, filename = std::move(filename), name = std::move(name), texture_handle]() mutable {
+	ThreadPool::submit([this, filename = std::move(filename), name = std::move(name), texture_handle]() mutable {
 		Texture texture = { };
 		texture.name = std::move(name);
 
@@ -180,8 +180,7 @@ Handle<Texture> AssetManager::add_texture(String filename, String name) {
 void AssetManager::wait_until_loaded() {
 	if (assets_loaded) return; // Only necessary (and valid) to do this once
 
-	thread_pool->sync();
-	thread_pool.release();
+	ThreadPool::sync();
 
 	mesh_data_cache.clear();
 	texture_cache  .clear();

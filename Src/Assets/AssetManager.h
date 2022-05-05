@@ -15,7 +15,7 @@
 #include "BVHLoader.h"
 #include "BVH/BVHCollapser.h"
 
-struct ThreadPool;
+#include "Util/ThreadPool.h"
 
 struct AssetManager {
 	Array<MeshData> mesh_datas;
@@ -32,8 +32,6 @@ private:
 
 	Mutex mesh_datas_mutex;
 	Mutex textures_mutex;
-
-	OwnPtr<ThreadPool> thread_pool;
 
 	bool assets_loaded = false;
 

@@ -87,6 +87,8 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 	- [Millennium Falcon](https://blendswap.com/blend/5843)
 	- [LEGO Bulldozer](https://blendswap.com/blend/11490)
 	- [Rhetorician](https://blendswap.com/blend/21704)
+	- [Wererabbit](https://blendswap.com/blend/12252)
+
 
 - [Blender Demos](https://www.blender.org/download/demo-files/)
 
