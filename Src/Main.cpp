@@ -59,6 +59,18 @@ static void capture_screen(const Window & window, const Integrator & integrator,
 static void calc_timing();
 static void draw_gui(Window & window, Integrator & integrator);
 
+static void init_integrator(OwnPtr<Integrator> & integrator, const Window & window, Scene & scene) {
+	if (integrator) {
+		integrator->cuda_free();
+	}
+
+	switch (cpu_config.integrator) {
+		case IntegratorType::PATHTRACER: integrator = make_owned<Pathtracer>(window.frame_buffer_handle, window.width, window.height, scene); break;
+		case IntegratorType::AO:         integrator = make_owned<AO>        (window.frame_buffer_handle, window.width, window.height, scene); break;
+		default: ASSERT_UNREACHABLE();
+	}
+}
+
 int main(int num_args, char ** args) {
 	Args::parse(num_args, args);
 	if (cpu_config.scene_filenames.size() == 0) {
@@ -71,8 +83,12 @@ int main(int num_args, char ** args) {
 	Timer timer = { };
 	timer.start();
 
+	ThreadPool::init();
+
 	for (int i = 1; i < PMJ_NUM_SEQUENCES; i++) {
-		PMJ::shuffle(i);
+		ThreadPool::submit([i]() {
+			PMJ::shuffle(i);
+		});
 	}
 
 	Window window("Pathtracer"_sv, cpu_config.initial_width, cpu_config.initial_height);
@@ -83,15 +99,21 @@ int main(int num_args, char ** args) {
 	Scene scene(&scene_allocator);
 
 	OwnPtr<Integrator> integrator = nullptr;
-	integrator_change_requested = true;
+
 	window.resize_handler = [&integrator](unsigned frame_buffer_handle, int width, int height) {
 		if (integrator) {
 			integrator->resize_free();
 			integrator->resize_init(frame_buffer_handle, width, height);
 		}
 	};
+	window.set_size(cpu_config.initial_width, cpu_config.initial_height);
+	window.show();
+
+	init_integrator(integrator, window, scene);
 
 	PerfTest perf_test(*integrator.get(), false, cpu_config.scene_filenames[0].view());
+
+	ThreadPool::free();
 
 	size_t initialization_time = timer.stop();
 	Timer::print_named_duration("Initialization"_sv, initialization_time);
@@ -101,9 +123,6 @@ int main(int num_args, char ** args) {
 	timing.last  = timing.start;
 	timing.time_of_last_screenshot = INVALID;
 
-	window.set_size(cpu_config.initial_width, cpu_config.initial_height);
-	window.show();
-
 	LinearAllocator<MEGABYTES(16)> frame_allocator;
 
 	// Render loop
@@ -112,16 +131,7 @@ int main(int num_args, char ** args) {
 
 		if (integrator_change_requested) {
 			integrator_change_requested = false;
-
-			if (integrator) {
-				integrator->cuda_free();
-			}
-
-			switch (cpu_config.integrator) {
-				case IntegratorType::PATHTRACER: integrator = make_owned<Pathtracer>(window.frame_buffer_handle, window.width, window.height, scene); break;
-				case IntegratorType::AO:         integrator = make_owned<AO>        (window.frame_buffer_handle, window.width, window.height, scene); break;
-				default: ASSERT_UNREACHABLE();
-			}
+			init_integrator(integrator, window, scene);
 		}
 
 		integrator->update((float)timing.delta_time, &frame_allocator);
