@@ -2,6 +2,7 @@
 
 #include "Core/IO.h"
 #include "Core/Timer.h"
+#include "Core/Allocators/AlignedAllocator.h"
 
 #include "BVH/Builders/SAHBuilder.h"
 #include "BVH/Builders/SBVHBuilder.h"
@@ -13,7 +14,7 @@
 BVH2 BVH::create_from_triangles(const Array<Triangle> & triangles) {
 	IO::print("Constructing BVH...\r"_sv);
 
-	BVH2 bvh = { };
+	BVH2 bvh = BVH2(AlignedAllocator<64>::instance());
 
 	// Only the SBVH uses SBVH as its starting point,
 	// all other BVH types use the standard BVH as their starting point
