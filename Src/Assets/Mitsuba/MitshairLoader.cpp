@@ -90,30 +90,28 @@ Array<Triangle> MitshairLoader::load(const String & filename, Allocator * alloca
 			curr_segment.begin = strand[v] + r * orthogonal;
 			curr_segment.end   = strand[v] - r * orthogonal;
 
-			Triangle & triangle_0 = triangles.emplace_back();
-			triangle_0.position_0  = prev_segment.begin;
-			triangle_0.position_1  = prev_segment.end;
-			triangle_0.position_2  = curr_segment.begin;
-			triangle_0.normal_0    = Vector3(0.0f);
-			triangle_0.normal_1    = Vector3(0.0f);
-			triangle_0.normal_2    = Vector3(0.0f);
-			triangle_0.tex_coord_0 = Vector2(0.0f, 0.0f);
-			triangle_0.tex_coord_1 = Vector2(1.0f, 0.0f);
-			triangle_0.tex_coord_2 = Vector2(0.0f, 1.0f);
-			triangle_0.init();
-
-			Triangle & triangle_1 = triangles.emplace_back();
-			triangle_1.position_0  = prev_segment.end;
-			triangle_1.position_1  = curr_segment.end;
-			triangle_1.position_2  = curr_segment.begin;
-			triangle_1.normal_0    = Vector3(0.0f);
-			triangle_1.normal_1    = Vector3(0.0f);
-			triangle_1.normal_2    = Vector3(0.0f);
-			triangle_1.tex_coord_0 = Vector2(0.0f, 0.0f);
-			triangle_1.tex_coord_1 = Vector2(1.0f, 0.0f);
-			triangle_1.tex_coord_2 = Vector2(0.0f, 1.0f);
-			triangle_1.init();
-
+			triangles.emplace_back(
+				prev_segment.begin,
+				prev_segment.end,
+				curr_segment.begin,
+				Vector3(0.0f),
+				Vector3(0.0f),
+				Vector3(0.0f),
+				Vector2(0.0f, 0.0f),
+				Vector2(1.0f, 0.0f),
+				Vector2(0.0f, 1.0f)
+			);
+			triangles.emplace_back(
+				prev_segment.end,
+				curr_segment.end,
+				curr_segment.begin,
+				Vector3(0.0f),
+				Vector3(0.0f),
+				Vector3(0.0f),
+				Vector2(0.0f, 0.0f),
+				Vector2(1.0f, 0.0f),
+				Vector2(0.0f, 1.0f)
+			);
 			prev_segment = curr_segment;
 		}
 	}

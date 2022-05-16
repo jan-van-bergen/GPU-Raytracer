@@ -64,17 +64,17 @@ Handle<MeshData> AssetManager::add_mesh_data(String filename, String bvh_filenam
 
 			if (mesh_data.triangles.size() == 0) {
 				// FIXME: Right now empty MeshData is handled by inserting a dummy Triangle
-				Triangle triangle = { };
-				triangle.position_0 = Vector3(-1.0f, -1.0f, 0.0f);
-				triangle.position_1 = Vector3( 0.0f, +1.0f, 0.0f);
-				triangle.position_2 = Vector3(+1.0f, -1.0f, 0.0f);
-				triangle.tex_coord_0 = Vector2(0.0f, 1.0f);
-				triangle.tex_coord_1 = Vector2(0.5f, 0.0f);
-				triangle.tex_coord_2 = Vector2(1.0f, 1.0f);
-				triangle.normal_0 = Vector3(0.0f, 0.0f, 1.0f);
-				triangle.normal_1 = Vector3(0.0f, 0.0f, 1.0f);
-				triangle.normal_2 = Vector3(0.0f, 0.0f, 1.0f);
-				triangle.init();
+				Triangle triangle = Triangle(
+					Vector3(-1.0f, -1.0f, 0.0f),
+					Vector3( 0.0f, +1.0f, 0.0f),
+					Vector3(+1.0f, -1.0f, 0.0f),
+					Vector3(0.0f, 0.0f, 1.0f),
+					Vector3(0.0f, 0.0f, 1.0f),
+					Vector3(0.0f, 0.0f, 1.0f),
+					Vector2(0.0f, 1.0f),
+					Vector2(0.5f, 0.0f),
+					Vector2(1.0f, 1.0f)
+				);
 				mesh_data.triangles = { triangle };
 			}
 

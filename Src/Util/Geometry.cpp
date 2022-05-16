@@ -13,31 +13,10 @@ Array<Triangle> Geometry::rectangle(const Matrix4 & transform) {
 	Vector2 tex_coord_2 = Vector2(1.0f, 1.0f);
 	Vector2 tex_coord_3 = Vector2(0.0f, 1.0f);
 
-	Array<Triangle> triangles(2);
-
-	triangles[0].position_0 = vertex_0;
-	triangles[0].position_1 = vertex_1;
-	triangles[0].position_2 = vertex_2;
-	triangles[0].normal_0 = normal;
-	triangles[0].normal_1 = normal;
-	triangles[0].normal_2 = normal;
-	triangles[0].tex_coord_0 = tex_coord_0;
-	triangles[0].tex_coord_1 = tex_coord_1;
-	triangles[0].tex_coord_2 = tex_coord_2;
-	triangles[0].init();
-
-	triangles[1].position_0 = vertex_0;
-	triangles[1].position_1 = vertex_2;
-	triangles[1].position_2 = vertex_3;
-	triangles[1].normal_0 = normal;
-	triangles[1].normal_1 = normal;
-	triangles[1].normal_2 = normal;
-	triangles[1].tex_coord_0 = tex_coord_0;
-	triangles[1].tex_coord_1 = tex_coord_2;
-	triangles[1].tex_coord_2 = tex_coord_3;
-	triangles[1].init();
-
-	return triangles;
+	return {
+		Triangle(vertex_0, vertex_1, vertex_2, normal, normal, normal, tex_coord_0, tex_coord_1, tex_coord_2),
+		Triangle(vertex_0, vertex_2, vertex_3, normal, normal, normal, tex_coord_0, tex_coord_2, tex_coord_3),
+	};
 }
 
 Array<Triangle> Geometry::cube(const Matrix4 & transform) {
@@ -88,27 +67,28 @@ Array<Triangle> Geometry::cube(const Matrix4 & transform) {
 			cube_vertices[indices[face][3]]
 		};
 
-		triangles[2*face].position_0 = vertices[0];
-		triangles[2*face].position_1 = vertices[1];
-		triangles[2*face].position_2 = vertices[2];
-		triangles[2*face].normal_0 = cube_normals[face];
-		triangles[2*face].normal_1 = cube_normals[face];
-		triangles[2*face].normal_2 = cube_normals[face];
-		triangles[2*face].tex_coord_0 = cube_tex_coords[0];
-		triangles[2*face].tex_coord_1 = cube_tex_coords[1];
-		triangles[2*face].tex_coord_2 = cube_tex_coords[2];
-		triangles[2*face].init();
-
-		triangles[2*face + 1].position_0 = vertices[0];
-		triangles[2*face + 1].position_1 = vertices[2];
-		triangles[2*face + 1].position_2 = vertices[3];
-		triangles[2*face + 1].normal_0 = cube_normals[face];
-		triangles[2*face + 1].normal_1 = cube_normals[face];
-		triangles[2*face + 1].normal_2 = cube_normals[face];
-		triangles[2*face + 1].tex_coord_0 = cube_tex_coords[0];
-		triangles[2*face + 1].tex_coord_1 = cube_tex_coords[2];
-		triangles[2*face + 1].tex_coord_2 = cube_tex_coords[3];
-		triangles[2*face + 1].init();
+		triangles[2*face] = Triangle(
+			vertices[0],
+			vertices[1],
+			vertices[2],
+			cube_normals[face],
+			cube_normals[face],
+			cube_normals[face],
+			cube_tex_coords[0],
+			cube_tex_coords[1],
+			cube_tex_coords[2]
+		);
+		triangles[2*face + 1] = Triangle(
+			vertices[0],
+			vertices[2],
+			vertices[3],
+			cube_normals[face],
+			cube_normals[face],
+			cube_normals[face],
+			cube_tex_coords[0],
+			cube_tex_coords[2],
+			cube_tex_coords[3]
+		);
 	}
 
 	return triangles;
@@ -138,16 +118,17 @@ Array<Triangle> Geometry::disk(const Matrix4 & transform, int num_segments) {
 
 		Vector2 uv_curr = Vector2(0.5f + 0.5f * cos_theta, 0.5f + 0.5f * sin_theta);
 
-		triangles[i].position_0 = vertex_prev;
-		triangles[i].position_1 = vertex_curr;
-		triangles[i].position_2 = vertex_center;
-		triangles[i].normal_0 = normal;
-		triangles[i].normal_1 = normal;
-		triangles[i].normal_2 = normal;
-		triangles[i].tex_coord_0 = uv_prev;
-		triangles[i].tex_coord_1 = uv_curr;
-		triangles[i].tex_coord_2 = Vector2(0.5f, 0.5f);
-		triangles[i].init();
+		triangles[i] = Triangle(
+			vertex_prev,
+			vertex_curr,
+			vertex_center,
+			normal,
+			normal,
+			normal,
+			uv_prev,
+			uv_curr,
+			Vector2(0.5f, 0.5f)
+		);
 
 		vertex_prev = vertex_curr;
 		uv_prev = uv_curr;
@@ -187,27 +168,28 @@ Array<Triangle> Geometry::cylinder(const Matrix4 & transform, const Vector3 & p0
 		Vector3 normal_curr = Vector3::normalize(vertex_offset_curr);
 		float u_curr = float(i+1) / float(num_segments);
 
-		triangles[2*i].position_0 = p0_world + vertex_offset_prev;
-		triangles[2*i].position_1 = p0_world + vertex_offset_curr;
-		triangles[2*i].position_2 = p1_world + vertex_offset_prev;
-		triangles[2*i].normal_0 = normal_prev;
-		triangles[2*i].normal_1 = normal_curr;
-		triangles[2*i].normal_2 = normal_prev;
-		triangles[2*i].tex_coord_0 = Vector2(u_prev, 0.0f);
-		triangles[2*i].tex_coord_1 = Vector2(u_curr, 0.0f);
-		triangles[2*i].tex_coord_2 = Vector2(u_prev, 1.0f);
-		triangles[2*i].init();
-
-		triangles[2*i + 1].position_0 = p0_world + vertex_offset_curr;
-		triangles[2*i + 1].position_1 = p1_world + vertex_offset_curr;
-		triangles[2*i + 1].position_2 = p1_world + vertex_offset_prev;
-		triangles[2*i + 1].normal_0 = normal_curr;
-		triangles[2*i + 1].normal_1 = normal_curr;
-		triangles[2*i + 1].normal_2 = normal_prev;
-		triangles[2*i + 1].tex_coord_0 = Vector2(u_curr, 0.0f);
-		triangles[2*i + 1].tex_coord_1 = Vector2(u_curr, 1.0f);
-		triangles[2*i + 1].tex_coord_2 = Vector2(u_prev, 1.0f);
-		triangles[2*i + 1].init();
+		triangles[2*i] = Triangle(
+			p0_world + vertex_offset_prev,
+			p0_world + vertex_offset_curr,
+			p1_world + vertex_offset_prev,
+			normal_prev,
+			normal_curr,
+			normal_prev,
+			Vector2(u_prev, 0.0f),
+			Vector2(u_curr, 0.0f),
+			Vector2(u_prev, 1.0f)
+		);
+		triangles[2*i + 1] = Triangle(
+			p0_world + vertex_offset_curr,
+			p1_world + vertex_offset_curr,
+			p1_world + vertex_offset_prev,
+			normal_curr,
+			normal_curr,
+			normal_prev,
+			Vector2(u_curr, 0.0f),
+			Vector2(u_curr, 1.0f),
+			Vector2(u_prev, 1.0f)
+		);
 
 		vertex_offset_prev = vertex_offset_curr;
 		normal_prev        = normal_curr;
@@ -307,8 +289,6 @@ Array<Triangle> Geometry::sphere(const Matrix4 & transform, int num_subdivisions
 			0.5f + atan2f(-triangles[i].normal_2.z, -triangles[i].normal_2.x) * ONE_OVER_TWO_PI,
 			0.5f + asinf (-triangles[i].normal_2.y)                           * ONE_OVER_PI
 		);
-
-		triangles[i].init();
 	}
 
 	return triangles;
