@@ -34,24 +34,24 @@ static float bvh_sah_cost(const BVH2 & bvh) {
 	) / bvh.nodes[0].aabb.surface_area();
 }
 
-// Initialize array of parent indices by traversing the tree recursively
-static void init_parent_indices(const BVH2 & bvh, Array<int> & parent_indices, int node_index = 0) {
-	const BVHNode2 & node = bvh.nodes[node_index];
+// Initialize array of parent indices
+static Array<int> get_parent_indices(const BVH2 & bvh, Allocator * allocator) {
+	Array<int> parent_indices(bvh.nodes.size(), allocator);
+	parent_indices[0] = INVALID; // Root has no parent
 
-	if (node.is_leaf()) {
-		if (node.count != 1) {
-			IO::print("ERROR: BVH Optimizer expects BVH with leaf Nodes containing only 1 primitive!\n"_sv);
-			IO::exit(1);
+	for (size_t i = 2; i < bvh.nodes.size(); i++) {
+		const BVHNode2 & node = bvh.nodes[i];
+		if (node.is_leaf()) {
+			ASSERT(node.count == 1);
+		} else {
+			ASSERT((node.left & 1) == 0);
+
+			parent_indices[node.left]     = i;
+			parent_indices[node.left + 1] = i;
 		}
-		return;
 	}
-	ASSERT((node.left & 1) == 0);
 
-	parent_indices[node.left    ] = node_index;
-	parent_indices[node.left + 1] = node_index;
-
-	init_parent_indices(bvh, parent_indices, node.left);
-	init_parent_indices(bvh, parent_indices, node.left + 1);
+	return parent_indices;
 }
 
 // Produces a single batch consisting of 'batch_size' candidates for reinsertion based on random sampling
@@ -163,7 +163,7 @@ static void update_aabbs_bottom_up(BVH2 & bvh, const Array<int> & parent_indices
 		}
 
 		node_index = parent_indices[node_index];
-	} while (node_index != -1);
+	} while (node_index != INVALID);
 }
 
 // Calculates a split axis for the given BVH Node
@@ -171,7 +171,7 @@ static void update_aabbs_bottom_up(BVH2 & bvh, const Array<int> & parent_indices
 // which causes performance problems during traversal.
 // This method selects a new split axis and swaps the child nodes such that the left child is also the leftmost node on that axis.
 static void bvh_node_calc_axis(BVH2 & bvh, Array<int> & parent_indices, Array<int> & displacement, const Array<int> & originated, BVHNode2 & node) {
-	int   max_axis = -1;
+	int   max_axis = INVALID;
 	float max_dist = 0.0f;
 
 	Vector3 center_left  = bvh.nodes[node.left    ].aabb.get_center();
@@ -189,7 +189,7 @@ static void bvh_node_calc_axis(BVH2 & bvh, Array<int> & parent_indices, Array<in
 		}
 	}
 
-	ASSERT(max_axis != -1);
+	ASSERT(max_axis != INVALID);
 
 	// Swap left and right children if needed
 	if (center_left[max_axis] > center_right[max_axis]) {
@@ -233,9 +233,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 	LinearAllocator<MEGABYTES(1)> init_allocator; // Memory used during the entire optimization process
 	LinearAllocator<MEGABYTES(1)> loop_allocator; // Memory reset every batch iteration
 
-	Array<int> parent_indices(bvh.nodes.size(), &init_allocator);
-	parent_indices[0] = -1; // Root has no parent
-	init_parent_indices(bvh, parent_indices);
+	Array<int> parent_indices = get_parent_indices(bvh, &init_allocator);
 
 	constexpr int P_R = 5;  // After P_R batches with no improvement to the best SAH cost we switch to random Node selection
 	constexpr int P_T = 10; // After P_T batches with no improvement to the best SAH cost we terminate the algorithm
@@ -280,14 +278,14 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 		for (int i = 0; i < batch_size; i++) {
 			int node_index = displacement[batch_indices[i]];
-			if (node_index == -1) continue; // This Node was overwritten by another reinsertion and no longer exists
+			if (node_index == INVALID) continue; // This Node was overwritten by another reinsertion and no longer exists
 
 			const BVHNode2 & node = bvh.nodes[node_index];
 
 			int parent        = parent_indices[node_index];
 			int parent_parent = parent_indices[parent];
 
-			if (node.is_leaf() || parent == 0 || parent == -1) continue;
+			if (node.is_leaf() || parent == 0 || parent == INVALID) continue;
 
 			int sibling = (node_index & 1) ? node_index - 1 : node_index + 1; // Other child of the same parent as current node
 
@@ -329,8 +327,8 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 				parent_indices[bvh.nodes[sibling].left + 1] = parent;
 			}
 
-			displacement[originated[parent]]     = -1;
-			displacement[originated[node_index]] = -1;
+			displacement[originated[parent]]     = INVALID;
+			displacement[originated[node_index]] = INVALID;
 
 			update_aabbs_bottom_up(bvh, parent_indices, parent_parent);
 
@@ -343,7 +341,7 @@ void BVHOptimizer::optimize(BVH2 & bvh) {
 
 				// Find the best position to reinsert the given Node
 				float min_cost  = INFINITY;
-				int   min_index = -1;
+				int   min_index = INVALID;
 
 				find_reinsertion(bvh, reinsert.node, &loop_allocator, min_cost, min_index);
 
