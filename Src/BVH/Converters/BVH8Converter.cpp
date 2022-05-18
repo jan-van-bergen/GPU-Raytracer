@@ -270,8 +270,8 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 	node.base_index_triangle = unsigned(bvh8.indices.size());
 	node.base_index_child    = unsigned(bvh8.nodes  .size());
 
-	int node_internal_count = 0;
-	int node_triangle_count = 0;
+	int num_internal_nodes = 0;
+	int num_triangles      = 0;
 
 	for (int i = 0; i < 8; i++) {
 		int child_index = children[i];
@@ -297,38 +297,39 @@ void BVH8Converter::collapse(const Array<BVHNode2> & nodes_bvh, const Array<int>
 					node.meta[i] |= (1 << (j + 5));
 				}
 
-				node.meta[i] |= node_triangle_count;
+				node.meta[i] |= num_triangles;
 
-				node_triangle_count += triangle_count;
-				ASSERT(node_triangle_count <= 24);
+				num_triangles += triangle_count;
+				ASSERT(num_triangles <= 24);
 				break;
 			}
 			case Decision::Type::INTERNAL: {
-				node.meta[i] = (node_internal_count + 24) | 0b00100000;
+				node.meta[i] = (i + 24) | 0b00100000;
 
-				node.imask |= (1 << node_internal_count);
-				node_internal_count++;
+				node.imask |= (1 << i);
+				num_internal_nodes++;
 				break;
 			}
 			default: ASSERT_UNREACHABLE();
 		}
 	}
 
-	for (int i = 0; i < node_internal_count; i++) {
+	for (int i = 0; i < num_internal_nodes; i++) {
 		bvh8.nodes.emplace_back();
 	}
 	node = bvh8.nodes[node_index_bvh8]; // NOTE: 'node' may have been invalidated by emplace_back on previous line
 
-	ASSERT(node.base_index_child    + node_internal_count == bvh8.nodes  .size());
-	ASSERT(node.base_index_triangle + node_triangle_count == bvh8.indices.size());
+	ASSERT(node.base_index_child    + num_internal_nodes == bvh8.nodes  .size());
+	ASSERT(node.base_index_triangle + num_triangles      == bvh8.indices.size());
 
 	// Recurse on Internal Nodes
+	int offset = 0;
 	for (int i = 0; i < 8; i++) {
 		int child_index = children[i];
 		if (child_index == INVALID) continue;
 
-		if (decisions[child_index * 7].type == Decision::Type::INTERNAL) {
-			collapse(nodes_bvh, indices_bvh, node.base_index_child + (node.meta[i] & 31) - 24, child_index);
+		if (node.imask & (1 << i)) {
+			collapse(nodes_bvh, indices_bvh, node.base_index_child + offset++, child_index);
 		}
 	}
 }
