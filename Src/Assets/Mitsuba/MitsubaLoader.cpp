@@ -641,7 +641,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			} else if (extension != "hdr") {
 				WARNING(node->location, "Environment Map '{}' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
 			} else {
-				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel, scene.allocator);
+				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel);
 			}
 		} else if (emitter_type == "point") {
 			// Make small area light
