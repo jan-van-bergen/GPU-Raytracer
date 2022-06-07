@@ -144,10 +144,10 @@ __device__ inline float fresnel_dielectric(float cos_theta_i, float eta) {
 		return 1.0f; // Total internal reflection (TIR)
 	}
 
-	float cos_theta_o = sqrtf(1.0f - sin_theta_o2);
+	float cos_theta_o = safe_sqrt(1.0f - sin_theta_o2);
 
-	float s = (cos_theta_i - eta * cos_theta_o) / (cos_theta_i + eta * cos_theta_o);
 	float p = (eta * cos_theta_i - cos_theta_o) / (eta * cos_theta_i + cos_theta_o);
+	float s = (cos_theta_i - eta * cos_theta_o) / (cos_theta_i + eta * cos_theta_o);
 
 	return 0.5f * (p*p + s*s);
 }
@@ -164,8 +164,17 @@ __device__ inline float3 fresnel_conductor(float cos_theta_i, const float3 & eta
 	return 0.5f * (p2 + s2);
 }
 
+__device__ inline float average_fresnel(float ior) {
+	// Approximation by Kully-Conta 2017
+	return (ior - 1.0f) / (4.08567f + 1.00071f*ior);
+}
+
 // Distribution of Normals term D for the GGX microfacet model
 __device__ inline float ggx_D(const float3 & micro_normal, float alpha_x, float alpha_y) {
+	if (micro_normal.z < 1e-6f) {
+		return 0.0f;
+	}
+
 	float sx = -micro_normal.x / (micro_normal.z * alpha_x);
 	float sy = -micro_normal.y / (micro_normal.z * alpha_y);
 

@@ -84,6 +84,15 @@ struct GPUConfig {
 #define BLUE_NOISE_TEXTURE_DIM 128
 
 
+// BSDF LUTS
+#define LUT_DIM_IOR 16
+#define LUT_DIM_COS_THETA 16
+#define LUT_DIM_ROUGHNESS 16
+
+#define LUT_MIN_IOR 1.0001f
+#define LUT_MAX_IOR 2.5f
+
+
 // SVGF
 #define MAX_ATROUS_ITERATIONS 10
 

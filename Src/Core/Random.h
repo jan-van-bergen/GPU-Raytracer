@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "Core/Assertion.h"
+#include "Util/Util.h"
 
 // Based on: https://github.com/imneme/pcg-c
 struct RNG {
@@ -45,7 +46,8 @@ struct RNG {
 	}
 
 	float get_float() {
-		return get_uint32() / float(0xffffffff);
+		static const float one_over_max_unsigned = Util::bit_cast<float>(0x2f7fffff);
+		return float(get_uint32()) * one_over_max_unsigned;
 	}
 };
 

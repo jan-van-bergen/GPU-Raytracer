@@ -144,6 +144,9 @@ struct BufferSizes {
 };
 
 struct Pathtracer final : Integrator {
+	CUDAKernel kernel_bsdf_integrate;
+	CUDAKernel kernel_bsdf_average;
+
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace_bvh2;
 	CUDAKernel kernel_trace_bvh4;
@@ -178,6 +181,15 @@ struct Pathtracer final : Integrator {
 	CUDAMemory::Ptr<MaterialBuffer> ptr_material_ray_buffers;
 
 	CUDAModule::Global global_ray_buffer_shadow;
+
+	struct LUTTexture {
+		CUtexObject texture;
+		CUarray     array;
+	};
+	LUTTexture lut_directional_albedo_enter;
+	LUTTexture lut_directional_albedo_leave;
+	LUTTexture lut_albedo_enter;
+	LUTTexture lut_albedo_leave;
 
 	BufferSizes * pinned_buffer_sizes = nullptr;
 
@@ -240,6 +252,9 @@ struct Pathtracer final : Integrator {
 
 	void init_module();
 	void init_events();
+
+	void init_luts();
+	void free_luts();
 
 	void resize_init(unsigned frame_buffer_handle, int width, int height) override; // Part of resize that initializes new size
 	void resize_free()                                                    override; // Part of resize that cleans up old size

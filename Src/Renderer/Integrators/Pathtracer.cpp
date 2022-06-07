@@ -4,6 +4,8 @@
 
 #include "Core/Allocators/LinearAllocator.h"
 
+#include "CUDA/Common.h"
+
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	init_module();
 	init_globals();
@@ -21,6 +23,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	init_sky();
 	init_rng();
 	init_events();
+	init_luts();
 
 	ray_buffer_trace_0.init(BATCH_SIZE);
 	ray_buffer_trace_1.init(BATCH_SIZE);
@@ -40,6 +43,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 void Pathtracer::cuda_free() {
 	Integrator::cuda_free();
 
+	free_luts();
 	free_materials();
 	free_geometry();
 	free_sky();
@@ -72,6 +76,8 @@ void Pathtracer::cuda_free() {
 void Pathtracer::init_module() {
 	cuda_module.init("Pathtracer"_sv, "Src/CUDA/Pathtracer.cu"_sv, CUDAContext::compute_capability, MAX_REGISTERS);
 
+	kernel_bsdf_integrate     .init(&cuda_module, "kernel_bsdf_integrate");
+	kernel_bsdf_average       .init(&cuda_module, "kernel_bsdf_average");
 	kernel_generate           .init(&cuda_module, "kernel_generate");
 	kernel_trace_bvh2         .init(&cuda_module, "kernel_trace_bvh2");
 	kernel_trace_bvh4         .init(&cuda_module, "kernel_trace_bvh4");
@@ -101,6 +107,8 @@ void Pathtracer::init_module() {
 	}
 
 	// Set Block dimensions for all Kernels
+	kernel_bsdf_integrate     .set_block_dim(256, 1, 1);
+	kernel_bsdf_average       .set_block_dim(256, 1, 1);
 	kernel_generate           .set_block_dim(256, 1, 1);
 	kernel_sort               .set_block_dim(256, 1, 1);
 	kernel_material_diffuse   .set_block_dim(256, 1, 1);
@@ -124,6 +132,9 @@ void Pathtracer::init_module() {
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh2);
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh4);
 	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_shadow_bvh8);
+
+	kernel_bsdf_integrate.set_grid_dim(Math::divide_round_up(LUT_DIM_IOR * LUT_DIM_COS_THETA * LUT_DIM_ROUGHNESS, kernel_bsdf_integrate.block_dim_x), 1, 1);
+	kernel_bsdf_average  .set_grid_dim(Math::divide_round_up(LUT_DIM_IOR * LUT_DIM_ROUGHNESS, kernel_bsdf_average.block_dim_x), 1, 1);
 }
 
 void Pathtracer::init_events() {
@@ -157,6 +168,64 @@ void Pathtracer::init_events() {
 	event_desc_accumulate  = CUDAEvent::Desc { display_order, "Post"_sv, "Accumulate"_sv };
 
 	event_desc_end = CUDAEvent::Desc { ++display_order, "END"_sv, "END"_sv };
+}
+
+#include "Core/Timer.h"
+
+void Pathtracer::init_luts() {
+	struct KullaContyLUT {
+		CUarray array_lut_directional_albedo;
+		CUarray array_lut_albedo;
+	};
+
+	auto create_lut = [this](bool entering_material) -> KullaContyLUT {
+		CUarray array_lut_directional_albedo = CUDAMemory::create_array_3d(LUT_DIM_IOR, LUT_DIM_ROUGHNESS, LUT_DIM_COS_THETA, 1, CUarray_format::CU_AD_FORMAT_FLOAT);
+		CUarray array_lut_albedo             = CUDAMemory::create_array   (LUT_DIM_IOR, LUT_DIM_ROUGHNESS,                    1, CUarray_format::CU_AD_FORMAT_FLOAT);
+
+		CUDAMemory::Ptr<float> ptr_lut_directional_albedo = CUDAMemory::malloc<float>(LUT_DIM_IOR * LUT_DIM_ROUGHNESS * LUT_DIM_COS_THETA);
+		CUDAMemory::Ptr<float> ptr_lut_albedo             = CUDAMemory::malloc<float>(LUT_DIM_IOR * LUT_DIM_ROUGHNESS);
+
+		kernel_bsdf_integrate.execute(entering_material, ptr_lut_directional_albedo);
+		kernel_bsdf_average  .execute(ptr_lut_directional_albedo, ptr_lut_albedo);
+
+		CUDAMemory::copy_array_3d(array_lut_directional_albedo, LUT_DIM_IOR * sizeof(float), LUT_DIM_ROUGHNESS, LUT_DIM_COS_THETA, ptr_lut_directional_albedo.ptr);
+		CUDAMemory::copy_array   (array_lut_albedo,             LUT_DIM_IOR * sizeof(float), LUT_DIM_ROUGHNESS,                    ptr_lut_albedo.ptr);
+
+		CUDAMemory::free(ptr_lut_directional_albedo);
+		CUDAMemory::free(ptr_lut_albedo);
+
+		return KullaContyLUT { array_lut_directional_albedo, array_lut_albedo };
+	};
+
+	KullaContyLUT lut_enter = create_lut(true);
+	KullaContyLUT lut_leave = create_lut(false);
+
+	lut_directional_albedo_enter.array = lut_enter.array_lut_directional_albedo;
+	lut_directional_albedo_leave.array = lut_leave.array_lut_directional_albedo;
+	lut_albedo_enter            .array = lut_enter.array_lut_albedo;
+	lut_albedo_leave            .array = lut_leave.array_lut_albedo;
+
+	lut_directional_albedo_enter.texture = CUDAMemory::create_texture(lut_directional_albedo_enter.array, CU_TR_FILTER_MODE_LINEAR, CU_TR_ADDRESS_MODE_CLAMP);
+	lut_directional_albedo_leave.texture = CUDAMemory::create_texture(lut_directional_albedo_leave.array, CU_TR_FILTER_MODE_LINEAR, CU_TR_ADDRESS_MODE_CLAMP);
+	lut_albedo_enter            .texture = CUDAMemory::create_texture(lut_albedo_enter            .array, CU_TR_FILTER_MODE_LINEAR, CU_TR_ADDRESS_MODE_CLAMP);
+	lut_albedo_leave            .texture = CUDAMemory::create_texture(lut_albedo_leave            .array, CU_TR_FILTER_MODE_LINEAR, CU_TR_ADDRESS_MODE_CLAMP);
+
+	cuda_module.get_global("lut_directional_albedo_enter").set_value(lut_directional_albedo_enter.texture);
+	cuda_module.get_global("lut_directional_albedo_leave").set_value(lut_directional_albedo_leave.texture);
+	cuda_module.get_global("lut_albedo_enter")            .set_value(lut_albedo_enter.texture);
+	cuda_module.get_global("lut_albedo_leave")            .set_value(lut_albedo_leave.texture);
+}
+
+void Pathtracer::free_luts() {
+	CUDACALL(cuTexObjectDestroy(lut_directional_albedo_enter.texture));
+	CUDACALL(cuTexObjectDestroy(lut_directional_albedo_leave.texture));
+	CUDACALL(cuTexObjectDestroy(lut_albedo_enter.texture));
+	CUDACALL(cuTexObjectDestroy(lut_albedo_leave.texture));
+
+	CUDAMemory::free_array(lut_directional_albedo_enter.array);
+	CUDAMemory::free_array(lut_directional_albedo_leave.array);
+	CUDAMemory::free_array(lut_albedo_enter.array);
+	CUDAMemory::free_array(lut_albedo_leave.array);
 }
 
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {

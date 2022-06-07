@@ -1,4 +1,5 @@
 #pragma once
+#include "KullaConty.h"
 #include "Sampling.h"
 #include "Material.h"
 #include "RayCone.h"
@@ -99,7 +100,7 @@ struct BSDFPlastic {
 	//      auto d = (8.0*n4*(n4 + 1.0) / ((n2 + 1.0) * sq(n4 - 1.0))) * log(n);
 	//
 	//      return float(0.5 + a + b - c + d);
-	//	}
+	//  }
 	//
 	//	TIR_COMPENSATION = 1.0f - (1.0f - fresnel_first_moment(ior)) / (ior * ior);
 	//
@@ -237,6 +238,8 @@ struct BSDFDielectric {
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 
+		assert(false && "TODO!!!");
+
 		bool reflected = omega_o.z >= 0.0f; // Same sign means reflection, alternate signs means transmission
 
 		float3 omega_m;
@@ -263,8 +266,6 @@ struct BSDFDielectric {
 
 			bsdf = make_float3(F * G2 * D / (4.0f * omega_i.z)); // BRDF times cos(theta_o)
 		} else {
-			if (F >= 0.999f) return false; // TIR, no transmission possible
-
 			pdf = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
 			bsdf = eta * eta * make_float3((1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m))); // BRDF times cos(theta_o)
@@ -280,17 +281,53 @@ struct BSDFDielectric {
 		float alpha_x = material.roughness;
 		float alpha_y = material.roughness;
 
-		float3 omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
+		bool entering_material = eta < 1.0f;
 
-		float F = fresnel_dielectric(abs_dot(omega_i, omega_m), eta);
-		bool reflected = rand_fresnel < F;
+		float E_i = ggx_directional_albedo(material.ior, omega_i.z, material.roughness, entering_material);
+		
+		float F_avg = average_fresnel(material.ior);
+		if (!entering_material) {
+			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
+		}
+		
+		float x = kulla_conty_x(material.ior, material.roughness);
+		float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
 
+		float F;
+		bool reflected;
+
+		float3 omega_m;
 		float3 omega_o;
-		if (reflected) {
-			omega_o = 2.0f * dot(omega_i, omega_m) * omega_m - omega_i;
+		if (rand_fresnel < E_i) {
+			// Sample single scatter component
+			omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
+
+			rand_fresnel = remap(rand_fresnel, 0.0f, E_i, 0.0f, 1.0f); // TODO: don't destroy stratification ////////////////////////////////////////
+			F = fresnel_dielectric(abs_dot(omega_i, omega_m), eta);
+			reflected = rand_fresnel < F;
+
+			if (reflected) {
+				omega_o = 2.0f * dot(omega_i, omega_m) * omega_m - omega_i;
+			} else {
+				float k = 1.0f - eta*eta * (1.0f - square(dot(omega_i, omega_m)));
+				omega_o = (eta * dot(omega_i, omega_m) - safe_sqrt(k)) * omega_m - eta * omega_i;
+			}
 		} else {
-			float k = 1.0f - eta*eta * (1.0f - square(dot(omega_i, omega_m)));
-			omega_o = (eta * abs_dot(omega_i, omega_m) - sqrtf(k)) * omega_m - eta * omega_i;
+			// Sample multiple scatter component
+			omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
+
+			rand_fresnel = remap(rand_fresnel, E_i, 1.0f, 0.0f, 1.0f); // TODO: don't destroy stratification ////////////////////////////////////////
+			reflected = rand_fresnel > ratio;
+
+			if (reflected) {
+				omega_m = normalize(omega_i + omega_o);
+			} else {
+				omega_o = -omega_o;
+				omega_m = normalize(eta * omega_i + omega_o);
+			}
+			omega_m *= sign(omega_m.z);
+
+			F = fresnel_dielectric(abs_dot(omega_i, omega_m), eta);
 		}
 
 		if (reflected ^ (omega_o.z >= 0.0f)) return false; // Hemisphere check: reflection should have positive z, transmission negative z
@@ -302,15 +339,32 @@ struct BSDFDielectric {
 		float i_dot_m = abs_dot(omega_i, omega_m);
 		float o_dot_m = abs_dot(omega_o, omega_m);
 
-		if (reflected) {
-			pdf = F * G1 * D / (4.0f * omega_i.z);
-		} else {
-			pdf = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
+		float bsdf_single;
+		float bsdf_multi;
 
-			throughput *= eta*eta; // Account for solid angle compression
-			
+		float pdf_single;
+		float pdf_multi;
+
+		if (reflected) {
+			bsdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF times cos(theta_o)
+			pdf_single  = F * G1 * D / (4.0f * omega_i.z);
+
+			float E_o   = ggx_directional_albedo(material.ior, omega_o.z, material.roughness, entering_material);
+			float E_avg = ggx_albedo(material.ior, material.roughness, entering_material);
+
+			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
+		} else {
+			bsdf_single = (1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m) * square(eta)); // BRDF times cos(theta_o)
+			pdf_single  = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
+
+			float E_o   = ggx_directional_albedo(material.ior, omega_o.z, material.roughness, !entering_material);
+			float E_avg = ggx_albedo(material.ior, material.roughness, !entering_material);
+
+			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;
+
 			// Update the Medium based on whether we are transmitting into or out of the Material
-			bool entering_material = eta < 1.0f;
 			if (entering_material) {
 				medium_id = material.medium_id;
 			} else {
@@ -318,7 +372,8 @@ struct BSDFDielectric {
 			}
 		}
 
-		throughput *= G2 / G1; // BRDF * cos(theta_o) / pdf (same for reflection and transmission)
+		pdf = lerp(pdf_multi, pdf_single, E_i);
+		throughput *= (bsdf_single + bsdf_multi) / pdf;
 
 		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 
