@@ -238,9 +238,7 @@ struct BSDFDielectric {
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 
-		assert(false && "TODO!!!");
-
-		bool reflected = omega_o.z >= 0.0f; // Same sign means reflection, alternate signs means transmission
+		bool reflected = omega_o.z >= 0.0f; // Positive sign means reflection, negative sign means transmission
 
 		float3 omega_m;
 		if (reflected) {
@@ -261,16 +259,47 @@ struct BSDFDielectric {
 		float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
 		float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
+		bool entering_material = eta < 1.0f;
+
+		float F_avg = average_fresnel(material.ior);
+		if (!entering_material) {
+			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
+		}
+		
+		float x = kulla_conty_x(material.ior, material.roughness);
+		float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
+
+		float E_i = ggx_directional_albedo(material.ior, omega_i.z, material.roughness, entering_material);
+
+		float bsdf_single;
+		float bsdf_multi;
+
+		float pdf_single;
+		float pdf_multi;
+
 		if (reflected) {
-			pdf = F * G1 * D / (4.0f * omega_i.z);
+			bsdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF times cos(theta_o)
+			pdf_single  = F * G1 * D / (4.0f * omega_i.z);
 
-			bsdf = make_float3(F * G2 * D / (4.0f * omega_i.z)); // BRDF times cos(theta_o)
+			float E_o   = ggx_directional_albedo(material.ior, omega_o.z, material.roughness, entering_material);
+			float E_avg = ggx_albedo(material.ior, material.roughness, entering_material);
+
+			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
 		} else {
-			pdf = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
+			bsdf_single = (1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m) * square(eta)); // BRDF times cos(theta_o)
+			pdf_single  = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
-			bsdf = eta * eta * make_float3((1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m))); // BRDF times cos(theta_o)
+			float E_o   = ggx_directional_albedo(material.ior, omega_o.z, material.roughness, !entering_material);
+			float E_avg = ggx_albedo(material.ior, material.roughness, !entering_material);
+
+			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;
 		}
 
+		bsdf = make_float3(bsdf_single + bsdf_multi);
+
+		pdf = lerp(pdf_multi, pdf_single, E_i);
 		return pdf_is_valid(pdf);
 	}
 
