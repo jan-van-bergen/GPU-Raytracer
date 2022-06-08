@@ -114,16 +114,16 @@ extern "C" __global__ void kernel_bsdf_integrate(bool entering_material, float *
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_DIM_IOR * LUT_DIM_COS_THETA * LUT_DIM_ROUGHNESS) return;
 
-	int index_ior       = (thread_index)                                     % LUT_DIM_IOR;
-	int index_roughness = (thread_index / (LUT_DIM_IOR))                     % LUT_DIM_ROUGHNESS;
-	int index_cos_theta = (thread_index / (LUT_DIM_IOR * LUT_DIM_ROUGHNESS)) % LUT_DIM_COS_THETA;
+	int i = (thread_index)                                     % LUT_DIM_IOR;
+	int r = (thread_index / (LUT_DIM_IOR))                     % LUT_DIM_ROUGHNESS;
+	int c = (thread_index / (LUT_DIM_IOR * LUT_DIM_ROUGHNESS)) % LUT_DIM_COS_THETA;
 
-	float ior = map_ior(index_ior);
+	float ior = map_ior(i);
 	float eta = entering_material ? 1.0f / ior : ior;
 
-	float alpha = map_roughness(index_roughness);
+	float alpha = map_roughness(r);
 
-	float cos_theta = map_cos_theta(index_cos_theta);
+	float cos_theta = map_cos_theta(c);
 	float sin_theta = safe_sqrt(1.0f - square(cos_theta));
 	float3 omega_i = make_float3(sin_theta, 0.0f, cos_theta);
 
@@ -142,16 +142,16 @@ extern "C" __global__ void kernel_bsdf_average(const float * lut_directional_alb
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_DIM_IOR * LUT_DIM_ROUGHNESS) return;
 
-	int index_ior       = (thread_index)               % LUT_DIM_IOR;
-	int index_roughness = (thread_index / LUT_DIM_IOR) % LUT_DIM_ROUGHNESS;
+	int i = (thread_index)               % LUT_DIM_IOR;
+	int r = (thread_index / LUT_DIM_IOR) % LUT_DIM_ROUGHNESS;
 
 	float avg = 0.0f;
 
-	for (int index_cos_theta = 0; index_cos_theta < LUT_DIM_COS_THETA; index_cos_theta++) {
-		float cos_theta = map_cos_theta(index_cos_theta);
+	for (int c = 0; c < LUT_DIM_COS_THETA; c++) {
+		float cos_theta = map_cos_theta(c);
 
-		int index = lut_index(index_ior, index_roughness, index_cos_theta);
-		avg = online_average(avg, lut_directional_albedo[index] * cos_theta, index_cos_theta + 1);
+		int index = lut_index(i, r, c);
+		avg = online_average(avg, lut_directional_albedo[index] * cos_theta, c + 1);
 	}
 
 	lut_albedo[thread_index] = 2.0f * avg;
