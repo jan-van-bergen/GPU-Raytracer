@@ -257,8 +257,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		bool medium_can_scatter = (medium.sigma_s.x + medium.sigma_s.y + medium.sigma_s.z) > 0.0f;
 
 		if (medium_can_scatter) {
-			float2 rand_scatter = random<SampleDimension::NEE_LIGHT>(pixel_index, bounce, sample_index);
-			float2 rand_phase   = random<SampleDimension::BRDF>     (pixel_index, bounce, sample_index);
+			float2 rand_scatter = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
+			float2 rand_phase   = random<SampleDimension::BSDF_1>(pixel_index, bounce, sample_index);
 
 			float3 sigma_t = medium.sigma_a + medium.sigma_s;
 

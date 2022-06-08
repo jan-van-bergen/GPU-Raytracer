@@ -44,7 +44,7 @@ __device__ inline float kulla_conty_x(float ior, float roughness) { // TOOD: OPT
 
 __device__ inline float sample_dielectric(int thread_index, int sample_index, float roughness, float eta, float3 omega_i) {
 	float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(thread_index, 0, sample_index).y;
-	float2 rand_brdf    = random<SampleDimension::BRDF>            (thread_index, 0, sample_index);
+	float2 rand_brdf    = random<SampleDimension::BSDF_0>          (thread_index, 0, sample_index);
 
 	float alpha_x = roughness;
 	float alpha_y = roughness;

@@ -30,13 +30,15 @@ __device__ inline float power_heuristic(float pdf_f, float pdf_g) {
 enum struct SampleDimension {
 	FILTER,
 	APERTURE,
+
 	RUSSIAN_ROULETTE,
 	NEE_LIGHT,
 	NEE_TRIANGLE,
-	BRDF,
+	BSDF_0,
+	BSDF_1,
 
 	NUM_DIMENSIONS,
-	NUM_BOUNCE = 4 // Last four dimensions are reused every bounce
+	NUM_BOUNCE = 5 // Last 5 dimensions are reused every bounce
 };
 
 template<SampleDimension Dim>

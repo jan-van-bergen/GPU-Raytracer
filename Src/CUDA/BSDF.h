@@ -46,7 +46,7 @@ struct BSDFDiffuse {
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
+		float2 rand_brdf = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
 		float3 omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 
 		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
@@ -153,8 +153,8 @@ struct BSDFPlastic {
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
-		float2 rand_brdf    = random<SampleDimension::BRDF>            (pixel_index, bounce, sample_index);
+		float  rand_fresnel = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index).x;
+		float2 rand_brdf    = random<SampleDimension::BSDF_1>(pixel_index, bounce, sample_index);
 
 		float F_i = fresnel_dielectric(omega_i.z, ETA);
 
@@ -275,8 +275,8 @@ struct BSDFDielectric {
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
-		float2 rand_brdf    = random<SampleDimension::BRDF>            (pixel_index, bounce, sample_index);
+		float2 rand_bsdf_0 = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
+		float2 rand_bsdf_1 = random<SampleDimension::BSDF_1>(pixel_index, bounce, sample_index);
 
 		float alpha_x = material.roughness;
 		float alpha_y = material.roughness;
@@ -298,13 +298,12 @@ struct BSDFDielectric {
 
 		float3 omega_m;
 		float3 omega_o;
-		if (rand_fresnel < E_i) {
+		if (rand_bsdf_0.x < E_i) {
 			// Sample single scatter component
-			omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
+			omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf_1.x, rand_bsdf_1.y);
 
-			rand_fresnel = remap(rand_fresnel, 0.0f, E_i, 0.0f, 1.0f); // TODO: don't destroy stratification ////////////////////////////////////////
 			F = fresnel_dielectric(abs_dot(omega_i, omega_m), eta);
-			reflected = rand_fresnel < F;
+			reflected = rand_bsdf_0.y < F;
 
 			if (reflected) {
 				omega_o = 2.0f * dot(omega_i, omega_m) * omega_m - omega_i;
@@ -314,10 +313,9 @@ struct BSDFDielectric {
 			}
 		} else {
 			// Sample multiple scatter component
-			omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
+			omega_o = sample_cosine_weighted_direction(rand_bsdf_1.x, rand_bsdf_1.y);
 
-			rand_fresnel = remap(rand_fresnel, E_i, 1.0f, 0.0f, 1.0f); // TODO: don't destroy stratification ////////////////////////////////////////
-			reflected = rand_fresnel > ratio;
+			reflected = rand_bsdf_0.y > ratio;
 
 			if (reflected) {
 				omega_m = normalize(omega_i + omega_o);
@@ -436,7 +434,7 @@ struct BSDFConductor {
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
+		float2 rand_brdf = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
 
 		float alpha_x = material.roughness;
 		float alpha_y = material.roughness;
