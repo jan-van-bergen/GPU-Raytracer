@@ -144,8 +144,10 @@ struct BufferSizes {
 };
 
 struct Pathtracer final : Integrator {
-	CUDAKernel kernel_bsdf_integrate;
-	CUDAKernel kernel_bsdf_average;
+	CUDAKernel kernel_integrate_dielectric;
+	CUDAKernel kernel_integrate_conductor;
+	CUDAKernel kernel_average_dielectric;
+	CUDAKernel kernel_average_conductor;
 
 	CUDAKernel kernel_generate;
 	CUDAKernel kernel_trace_bvh2;
@@ -183,13 +185,25 @@ struct Pathtracer final : Integrator {
 	CUDAModule::Global global_ray_buffer_shadow;
 
 	struct LUTTexture {
-		CUtexObject texture;
 		CUarray     array;
+		CUtexObject texture;
+
+		void init(CUarray data) {
+			array   = data;
+			texture = CUDAMemory::create_texture(data, CU_TR_FILTER_MODE_LINEAR, CU_TR_ADDRESS_MODE_CLAMP);
+		}
+
+		void free() {
+			CUDACALL(cuTexObjectDestroy(texture));
+			CUDAMemory::free_array(array);
+		}
 	};
-	LUTTexture lut_directional_albedo_enter;
-	LUTTexture lut_directional_albedo_leave;
-	LUTTexture lut_albedo_enter;
-	LUTTexture lut_albedo_leave;
+	LUTTexture lut_dielectric_directional_albedo_enter;
+	LUTTexture lut_dielectric_directional_albedo_leave;
+	LUTTexture lut_dielectric_albedo_enter;
+	LUTTexture lut_dielectric_albedo_leave;
+	LUTTexture lut_conductor_directional_albedo;
+	LUTTexture lut_conductor_albedo;
 
 	BufferSizes * pinned_buffer_sizes = nullptr;
 

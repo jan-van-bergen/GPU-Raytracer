@@ -169,6 +169,13 @@ __device__ inline float average_fresnel(float ior) {
 	return (ior - 1.0f) / (4.08567f + 1.00071f*ior);
 }
 
+__device__ inline float average_fresnel(float eta, float k) {
+	// Approximation by d'Eon (Hitchikers Guide to Multiple Scattering)
+	float numerator   = eta*(133.736f - 98.9833f*eta) + k*(eta*(59.5617f - 3.98288f*eta) - 182.37f) + ((0.30818f*eta - 13.1093f)*eta - 62.5919f)*square(k) - 8.21474f;
+	float denominator = k*(eta*(94.6517f - 15.8558f*eta) - 187.166f) + (-78.476*eta - 395.268f)*eta + (eta*(eta - 15.4387f) - 62.0752f)*square(k);
+	return numerator / denominator;
+}
+
 // Distribution of Normals term D for the GGX microfacet model
 __device__ inline float ggx_D(const float3 & micro_normal, float alpha_x, float alpha_y) {
 	if (micro_normal.z < 1e-6f) {
