@@ -253,7 +253,7 @@ static Handle<Material> parse_material(const XMLNode * node, Scene & scene, cons
 		if (inner_bsdf_type == "conductor") {
 			material.linear_roughness = 0.0f;
 		} else {
-			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+			material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
 		}
 
 		const XMLNode * material_str = inner_bsdf->get_child_by_name("material");
@@ -272,7 +272,7 @@ static Handle<Material> parse_material(const XMLNode * node, Scene & scene, cons
 		if (inner_bsdf_type == "plastic") {
 			material.linear_roughness = 0.0f;
 		} else {
-			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+			material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
 		}
 	} else if (inner_bsdf_type == "phong") {
 		material.type = Material::Type::PLASTIC;
@@ -352,7 +352,7 @@ static Handle<Material> parse_material(const XMLNode * node, Scene & scene, cons
 		material.index_of_refraction = ext_ior == 0.0f ? int_ior : int_ior / ext_ior;
 
 		if (inner_bsdf_type == "roughdielectric") {
-			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+			material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
 		} else {
 			material.linear_roughness = 0.0f;
 		}
