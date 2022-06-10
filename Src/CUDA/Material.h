@@ -169,10 +169,10 @@ __device__ inline float average_fresnel(float ior) {
 	return (ior - 1.0f) / (4.08567f + 1.00071f*ior);
 }
 
-__device__ inline float average_fresnel(float eta, float k) {
+__device__ inline float3 average_fresnel(const float3 & eta, const float3 & k) {
 	// Approximation by d'Eon (Hitchikers Guide to Multiple Scattering)
-	float numerator   = eta*(133.736f - 98.9833f*eta) + k*(eta*(59.5617f - 3.98288f*eta) - 182.37f) + ((0.30818f*eta - 13.1093f)*eta - 62.5919f)*square(k) - 8.21474f;
-	float denominator = k*(eta*(94.6517f - 15.8558f*eta) - 187.166f) + (-78.476*eta - 395.268f)*eta + (eta*(eta - 15.4387f) - 62.0752f)*square(k);
+	float3 numerator   = eta*(133.736f - 98.9833f*eta) + k*(eta*(59.5617f - 3.98288f*eta) - 182.37f) + ((0.30818f*eta - 13.1093f)*eta - 62.5919f)*k*k - 8.21474f;
+	float3 denominator = k*(eta*(94.6517f - 15.8558f*eta) - 187.166f) + (-78.476*eta - 395.268f)*eta + (eta*(eta - 15.4387f) - 62.0752f)*k*k;
 	return numerator / denominator;
 }
 

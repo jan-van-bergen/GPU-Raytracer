@@ -9,8 +9,8 @@ __device__ Texture<float> lut_dielectric_albedo_leave;
 __device__ Texture<float> lut_conductor_directional_albedo;
 __device__ Texture<float> lut_conductor_albedo;
 
-__device__ inline float fresnel_multiscatter(float F_avg, float E_avg) {
-	return square(F_avg) * E_avg / (1.0f - F_avg * (1.0f - E_avg));
+__device__ inline float3 fresnel_multiscatter(const float3 & F_avg, float E_avg) {
+	return F_avg*F_avg * E_avg / (make_float3(1.0f) - F_avg * (1.0f - E_avg));
 }
 
 __device__ inline float dielectric_directional_albedo(float ior, float roughness, float cos_theta, bool entering_material) {

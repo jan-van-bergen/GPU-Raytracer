@@ -442,6 +442,8 @@ struct BSDFConductor {
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		if (cos_theta_o <= 0.0f) return false;
 
+assert(false);
+
 		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 		float3 omega_m = normalize(omega_o + omega_i);
 
@@ -494,11 +496,8 @@ struct BSDFConductor {
 		float E_o   = conductor_directional_albedo(material.roughness, omega_o.z);
 		float E_avg = conductor_albedo(material.roughness);
 
-		float3 F_ms = make_float3(
-			fresnel_multiscatter(average_fresnel(material.eta.x, material.k.x), E_avg),
-			fresnel_multiscatter(average_fresnel(material.eta.y, material.k.y), E_avg),
-			fresnel_multiscatter(average_fresnel(material.eta.z, material.k.z), E_avg)
-		);
+		float3 F_avg = average_fresnel(material.eta, material.k);
+		float3 F_ms  = fresnel_multiscatter(F_avg, E_avg);
 
 		float3 brdf_single = F * G2 * D / (4.0f * omega_i.z);
 		float3 brdf_multi  = F_ms * kulla_conty_multiscatter(E_i, E_o, E_avg) * omega_o.z;
