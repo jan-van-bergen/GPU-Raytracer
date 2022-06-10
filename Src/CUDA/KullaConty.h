@@ -192,19 +192,11 @@ __device__ inline int lut_conductor_index(int r, int c) {
 }
 
 __device__ inline float lut_conductor_map_roughness(int index_roughness) {
-#if 1
 	return (float(index_roughness) + 0.5f) / float(LUT_CONDUCTOR_DIM_ROUGHNESS);
-#else
-	return fmaxf(1e-6f, square((float(index_roughness)) / float(LUT_CONDUCTOR_DIM_ROUGHNESS-1)));
-#endif
 }
 
 __device__ inline float lut_conductor_map_cos_theta(int index_cos_theta) {
-#if 1
 	return (float(index_cos_theta) + 0.5f) / float(LUT_CONDUCTOR_DIM_COS_THETA);
-#else
-	return clamp((float(index_cos_theta)) / float(LUT_CONDUCTOR_DIM_COS_THETA-1), 0.001f, 0.999f);
-#endif
 }
 
 extern "C" __global__ void kernel_integrate_conductor(float * lut_directional_albedo) {
