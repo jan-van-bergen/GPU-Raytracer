@@ -501,24 +501,27 @@ struct BSDFConductor {
 		float o_dot_m = dot(omega_o, omega_m);
 		if (o_dot_m <= 0.0f || omega_o.z < 0.0f) return false;
 
+		// Single scatter lobe
 		float3 F  = fresnel_conductor(o_dot_m, material.eta, material.k);
 		float  D  = ggx_D (omega_m, alpha_x, alpha_y);
 		float  G1 = ggx_G1(omega_i, alpha_x, alpha_y);
 		float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
+		float3 brdf_single = F * G2 * D / (4.0f * omega_i.z);
+		float  pdf_single  =     G1 * D / (4.0f * omega_i.z);
+
+		// Multi scatter lobe
 		float E_o   = conductor_directional_albedo(material.roughness, omega_o.z);
 		float E_avg = conductor_albedo(material.roughness);
 
 		float3 F_avg = average_fresnel(material.eta, material.k);
 		float3 F_ms  = fresnel_multiscatter(F_avg, E_avg);
 
-		float3 brdf_single = F * G2 * D / (4.0f * omega_i.z);
-		float3 brdf_multi  = F_ms * kulla_conty_multiscatter(E_i, E_o, E_avg) * omega_o.z;
+		float3 brdf_multi = F_ms * kulla_conty_multiscatter(E_i, E_o, E_avg) * omega_o.z;
+		float  pdf_multi  = omega_o.z * ONE_OVER_PI;
 
-		float pdf_single = G1 * D / (4.0f * omega_i.z);
-		float pdf_multi  = omega_o.z * ONE_OVER_PI;
 		pdf = lerp(pdf_multi, pdf_single, E_i);
-
+		
 		throughput *= (brdf_single + brdf_multi) / pdf;
 
 		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
