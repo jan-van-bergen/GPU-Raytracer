@@ -566,21 +566,21 @@ void Pathtracer::update(float delta, Allocator * frame_allocator) {
 					break;
 				}
 				case Material::Type::PLASTIC: {
-					cuda_materials[i].plastic.diffuse    = material.diffuse;
-					cuda_materials[i].plastic.texture_id = material.texture_handle.handle;
-					cuda_materials[i].plastic.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].plastic.diffuse          = material.diffuse;
+					cuda_materials[i].plastic.texture_id       = material.texture_handle.handle;
+					cuda_materials[i].plastic.linear_roughness = material.linear_roughness;
 					break;
 				}
 				case Material::Type::DIELECTRIC: {
-					cuda_materials[i].dielectric.medium_id = material.medium_handle.handle;
-					cuda_materials[i].dielectric.ior       = Math::max(material.index_of_refraction, 1.0001f);
-					cuda_materials[i].dielectric.roughness = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].dielectric.medium_id        = material.medium_handle.handle;
+					cuda_materials[i].dielectric.ior              = Math::max(material.index_of_refraction, 1.0001f);
+					cuda_materials[i].dielectric.linear_roughness = material.linear_roughness;
 					break;
 				}
 				case Material::Type::CONDUCTOR: {
-					cuda_materials[i].conductor.eta       = material.eta;
-					cuda_materials[i].conductor.roughness = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
-					cuda_materials[i].conductor.k         = material.k;
+					cuda_materials[i].conductor.eta              = material.eta;
+					cuda_materials[i].conductor.linear_roughness = material.linear_roughness;
+					cuda_materials[i].conductor.k                = material.k;
 					break;
 				}
 				default: ASSERT_UNREACHABLE();

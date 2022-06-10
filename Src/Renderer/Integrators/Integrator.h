@@ -100,16 +100,16 @@ struct Integrator {
 		struct {
 			Vector3 diffuse;
 			int     texture_id;
-			float   roughness;
+			float   linear_roughness;
 		} plastic;
 		struct {
 			int   medium_id;
 			float ior;
-			float roughness;
+			float linear_roughness;
 		} dielectric;
 		struct {
 			Vector3 eta;
-			float   roughness;
+			float   linear_roughness;
 			Vector3 k;
 		} conductor;
 

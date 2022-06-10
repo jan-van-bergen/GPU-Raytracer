@@ -13,32 +13,27 @@ __device__ inline float3 fresnel_multiscatter(const float3 & F_avg, float E_avg)
 	return F_avg*F_avg * E_avg / (make_float3(1.0f) - F_avg * (1.0f - E_avg));
 }
 
-__device__ inline float dielectric_directional_albedo(float ior, float roughness, float cos_theta, bool entering_material) {
+__device__ inline float dielectric_directional_albedo(float ior, float linear_roughness, float cos_theta, bool entering_material) {
 	ior = remap(ior, LUT_MIN_IOR, LUT_MAX_IOR, 0.0f, 1.0f);
-	roughness = sqrtf(roughness);
 	cos_theta = fabsf(cos_theta);
 
-	return (entering_material ? lut_dielectric_directional_albedo_enter : lut_dielectric_directional_albedo_leave).get(ior, roughness, cos_theta);
+	return (entering_material ? lut_dielectric_directional_albedo_enter : lut_dielectric_directional_albedo_leave).get(ior, linear_roughness, cos_theta);
 }
 
-__device__ inline float dielectric_albedo(float ior, float roughness, bool entering_material) {
+__device__ inline float dielectric_albedo(float ior, float linear_roughness, bool entering_material) {
 	ior = remap(ior, LUT_MIN_IOR, LUT_MAX_IOR, 0.0f, 1.0f);
-	roughness = sqrtf(roughness);
 
-	return (entering_material ? lut_dielectric_albedo_enter : lut_dielectric_albedo_leave).get(ior, roughness);
+	return (entering_material ? lut_dielectric_albedo_enter : lut_dielectric_albedo_leave).get(ior, linear_roughness);
 }
 
-__device__ inline float conductor_directional_albedo(float roughness, float cos_theta) {
-	roughness = sqrtf(roughness);
+__device__ inline float conductor_directional_albedo(float linear_roughness, float cos_theta) {
 	cos_theta = fabsf(cos_theta);
 
-	return lut_conductor_directional_albedo.get(roughness, cos_theta);
+	return lut_conductor_directional_albedo.get(linear_roughness, cos_theta);
 }
 
-__device__ inline float conductor_albedo(float roughness) {
-	roughness = sqrtf(roughness);
-
-	return lut_conductor_albedo.get(roughness);
+__device__ inline float conductor_albedo(float linear_roughness) {
+	return lut_conductor_albedo.get(linear_roughness);
 }
 
 __device__ inline float kulla_conty_multiscatter(float E_i, float E_o, float E_avg) {
@@ -49,19 +44,19 @@ __device__ inline float kulla_conty_multiscatter(float E_i, float E_o, float E_a
 	return (1.0f - E_i) * (1.0f - E_o) / fmaxf(0.0001f, PI * (1.0f - E_avg));
 }
 
-__device__ inline float kulla_conty_x(float ior, float roughness) { // TOOD: OPTIMIZE
-	float E_avg_eta     = dielectric_albedo(ior, roughness, true);
-	float E_avg_eta_inv = dielectric_albedo(ior, roughness, false);
+__device__ inline float kulla_conty_x(float ior, float linear_roughness) { // TOOD: OPTIMIZE
+	float E_avg_eta     = dielectric_albedo(ior, linear_roughness, true);
+	float E_avg_eta_inv = dielectric_albedo(ior, linear_roughness, false);
 
 	return (1.0f - E_avg_eta_inv) / fmaxf(0.0001f, 2.0f - E_avg_eta - E_avg_eta_inv);
 }
 
-__device__ inline float sample_dielectric(int thread_index, int sample_index, float roughness, float eta, float3 omega_i) {
+__device__ inline float sample_dielectric(int thread_index, int sample_index, float linear_roughness, float eta, float3 omega_i) {
 	float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(thread_index, 0, sample_index).y;
 	float2 rand_brdf    = random<SampleDimension::BSDF_0>          (thread_index, 0, sample_index);
 
-	float alpha_x = roughness;
-	float alpha_y = roughness;
+	float alpha_x = roughness_to_alpha(linear_roughness);
+	float alpha_y = roughness_to_alpha(linear_roughness);
 
 	float3 omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
 
@@ -110,7 +105,7 @@ __device__ inline float lut_dielectric_map_ior(int index_ior) {
 
 __device__ inline float lut_dielectric_map_roughness(int index_roughness) {
 #if 1
-	return square((float(index_roughness) + 0.5f) / float(LUT_DIELECTRIC_DIM_ROUGHNESS));
+	return (float(index_roughness) + 0.5f) / float(LUT_DIELECTRIC_DIM_ROUGHNESS);
 #else
 	return fmaxf(1e-6f, square((float(index_roughness)) / float(LUT_DIELECTRIC_DIM_ROUGHNESS-1)));
 #endif
@@ -135,7 +130,7 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, f
 	float ior = lut_dielectric_map_ior(i);
 	float eta = entering_material ? 1.0f / ior : ior;
 
-	float alpha = lut_dielectric_map_roughness(r);
+	float linear_roughness = lut_dielectric_map_roughness(r);
 
 	float cos_theta = lut_dielectric_map_cos_theta(c);
 	float sin_theta = safe_sqrt(1.0f - square(cos_theta));
@@ -145,7 +140,7 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, f
 	constexpr int NUM_SAMPLES = 100000;
 
 	for (int s = 0; s < NUM_SAMPLES; s++) {
-		float weight = sample_dielectric(thread_index, s, alpha, eta, omega_i);
+		float weight = sample_dielectric(thread_index, s, linear_roughness, eta, omega_i);
 		avg = online_average(avg, weight, s + 1);
 	}
 
@@ -171,11 +166,11 @@ extern "C" __global__ void kernel_average_dielectric(const float * lut_direction
 	lut_albedo[thread_index] = 2.0f * avg;
 }
 
-__device__ inline float sample_conductor(int thread_index, int sample_index, float roughness, float3 omega_i) {
+__device__ inline float sample_conductor(int thread_index, int sample_index, float linear_roughness, float3 omega_i) {
 		float2 rand_brdf = random<SampleDimension::BSDF_0>(thread_index, 0, sample_index);
 
-		float alpha_x = roughness;
-		float alpha_y = roughness;
+		float alpha_x = roughness_to_alpha(linear_roughness);
+		float alpha_y = roughness_to_alpha(linear_roughness);
 
 		float3 omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
 		float3 omega_o = reflect(-omega_i, omega_m);
@@ -198,7 +193,7 @@ __device__ inline int lut_conductor_index(int r, int c) {
 
 __device__ inline float lut_conductor_map_roughness(int index_roughness) {
 #if 1
-	return square((float(index_roughness) + 0.5f) / float(LUT_CONDUCTOR_DIM_ROUGHNESS));
+	return (float(index_roughness) + 0.5f) / float(LUT_CONDUCTOR_DIM_ROUGHNESS);
 #else
 	return fmaxf(1e-6f, square((float(index_roughness)) / float(LUT_CONDUCTOR_DIM_ROUGHNESS-1)));
 #endif
@@ -219,7 +214,7 @@ extern "C" __global__ void kernel_integrate_conductor(float * lut_directional_al
 	int r = (thread_index)                                 % LUT_CONDUCTOR_DIM_ROUGHNESS;
 	int c = (thread_index / (LUT_CONDUCTOR_DIM_ROUGHNESS)) % LUT_CONDUCTOR_DIM_COS_THETA;
 
-	float alpha = lut_conductor_map_roughness(r);
+	float linear_roughness = lut_conductor_map_roughness(r);
 
 	float cos_theta = lut_conductor_map_cos_theta(c);
 	float sin_theta = safe_sqrt(1.0f - square(cos_theta));
@@ -229,7 +224,7 @@ extern "C" __global__ void kernel_integrate_conductor(float * lut_directional_al
 	constexpr int NUM_SAMPLES = 100000;
 
 	for (int s = 0; s < NUM_SAMPLES; s++) {
-		float weight = sample_conductor(thread_index, s, alpha, omega_i);
+		float weight = sample_conductor(thread_index, s, linear_roughness, omega_i);
 		avg = online_average(avg, weight, s + 1);
 	}
 

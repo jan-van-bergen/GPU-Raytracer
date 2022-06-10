@@ -2,7 +2,11 @@
 #include "Sampling.h"
 
 // Microfacet materials with roughness below the cutoff don't use direct Light sampling
-#define ROUGHNESS_CUTOFF (0.001f)
+#define ROUGHNESS_CUTOFF (0.05f)
+
+__device__ inline float roughness_to_alpha(float linear_roughness) {
+	return fmaxf(1e-6f, square(linear_roughness));
+}
 
 __device__ const Texture<float4> * textures;
 
@@ -23,13 +27,13 @@ union Material {
 	} diffuse;
 	struct {
 		float4 diffuse_and_texture_id;
-		float  roughness;
+		float  linear_roughness;
 	} plastic;
 	struct {
-		float4 medium_ior_and_roughness;
+		float4 medium_ior_and_linear_roughness;
 	} dielectric;
 	struct {
-		float4 eta_and_roughness;
+		float4 eta_and_linear_roughness;
 		float4 k;
 	} conductor;
 };
@@ -53,18 +57,18 @@ struct MaterialDiffuse {
 struct MaterialPlastic {
 	float3 diffuse;
 	int    texture_id;
-	float  roughness;
+	float  linear_roughness;
 };
 
 struct MaterialDielectric {
 	int   medium_id;
 	float ior;
-	float roughness;
+	float linear_roughness;
 };
 
 struct MaterialConductor {
 	float3 eta;
-	float  roughness;
+	float  linear_roughness;
 	float3 k;
 };
 
@@ -87,33 +91,33 @@ __device__ inline MaterialDiffuse material_as_diffuse(int material_id) {
 
 __device__ inline MaterialPlastic material_as_plastic(int material_id) {
 	float4 diffuse_and_texture_id = __ldg(&materials[material_id].plastic.diffuse_and_texture_id);
-	float  roughness              = __ldg(&materials[material_id].plastic.roughness);
+	float  linear_roughness       = __ldg(&materials[material_id].plastic.linear_roughness);
 
 	MaterialPlastic material;
-	material.diffuse    = make_float3(diffuse_and_texture_id);
-	material.texture_id = __float_as_int(diffuse_and_texture_id.w);
-	material.roughness  = roughness;
+	material.diffuse          = make_float3(diffuse_and_texture_id);
+	material.texture_id       = __float_as_int(diffuse_and_texture_id.w);
+	material.linear_roughness = linear_roughness;
 	return material;
 }
 
 __device__ inline MaterialDielectric material_as_dielectric(int material_id) {
-	float4 medium_ior_and_roughness = __ldg(&materials[material_id].dielectric.medium_ior_and_roughness);
+	float4 medium_ior_and_linear_roughness = __ldg(&materials[material_id].dielectric.medium_ior_and_linear_roughness);
 
 	MaterialDielectric material;
-	material.medium_id = __float_as_int(medium_ior_and_roughness.x);
-	material.ior       = medium_ior_and_roughness.y;
-	material.roughness = medium_ior_and_roughness.z;
+	material.medium_id        = __float_as_int(medium_ior_and_linear_roughness.x);
+	material.ior              = medium_ior_and_linear_roughness.y;
+	material.linear_roughness = medium_ior_and_linear_roughness.z;
 	return material;
 }
 
 __device__ inline MaterialConductor material_as_conductor(int material_id) {
-	float4 eta_and_roughness = __ldg(&materials[material_id].conductor.eta_and_roughness);
-	float4 k                 = __ldg(&materials[material_id].conductor.k);
+	float4 eta_and_linear_roughness = __ldg(&materials[material_id].conductor.eta_and_linear_roughness);
+	float4 k                        = __ldg(&materials[material_id].conductor.k);
 
 	MaterialConductor material;
-	material.eta       = make_float3(eta_and_roughness);
-	material.roughness = eta_and_roughness.w;
-	material.k         = make_float3(k);
+	material.eta              = make_float3(eta_and_linear_roughness);
+	material.linear_roughness = eta_and_linear_roughness.w;
+	material.k                = make_float3(k);
 	return material;
 }
 
