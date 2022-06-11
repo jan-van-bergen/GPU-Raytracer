@@ -246,7 +246,7 @@ struct BSDFDielectric {
 		} else {
 			omega_m = normalize(eta * omega_i + omega_o);
 		}
-		if (omega_m.z <= 0.0f) return false;
+		omega_m *= sign(omega_m.z);
 		
 		float i_dot_m = abs_dot(omega_i, omega_m);
 		float o_dot_m = abs_dot(omega_o, omega_m);
