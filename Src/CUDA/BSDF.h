@@ -266,7 +266,10 @@ struct BSDFDielectric {
 			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
 		}
 		
-		float x = kulla_conty_x(material.ior, material.linear_roughness);
+		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
+		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
+
+		float x = kulla_conty_dielectric_reciprocity_factor(E_avg_enter, E_avg_leave);
 		float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
 
 		float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
@@ -282,7 +285,7 @@ struct BSDFDielectric {
 			pdf_single  = F * G1 * D / (4.0f * omega_i.z);
 
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
-			float E_avg = dielectric_albedo(material.ior, material.linear_roughness, entering_material);
+			float E_avg = entering_material ? E_avg_enter : E_avg_leave;
 
 			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
 			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
@@ -291,7 +294,7 @@ struct BSDFDielectric {
 			pdf_single  = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
-			float E_avg = dielectric_albedo(material.ior, material.linear_roughness, !entering_material);
+			float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
 
 			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
 			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;
@@ -319,7 +322,10 @@ struct BSDFDielectric {
 			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
 		}
 		
-		float x = kulla_conty_x(material.ior, material.linear_roughness);
+		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
+		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
+
+		float x = kulla_conty_dielectric_reciprocity_factor(E_avg_enter, E_avg_leave);
 		float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
 
 		float F;
@@ -377,7 +383,7 @@ struct BSDFDielectric {
 			pdf_single  = F * G1 * D / (4.0f * omega_i.z);
 
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
-			float E_avg = dielectric_albedo(material.ior, material.linear_roughness, entering_material);
+			float E_avg = entering_material ? E_avg_enter : E_avg_leave;
 
 			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
 			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
@@ -386,7 +392,7 @@ struct BSDFDielectric {
 			pdf_single  = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
-			float E_avg = dielectric_albedo(material.ior, material.linear_roughness, !entering_material);
+			float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
 
 			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
 			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;

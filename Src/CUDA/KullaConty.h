@@ -44,11 +44,21 @@ __device__ inline float kulla_conty_multiscatter(float E_i, float E_o, float E_a
 	return (1.0f - E_i) * (1.0f - E_o) / fmaxf(0.0001f, PI * (1.0f - E_avg));
 }
 
-__device__ inline float kulla_conty_x(float ior, float linear_roughness) { // TOOD: OPTIMIZE
-	float E_avg_eta     = dielectric_albedo(ior, linear_roughness, true);
-	float E_avg_eta_inv = dielectric_albedo(ior, linear_roughness, false);
-
-	return (1.0f - E_avg_eta_inv) / fmaxf(0.0001f, 2.0f - E_avg_eta - E_avg_eta_inv);
+__device__ inline float kulla_conty_dielectric_reciprocity_factor(float E_avg_enter, float E_avg_leave) {
+	// Scaling factor x as described in Kulla-Conty 2017 (slide 32) to ensure the reciprocity condition for a non-index matched interface
+	// NOTE: a slight simplification to their formula has been applied:
+	// The original equality:
+	//    1-F_avg(ior)          1-F_avg(1/ior)
+	// x*-------------- = (1-x)*--------------*(ior^2)
+	//   1-E_avg(1/ior)          1-E_avg(ior)
+	//
+	// But since 1-F_avg(ior) = (1-F_avg(1/ior))*(ior^2) is an identity this can be simplified to:
+	//       x              1-x
+	// -------------- = ------------
+	// 1-E_avg(1/ior)   1-E_avg(ior)
+	//
+	// Solvig for x gives:
+	return (1.0f - E_avg_leave) / fmaxf(0.0001f, 2.0f - E_avg_enter - E_avg_leave);
 }
 
 __device__ inline float sample_dielectric(int thread_index, int sample_index, float linear_roughness, float eta, float3 omega_i) {
