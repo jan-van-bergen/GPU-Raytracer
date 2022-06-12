@@ -4,6 +4,8 @@
 
 #include "Core/Allocators/LinearAllocator.h"
 
+#include "CUDA/Common.h"
+
 void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int screen_height) {
 	init_module();
 	init_globals();
@@ -21,6 +23,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 	init_sky();
 	init_rng();
 	init_events();
+	init_luts();
 
 	ray_buffer_trace_0.init(BATCH_SIZE);
 	ray_buffer_trace_1.init(BATCH_SIZE);
@@ -40,6 +43,7 @@ void Pathtracer::cuda_init(unsigned frame_buffer_handle, int screen_width, int s
 void Pathtracer::cuda_free() {
 	Integrator::cuda_free();
 
+	free_luts();
 	free_materials();
 	free_geometry();
 	free_sky();
@@ -72,25 +76,29 @@ void Pathtracer::cuda_free() {
 void Pathtracer::init_module() {
 	cuda_module.init("Pathtracer"_sv, "Src/CUDA/Pathtracer.cu"_sv, CUDAContext::compute_capability, MAX_REGISTERS);
 
-	kernel_generate           .init(&cuda_module, "kernel_generate");
-	kernel_trace_bvh2         .init(&cuda_module, "kernel_trace_bvh2");
-	kernel_trace_bvh4         .init(&cuda_module, "kernel_trace_bvh4");
-	kernel_trace_bvh8         .init(&cuda_module, "kernel_trace_bvh8");
-	kernel_sort               .init(&cuda_module, "kernel_sort");
-	kernel_material_diffuse   .init(&cuda_module, "kernel_material_diffuse");
-	kernel_material_plastic   .init(&cuda_module, "kernel_material_plastic");
-	kernel_material_dielectric.init(&cuda_module, "kernel_material_dielectric");
-	kernel_material_conductor .init(&cuda_module, "kernel_material_conductor");
-	kernel_trace_shadow_bvh2  .init(&cuda_module, "kernel_trace_shadow_bvh2");
-	kernel_trace_shadow_bvh4  .init(&cuda_module, "kernel_trace_shadow_bvh4");
-	kernel_trace_shadow_bvh8  .init(&cuda_module, "kernel_trace_shadow_bvh8");
-	kernel_svgf_reproject     .init(&cuda_module, "kernel_svgf_reproject");
-	kernel_svgf_variance      .init(&cuda_module, "kernel_svgf_variance");
-	kernel_svgf_atrous        .init(&cuda_module, "kernel_svgf_atrous");
-	kernel_svgf_finalize      .init(&cuda_module, "kernel_svgf_finalize");
-	kernel_taa                .init(&cuda_module, "kernel_taa");
-	kernel_taa_finalize       .init(&cuda_module, "kernel_taa_finalize");
-	kernel_accumulate         .init(&cuda_module, "kernel_accumulate");
+	kernel_integrate_dielectric.init(&cuda_module, "kernel_integrate_dielectric");
+	kernel_integrate_conductor .init(&cuda_module, "kernel_integrate_conductor");
+	kernel_average_dielectric  .init(&cuda_module, "kernel_average_dielectric");
+	kernel_average_conductor   .init(&cuda_module, "kernel_average_conductor");
+	kernel_generate            .init(&cuda_module, "kernel_generate");
+	kernel_trace_bvh2          .init(&cuda_module, "kernel_trace_bvh2");
+	kernel_trace_bvh4          .init(&cuda_module, "kernel_trace_bvh4");
+	kernel_trace_bvh8          .init(&cuda_module, "kernel_trace_bvh8");
+	kernel_sort                .init(&cuda_module, "kernel_sort");
+	kernel_material_diffuse    .init(&cuda_module, "kernel_material_diffuse");
+	kernel_material_plastic    .init(&cuda_module, "kernel_material_plastic");
+	kernel_material_dielectric .init(&cuda_module, "kernel_material_dielectric");
+	kernel_material_conductor  .init(&cuda_module, "kernel_material_conductor");
+	kernel_trace_shadow_bvh2   .init(&cuda_module, "kernel_trace_shadow_bvh2");
+	kernel_trace_shadow_bvh4   .init(&cuda_module, "kernel_trace_shadow_bvh4");
+	kernel_trace_shadow_bvh8   .init(&cuda_module, "kernel_trace_shadow_bvh8");
+	kernel_svgf_reproject      .init(&cuda_module, "kernel_svgf_reproject");
+	kernel_svgf_variance       .init(&cuda_module, "kernel_svgf_variance");
+	kernel_svgf_atrous         .init(&cuda_module, "kernel_svgf_atrous");
+	kernel_svgf_finalize       .init(&cuda_module, "kernel_svgf_finalize");
+	kernel_taa                 .init(&cuda_module, "kernel_taa");
+	kernel_taa_finalize        .init(&cuda_module, "kernel_taa_finalize");
+	kernel_accumulate          .init(&cuda_module, "kernel_accumulate");
 
 	switch (cpu_config.bvh_type) {
 		case BVHType::BVH:
@@ -101,12 +109,16 @@ void Pathtracer::init_module() {
 	}
 
 	// Set Block dimensions for all Kernels
-	kernel_generate           .set_block_dim(256, 1, 1);
-	kernel_sort               .set_block_dim(256, 1, 1);
-	kernel_material_diffuse   .set_block_dim(256, 1, 1);
-	kernel_material_plastic   .set_block_dim(256, 1, 1);
-	kernel_material_dielectric.set_block_dim(256, 1, 1);
-	kernel_material_conductor .set_block_dim(256, 1, 1);
+	kernel_integrate_dielectric.set_block_dim(256, 1, 1);
+	kernel_integrate_conductor .set_block_dim(256, 1, 1);
+	kernel_average_dielectric  .set_block_dim(256, 1, 1);
+	kernel_average_conductor   .set_block_dim(256, 1, 1);
+	kernel_generate            .set_block_dim(256, 1, 1);
+	kernel_sort                .set_block_dim(256, 1, 1);
+	kernel_material_diffuse    .set_block_dim(256, 1, 1);
+	kernel_material_plastic    .set_block_dim(256, 1, 1);
+	kernel_material_dielectric .set_block_dim(256, 1, 1);
+	kernel_material_conductor  .set_block_dim(256, 1, 1);
 
 	kernel_svgf_reproject.occupancy_max_block_size_2d();
 	kernel_svgf_variance .occupancy_max_block_size_2d();
@@ -124,6 +136,12 @@ void Pathtracer::init_module() {
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh2);
 	kernel_trace_calc_grid_and_block_size<4>(kernel_trace_shadow_bvh4);
 	kernel_trace_calc_grid_and_block_size<8>(kernel_trace_shadow_bvh8);
+
+	kernel_integrate_dielectric.set_grid_dim(Math::divide_round_up(LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA, kernel_integrate_dielectric.block_dim_x), 1, 1);
+	kernel_average_dielectric  .set_grid_dim(Math::divide_round_up(LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS,                                kernel_average_dielectric  .block_dim_x), 1, 1);
+
+	kernel_integrate_conductor.set_grid_dim(Math::divide_round_up(LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA, kernel_integrate_conductor.block_dim_x), 1, 1);
+	kernel_average_conductor  .set_grid_dim(Math::divide_round_up(LUT_CONDUCTOR_DIM_ROUGHNESS,                               kernel_average_conductor  .block_dim_x), 1, 1);
 }
 
 void Pathtracer::init_events() {
@@ -157,6 +175,84 @@ void Pathtracer::init_events() {
 	event_desc_accumulate  = CUDAEvent::Desc { display_order, "Post"_sv, "Accumulate"_sv };
 
 	event_desc_end = CUDAEvent::Desc { ++display_order, "END"_sv, "END"_sv };
+}
+
+#include "Core/Timer.h"
+
+void Pathtracer::init_luts() {
+	struct KullaContyLUT {
+		CUarray lut_directional_albedo;
+		CUarray lut_albedo;
+	};
+
+	auto create_lut_dielectric = [this](bool entering_material) -> KullaContyLUT {
+		CUarray array_lut_directional_albedo = CUDAMemory::create_array_3d(LUT_DIELECTRIC_DIM_IOR, LUT_DIELECTRIC_DIM_ROUGHNESS, LUT_DIELECTRIC_DIM_COS_THETA, 1, CUarray_format::CU_AD_FORMAT_FLOAT);
+		CUarray array_lut_albedo             = CUDAMemory::create_array   (LUT_DIELECTRIC_DIM_IOR, LUT_DIELECTRIC_DIM_ROUGHNESS,                               1, CUarray_format::CU_AD_FORMAT_FLOAT);
+
+		CUDAMemory::Ptr<float> ptr_lut_directional_albedo = CUDAMemory::malloc<float>(LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA);
+		CUDAMemory::Ptr<float> ptr_lut_albedo             = CUDAMemory::malloc<float>(LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS);
+
+		kernel_integrate_dielectric.execute(entering_material, ptr_lut_directional_albedo);
+		kernel_average_dielectric  .execute(ptr_lut_directional_albedo, ptr_lut_albedo);
+
+		CUDAMemory::copy_array_3d(array_lut_directional_albedo, LUT_DIELECTRIC_DIM_IOR * sizeof(float), LUT_DIELECTRIC_DIM_ROUGHNESS, LUT_DIELECTRIC_DIM_COS_THETA, ptr_lut_directional_albedo.ptr);
+		CUDAMemory::copy_array   (array_lut_albedo,             LUT_DIELECTRIC_DIM_IOR * sizeof(float), LUT_DIELECTRIC_DIM_ROUGHNESS,                               ptr_lut_albedo.ptr);
+
+		CUDAMemory::free(ptr_lut_directional_albedo);
+		CUDAMemory::free(ptr_lut_albedo);
+
+		return KullaContyLUT { array_lut_directional_albedo, array_lut_albedo };
+	};
+	KullaContyLUT lut_dielectric_enter = create_lut_dielectric(true);
+	KullaContyLUT lut_dielectric_leave = create_lut_dielectric(false);
+
+	lut_dielectric_directional_albedo_enter.init(lut_dielectric_enter.lut_directional_albedo);
+	lut_dielectric_directional_albedo_leave.init(lut_dielectric_leave.lut_directional_albedo);
+	lut_dielectric_albedo_enter            .init(lut_dielectric_enter.lut_albedo);
+	lut_dielectric_albedo_leave            .init(lut_dielectric_leave.lut_albedo);
+
+	cuda_module.get_global("lut_dielectric_directional_albedo_enter").set_value(lut_dielectric_directional_albedo_enter.texture);
+	cuda_module.get_global("lut_dielectric_directional_albedo_leave").set_value(lut_dielectric_directional_albedo_leave.texture);
+	cuda_module.get_global("lut_dielectric_albedo_enter")            .set_value(lut_dielectric_albedo_enter.texture);
+	cuda_module.get_global("lut_dielectric_albedo_leave")            .set_value(lut_dielectric_albedo_leave.texture);
+
+	auto create_lut_conductor = [this]() -> KullaContyLUT {
+		CUarray array_lut_directional_albedo = CUDAMemory::create_array(LUT_CONDUCTOR_DIM_ROUGHNESS, LUT_CONDUCTOR_DIM_COS_THETA, 1, CUarray_format::CU_AD_FORMAT_FLOAT);
+		CUarray array_lut_albedo             = CUDAMemory::create_array(LUT_CONDUCTOR_DIM_ROUGHNESS, 1,                           1, CUarray_format::CU_AD_FORMAT_FLOAT);
+
+		CUDAMemory::Ptr<float> ptr_lut_directional_albedo = CUDAMemory::malloc<float>(LUT_CONDUCTOR_DIM_ROUGHNESS * LUT_CONDUCTOR_DIM_COS_THETA);
+		CUDAMemory::Ptr<float> ptr_lut_albedo             = CUDAMemory::malloc<float>(LUT_CONDUCTOR_DIM_ROUGHNESS);
+
+		kernel_integrate_conductor.execute(ptr_lut_directional_albedo);
+
+		CUDACALL(cuStreamSynchronize(nullptr));
+
+		kernel_average_conductor  .execute(ptr_lut_directional_albedo, ptr_lut_albedo);
+		CUDACALL(cuStreamSynchronize(nullptr));
+
+		CUDAMemory::copy_array(array_lut_directional_albedo, LUT_CONDUCTOR_DIM_ROUGHNESS * sizeof(float), LUT_CONDUCTOR_DIM_COS_THETA, ptr_lut_directional_albedo.ptr);
+		CUDAMemory::copy_array(array_lut_albedo,             LUT_CONDUCTOR_DIM_ROUGHNESS * sizeof(float), 1,                           ptr_lut_albedo.ptr);
+
+		CUDAMemory::free(ptr_lut_directional_albedo);
+		CUDAMemory::free(ptr_lut_albedo);
+
+		return KullaContyLUT { array_lut_directional_albedo, array_lut_albedo };
+	};
+	KullaContyLUT lut_conductor = create_lut_conductor();
+
+	lut_conductor_directional_albedo.init(lut_conductor.lut_directional_albedo);
+	lut_conductor_albedo            .init(lut_conductor.lut_albedo);
+
+	cuda_module.get_global("lut_conductor_directional_albedo").set_value(lut_conductor_directional_albedo.texture);
+	cuda_module.get_global("lut_conductor_albedo")            .set_value(lut_conductor_albedo.texture);
+}
+
+void Pathtracer::free_luts() {
+	lut_dielectric_directional_albedo_enter.free();
+	lut_dielectric_directional_albedo_leave.free();
+	lut_dielectric_albedo_enter            .free();
+	lut_dielectric_albedo_leave            .free();
+	lut_conductor_directional_albedo.free();
 }
 
 void Pathtracer::resize_init(unsigned frame_buffer_handle, int width, int height) {
@@ -470,21 +566,21 @@ void Pathtracer::update(float delta, Allocator * frame_allocator) {
 					break;
 				}
 				case Material::Type::PLASTIC: {
-					cuda_materials[i].plastic.diffuse    = material.diffuse;
-					cuda_materials[i].plastic.texture_id = material.texture_handle.handle;
-					cuda_materials[i].plastic.roughness  = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].plastic.diffuse          = material.diffuse;
+					cuda_materials[i].plastic.texture_id       = material.texture_handle.handle;
+					cuda_materials[i].plastic.linear_roughness = material.linear_roughness;
 					break;
 				}
 				case Material::Type::DIELECTRIC: {
-					cuda_materials[i].dielectric.medium_id = material.medium_handle.handle;
-					cuda_materials[i].dielectric.ior       = Math::max(material.index_of_refraction, 1.0001f);
-					cuda_materials[i].dielectric.roughness = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
+					cuda_materials[i].dielectric.medium_id        = material.medium_handle.handle;
+					cuda_materials[i].dielectric.ior              = Math::max(material.index_of_refraction, 1.0001f);
+					cuda_materials[i].dielectric.linear_roughness = material.linear_roughness;
 					break;
 				}
 				case Material::Type::CONDUCTOR: {
-					cuda_materials[i].conductor.eta       = material.eta;
-					cuda_materials[i].conductor.roughness = Math::max(material.linear_roughness * material.linear_roughness, 1e-6f);
-					cuda_materials[i].conductor.k         = material.k;
+					cuda_materials[i].conductor.eta              = material.eta;
+					cuda_materials[i].conductor.linear_roughness = material.linear_roughness;
+					cuda_materials[i].conductor.k                = material.k;
 					break;
 				}
 				default: ASSERT_UNREACHABLE();

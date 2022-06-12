@@ -1,4 +1,5 @@
 #pragma once
+#include "KullaConty.h"
 #include "Sampling.h"
 #include "Material.h"
 #include "RayCone.h"
@@ -45,7 +46,7 @@ struct BSDFDiffuse {
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
+		float2 rand_brdf = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
 		float3 omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 
 		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
@@ -99,7 +100,7 @@ struct BSDFPlastic {
 	//      auto d = (8.0*n4*(n4 + 1.0) / ((n2 + 1.0) * sq(n4 - 1.0))) * log(n);
 	//
 	//      return float(0.5 + a + b - c + d);
-	//	}
+	//  }
 	//
 	//	TIR_COMPENSATION = 1.0f - (1.0f - fresnel_first_moment(ior)) / (ior * ior);
 	//
@@ -126,8 +127,8 @@ struct BSDFPlastic {
 		float3 omega_m = normalize(omega_i + omega_o);
 
 		// Specular component
-		float alpha_x = material.roughness;
-		float alpha_y = material.roughness;
+		float alpha_x = roughness_to_alpha(material.linear_roughness);
+		float alpha_y = roughness_to_alpha(material.linear_roughness);
 
 		float F  = fresnel_dielectric(dot(omega_i, omega_m), ETA);
 		float D  = ggx_D (omega_m, alpha_x, alpha_y);
@@ -152,13 +153,13 @@ struct BSDFPlastic {
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
-		float2 rand_brdf    = random<SampleDimension::BRDF>            (pixel_index, bounce, sample_index);
+		float  rand_fresnel = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index).x;
+		float2 rand_brdf    = random<SampleDimension::BSDF_1>(pixel_index, bounce, sample_index);
 
 		float F_i = fresnel_dielectric(omega_i.z, ETA);
 
-		float alpha_x = material.roughness;
-		float alpha_y = material.roughness;
+		float alpha_x = roughness_to_alpha(material.linear_roughness);
+		float alpha_y = roughness_to_alpha(material.linear_roughness);
 
 		float3 omega_m;
 		float3 omega_o;
@@ -237,7 +238,7 @@ struct BSDFDielectric {
 	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 
-		bool reflected = omega_o.z >= 0.0f; // Same sign means reflection, alternate signs means transmission
+		bool reflected = omega_o.z >= 0.0f; // Positive sign means reflection, negative sign means transmission
 
 		float3 omega_m;
 		if (reflected) {
@@ -246,51 +247,120 @@ struct BSDFDielectric {
 			omega_m = normalize(eta * omega_i + omega_o);
 		}
 		omega_m *= sign(omega_m.z);
-
+		
 		float i_dot_m = abs_dot(omega_i, omega_m);
 		float o_dot_m = abs_dot(omega_o, omega_m);
 
-		float alpha_x = material.roughness;
-		float alpha_y = material.roughness;
+		float alpha_x = roughness_to_alpha(material.linear_roughness);
+		float alpha_y = roughness_to_alpha(material.linear_roughness);
 
 		float F  = fresnel_dielectric(i_dot_m, eta);
 		float D  = ggx_D (omega_m, alpha_x, alpha_y);
 		float G1 = ggx_G1(omega_i, alpha_x, alpha_y);
 		float G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
+		bool entering_material = eta < 1.0f;
+
+		float F_avg = average_fresnel(material.ior);
+		if (!entering_material) {
+			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
+		}
+		
+		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
+		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
+
+		float x = kulla_conty_dielectric_reciprocity_factor(E_avg_enter, E_avg_leave);
+		float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
+
+		float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
+
+		float bsdf_single;
+		float bsdf_multi;
+
+		float pdf_single;
+		float pdf_multi;
+
 		if (reflected) {
-			pdf = F * G1 * D / (4.0f * omega_i.z);
+			bsdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF times cos(theta_o)
+			pdf_single  = F * G1 * D / (4.0f * omega_i.z);
 
-			bsdf = make_float3(F * G2 * D / (4.0f * omega_i.z)); // BRDF times cos(theta_o)
+			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
+			float E_avg = entering_material ? E_avg_enter : E_avg_leave;
+
+			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
+			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
 		} else {
-			if (F >= 0.999f) return false; // TIR, no transmission possible
+			bsdf_single = (1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m) * square(eta)); // BRDF times cos(theta_o)
+			pdf_single  = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
 
-			pdf = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
+			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
+			float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
 
-			bsdf = eta * eta * make_float3((1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m))); // BRDF times cos(theta_o)
+			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
+			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;
 		}
 
+		bsdf = make_float3(bsdf_single + bsdf_multi);
+
+		pdf = lerp(pdf_multi, pdf_single, E_i);
 		return pdf_is_valid(pdf);
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(pixel_index, bounce, sample_index).y;
-		float2 rand_brdf    = random<SampleDimension::BRDF>            (pixel_index, bounce, sample_index);
+		float2 rand_bsdf_0 = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
+		float2 rand_bsdf_1 = random<SampleDimension::BSDF_1>(pixel_index, bounce, sample_index);
 
-		float alpha_x = material.roughness;
-		float alpha_y = material.roughness;
+		float alpha_x = roughness_to_alpha(material.linear_roughness);
+		float alpha_y = roughness_to_alpha(material.linear_roughness);
 
-		float3 omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
+		bool entering_material = eta < 1.0f;
 
-		float F = fresnel_dielectric(abs_dot(omega_i, omega_m), eta);
-		bool reflected = rand_fresnel < F;
+		float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
+		
+		float F_avg = average_fresnel(material.ior);
+		if (!entering_material) {
+			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
+		}
+		
+		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
+		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
 
+		float x = kulla_conty_dielectric_reciprocity_factor(E_avg_enter, E_avg_leave);
+		float ratio = (entering_material ? x : (1.0f - x)) * (1.0f - F_avg);
+
+		float F;
+		bool reflected;
+
+		float3 omega_m;
 		float3 omega_o;
-		if (reflected) {
-			omega_o = 2.0f * dot(omega_i, omega_m) * omega_m - omega_i;
+		if (rand_bsdf_0.x < E_i) {
+			// Sample single scatter component
+			omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_bsdf_1.x, rand_bsdf_1.y);
+
+			F = fresnel_dielectric(abs_dot(omega_i, omega_m), eta);
+			reflected = rand_bsdf_0.y < F;
+
+			if (reflected) {
+				omega_o = 2.0f * dot(omega_i, omega_m) * omega_m - omega_i;
+			} else {
+				float k = 1.0f - eta*eta * (1.0f - square(dot(omega_i, omega_m)));
+				omega_o = (eta * dot(omega_i, omega_m) - safe_sqrt(k)) * omega_m - eta * omega_i;
+			}
 		} else {
-			float k = 1.0f - eta*eta * (1.0f - square(dot(omega_i, omega_m)));
-			omega_o = (eta * abs_dot(omega_i, omega_m) - sqrtf(k)) * omega_m - eta * omega_i;
+			// Sample multiple scatter component
+			omega_o = sample_cosine_weighted_direction(rand_bsdf_1.x, rand_bsdf_1.y);
+
+			reflected = rand_bsdf_0.y > ratio;
+
+			if (reflected) {
+				omega_m = normalize(omega_i + omega_o);
+			} else {
+				omega_o = -omega_o;
+				omega_m = normalize(eta * omega_i + omega_o);
+			}
+			omega_m *= sign(omega_m.z);
+
+			F = fresnel_dielectric(abs_dot(omega_i, omega_m), eta);
 		}
 
 		if (reflected ^ (omega_o.z >= 0.0f)) return false; // Hemisphere check: reflection should have positive z, transmission negative z
@@ -302,15 +372,32 @@ struct BSDFDielectric {
 		float i_dot_m = abs_dot(omega_i, omega_m);
 		float o_dot_m = abs_dot(omega_o, omega_m);
 
-		if (reflected) {
-			pdf = F * G1 * D / (4.0f * omega_i.z);
-		} else {
-			pdf = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
+		float bsdf_single;
+		float bsdf_multi;
 
-			throughput *= eta*eta; // Account for solid angle compression
-			
+		float pdf_single;
+		float pdf_multi;
+
+		if (reflected) {
+			bsdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF times cos(theta_o)
+			pdf_single  = F * G1 * D / (4.0f * omega_i.z);
+
+			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
+			float E_avg = entering_material ? E_avg_enter : E_avg_leave;
+
+			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
+			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
+		} else {
+			bsdf_single = (1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m) * square(eta)); // BRDF times cos(theta_o)
+			pdf_single  = (1.0f - F) * G1 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m));
+
+			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
+			float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
+
+			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
+			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;
+
 			// Update the Medium based on whether we are transmitting into or out of the Material
-			bool entering_material = eta < 1.0f;
 			if (entering_material) {
 				medium_id = material.medium_id;
 			} else {
@@ -318,7 +405,8 @@ struct BSDFDielectric {
 			}
 		}
 
-		throughput *= G2 / G1; // BRDF * cos(theta_o) / pdf (same for reflection and transmission)
+		pdf = lerp(pdf_multi, pdf_single, E_i);
+		throughput *= (bsdf_single + bsdf_multi) / pdf;
 
 		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 
@@ -330,7 +418,7 @@ struct BSDFDielectric {
 	}
 
 	__device__ bool allow_nee() const {
-		return material.roughness >= ROUGHNESS_CUTOFF;
+		return material.linear_roughness >= ROUGHNESS_CUTOFF;
 	}
 };
 
@@ -366,40 +454,81 @@ struct BSDFConductor {
 		float o_dot_m = dot(omega_o, omega_m);
 		if (o_dot_m <= 0.0f) return false;
 
-		float alpha_x = material.roughness;
-		float alpha_y = material.roughness;
+		float alpha_x = roughness_to_alpha(material.linear_roughness);
+		float alpha_y = roughness_to_alpha(material.linear_roughness);
 
+		// Single scatter lobe
 		float3 F  = fresnel_conductor(o_dot_m, material.eta, material.k);
 		float  D  = ggx_D (omega_m, alpha_x, alpha_y);
 		float  G1 = ggx_G1(omega_i, alpha_x, alpha_y);
 		float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
-		pdf  =     G1 * D / (4.0f * omega_i.z);
-		bsdf = F * G2 * D / (4.0f * omega_i.z); // BRDF * cos(theta_o)
+		float3 brdf_single = F * G2 * D / (4.0f * omega_i.z); // BRDF * cos(theta_o)
+		float  pdf_single  =     G1 * D / (4.0f * omega_i.z);
 
+		// Multi scatter lobe
+		float E_i   = conductor_directional_albedo(material.linear_roughness, omega_i.z);
+		float E_o   = conductor_directional_albedo(material.linear_roughness, omega_o.z);
+		float E_avg = conductor_albedo(material.linear_roughness);
+
+		float3 F_avg = average_fresnel(material.eta, material.k);
+		float3 F_ms  = fresnel_multiscatter(F_avg, E_avg);
+
+		float3 brdf_multi = F_ms * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg) * omega_o.z;
+		float  pdf_multi  = omega_o.z * ONE_OVER_PI;
+
+		bsdf = brdf_single + brdf_multi;
+
+		pdf = lerp(pdf_multi, pdf_single, E_i);
 		return pdf_is_valid(pdf);
 	}
 
 	__device__ bool sample(float3 & throughput, int & medium_id, float3 & direction_out, float & pdf) const {
-		float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, bounce, sample_index);
+		float2 rand_brdf_0 = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
+		float2 rand_brdf_1 = random<SampleDimension::BSDF_1>(pixel_index, bounce, sample_index);
 
-		float alpha_x = material.roughness;
-		float alpha_y = material.roughness;
+		float alpha_x = roughness_to_alpha(material.linear_roughness);
+		float alpha_y = roughness_to_alpha(material.linear_roughness);
 
-		float3 omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
-		float3 omega_o = reflect(-omega_i, omega_m);
+		float E_i = conductor_directional_albedo(material.linear_roughness, omega_i.z);
+
+		float3 omega_m;
+		float3 omega_o;
+		if (rand_brdf_0.x < E_i) {
+			// Sample single scatter component
+			omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf_1.x, rand_brdf_1.y);
+			omega_o = reflect(-omega_i, omega_m);
+		} else {
+			// Sample multiple scatter component
+			omega_o = sample_cosine_weighted_direction(rand_brdf_1.x, rand_brdf_1.y);
+			omega_m = normalize(omega_i + omega_o);
+		}
 
 		float o_dot_m = dot(omega_o, omega_m);
-		if (o_dot_m <= 0.0f) return false;
+		if (o_dot_m <= 0.0f || omega_o.z < 0.0f) return false;
 
+		// Single scatter lobe
 		float3 F  = fresnel_conductor(o_dot_m, material.eta, material.k);
 		float  D  = ggx_D (omega_m, alpha_x, alpha_y);
 		float  G1 = ggx_G1(omega_i, alpha_x, alpha_y);
 		float  G2 = ggx_G2(omega_o, omega_i, omega_m, alpha_x, alpha_y);
 
-		pdf = G1 * D / (4.0f * omega_i.z);
+		float3 brdf_single = F * G2 * D / (4.0f * omega_i.z);
+		float  pdf_single  =     G1 * D / (4.0f * omega_i.z);
 
-		throughput *= F * G2 / G1; // BRDF * cos(theta_o) / pdf
+		// Multi scatter lobe
+		float E_o   = conductor_directional_albedo(material.linear_roughness, omega_o.z);
+		float E_avg = conductor_albedo(material.linear_roughness);
+
+		float3 F_avg = average_fresnel(material.eta, material.k);
+		float3 F_ms  = fresnel_multiscatter(F_avg, E_avg);
+
+		float3 brdf_multi = F_ms * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg) * omega_o.z;
+		float  pdf_multi  = omega_o.z * ONE_OVER_PI;
+
+		pdf = lerp(pdf_multi, pdf_single, E_i);
+
+		throughput *= (brdf_single + brdf_multi) / pdf;
 
 		direction_out = local_to_world(omega_o, tangent, bitangent, normal);
 
@@ -411,6 +540,6 @@ struct BSDFConductor {
 	}
 
 	__device__ bool allow_nee() const {
-		return material.roughness >= ROUGHNESS_CUTOFF;
+		return material.linear_roughness >= ROUGHNESS_CUTOFF;
 	}
 };

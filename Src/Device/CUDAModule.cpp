@@ -173,7 +173,6 @@ void CUDAModule::init(const String & module_name, const String & filename, int c
 			}
 
 			if (result == NVRTC_SUCCESS) break;
-
 			__debugbreak(); // Compile error
 
 			// Reload file and try again

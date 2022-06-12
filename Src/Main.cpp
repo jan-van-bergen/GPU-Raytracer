@@ -630,8 +630,8 @@ static void draw_gui(Window & window, Integrator & integrator) {
 							break;
 						}
 						case Material::Type::CONDUCTOR: {
-							integrator.invalidated_materials |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
-							integrator.invalidated_materials |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
+							integrator.invalidated_materials |= ImGui::SliderFloat3("Eta",       &material.eta.x, 0.0f, 4.0f);
+							integrator.invalidated_materials |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 8.0f);
 							integrator.invalidated_materials |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 							break;
 						}
