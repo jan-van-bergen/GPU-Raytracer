@@ -519,13 +519,10 @@ __device__ void next_event_estimation(
 	light_normal = normalize(light_normal);
 
 	float3 to_light = light_point - hit_point;
-	float distance_to_light_squared = dot(to_light, to_light);
-	float distance_to_light         = sqrtf(distance_to_light_squared);
-
-	// Normalize the vector to the light
+	float distance_to_light = length(to_light);
 	to_light /= distance_to_light;
 
-	float cos_theta_light = fabsf(dot(to_light, light_normal));
+	float cos_theta_light = abs_dot(to_light, light_normal);
 	float cos_theta_hit = dot(to_light, normal);
 
 	int light_material_id = mesh_get_material_id(light_mesh_id);
@@ -537,7 +534,7 @@ __device__ void next_event_estimation(
 	if (!valid) return;
 
 	float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
-	float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
+	float light_pdf   = light_power * square(distance_to_light) / (cos_theta_light * lights_total_weight);
 
 	if (!pdf_is_valid(light_pdf)) return;
 
