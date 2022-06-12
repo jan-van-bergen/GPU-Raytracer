@@ -98,8 +98,8 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, f
 	float3 omega_i = make_float3(sin_theta, 0.0f, cos_theta);
 
 	auto sample_dielectric = [](int thread_index, int sample_index, float linear_roughness, float eta, float3 omega_i) -> float {
-		float  rand_fresnel = random<SampleDimension::RUSSIAN_ROULETTE>(thread_index, 0, sample_index).y;
-		float2 rand_brdf    = random<SampleDimension::BSDF_0>          (thread_index, 0, sample_index);
+		float  rand_fresnel = random<SampleDimension::BSDF_0>(thread_index, 0, sample_index).y;
+		float2 rand_brdf    = random<SampleDimension::BSDF_1>(thread_index, 0, sample_index);
 
 		float alpha_x = roughness_to_alpha(linear_roughness);
 		float alpha_y = roughness_to_alpha(linear_roughness);
