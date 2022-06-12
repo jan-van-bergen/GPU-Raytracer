@@ -287,7 +287,7 @@ struct BSDFDielectric {
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
 			float E_avg = entering_material ? E_avg_enter : E_avg_leave;
 
-			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
 			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
 		} else {
 			bsdf_single = (1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m) * square(eta)); // BRDF times cos(theta_o)
@@ -296,7 +296,7 @@ struct BSDFDielectric {
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
 			float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
 
-			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
 			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;
 		}
 
@@ -385,7 +385,7 @@ struct BSDFDielectric {
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, entering_material);
 			float E_avg = entering_material ? E_avg_enter : E_avg_leave;
 
-			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			bsdf_multi = (1.0f - ratio) * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
 			pdf_multi  = (1.0f - ratio) * fabsf(omega_o.z) * ONE_OVER_PI;
 		} else {
 			bsdf_single = (1.0f - F) * G2 * D * i_dot_m * o_dot_m / (omega_i.z * square(eta * i_dot_m + o_dot_m) * square(eta)); // BRDF times cos(theta_o)
@@ -394,7 +394,7 @@ struct BSDFDielectric {
 			float E_o   = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_o.z, !entering_material);
 			float E_avg = entering_material ? E_avg_leave : E_avg_enter; // NOTE: inverted!
 
-			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter(E_i, E_o, E_avg);
+			bsdf_multi = ratio * fabsf(omega_o.z) * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg);
 			pdf_multi  = ratio * fabsf(omega_o.z) * ONE_OVER_PI;
 
 			// Update the Medium based on whether we are transmitting into or out of the Material
@@ -474,7 +474,7 @@ struct BSDFConductor {
 		float3 F_avg = average_fresnel(material.eta, material.k);
 		float3 F_ms  = fresnel_multiscatter(F_avg, E_avg);
 
-		float3 brdf_multi = F_ms * kulla_conty_multiscatter(E_i, E_o, E_avg) * omega_o.z;
+		float3 brdf_multi = F_ms * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg) * omega_o.z;
 		float  pdf_multi  = omega_o.z * ONE_OVER_PI;
 
 		bsdf = brdf_single + brdf_multi;
@@ -523,7 +523,7 @@ struct BSDFConductor {
 		float3 F_avg = average_fresnel(material.eta, material.k);
 		float3 F_ms  = fresnel_multiscatter(F_avg, E_avg);
 
-		float3 brdf_multi = F_ms * kulla_conty_multiscatter(E_i, E_o, E_avg) * omega_o.z;
+		float3 brdf_multi = F_ms * kulla_conty_multiscatter_lobe(E_i, E_o, E_avg) * omega_o.z;
 		float  pdf_multi  = omega_o.z * ONE_OVER_PI;
 
 		pdf = lerp(pdf_multi, pdf_single, E_i);
