@@ -121,7 +121,7 @@ namespace CUDAMemory {
 	}
 
 	CUarray          create_array       (int width, int height,            int channels, CUarray_format format);
-	CUarray          create_array_3d    (int width, int height, int depth, int channels, CUarray_format format);
+	CUarray          create_array       (int width, int height, int depth, int channels, CUarray_format format);
 	CUmipmappedArray create_array_mipmap(int width, int height,            int channels, CUarray_format format, int level_count);
 
 	void free_array(CUarray array);

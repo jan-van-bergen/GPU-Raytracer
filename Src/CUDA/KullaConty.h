@@ -80,7 +80,7 @@ __device__ inline float lut_dielectric_map_cos_theta(int index_cos_theta) {
 	return (float(index_cos_theta) + 0.5f) / float(LUT_DIELECTRIC_DIM_COS_THETA);
 }
 
-extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, float * lut_directional_albedo) {
+extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, Surface<float> lut_directional_albedo) {
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA) return;
 
@@ -145,10 +145,10 @@ extern "C" __global__ void kernel_integrate_dielectric(bool entering_material, f
 		avg = online_average(avg, weight, s + 1);
 	}
 
-	lut_directional_albedo[thread_index] = avg;
+	lut_directional_albedo.set(i, r, c, avg);
 }
 
-extern "C" __global__ void kernel_average_dielectric(const float * lut_directional_albedo, float * lut_albedo) {
+extern "C" __global__ void kernel_average_dielectric(const Surface<float> lut_directional_albedo, Surface<float> lut_albedo) {
 	int thread_index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_index >= LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS) return;
 
@@ -159,12 +159,10 @@ extern "C" __global__ void kernel_average_dielectric(const float * lut_direction
 
 	for (int c = 0; c < LUT_DIELECTRIC_DIM_COS_THETA; c++) {
 		float cos_theta = lut_dielectric_map_cos_theta(c);
-
-		int index = lut_dielectric_index(i, r, c);
-		avg = online_average(avg, lut_directional_albedo[index] * cos_theta, c + 1);
+		avg = online_average(avg, lut_directional_albedo.get(i, r, c) * cos_theta, c + 1);
 	}
 
-	lut_albedo[thread_index] = 2.0f * avg;
+	lut_albedo.set(i, r, 2.0f * avg);
 }
 
 __device__ inline int lut_conductor_index(int r, int c) {

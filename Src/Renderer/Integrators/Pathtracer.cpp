@@ -186,20 +186,17 @@ void Pathtracer::init_luts() {
 	};
 
 	auto create_lut_dielectric = [this](bool entering_material) -> KullaContyLUT {
-		CUarray array_lut_directional_albedo = CUDAMemory::create_array_3d(LUT_DIELECTRIC_DIM_IOR, LUT_DIELECTRIC_DIM_ROUGHNESS, LUT_DIELECTRIC_DIM_COS_THETA, 1, CUarray_format::CU_AD_FORMAT_FLOAT);
-		CUarray array_lut_albedo             = CUDAMemory::create_array   (LUT_DIELECTRIC_DIM_IOR, LUT_DIELECTRIC_DIM_ROUGHNESS,                               1, CUarray_format::CU_AD_FORMAT_FLOAT);
+		CUarray array_lut_directional_albedo = CUDAMemory::create_array(LUT_DIELECTRIC_DIM_IOR, LUT_DIELECTRIC_DIM_ROUGHNESS, LUT_DIELECTRIC_DIM_COS_THETA, 1, CUarray_format::CU_AD_FORMAT_FLOAT);
+		CUarray array_lut_albedo             = CUDAMemory::create_array(LUT_DIELECTRIC_DIM_IOR, LUT_DIELECTRIC_DIM_ROUGHNESS,                               1, CUarray_format::CU_AD_FORMAT_FLOAT);
 
-		CUDAMemory::Ptr<float> ptr_lut_directional_albedo = CUDAMemory::malloc<float>(LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS * LUT_DIELECTRIC_DIM_COS_THETA);
-		CUDAMemory::Ptr<float> ptr_lut_albedo             = CUDAMemory::malloc<float>(LUT_DIELECTRIC_DIM_IOR * LUT_DIELECTRIC_DIM_ROUGHNESS);
+		CUsurfObject surf_lut_directional_albedo = CUDAMemory::create_surface(array_lut_directional_albedo);
+		CUsurfObject surf_lut_albedo             = CUDAMemory::create_surface(array_lut_albedo);
 
-		kernel_integrate_dielectric.execute(entering_material, ptr_lut_directional_albedo);
-		kernel_average_dielectric  .execute(ptr_lut_directional_albedo, ptr_lut_albedo);
+		kernel_integrate_dielectric.execute(entering_material, surf_lut_directional_albedo);
+		kernel_average_dielectric  .execute(surf_lut_directional_albedo, surf_lut_albedo);
 
-		CUDAMemory::copy_array_3d(array_lut_directional_albedo, LUT_DIELECTRIC_DIM_IOR * sizeof(float), LUT_DIELECTRIC_DIM_ROUGHNESS, LUT_DIELECTRIC_DIM_COS_THETA, ptr_lut_directional_albedo.ptr);
-		CUDAMemory::copy_array   (array_lut_albedo,             LUT_DIELECTRIC_DIM_IOR * sizeof(float), LUT_DIELECTRIC_DIM_ROUGHNESS,                               ptr_lut_albedo.ptr);
-
-		CUDAMemory::free(ptr_lut_directional_albedo);
-		CUDAMemory::free(ptr_lut_albedo);
+		CUDAMemory::free_surface(surf_lut_directional_albedo);
+		CUDAMemory::free_surface(surf_lut_albedo);
 
 		return KullaContyLUT { array_lut_directional_albedo, array_lut_albedo };
 	};

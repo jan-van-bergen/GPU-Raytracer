@@ -16,7 +16,7 @@ CUarray CUDAMemory::create_array(int width, int height, int channels, CUarray_fo
 	return array;
 }
 
-CUarray CUDAMemory::create_array_3d(int width, int height, int depth, int channels, CUarray_format format) {
+CUarray CUDAMemory::create_array(int width, int height, int depth, int channels, CUarray_format format) {
 	CUDA_ARRAY3D_DESCRIPTOR desc = { };
 	desc.Width       = width;
 	desc.Height      = height;

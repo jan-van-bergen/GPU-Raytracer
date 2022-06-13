@@ -43,19 +43,23 @@ struct Surface {
 	cudaSurfaceObject_t surface;
 
 	__device__ inline T get(int x, int y) const {
-		// assert(x >= 0 && x < screen_width);
-		// assert(y >= 0 && y < screen_height);
-
 		T value;
 		surf2Dread<T>(&value, surface, x * sizeof(T), y, cudaBoundaryModeClamp);
 		return value;
 	}
 
-	__device__ inline void set(int x, int y, const T & value) {
-		// assert(x >= 0 && x < screen_width);
-		// assert(y >= 0 && y < screen_height);
+	__device__ inline T get(int x, int y, int z) const {
+		T value;
+		surf3Dread<T>(&value, surface, x * sizeof(T), y, z, cudaBoundaryModeClamp);
+		return value;
+	}
 
+	__device__ inline void set(int x, int y, const T & value) {
 		surf2Dwrite<T>(value, surface, x * sizeof(T), y);
+	}
+
+	__device__ inline void set(int x, int y, int z, const T & value) {
+		surf3Dwrite<T>(value, surface, x * sizeof(T), y, z);
 	}
 };
 
