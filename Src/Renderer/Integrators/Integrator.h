@@ -185,7 +185,8 @@ struct Integrator {
 	CUDAModule::Global global_config;
 	CUDAModule::Global global_buffer_sizes;
 
-	CUDAMemory::Ptr<Vector3> ptr_sky_data;
+	CUarray     sky_array;
+	CUtexObject sky_texture;
 
 	CUDAMemory::Ptr<PMJ::Point>     ptr_pmj_samples;
 	CUDAMemory::Ptr<unsigned short> ptr_blue_noise_textures;

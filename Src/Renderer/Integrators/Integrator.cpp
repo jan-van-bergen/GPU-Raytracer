@@ -283,11 +283,13 @@ void Integrator::init_geometry() {
 }
 
 void Integrator::init_sky() {
-	ptr_sky_data = CUDAMemory::malloc(scene.sky.data);
+	sky_array = CUDAMemory::create_array(scene.sky.width, scene.sky.height, 4, CU_AD_FORMAT_FLOAT);
+	CUDAMemory::Ptr<Vector4> ptr_sky_data = CUDAMemory::malloc(scene.sky.data);
+	CUDAMemory::copy_array(sky_array, scene.sky.width * sizeof(float4), scene.sky.height, ptr_sky_data.ptr);
+	CUDAMemory::free(ptr_sky_data);
 
-	cuda_module.get_global("sky_width") .set_value(scene.sky.width);
-	cuda_module.get_global("sky_height").set_value(scene.sky.height);
-	cuda_module.get_global("sky_data")  .set_value(ptr_sky_data);
+	sky_texture = CUDAMemory::create_texture(sky_array, CU_TR_FILTER_MODE_LINEAR, CU_TR_ADDRESS_MODE_CLAMP);
+	cuda_module.get_global("sky_texture").set_value(sky_texture);
 
 	global_sky_scale = cuda_module.get_global("sky_scale");
 	global_sky_scale.set_value(scene.sky.scale);
@@ -354,7 +356,8 @@ void Integrator::free_geometry() {
 }
 
 void Integrator::free_sky() {
-	CUDAMemory::free(ptr_sky_data);
+	CUDAMemory::free_array(sky_array);
+	CUDAMemory::free_texture(sky_texture);
 }
 
 void Integrator::free_rng() {

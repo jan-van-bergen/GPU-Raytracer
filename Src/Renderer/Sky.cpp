@@ -20,7 +20,17 @@ void Sky::load(const String & filename) {
 
 	// Allocate data and copy it over from the file
 	data.resize(width * height);
-	memcpy(data.data(), hdr, width * height * sizeof(Vector3));
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			int index = x + y * width;
+			data[index] = Vector4(
+				hdr[3*index + 0],
+				hdr[3*index + 1],
+				hdr[3*index + 2],
+				0.0f
+			);
+		}
+	}
 
 	stbi_image_free(hdr);
 }
