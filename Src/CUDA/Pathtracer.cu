@@ -276,7 +276,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 				sigma_t_used_for_sampling = sigma_t.z;
 			}
 
-			float scatter_distance = -logf(rand_scatter.y) / sigma_t_used_for_sampling;
+			float scatter_distance = sample_exp(sigma_t_used_for_sampling, rand_scatter.y);
 			float3 transmittance = beer_lambert(sigma_t, fminf(scatter_distance, hit.t));
 
 			if (scatter_distance < hit.t) {

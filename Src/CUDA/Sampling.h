@@ -98,6 +98,10 @@ __device__ float2 sample_gaussian(float u1, float u2) {
 	return f * sincos(a);
 }
 
+__device__ float sample_exp(float lambda, float u) {
+	return -logf(u) / lambda;
+}
+
 // Based on: Heitz - A Low-Distortion Map Between Triangle and Square
 __device__ float2 sample_triangle(float u1, float u2) {
 	if (u2 > u1) {
