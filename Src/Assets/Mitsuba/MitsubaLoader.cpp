@@ -406,8 +406,7 @@ static Handle<Medium> parse_medium(const XMLNode * node, Scene & scene) {
 		}
 
 		float scale = xml_medium->get_child_value_optional("scale", 1.0f);
-
-		medium.set_A_and_d(scale * sigma_a, scale * sigma_s);
+		medium.from_sigmas(scale * sigma_a, scale * sigma_s);
 
 		if (const XMLNode * phase = xml_medium->get_child_by_tag("phase")) {
 			StringView phase_type = phase->get_attribute_value("type");

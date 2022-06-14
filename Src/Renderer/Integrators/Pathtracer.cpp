@@ -689,7 +689,7 @@ void Pathtracer::update(float delta, Allocator * frame_allocator) {
 
 			for (size_t i = 0; i < medium_count; i++) {
 				const Medium & medium = scene.asset_manager.media[i];
-				medium.get_sigmas(cuda_mediums[i].sigma_a, cuda_mediums[i].sigma_s);
+				medium.to_sigmas(cuda_mediums[i].sigma_a, cuda_mediums[i].sigma_s);
 				cuda_mediums[i].g = medium.g;
 			}
 

@@ -9,45 +9,28 @@
 struct Medium {
 	String name;
 
-	// Artist friendly parameters as described in
-	// Chiang et al. - Practical and Controllable Subsurface Scattering for Production Path Tracing
-	Vector3 A; // Multi-scatter albedo
-	Vector3 d; // Scattering distance
+	Vector3 C   = 1.0f; // Multi-scatter albedo
+	Vector3 mfp = 1.0f; // Mean free path
 
-	float g = 0.0f;
+	float g = 0.0f; // Henyey-Greenstein mean cosine
 
-	static float A_to_alpha(float A) {
-		return 1.0f - expf(-5.09406f*A + 2.61188f*A*A - 4.31805f*A*A*A);
-	}
-
-	static float A_to_s(float A) {
-		return 1.9f - A + 3.5f * Math::square(A - 0.8f);
-	}
-
-	void set_A_and_d(const Vector3 & sigma_a, const Vector3 & sigma_s) {
+	void from_sigmas(const Vector3 & sigma_a, const Vector3 & sigma_s) {
 		Vector3 sigma_t = sigma_a + sigma_s;
 
-		if (sigma_t.x == 0.0f && sigma_t.y == 0.0f && sigma_t.z == 0.0f) {
-			A = Vector3(0.0f);
-			d = Vector3(100000.0f);
-			return;
-		}
-
+		// Van de Hulst albedo inversion
 		Vector3 alpha = sigma_s / sigma_t; // Single scatter albedo
-		A.x = Math::invert_monotonically_increasing_function(alpha.x, A_to_alpha);
-		A.y = Math::invert_monotonically_increasing_function(alpha.y, A_to_alpha);
-		A.z = Math::invert_monotonically_increasing_function(alpha.z, A_to_alpha);
+		Vector3 s = Vector3::apply((1.0f - alpha) / (1.0f - alpha*g), sqrtf);
 
-		Vector3 s = Vector3(A_to_s(A.x), A_to_s(A.y), A_to_s(A.z));
-		d = 1.0f / (sigma_t * s);
+		C   = (1.0f - s)*(1.0f - 0.139f*s) / (1.0f + 1.17f*s);
+		mfp = 1.0f / sigma_t;
 	}
 
-	void get_sigmas(Vector3 & sigma_a, Vector3 & sigma_s) const {
-		Vector3 alpha = Vector3(A_to_alpha(A.x), A_to_alpha(A.y), A_to_alpha(A.z));
-		Vector3 s     = Vector3(A_to_s    (A.x), A_to_s    (A.y), A_to_s    (A.z));
+	void to_sigmas(Vector3 & sigma_a, Vector3 & sigma_s) const {
+		// Van de Hulst albedo inversion
+		Vector3 s = 4.09712f + 4.20863f*C - Vector3::apply(9.59217f + 41.6808f*C + 17.7126f*C*C, sqrtf);
+		Vector3 alpha = (1.0f - s*s) / (1.0f - Math::clamp(g, -0.999f, 0.999f)*s*s);
 
-		Vector3 sigma_t = 1.0f / (Vector3::max(d, 0.0001f) * s);
-
+		Vector3 sigma_t = 1.0f / Vector3::max(mfp, 1e-6f);
 		sigma_s = alpha * sigma_t;
 		sigma_a = sigma_t - sigma_s;
 	}

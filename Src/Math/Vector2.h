@@ -25,6 +25,11 @@ struct Vector2 {
 		return left.x * right.x + left.y * right.y;
 	}
 
+	template<typename Func>
+	inline static Vector2 apply(const Vector2 & v, const Func & f = { }) {
+		return Vector2(f(v.x), f(v.y), f(v.z));
+	}
+
 	inline Vector2 operator+=(const Vector2 & vector) { x += vector.x; y += vector.y; return *this; }
 	inline Vector2 operator-=(const Vector2 & vector) { x -= vector.x; y -= vector.y; return *this; }
 	inline Vector2 operator*=(const Vector2 & vector) { x *= vector.x; y *= vector.y; return *this; }
