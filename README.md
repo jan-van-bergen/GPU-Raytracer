@@ -42,6 +42,9 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
 SVGF: Raw output of the pathtracer on the left and the filtered result on the right.
 
+![Kulla Conty Multiscatter](Screenshots/kulla-conty.png "Kulla Conty Multiscatter Approximation")
+Kulla Conty Multiscatter for dielectrics comparison: at the top single scatter, at the bottom multiscatter approximation.
+
 ![Staircase](Screenshots/Staircase.png "Staircase Scene")
 ![Editor](Screenshots/Editor.png "Interactive Scene editor")
 ![Glass-of-Water](Screenshots/glass-of-water.png "Glass of Water")
