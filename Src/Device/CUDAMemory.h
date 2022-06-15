@@ -120,16 +120,21 @@ namespace CUDAMemory {
 		}
 	}
 
-	CUarray          create_array       (int width, int height, int channels, CUarray_format format);
-	CUmipmappedArray create_array_mipmap(int width, int height, int channels, CUarray_format format, int level_count);
+	CUarray          create_array       (int width, int height,            int channels, CUarray_format format);
+	CUarray          create_array       (int width, int height, int depth, int channels, CUarray_format format);
+	CUmipmappedArray create_array_mipmap(int width, int height,            int channels, CUarray_format format, int level_count);
 
 	void free_array(CUarray array);
 	void free_array(CUmipmappedArray array);
 
 	// Copies data from the Host Texture to the Device Array
-	void copy_array(CUarray array, int width_in_bytes, int height, const void * data);
+	void copy_array   (CUarray array, int width_in_bytes, int height,            const void * data);
+	void copy_array_3d(CUarray array, int width_in_bytes, int height, int depth, const void * data);
 
-	CUtexObject  create_texture(CUarray array, CUfilter_mode filter);
+	void copy_array   (CUarray array, int width_in_bytes, int height,            CUdeviceptr data);
+	void copy_array_3d(CUarray array, int width_in_bytes, int height, int depth, CUdeviceptr data);
+
+	CUtexObject  create_texture(CUarray array, CUfilter_mode filter, CUaddress_mode address_mode);
 	CUsurfObject create_surface(CUarray array);
 
 	void free_texture(CUtexObject  texture);

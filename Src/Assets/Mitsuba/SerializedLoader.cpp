@@ -172,31 +172,49 @@ Array<Triangle> SerializedLoader::load(const String & filename, Allocator * allo
 		uint64_t index_1 = read_index(indices, 3*t + 1);
 		uint64_t index_2 = read_index(indices, 3*t + 2);
 
-		triangles[t].position_0 = read_vector3(vertex_positions, index_0);
-		triangles[t].position_1 = read_vector3(vertex_positions, index_1);
-		triangles[t].position_2 = read_vector3(vertex_positions, index_2);
+		Vector3 position_0 = read_vector3(vertex_positions, index_0);
+		Vector3 position_1 = read_vector3(vertex_positions, index_1);
+		Vector3 position_2 = read_vector3(vertex_positions, index_2);
+
+		Vector3 normal_0 = { };
+		Vector3 normal_1 = { };
+		Vector3 normal_2 = { };
 
 		if (flag_use_face_normals) {
 			Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
-				triangles[t].position_1 - triangles[t].position_0,
-				triangles[t].position_2 - triangles[t].position_0
+				position_1 - position_0,
+				position_2 - position_0
 			));
-			triangles[t].normal_0 = geometric_normal;
-			triangles[t].normal_1 = geometric_normal;
-			triangles[t].normal_2 = geometric_normal;
+			normal_0 = geometric_normal;
+			normal_1 = geometric_normal;
+			normal_2 = geometric_normal;
 		} else if (flag_has_normals) {
-			triangles[t].normal_0 = read_vector3(vertex_normals, index_0);
-			triangles[t].normal_1 = read_vector3(vertex_normals, index_1);
-			triangles[t].normal_2 = read_vector3(vertex_normals, index_2);
+			normal_0 = read_vector3(vertex_normals, index_0);
+			normal_1 = read_vector3(vertex_normals, index_1);
+			normal_2 = read_vector3(vertex_normals, index_2);
 		}
+
+		Vector2 tex_coord_0 = { };
+		Vector2 tex_coord_1 = { };
+		Vector2 tex_coord_2 = { };
 
 		if (flag_has_tex_coords) {
-			triangles[t].tex_coord_0 = read_vector2(vertex_tex_coords, index_0);
-			triangles[t].tex_coord_1 = read_vector2(vertex_tex_coords, index_1);
-			triangles[t].tex_coord_2 = read_vector2(vertex_tex_coords, index_2);
+			tex_coord_0 = read_vector2(vertex_tex_coords, index_0);
+			tex_coord_1 = read_vector2(vertex_tex_coords, index_1);
+			tex_coord_2 = read_vector2(vertex_tex_coords, index_2);
 		}
 
-		triangles[t].init();
+		triangles[t] = Triangle(
+			position_0,
+			position_1,
+			position_2,
+			normal_0,
+			normal_1,
+			normal_2,
+			tex_coord_0,
+			tex_coord_1,
+			tex_coord_2
+		);
 	}
 
 	return triangles;

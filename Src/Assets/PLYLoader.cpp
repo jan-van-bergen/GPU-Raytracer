@@ -311,19 +311,11 @@ Array<Triangle> PLYLoader::load(const String & filename, Allocator * allocator) 
 							tex[2] = tex_coords[elem_2];
 							nor[2] = normals   [elem_2];
 
-							Triangle triangle = { };
-							triangle.position_0  = pos[0];
-							triangle.position_1  = pos[1];
-							triangle.position_2  = pos[2];
-							triangle.tex_coord_0 = tex[0];
-							triangle.tex_coord_1 = tex[1];
-							triangle.tex_coord_2 = tex[2];
-							triangle.normal_0    = nor[0];
-							triangle.normal_1    = nor[1];
-							triangle.normal_2    = nor[2];
-							triangle.init();
-
-							triangles.push_back(triangle);
+							triangles.emplace_back(
+								pos[0], pos[1], pos[2],
+								nor[0], nor[1], nor[2],
+								tex[0], tex[1], tex[2]
+							);
 
 							pos[1] = pos[2];
 							tex[1] = tex[2];

@@ -16,8 +16,16 @@ struct Texture {
 
 	float lod_bias; // 0.5 * log2(width * height), required for isotropic Mipmap LOD calculations
 
+	__device__ inline T get(float s) const {
+		return tex1D<T>(texture, s);
+	}
+
 	__device__ inline T get(float s, float t) const {
 		return tex2D<T>(texture, s, t);
+	}
+
+	__device__ inline T get(float s, float t, float r) const {
+		return tex3D<T>(texture, s, t, r);
 	}
 
 	__device__ inline T get_lod(float s, float t, float lod) const {
@@ -35,19 +43,23 @@ struct Surface {
 	cudaSurfaceObject_t surface;
 
 	__device__ inline T get(int x, int y) const {
-		// assert(x >= 0 && x < screen_width);
-		// assert(y >= 0 && y < screen_height);
-
 		T value;
 		surf2Dread<T>(&value, surface, x * sizeof(T), y, cudaBoundaryModeClamp);
 		return value;
 	}
 
-	__device__ inline void set(int x, int y, const T & value) {
-		// assert(x >= 0 && x < screen_width);
-		// assert(y >= 0 && y < screen_height);
+	__device__ inline T get(int x, int y, int z) const {
+		T value;
+		surf3Dread<T>(&value, surface, x * sizeof(T), y, z, cudaBoundaryModeClamp);
+		return value;
+	}
 
+	__device__ inline void set(int x, int y, const T & value) {
 		surf2Dwrite<T>(value, surface, x * sizeof(T), y);
+	}
+
+	__device__ inline void set(int x, int y, int z, const T & value) {
+		surf3Dwrite<T>(value, surface, x * sizeof(T), y, z);
 	}
 };
 
@@ -148,6 +160,14 @@ __device__ inline float square(float x) {
 	return x * x;
 }
 
+__device__ inline float cube(float x) {
+	return x * x * x;
+}
+
+__device__ inline float remap(float value, float old_min, float old_max, float new_min, float new_max) {
+	return new_min + (value - old_min) / (old_max - old_min) * (new_max - new_min);
+}
+
 __device__ inline float safe_sqrt(float x) {
 	return sqrtf(fmaxf(0.0f, x));
 }
@@ -160,6 +180,14 @@ __device__ inline float2 sincos(float x) {
 	float sin_x, cos_x;
 	__sincosf(x, &sin_x, &cos_x);
 	return make_float2(sin_x, cos_x);
+}
+
+__device__ inline float online_average(float avg, float sample, int n) {
+	if (n == 0) {
+		return sample;
+	} else {
+		return avg + (sample - avg) / float(n);
+	}
 }
 
 template<typename T>

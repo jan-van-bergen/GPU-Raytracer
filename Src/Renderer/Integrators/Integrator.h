@@ -100,16 +100,16 @@ struct Integrator {
 		struct {
 			Vector3 diffuse;
 			int     texture_id;
-			float   roughness;
+			float   linear_roughness;
 		} plastic;
 		struct {
 			int   medium_id;
 			float ior;
-			float roughness;
+			float linear_roughness;
 		} dielectric;
 		struct {
 			Vector3 eta;
-			float   roughness;
+			float   linear_roughness;
 			Vector3 k;
 		} conductor;
 
@@ -185,7 +185,8 @@ struct Integrator {
 	CUDAModule::Global global_config;
 	CUDAModule::Global global_buffer_sizes;
 
-	CUDAMemory::Ptr<Vector3> ptr_sky_data;
+	CUarray     sky_array;
+	CUtexObject sky_texture;
 
 	CUDAMemory::Ptr<PMJ::Point>     ptr_pmj_samples;
 	CUDAMemory::Ptr<unsigned short> ptr_blue_noise_textures;

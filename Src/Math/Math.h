@@ -160,25 +160,4 @@ namespace Math {
 
 		return sum;
 	}
-
-	template<typename Function>
-	inline constexpr float invert_monotonically_increasing_function(float y, Function function, float x_min = 0.0f, float x_max = 1.0f) {
-		float x = { };
-
-		// Binary search
-		for (int i = 0; i < 100; i++) {
-			x = 0.5f * (x_min + x_max);
-			float y_approx = function(x);
-			if (Math::approx_equal(y_approx, y)) break;
-
-			if (y_approx > y) { // Assumes function is monotonically increasing
-				x_max = x;
-			} else {
-				x_min = x;
-			}
-		}
-
-		return x;
-	};
-
 }

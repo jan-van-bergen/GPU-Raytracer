@@ -454,6 +454,9 @@
     <ClInclude Include="Src\Renderer\Handle.h">
       <Filter>Renderer</Filter>
     </ClInclude>
+    <ClInclude Include="Src\Core\Allocators\AlignedAllocator.h">
+      <Filter>Core\Allocators</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="Debug.natvis" />

@@ -61,6 +61,11 @@ struct Vector3 {
 		);
 	}
 
+	template<typename Func>
+	inline static Vector3 apply(const Vector3 & v, const Func & f = { }) {
+		return Vector3(f(v.x), f(v.y), f(v.z));
+	}
+
 	inline Vector3 operator+=(const Vector3 & vector) { x += vector.x; y += vector.y; z += vector.z; return *this; }
 	inline Vector3 operator-=(const Vector3 & vector) { x -= vector.x; y -= vector.y; z -= vector.z; return *this; }
 	inline Vector3 operator*=(const Vector3 & vector) { x *= vector.x; y *= vector.y; z *= vector.z; return *this; }

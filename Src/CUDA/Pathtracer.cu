@@ -257,8 +257,8 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		bool medium_can_scatter = (medium.sigma_s.x + medium.sigma_s.y + medium.sigma_s.z) > 0.0f;
 
 		if (medium_can_scatter) {
-			float2 rand_scatter = random<SampleDimension::NEE_LIGHT>(pixel_index, bounce, sample_index);
-			float2 rand_phase   = random<SampleDimension::BRDF>     (pixel_index, bounce, sample_index);
+			float2 rand_scatter = random<SampleDimension::BSDF_0>(pixel_index, bounce, sample_index);
+			float2 rand_phase   = random<SampleDimension::BSDF_1>(pixel_index, bounce, sample_index);
 
 			float3 sigma_t = medium.sigma_a + medium.sigma_s;
 
@@ -276,7 +276,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 				sigma_t_used_for_sampling = sigma_t.z;
 			}
 
-			float scatter_distance = -logf(rand_scatter.y) / sigma_t_used_for_sampling;
+			float scatter_distance = sample_exp(sigma_t_used_for_sampling, rand_scatter.y);
 			float3 transmittance = beer_lambert(sigma_t, fminf(scatter_distance, hit.t));
 
 			if (scatter_distance < hit.t) {
@@ -519,13 +519,10 @@ __device__ void next_event_estimation(
 	light_normal = normalize(light_normal);
 
 	float3 to_light = light_point - hit_point;
-	float distance_to_light_squared = dot(to_light, to_light);
-	float distance_to_light         = sqrtf(distance_to_light_squared);
-
-	// Normalize the vector to the light
+	float distance_to_light = length(to_light);
 	to_light /= distance_to_light;
 
-	float cos_theta_light = fabsf(dot(to_light, light_normal));
+	float cos_theta_light = abs_dot(to_light, light_normal);
 	float cos_theta_hit = dot(to_light, normal);
 
 	int light_material_id = mesh_get_material_id(light_mesh_id);
@@ -537,7 +534,7 @@ __device__ void next_event_estimation(
 	if (!valid) return;
 
 	float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
-	float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
+	float light_pdf   = light_power * square(distance_to_light) / (cos_theta_light * lights_total_weight);
 
 	if (!pdf_is_valid(light_pdf)) return;
 

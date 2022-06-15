@@ -30,13 +30,15 @@ __device__ inline float power_heuristic(float pdf_f, float pdf_g) {
 enum struct SampleDimension {
 	FILTER,
 	APERTURE,
+
 	RUSSIAN_ROULETTE,
 	NEE_LIGHT,
 	NEE_TRIANGLE,
-	BRDF,
+	BSDF_0,
+	BSDF_1,
 
 	NUM_DIMENSIONS,
-	NUM_BOUNCE = 4 // Last four dimensions are reused every bounce
+	NUM_BOUNCE = 5 // Last 5 dimensions are reused every bounce
 };
 
 template<SampleDimension Dim>
@@ -94,6 +96,10 @@ __device__ float2 sample_gaussian(float u1, float u2) {
 	float f = sqrt(-2.0f * logf(u1));
 	float a = TWO_PI * u2;
 	return f * sincos(a);
+}
+
+__device__ float sample_exp(float lambda, float u) {
+	return -logf(u) / lambda;
 }
 
 // Based on: Heitz - A Low-Distortion Map Between Triangle and Square

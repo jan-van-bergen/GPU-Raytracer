@@ -19,7 +19,7 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - BVH's are split into two parts, at the world level (TLAS) and at the model level (BLAS). This allows dynamic scenes with moving Meshes as well as Mesh instancing where multiple meshes with different transforms share the same underlying triangle/BVH data.
 - *SVGF* (Spatio-Temporal Variance Guided Filter), see [Schied et al](https://cg.ivd.kit.edu/publications/2017/svgf/svgf_preprint.pdf). Denoising filter that allows for noise-free images at interactive framerates. Also includes a TAA pass.
 - Participating Media (homogeneous)
-  - Intuitive, artist friendly parameters: Instead of the usual σ<sub>a</sub> and σ<sub>s</sub> parameters the more intuitive A (albedo) and d (distance) parameters are used (see [Chiang et al.](https://dl-acm-org.proxy.library.uu.nl/doi/10.1145/2897839.2927433)) 
+  - Intuitive, artist friendly parameters: Instead of the usual σ<sub>a</sub> and σ<sub>s</sub> parameters the more intuitive `C` (multiscatter albedo) and `mfp` (mean free path) parameters are provided. The σ<sub>a</sub> and σ<sub>s</sub> parameters are then solved for using Van de Hulst albedo inversion. (See [Hitchhikers Guide to Multiple Scattering](http://www.eugenedeon.com/project/hitchhikers/)) 
   - Multiple Importance Sampling* (MIS): Sample scattering distance for each wavelength using MIS (see [Wrenninge et al.](https://graphics.pixar.com/library/PathTracedSubsurface/paper.pdf))
 - Importance Sampling
   - *Next Event Estimation* (NEE): Shadow rays are explicitly aimed at light sources to reduce variance.
@@ -34,12 +34,16 @@ Interactive CUDA pathtracer that implements a variety of rendering techniques.
   - *Plastic* (Specular on top of diffuse)
   - *(Rough) Dielectric*
   - *(Rough) Conductor*
+- Energy Preservation: Kulla-Conty approximation for multi-scattering is implemented for Dielectrics and Conductors such that they pass a furnace test.
 - Mitsuba XML Scene support: A custom Mitsuba XML parser is included to load scene files. Custom loaders for OBJ and PLY files are available.
 
 ## Screenshots
 
 ![SVGF Denoising](Screenshots/SVGF.png "SVGF Denoising")
 SVGF: Raw output of the pathtracer on the left and the filtered result on the right.
+
+![Kulla Conty Multiscatter](Screenshots/kulla-conty.png "Kulla Conty Multiscatter Approximation")
+Kulla Conty Multiscatter for dielectrics comparison: at the top single scatter, at the bottom multiscatter approximation.
 
 ![Staircase](Screenshots/Staircase.png "Staircase Scene")
 ![Editor](Screenshots/Editor.png "Interactive Scene editor")

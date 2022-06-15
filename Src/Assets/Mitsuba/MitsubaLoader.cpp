@@ -253,7 +253,7 @@ static Handle<Material> parse_material(const XMLNode * node, Scene & scene, cons
 		if (inner_bsdf_type == "conductor") {
 			material.linear_roughness = 0.0f;
 		} else {
-			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+			material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
 		}
 
 		const XMLNode * material_str = inner_bsdf->get_child_by_name("material");
@@ -272,7 +272,7 @@ static Handle<Material> parse_material(const XMLNode * node, Scene & scene, cons
 		if (inner_bsdf_type == "plastic") {
 			material.linear_roughness = 0.0f;
 		} else {
-			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+			material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
 		}
 	} else if (inner_bsdf_type == "phong") {
 		material.type = Material::Type::PLASTIC;
@@ -352,7 +352,7 @@ static Handle<Material> parse_material(const XMLNode * node, Scene & scene, cons
 		material.index_of_refraction = ext_ior == 0.0f ? int_ior : int_ior / ext_ior;
 
 		if (inner_bsdf_type == "roughdielectric") {
-			material.linear_roughness = sqrtf(inner_bsdf->get_child_value_optional("alpha", 0.25f));
+			material.linear_roughness = inner_bsdf->get_child_value_optional("alpha", 0.5f);
 		} else {
 			material.linear_roughness = 0.0f;
 		}
@@ -406,8 +406,7 @@ static Handle<Medium> parse_medium(const XMLNode * node, Scene & scene) {
 		}
 
 		float scale = xml_medium->get_child_value_optional("scale", 1.0f);
-
-		medium.set_A_and_d(scale * sigma_a, scale * sigma_s);
+		medium.from_sigmas(scale * sigma_a, scale * sigma_s);
 
 		if (const XMLNode * phase = xml_medium->get_child_by_tag("phase")) {
 			StringView phase_type = phase->get_attribute_value("type");
@@ -641,7 +640,7 @@ static void walk_xml_tree(const XMLNode * node, Allocator * allocator, Scene & s
 			} else if (extension != "hdr") {
 				WARNING(node->location, "Environment Map '{}' has unsupported file extension. Only HDR Environment Maps are supported!\n", filename_rel);
 			} else {
-				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel, scene.allocator);
+				cpu_config.sky_filename = Util::combine_stringviews(path, filename_rel);
 			}
 		} else if (emitter_type == "point") {
 			// Make small area light

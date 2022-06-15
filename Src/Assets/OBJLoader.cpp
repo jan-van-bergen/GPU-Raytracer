@@ -201,16 +201,17 @@ Array<Triangle> OBJLoader::load(const String & filename, Allocator * allocator) 
 			}
 		}
 
-		triangles[f].position_0 = positions[0];
-		triangles[f].position_1 = positions[1];
-		triangles[f].position_2 = positions[2];
-		triangles[f].normal_0 = normals[0];
-		triangles[f].normal_1 = normals[1];
-		triangles[f].normal_2 = normals[2];
-		triangles[f].tex_coord_0 = tex_coords[0];
-		triangles[f].tex_coord_1 = tex_coords[1];
-		triangles[f].tex_coord_2 = tex_coords[2];
-		triangles[f].init();
+		triangles[f] = Triangle(
+			positions[0],
+			positions[1],
+			positions[2],
+			normals[0],
+			normals[1],
+			normals[2],
+			tex_coords[0],
+			tex_coords[1],
+			tex_coords[2]
+		);
 	}
 
 	IO::print("Loaded OBJ '{}' from disk ({} triangles)\n"_sv, filename, triangles.size());

@@ -630,8 +630,8 @@ static void draw_gui(Window & window, Integrator & integrator) {
 							break;
 						}
 						case Material::Type::CONDUCTOR: {
-							integrator.invalidated_materials |= ImGui::SliderFloat3("Eta",       &material.eta.x, 1.0f, 2.5f);
-							integrator.invalidated_materials |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 5.0f);
+							integrator.invalidated_materials |= ImGui::SliderFloat3("Eta",       &material.eta.x, 0.0f, 4.0f);
+							integrator.invalidated_materials |= ImGui::SliderFloat3("K",         &material.k.x,   0.0f, 8.0f);
 							integrator.invalidated_materials |= ImGui::SliderFloat ("Roughness", &material.linear_roughness, 0.0f, 1.0f);
 							break;
 						}
@@ -643,15 +643,15 @@ static void draw_gui(Window & window, Integrator & integrator) {
 
 						Vector3 sigma_a = { };
 						Vector3 sigma_s = { };
-						medium.get_sigmas(sigma_a, sigma_s);
+						medium.to_sigmas(sigma_a, sigma_s);
 
 						Vector3 sigma_t = sigma_a + sigma_s;
 						ImGui::Text("Sigma A: %.3f, %.3f, %.3f", sigma_a.x, sigma_a.y, sigma_a.z);
 						ImGui::Text("Sigma S: %.3f, %.3f, %.3f", sigma_s.x, sigma_s.y, sigma_s.z);
 						ImGui::Text("Sigma T: %.3f, %.3f, %.3f", sigma_t.x, sigma_t.y, sigma_t.z);
 
-						integrator.invalidated_mediums |= ImGui::ColorEdit3 ("Albedo",   &medium.A.x);
-						integrator.invalidated_mediums |= ImGui::DragFloat3 ("Distance", &medium.d.x, 0.01f, 0.0f, INFINITY);
+						integrator.invalidated_mediums |= ImGui::ColorEdit3 ("Albedo",   &medium.C.x);
+						integrator.invalidated_mediums |= ImGui::DragFloat3 ("MFP",      &medium.mfp.x, 0.01f, 0.0f, INFINITY);
 						integrator.invalidated_mediums |= ImGui::SliderFloat("Phase g",  &medium.g,  -1.0f,  1.0f);
 					}
 				}

@@ -276,6 +276,7 @@
     <ClInclude Include="Src\BVH\Converters\BVH8Converter.h" />
     <ClInclude Include="Src\BVH\Converters\BVH4Converter.h" />
     <ClInclude Include="Src\Config.h" />
+    <ClInclude Include="Src\Core\Allocators\AlignedAllocator.h" />
     <ClInclude Include="Src\Core\Allocators\Allocator.h" />
     <ClInclude Include="Src\Core\Allocators\LinearAllocator.h" />
     <ClInclude Include="Src\Core\Allocators\PinnedAllocator.h" />

@@ -56,6 +56,11 @@ struct Vector4 {
 		);
 	}
 
+	template<typename Func>
+	inline static Vector4 apply(const Vector4 & v, const Func & f = { }) {
+		return Vector4(f(v.x), f(v.y), f(v.z), f(v.w));
+	}
+
 	inline Vector4 operator+=(const Vector4 & vector) { x += vector.x; y += vector.y; z += vector.z; w += vector.w; return *this; }
 	inline Vector4 operator-=(const Vector4 & vector) { x -= vector.x; y -= vector.y; z -= vector.z; w -= vector.w; return *this; }
 	inline Vector4 operator*=(const Vector4 & vector) { x *= vector.x; y *= vector.y; z *= vector.z; w *= vector.w; return *this; }

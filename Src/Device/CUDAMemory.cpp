@@ -16,6 +16,20 @@ CUarray CUDAMemory::create_array(int width, int height, int channels, CUarray_fo
 	return array;
 }
 
+CUarray CUDAMemory::create_array(int width, int height, int depth, int channels, CUarray_format format) {
+	CUDA_ARRAY3D_DESCRIPTOR desc = { };
+	desc.Width       = width;
+	desc.Height      = height;
+	desc.Depth       = depth;
+	desc.NumChannels = channels;
+	desc.Format      = format;
+
+	CUarray array;
+	CUDACALL(cuArray3DCreate(&array, &desc));
+
+	return array;
+}
+
 CUmipmappedArray CUDAMemory::create_array_mipmap(int width, int height, int channels, CUarray_format format, int level_count) {
 	CUDA_ARRAY3D_DESCRIPTOR desc = { };
 	desc.Width       = width;
@@ -53,18 +67,66 @@ void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, const
 	CUDACALL(cuMemcpy2D(&copy));
 }
 
-CUtexObject CUDAMemory::create_texture(CUarray array, CUfilter_mode filter) {
+// Copies data from the Host Texture to the Device Array
+void CUDAMemory::copy_array_3d(CUarray array, int width_in_bytes, int height, int depth, const void * data) {
+	CUDA_MEMCPY3D copy = { };
+	copy.srcMemoryType = CU_MEMORYTYPE_HOST;
+	copy.srcHost       = data;
+	copy.srcPitch      = width_in_bytes;
+	copy.srcHeight     = height;
+	copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+	copy.dstArray      = array;
+	copy.WidthInBytes  = width_in_bytes;
+	copy.Height        = height;
+	copy.Depth         = depth;
+
+	CUDACALL(cuMemcpy3D(&copy));
+}
+
+// Copies data from the Host Texture to the Device Array
+void CUDAMemory::copy_array(CUarray array, int width_in_bytes, int height, CUdeviceptr data) {
+	CUDA_MEMCPY2D copy = { };
+	copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+	copy.srcDevice     = data;
+	copy.srcPitch      = width_in_bytes;
+	copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+	copy.dstArray      = array;
+	copy.WidthInBytes  = width_in_bytes;
+	copy.Height        = height;
+
+	CUDACALL(cuMemcpy2D(&copy));
+}
+
+// Copies data from the Host Texture to the Device Array
+void CUDAMemory::copy_array_3d(CUarray array, int width_in_bytes, int height, int depth, CUdeviceptr data) {
+	CUDA_MEMCPY3D copy = { };
+	copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+	copy.srcDevice     = data;
+	copy.srcPitch      = width_in_bytes;
+	copy.srcHeight     = height;
+	copy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+	copy.dstArray      = array;
+	copy.WidthInBytes  = width_in_bytes;
+	copy.Height        = height;
+	copy.Depth         = depth;
+
+	CUDACALL(cuMemcpy3D(&copy));
+}
+
+CUtexObject CUDAMemory::create_texture(CUarray array, CUfilter_mode filter, CUaddress_mode address_mode) {
 	CUDA_RESOURCE_DESC res_desc = { };
 	res_desc.resType = CUresourcetype::CU_RESOURCE_TYPE_ARRAY;
 	res_desc.res.array.hArray = array;
 
 	CUDA_TEXTURE_DESC tex_desc = { };
-	tex_desc.addressMode[0] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
-	tex_desc.addressMode[1] = CUaddress_mode::CU_TR_ADDRESS_MODE_WRAP;
+	tex_desc.addressMode[0] = address_mode;
+	tex_desc.addressMode[1] = address_mode;
+	tex_desc.addressMode[2] = address_mode;
 	tex_desc.filterMode = filter;
 	tex_desc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
-	CUtexObject tex_object; CUDACALL(cuTexObjectCreate(&tex_object, &res_desc, &tex_desc, nullptr));
+	CUtexObject tex_object = { };
+	CUDACALL(cuTexObjectCreate(&tex_object, &res_desc, &tex_desc, nullptr));
 
 	return tex_object;
 }
@@ -74,7 +136,8 @@ CUsurfObject CUDAMemory::create_surface(CUarray array) {
 	desc.resType = CU_RESOURCE_TYPE_ARRAY;
 	desc.res.array.hArray = array;
 
-	CUsurfObject surf_object; CUDACALL(cuSurfObjectCreate(&surf_object, &desc));
+	CUsurfObject surf_object = { };
+	CUDACALL(cuSurfObjectCreate(&surf_object, &desc));
 
 	return surf_object;
 }
