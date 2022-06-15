@@ -710,7 +710,7 @@ static void load_include(const String & filename, StringView path, Allocator * a
 
 				Medium medium = { };
 				medium.name = name;
-				medium.set_A_and_d(sigma_a, sigma_s);
+				medium.from_sigmas(sigma_a, sigma_s);
 
 				Handle<Medium> medium_handle = scene.asset_manager.add_medium(medium);
 				medium_map.insert(name, medium_handle);
@@ -812,44 +812,27 @@ static void load_include(const String & filename, StringView path, Allocator * a
 					WARNING(param_indices.location, "The number of Triangle Mesh indices should be a multiple of 3!\n");
 				}
 
-				Array<Triangle> triangles(indices.size() / 3);
+				Array<Triangle> triangles;
+				triangles.reserve(indices.size() / 3);
 
 				for (size_t i = 0; i < triangles.size(); i++) {
 					int index_0 = indices[3*i];
 					int index_1 = indices[3*i + 1];
 					int index_2 = indices[3*i + 2];
 
-					Triangle & triangle = triangles[i];
+					Vector3 position_0 = positions.float3s[index_0];
+					Vector3 position_1 = positions.float3s[index_1];
+					Vector3 position_2 = positions.float3s[index_2];
 
-					triangle.position_0 = positions.float3s[index_0];
-					triangle.position_1 = positions.float3s[index_1];
-					triangle.position_2 = positions.float3s[index_2];
+					Vector3 normal_0 = normals ? normals->float3s[index_0] : 0.0f;
+					Vector3 normal_1 = normals ? normals->float3s[index_1] : 0.0f;
+					Vector3 normal_2 = normals ? normals->float3s[index_2] : 0.0f;
 
-					if (normals) {
-						triangle.normal_0 = normals->float3s[index_0];
-						triangle.normal_1 = normals->float3s[index_1];
-						triangle.normal_2 = normals->float3s[index_2];
-					} else {
-						Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
-							triangle.position_1 - triangle.position_0,
-							triangle.position_2 - triangle.position_0
-						));
-						triangle.normal_0 = geometric_normal;
-						triangle.normal_1 = geometric_normal;
-						triangle.normal_2 = geometric_normal;
-					}
+					Vector2 tex_coord_0 = tex_coords ? tex_coords->float2s[index_0] : 0.0f;
+					Vector2 tex_coord_1 = tex_coords ? tex_coords->float2s[index_1] : 0.0f;
+					Vector2 tex_coord_2 = tex_coords ? tex_coords->float2s[index_2] : 0.0f;
 
-					if (tex_coords) {
-						triangle.tex_coord_0 = tex_coords->float2s[index_0];
-						triangle.tex_coord_1 = tex_coords->float2s[index_1];
-						triangle.tex_coord_2 = tex_coords->float2s[index_2];
-					} else {
-						triangle.tex_coord_0 = Vector2(0.0f);
-						triangle.tex_coord_1 = Vector2(0.0f);
-						triangle.tex_coord_2 = Vector2(0.0f);
-					}
-
-					triangle.init();
+					triangles.emplace_back(position_0, position_1, position_2, normal_0, normal_1, normal_2, tex_coord_0, tex_coord_1, tex_coord_2);
 				}
 
 				Handle<MeshData> mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
