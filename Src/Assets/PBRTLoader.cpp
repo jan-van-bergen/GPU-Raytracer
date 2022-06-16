@@ -804,7 +804,7 @@ static void load_include(const String & filename, StringView path, Allocator * a
 					Matrix4::decompose(attribute_stack.back().transform, &mesh.position, &mesh.rotation, &mesh.scale);
 				}
 
-			} else if (type == "trianglemesh") {
+			} else if (type == "trianglemesh" || type == "loopsubdiv") {
 				const Param & positions  = find_param         (params, "P",  Param::Type::FLOAT3);
 				const Param * normals    = find_param_optional(params, "N",  Param::Type::FLOAT3);
 				const Param * tex_coords = find_param_optional(params, "uv", Param::Type::FLOAT2);
