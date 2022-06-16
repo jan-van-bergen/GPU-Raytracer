@@ -590,9 +590,13 @@ static void load_include(const String & filename, StringView path, Allocator * a
 			float u_y = parser.parse_float(); pbrt_parser_skip(parser);
 			float u_z = parser.parse_float(); pbrt_parser_skip(parser);
 
+			Vector3 e = Vector3(e_x, e_y, e_z);
+			Vector3 f = Vector3(f_x, f_y, f_z);
+			Vector3 u = Vector3(u_x, u_y, u_z);
+
 			attribute_stack.back().transform =
-				Matrix4::create_translation(Vector3(e_x, e_y, e_z)) *
-				Matrix4::create_rotation(Quaternion::look_rotation(Vector3(f_x, f_y, f_z), Vector3(u_x, u_y, u_z)));
+				Matrix4::create_translation(e) *
+				Matrix4::create_rotation(Quaternion::look_rotation(f - e, u));
 
 		} else if (parser.match("Camera")) {
 			StringView type = parse_quoted(parser);
