@@ -805,7 +805,7 @@ extern "C" __global__ void kernel_accumulate(float frames_accumulated) {
 	aov_accumulate(AOVType::POSITION, pixel_index, frames_accumulated);
 
 	if (!isfinite(colour.x + colour.y + colour.z)) {
-		printf("WARNING: pixel (%i, %i) has colour (%f, %f, %f)!\n", x, y, colour.x, colour.y, colour.z);
+//		printf("WARNING: pixel (%i, %i) has colour (%f, %f, %f)!\n", x, y, colour.x, colour.y, colour.z);
 		colour = make_float4(1000.0f, 0.0f, 1000.0f, 1.0f);
 	}
 
