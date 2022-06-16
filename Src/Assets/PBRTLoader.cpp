@@ -813,30 +813,29 @@ static void load_include(const String & filename, StringView path, Allocator * a
 				const Array<int> & indices = param_indices.ints;
 
 				if (indices.size() % 3 != 0) {
-					WARNING(param_indices.location, "The number of Triangle Mesh indices should be a multiple of 3!\n");
+					WARNING(param_indices.location, "The number of {} indices should be a multiple of 3!\n", type);
 				}
 
+				size_t triangle_count = indices.size() / 3;
 				Array<Triangle> triangles;
-				triangles.reserve(indices.size() / 3);
+				triangles.reserve(triangle_count);
 
-				for (size_t i = 0; i < triangles.size(); i++) {
+				for (size_t i = 0; i < triangle_count; i++) {
 					int index_0 = indices[3*i];
 					int index_1 = indices[3*i + 1];
 					int index_2 = indices[3*i + 2];
 
-					Vector3 position_0 = positions.float3s[index_0];
-					Vector3 position_1 = positions.float3s[index_1];
-					Vector3 position_2 = positions.float3s[index_2];
-
-					Vector3 normal_0 = normals ? normals->float3s[index_0] : 0.0f;
-					Vector3 normal_1 = normals ? normals->float3s[index_1] : 0.0f;
-					Vector3 normal_2 = normals ? normals->float3s[index_2] : 0.0f;
-
-					Vector2 tex_coord_0 = tex_coords ? tex_coords->float2s[index_0] : 0.0f;
-					Vector2 tex_coord_1 = tex_coords ? tex_coords->float2s[index_1] : 0.0f;
-					Vector2 tex_coord_2 = tex_coords ? tex_coords->float2s[index_2] : 0.0f;
-
-					triangles.emplace_back(position_0, position_1, position_2, normal_0, normal_1, normal_2, tex_coord_0, tex_coord_1, tex_coord_2);
+					triangles.emplace_back(
+						positions.float3s[index_0],
+						positions.float3s[index_1],
+						positions.float3s[index_2],
+						normals ? normals->float3s[index_0] : 0.0f,
+						normals ? normals->float3s[index_1] : 0.0f,
+						normals ? normals->float3s[index_2] : 0.0f,
+						tex_coords ? tex_coords->float2s[index_0] : 0.0f,
+						tex_coords ? tex_coords->float2s[index_1] : 0.0f,
+						tex_coords ? tex_coords->float2s[index_2] : 0.0f
+					);
 				}
 
 				Handle<MeshData> mesh_data_handle = scene.asset_manager.add_mesh_data(triangles);
