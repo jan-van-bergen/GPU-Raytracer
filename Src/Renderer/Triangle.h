@@ -52,9 +52,9 @@ struct Triangle {
 				position_1 - position_0,
 				position_2 - position_0
 			));
-			if (normal_0_invalid) normal_0 = geometric_normal;
-			if (normal_1_invalid) normal_1 = geometric_normal;
-			if (normal_2_invalid) normal_2 = geometric_normal;
+			if (normal_0_invalid) this->normal_0 = geometric_normal;
+			if (normal_1_invalid) this->normal_1 = geometric_normal;
+			if (normal_2_invalid) this->normal_2 = geometric_normal;
 		}
 	}
 
