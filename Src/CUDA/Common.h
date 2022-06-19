@@ -26,14 +26,14 @@ enum struct ReconstructionFilter {
 
 // Arbitrary Output Variables
 enum struct AOVType {
-    RADIANCE,
-    RADIANCE_DIRECT,
-    RADIANCE_INDIRECT,
-    ALBEDO,
-    NORMAL,
-    POSITION,
+	RADIANCE,
+	RADIANCE_DIRECT,
+	RADIANCE_INDIRECT,
+	ALBEDO,
+	NORMAL,
+	POSITION,
 
-    COUNT
+	COUNT
 };
 
 struct GPUConfig {

@@ -42,9 +42,9 @@ __device__ inline void ray_cone_get_ellipse_axes(
 }
 
 __device__ inline void ray_cone_get_texture_gradients(
-	      float    mesh_scale,
+		  float    mesh_scale,
 	const float3 & geometric_normal,
-	      float    triangle_area_inv,
+		  float    triangle_area_inv,
 	const float3 & position_0,
 	const float3 & position_edge_1,
 	const float3 & position_edge_2,
@@ -55,8 +55,8 @@ __device__ inline void ray_cone_get_texture_gradients(
 	const float2 & hit_tex_coord,
 	const float3 & ellipse_axis_1,
 	const float3 & ellipse_axis_2,
-	      float2 & gradient_1,
-	      float2 & gradient_2
+		  float2 & gradient_1,
+		  float2 & gradient_2
 ) {
 	float3 e_p = hit_point + ellipse_axis_1 - position_0;
 

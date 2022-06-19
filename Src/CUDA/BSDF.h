@@ -21,9 +21,9 @@ struct BSDFDiffuse {
 	MaterialDiffuse material;
 	float3          albedo;
 
-    __device__ void init(int bounce, bool entering_material, int material_id) {
-        material = material_as_diffuse(material_id);
-    }
+	__device__ void init(int bounce, bool entering_material, int material_id) {
+		material = material_as_diffuse(material_id);
+	}
 
 	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod) {
 		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
@@ -228,7 +228,7 @@ struct BSDFDielectric {
 			omega_m = normalize(eta * omega_i + omega_o);
 		}
 		omega_m *= sign(omega_m.z);
-		
+
 		float i_dot_m = abs_dot(omega_i, omega_m);
 		float o_dot_m = abs_dot(omega_o, omega_m);
 
@@ -246,7 +246,7 @@ struct BSDFDielectric {
 		if (!entering_material) {
 			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
 		}
-		
+
 		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
 		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
 
@@ -297,12 +297,12 @@ struct BSDFDielectric {
 		bool entering_material = eta < 1.0f;
 
 		float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
-		
+
 		float F_avg = average_fresnel(material.ior);
 		if (!entering_material) {
 			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
 		}
-		
+
 		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
 		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
 

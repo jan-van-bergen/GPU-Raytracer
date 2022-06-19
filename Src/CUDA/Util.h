@@ -103,9 +103,9 @@ __device__ inline int binary_search(const float cumulative_array[], int index_fi
 
 // Based on: https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
 __device__ inline unsigned pcg_hash(unsigned seed) {
-    unsigned state = seed * 747796405u + 2891336453u;
-    unsigned word  = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return (word >> 22u) ^ word;
+	unsigned state = seed * 747796405u + 2891336453u;
+	unsigned word  = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
 }
 
 __device__ inline unsigned hash_combine(unsigned a, unsigned b) {
