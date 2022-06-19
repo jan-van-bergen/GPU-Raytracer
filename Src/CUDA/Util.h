@@ -172,9 +172,18 @@ __device__ inline float safe_sqrt(float x) {
 	return sqrtf(fmaxf(0.0f, x));
 }
 
+__device__ inline float2 safe_sqrt(float2 v) { return make_float2(safe_sqrt(v.x), safe_sqrt(v.y)); }
+__device__ inline float3 safe_sqrt(float3 v) { return make_float3(safe_sqrt(v.x), safe_sqrt(v.y), safe_sqrt(v.z)); }
+__device__ inline float4 safe_sqrt(float4 v) { return make_float4(safe_sqrt(v.x), safe_sqrt(v.y), safe_sqrt(v.z), safe_sqrt(v.w)); }
+
 __device__ inline float abs_dot(const float3 & a, const float3 & b) {
 	return fabsf(dot(a, b));
 }
+
+template<typename T>
+__device__ inline T divide_difference_by_sum(const T & a, const T & b) {
+	return (a - b) / (a + b);
+};
 
 __device__ inline float2 sincos(float x) {
 	float sin_x, cos_x;

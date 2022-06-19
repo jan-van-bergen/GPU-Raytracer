@@ -143,27 +143,30 @@ __device__ inline float3 material_get_albedo(const float3 & diffuse, int texture
 }
 
 __device__ inline float fresnel_dielectric(float cos_theta_i, float eta) {
-	float sin_theta_o2 = eta*eta * (1.0f - cos_theta_i*cos_theta_i);
+	float sin_theta_o2 = eta*eta * (1.0f - square(cos_theta_i));
 	if (sin_theta_o2 >= 1.0f) {
 		return 1.0f; // Total internal reflection (TIR)
 	}
 
 	float cos_theta_o = safe_sqrt(1.0f - sin_theta_o2);
 
-	float p = (eta * cos_theta_i - cos_theta_o) / (eta * cos_theta_i + cos_theta_o);
-	float s = (cos_theta_i - eta * cos_theta_o) / (cos_theta_i + eta * cos_theta_o);
+	float p = divide_difference_by_sum(eta * cos_theta_i, cos_theta_o);
+	float s = divide_difference_by_sum(cos_theta_i, eta * cos_theta_o);
 
 	return 0.5f * (p*p + s*s);
 }
 
+// Formula from Shirley - Physically Based Lighting Calculations for Computer Graphics
 __device__ inline float3 fresnel_conductor(float cos_theta_i, const float3 & eta, const float3 & k) {
-	float cos_theta_i2 = cos_theta_i * cos_theta_i;
+	float cos_theta_i2 = square(cos_theta_i);
+	float sin_theta_i2 = 1.0f - cos_theta_i2;
 
-	float3 t1 = eta*eta + k*k;
-	float3 t0 = t1 * cos_theta_i;
+	float3 inner      = eta*eta - k*k - sin_theta_i2;
+	float3 a2_plus_b2 = safe_sqrt(inner*inner + 4.0f * k*k * eta*eta);
+	float3 a          = safe_sqrt(0.5f * (a2_plus_b2 + inner));
 
-	float3 p2 = (t0 - (eta * (2.0f * cos_theta_i)) + make_float3(1.0f))         / (t0 + (eta * (2.0f * cos_theta_i)) + make_float3(1.0f));
-	float3 s2 = (t1 - (eta * (2.0f * cos_theta_i)) + make_float3(cos_theta_i2)) / (t1 + (eta * (2.0f * cos_theta_i)) + make_float3(cos_theta_i2));
+	float3 s2 = divide_difference_by_sum(a2_plus_b2 + cos_theta_i2,                        2.0f * a * cos_theta_i);
+	float3 p2 = divide_difference_by_sum(a2_plus_b2 * cos_theta_i2 + square(sin_theta_i2), 2.0f * a * cos_theta_i * sin_theta_i2) * s2;
 
 	return 0.5f * (p2 + s2);
 }
