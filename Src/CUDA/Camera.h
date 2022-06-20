@@ -55,8 +55,8 @@ __device__ inline Ray camera_generate_ray(int pixel_index, int sample_index, int
 	float3 offset = camera.x_axis * lens_point.x + camera.y_axis * lens_point.y;
 	float3 direction = normalize(focal_point - offset);
 
-    Ray ray;
-    ray.origin = camera.position + offset;
-    ray.direction = direction;
-    return ray;
+	Ray ray;
+	ray.origin = camera.position + offset;
+	ray.direction = direction;
+	return ray;
 }

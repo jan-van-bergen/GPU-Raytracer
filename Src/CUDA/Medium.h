@@ -1,8 +1,8 @@
 #pragma once
 
 struct Medium {
-    float4 sigma_a_and_g;
-    float4 sigma_s;
+	float4 sigma_a_and_g;
+	float4 sigma_s;
 };
 
 __device__ __constant__ Medium * media;

@@ -21,9 +21,9 @@ struct BSDFDiffuse {
 	MaterialDiffuse material;
 	float3          albedo;
 
-    __device__ void init(int bounce, bool entering_material, int material_id) {
-        material = material_as_diffuse(material_id);
-    }
+	__device__ void init(int bounce, bool entering_material, int material_id) {
+		material = material_as_diffuse(material_id);
+	}
 
 	__device__ void calc_albedo(int bounce, int pixel_index, float3 & throughput, float2 tex_coord, const TextureLOD & lod) {
 		albedo = sample_albedo(bounce, material.diffuse, material.texture_id, tex_coord, lod);
@@ -80,33 +80,8 @@ struct BSDFPlastic {
 	MaterialPlastic material;
 	float3          albedo;
 
-	static constexpr float ETA = 1.0f / 1.5f;
-
-	// The Total Internal Reflection compensation factor is calculated as
-	// the hemispherical integral of fresnel * cos(theta)
-	// This integral has a closed form and can be calculated as follows:
-	//
-	// float fresnel_first_moment(float ior) {
-	//      double n  = ior;
-	//      double n2 = n * n;
-	//      double n4 = n2 * n2;
-	//
-	//      auto sq = [](auto x) { return x * x; };
-	//      auto cb = [](auto x) { return x * x * x; };
-	//
-	//      auto a = (n - 1.0)*(3.0*n + 1.0) / (6.0 * sq(n + 1.0));
-	//      auto b = (n2*sq(n2 - 1.0) / cb(n2 + 1.0)) * log((n - 1.0) / (n + 1.0));
-	//      auto c = (2.0*cb(n)*(n2 + 2.0*n - 1.0)) / ((n2 + 1.0) * (n4 - 1.0));
-	//      auto d = (8.0*n4*(n4 + 1.0) / ((n2 + 1.0) * sq(n4 - 1.0))) * log(n);
-	//
-	//      return float(0.5 + a + b - c + d);
-	//  }
-	//
-	//	TIR_COMPENSATION = 1.0f - (1.0f - fresnel_first_moment(ior)) / (ior * ior);
-	//
-	// TIR_COMPENSATION has been precalculated for ior = 1.5f. Unfortunately constexpr
-	// does not work with math functions, so the value has to be hardcoded.
-	static constexpr float TIR_COMPENSATION = 0.596345782f;
+	static constexpr float IOR = 1.5f;
+	static constexpr float ETA = 1.0f / IOR;
 
 	__device__ void init(int bounce, bool entering_material, int material_id) {
 		material = material_as_plastic(material_id);
@@ -141,7 +116,10 @@ struct BSDFPlastic {
 		float F_i = fresnel_dielectric(omega_i.z, ETA);
 		float F_o = fresnel_dielectric(omega_o.z, ETA);
 
-		float3 brdf_diffuse = ETA*ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * TIR_COMPENSATION) * omega_o.z;
+		float F_avg = average_fresnel(IOR);
+		float internal_scattering_factor = 1.0f - (1.0f - F_avg) * square(ETA);
+
+		float3 brdf_diffuse = ETA*ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * internal_scattering_factor) * omega_o.z;
 
 		float pdf_specular = G1 * D / (4.0f * omega_i.z);
 		float pdf_diffuse  = omega_o.z * ONE_OVER_PI;
@@ -186,7 +164,10 @@ struct BSDFPlastic {
 		// Diffuse component
 		float F_o = fresnel_dielectric(omega_o.z, ETA);
 
-		float3 brdf_diffuse = ETA*ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * TIR_COMPENSATION) * omega_o.z;
+		float F_avg = average_fresnel(IOR);
+		float internal_scattering_factor = 1.0f - (1.0f - F_avg) * square(ETA);
+
+		float3 brdf_diffuse = ETA*ETA * (1.0f - F_i) * (1.0f - F_o) * albedo * ONE_OVER_PI / (1.0f - albedo * internal_scattering_factor) * omega_o.z;
 
 		float pdf_specular = G1 * D / (4.0f * omega_i.z);
 		float pdf_diffuse  = omega_o.z * ONE_OVER_PI;
@@ -247,7 +228,7 @@ struct BSDFDielectric {
 			omega_m = normalize(eta * omega_i + omega_o);
 		}
 		omega_m *= sign(omega_m.z);
-		
+
 		float i_dot_m = abs_dot(omega_i, omega_m);
 		float o_dot_m = abs_dot(omega_o, omega_m);
 
@@ -265,7 +246,7 @@ struct BSDFDielectric {
 		if (!entering_material) {
 			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
 		}
-		
+
 		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
 		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
 
@@ -316,12 +297,12 @@ struct BSDFDielectric {
 		bool entering_material = eta < 1.0f;
 
 		float E_i = dielectric_directional_albedo(material.ior, material.linear_roughness, omega_i.z, entering_material);
-		
+
 		float F_avg = average_fresnel(material.ior);
 		if (!entering_material) {
 			F_avg = 1.0f - (1.0f - F_avg) / square(material.ior);
 		}
-		
+
 		float E_avg_enter = dielectric_albedo(material.ior, material.linear_roughness, true);
 		float E_avg_leave = dielectric_albedo(material.ior, material.linear_roughness, false);
 
