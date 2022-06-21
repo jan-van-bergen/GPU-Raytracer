@@ -1,5 +1,6 @@
 #pragma once
 #include "Config.h"
+#include "Triangle.h"
 
 union TextureLOD {
 	struct {
@@ -27,6 +28,7 @@ __device__ inline float3 sample_albedo(int bounce, const float3 & diffuse, int t
 	}
 }
 
+// Project the Ray Cone onto the Triangle and obtain two axes that describe the resulting ellipse (in world space)
 __device__ inline void ray_cone_get_ellipse_axes(
 	const float3 & ray_direction,
 	const float3 & geometric_normal,
@@ -41,36 +43,21 @@ __device__ inline void ray_cone_get_ellipse_axes(
 	ellipse_axis_2 = cone_width / max(0.0001f, length(h_2 - dot(ray_direction, h_2) * ray_direction)) * h_2;
 }
 
-__device__ inline void ray_cone_get_texture_gradients(
-		  float    mesh_scale,
-	const float3 & geometric_normal,
-		  float    triangle_area_inv,
-	const float3 & position_0,
-	const float3 & position_edge_1,
-	const float3 & position_edge_2,
-	const float2 & tex_coord_0,
-	const float2 & tex_coord_edge_1,
-	const float2 & tex_coord_edge_2,
-	const float3 & hit_point,
-	const float2 & hit_tex_coord,
-	const float3 & ellipse_axis_1,
-	const float3 & ellipse_axis_2,
-		  float2 & gradient_1,
-		  float2 & gradient_2
+// Convert an ellipse axis into texture space
+__device__ inline float2 ray_cone_ellipse_axis_to_gradient(
+	const TrianglePosNorTex & triangle,
+	float                     triangle_double_area_inv,
+	const float3            & geometric_normal,
+	const float3            & hit_point,
+	const float2            & hit_tex_coord,
+	const float3            & ellipse_axis
 ) {
-	float3 e_p = hit_point + ellipse_axis_1 - position_0;
+	float3 e_p = hit_point + ellipse_axis - triangle.position_0;
 
-	float inv_mesh_scale = 1.0f / mesh_scale;
+	float u = dot(geometric_normal, cross(e_p, triangle.position_edge_2)) * triangle_double_area_inv;
+	float v = dot(geometric_normal, cross(triangle.position_edge_1, e_p)) * triangle_double_area_inv;
 
-	float u_1 = dot(geometric_normal, cross(e_p, position_edge_2)) * triangle_area_inv;
-	float v_1 = dot(geometric_normal, cross(position_edge_1, e_p)) * triangle_area_inv;
-	gradient_1 = inv_mesh_scale * (barycentric(u_1, v_1, tex_coord_0, tex_coord_edge_1, tex_coord_edge_2) - hit_tex_coord);
-
-	e_p = hit_point + ellipse_axis_2 - position_0;
-
-	float u_2 = dot(geometric_normal, cross(e_p, position_edge_2)) * triangle_area_inv;
-	float v_2 = dot(geometric_normal, cross(position_edge_1, e_p)) * triangle_area_inv;
-	gradient_2 = inv_mesh_scale * (barycentric(u_2, v_2, tex_coord_0, tex_coord_edge_1, tex_coord_edge_2) - hit_tex_coord);
+	return barycentric(u, v, triangle.tex_coord_0, triangle.tex_coord_edge_1, triangle.tex_coord_edge_2) - hit_tex_coord;
 }
 
 __device__ inline float ray_cone_get_lod(const float3 & ray_direction, const float3 & geometric_normal, float cone_width) {

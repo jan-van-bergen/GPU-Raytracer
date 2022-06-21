@@ -618,15 +618,12 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 
 	normal = normalize(normal);
 
-	// Make sure the normal is always pointing outwards
-	bool entering_material = dot(ray_direction, normal) < 0.0f;
-	if (!entering_material) {
-		normal = -normal;
-	}
+	float mesh_scale_inv = 1.0f / mesh_get_scale(hit.mesh_id);
 
 	// Load and propagate Ray Cone
 	float cone_angle;
 	float cone_width;
+	float curvature = 0.0f;
 	if (config.enable_mipmapping) {
 		if (bounce == 0) {
 			cone_angle = camera.pixel_spread_angle;
@@ -635,6 +632,30 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 			cone_angle = material_buffer.buffer->cone_angle[index];
 			cone_width = material_buffer.buffer->cone_width[index] + cone_angle * hit.t;
 		}
+
+		// Calculate Triangle curvature here,
+		// not yet needed (see below) but after this step the Triangle position edges are transformed into world space
+		curvature = triangle_get_curvature(
+			hit_triangle.position_edge_1,
+			hit_triangle.position_edge_2,
+			hit_triangle.normal_edge_1,
+			hit_triangle.normal_edge_2
+		) * mesh_scale_inv;
+	}
+
+	matrix3x4_transform_direction(world, hit_triangle.position_edge_1);
+	matrix3x4_transform_direction(world, hit_triangle.position_edge_2);
+
+	// Calculate geometric normal (in world space) to the Triangle
+	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
+	float triangle_double_area_inv = 1.0f / length(geometric_normal);
+	geometric_normal *= triangle_double_area_inv; // Normalize
+
+	// Check which side of the Triangle we are on based on its geometric normal
+	bool entering_material = dot(ray_direction, geometric_normal) < 0.0f;
+	if (!entering_material) {
+		normal    = -normal;
+		curvature = -curvature;
 	}
 
 	// Construct TBN frame
@@ -642,6 +663,8 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	orthonormal_basis(normal, tangent, bitangent);
 
 	float3 omega_i = world_to_local(-ray_direction, tangent, bitangent, normal);
+
+	if (omega_i.z <= 0.0f) return; // Below hemisphere, reject
 
 	// Initialize BSDF
 	int material_id = mesh_get_material_id(hit.mesh_id);
@@ -656,37 +679,21 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 	bsdf.omega_i      = omega_i;
 	bsdf.init(bounce, entering_material, material_id);
 
-	// Calculate texture level of detail
-	float mesh_scale = mesh_get_scale(hit.mesh_id);
-
-	// Calculate geometric normal to the triangle.
-	// NOTE: geometric normal is kept in local space since ray_cone_get_texture_gradients() requires this,
-	// it is only later transformed into world space
-	float3 geometric_normal = cross(hit_triangle.position_edge_1, hit_triangle.position_edge_2);
-	float  triangle_area_inv = 1.0f / length(geometric_normal);
-	geometric_normal *= triangle_area_inv; // Normalize
-
 	if (BSDF::HAS_ALBEDO) {
 		TextureLOD lod;
 
 		if (config.enable_mipmapping && bsdf.has_texture()) {
 			if (use_anisotropic_texture_sampling(bounce)) {
-				float3 ellipse_axis_1, ellipse_axis_2;
-				ray_cone_get_ellipse_axes(ray_direction, normal, cone_width, ellipse_axis_1, ellipse_axis_2);
+				float3 ellipse_axis_1;
+				float3 ellipse_axis_2;
+				ray_cone_get_ellipse_axes(ray_direction, geometric_normal, cone_width, ellipse_axis_1, ellipse_axis_2);
 
-				ray_cone_get_texture_gradients(
-					mesh_scale,
-					geometric_normal,
-					triangle_area_inv,
-					hit_triangle.position_0,  hit_triangle.position_edge_1,  hit_triangle.position_edge_2,
-					hit_triangle.tex_coord_0, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2,
-					hit_point_local, tex_coord,
-					ellipse_axis_1, ellipse_axis_2,
-					lod.aniso.gradient_1, lod.aniso.gradient_2
-				);
+				lod.aniso.gradient_1 = ray_cone_ellipse_axis_to_gradient(hit_triangle, triangle_double_area_inv, geometric_normal, hit_point, tex_coord, ellipse_axis_1);
+				lod.aniso.gradient_2 = ray_cone_ellipse_axis_to_gradient(hit_triangle, triangle_double_area_inv, geometric_normal, hit_point, tex_coord, ellipse_axis_2);
 			} else {
-				float lod_triangle = sqrtf(triangle_get_lod(mesh_scale, triangle_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2));
-				float lod_ray_cone = ray_cone_get_lod(ray_direction, normal, cone_width);
+				float lod_triangle = triangle_get_lod(triangle_double_area_inv, hit_triangle.tex_coord_edge_1, hit_triangle.tex_coord_edge_2);
+				float lod_ray_cone = ray_cone_get_lod(ray_direction, geometric_normal, cone_width);
+
 				lod.iso.lod = log2f(lod_triangle * lod_ray_cone);
 			}
 		}
@@ -701,18 +708,8 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 		aov_framebuffer_set(AOVType::POSITION, pixel_index, make_float4(hit_point));
 	}
 
-	matrix3x4_transform_direction(world, geometric_normal);
-	geometric_normal = normalize(geometric_normal);
-
-	// Calulate new Ray Cone angle based on Mesh curvature
+	// Calulate new Ray Cone angle
 	if (config.enable_mipmapping) {
-		float curvature = triangle_get_curvature(
-			hit_triangle.position_edge_1,
-			hit_triangle.position_edge_2,
-			hit_triangle.normal_edge_1,
-			hit_triangle.normal_edge_2
-		) / mesh_scale;
-
 		cone_angle -= 2.0f * curvature * fabsf(cone_width) / dot(normal, ray_direction); // Eq. 5 (Akenine-Möller 2021)
 	}
 
