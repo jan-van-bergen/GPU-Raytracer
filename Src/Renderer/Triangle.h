@@ -6,6 +6,8 @@
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
 
+#include "Util/Util.h"
+
 struct Triangle {
 	Vector3 position_0;
 	Vector3 position_1;
@@ -55,6 +57,27 @@ struct Triangle {
 			if (normal_0_invalid) this->normal_0 = geometric_normal;
 			if (normal_1_invalid) this->normal_1 = geometric_normal;
 			if (normal_2_invalid) this->normal_2 = geometric_normal;
+		} else {
+			Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
+				position_1 - position_0,
+				position_2 - position_0
+			));
+			bool all_normals_have_wrong_orientation =
+				Vector3::dot(geometric_normal, normal_0) < 0.0f &&
+				Vector3::dot(geometric_normal, normal_1) < 0.0f &&
+				Vector3::dot(geometric_normal, normal_2) < 0.0f;
+			bool some_normals_have_wrong_orientation =
+				Vector3::dot(geometric_normal, normal_0) < 0.0f &&
+				Vector3::dot(geometric_normal, normal_1) < 0.0f &&
+				Vector3::dot(geometric_normal, normal_2) < 0.0f;
+
+			if (all_normals_have_wrong_orientation) {
+				Util::swap(this->position_1,  this->position_2);
+				Util::swap(this->normal_1,    this->normal_2);
+				Util::swap(this->tex_coord_1, this->tex_coord_2);
+			} else if (some_normals_have_wrong_orientation) {
+				__debugbreak();
+			}
 		}
 	}
 
