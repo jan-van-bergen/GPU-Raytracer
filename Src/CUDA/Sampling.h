@@ -85,9 +85,9 @@ __device__ float2 random(unsigned pixel_index, unsigned bounce, unsigned sample_
 
 __device__ float sample_tent(float u) {
 	if (u < 0.5f) {
-		return sqrtf(2.0f * u) - 1.0f;
+		return safe_sqrt(2.0f * u) - 1.0f;
 	} else {
-		return 1.0f - sqrtf(2.0f - 2.0f * u);
+		return 1.0f - safe_sqrt(2.0f - 2.0f * u);
 	}
 }
 
@@ -133,7 +133,7 @@ __device__ float2 sample_disk(float u1, float u2) {
 
 __device__ float3 sample_cosine_weighted_direction(float u1, float u2) {
 	float2 d = sample_disk(u1, u2);
-	return make_float3(d.x, d.y, sqrtf(1.0f - dot(d, d)));
+	return make_float3(d.x, d.y, safe_sqrt(1.0f - dot(d, d)));
 }
 
 // Based on PBRT v3
@@ -180,7 +180,7 @@ __device__ float3 sample_visible_normals_ggx(const float3 & omega, float alpha_x
 	float t2 = d.y;
 
 	float s = 0.5f * (1.0f + v.z);
-	t2 = (1.0f - s) * sqrtf(1.0f - t1*t1) + s*t2;
+	t2 = (1.0f - s) * safe_sqrt(1.0f - t1*t1) + s*t2;
 
 	// Reproject onto hemisphere
 	float3 n_h = t1*axis_1 + t2*axis_2 + safe_sqrt(1.0f - t1*t1 - t2*t2) * v;
