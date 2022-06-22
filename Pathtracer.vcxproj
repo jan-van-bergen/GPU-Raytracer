@@ -205,6 +205,7 @@
     <ClCompile Include="include\Imgui\imgui_impl_sdlrenderer.cpp" />
     <ClCompile Include="include\Imgui\imgui_tables.cpp" />
     <ClCompile Include="include\Imgui\imgui_widgets.cpp" />
+    <ClCompile Include="include\mikktspace\mikktspace.c" />
     <ClCompile Include="include\miniz\miniz.c" />
     <ClCompile Include="Src\Args.cpp" />
     <ClCompile Include="Src\Assets\AssetManager.cpp" />
@@ -244,6 +245,7 @@
     <ClCompile Include="Src\Renderer\Scene.cpp" />
     <ClCompile Include="Src\Renderer\Sky.cpp" />
     <ClCompile Include="Src\Renderer\Texture.cpp" />
+    <ClCompile Include="Src\Renderer\Triangle.cpp" />
     <ClCompile Include="Src\Util\BlueNoise.cpp" />
     <ClCompile Include="Src\Util\Geometry.cpp" />
     <ClCompile Include="Src\Util\PerfTest.cpp" />

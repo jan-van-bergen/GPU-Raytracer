@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/Array.h"
 #include "Core/Constructors.h"
 
 #include "Math/Math.h"
@@ -16,6 +17,10 @@ struct Triangle {
 	Vector3 normal_0;
 	Vector3 normal_1;
 	Vector3 normal_2;
+
+	Vector3 tangent_0;
+	Vector3 tangent_1;
+	Vector3 tangent_2;
 
 	Vector2 tex_coord_0;
 	Vector2 tex_coord_1;
@@ -94,4 +99,6 @@ struct Triangle {
 		Vector3 vertices[3] = { position_0, position_1, position_2 };
 		return AABB::from_points(vertices, 3);
 	}
+
+	static void generate_tangents(Array<Triangle> & triangles);
 };

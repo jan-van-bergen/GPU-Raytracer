@@ -82,6 +82,8 @@ Handle<MeshData> AssetManager::add_mesh_data(String filename, String bvh_filenam
 			BVHLoader::save(bvh_filename, mesh_data, bvh);
 		}
 
+		Triangle::generate_tangents(mesh_data.triangles);
+
 		if (cpu_config.bvh_type != BVHType::BVH8) {
 			BVHCollapser::collapse(bvh);
 		}
@@ -101,6 +103,8 @@ Handle<MeshData> AssetManager::add_mesh_data(Array<Triangle> triangles) {
 	Handle<MeshData> mesh_data_handle = new_mesh_data();
 
 	ThreadPool::submit([this, triangles = std::move(triangles), mesh_data_handle]() mutable {
+		Triangle::generate_tangents(triangles);
+
 		BVH2 bvh = BVH::create_from_triangles(triangles);
 
 		MeshData mesh_data = { };

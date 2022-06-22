@@ -158,6 +158,12 @@
     <ClCompile Include="include\Imgui\imgui_tables.cpp">
       <Filter>ThirdParty</Filter>
     </ClCompile>
+    <ClCompile Include="include\mikktspace\mikktspace.c">
+      <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Renderer\Triangle.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Math">

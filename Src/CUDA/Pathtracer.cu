@@ -618,7 +618,8 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 
 	normal = normalize(normal);
 
-	float mesh_scale_inv = 1.0f / mesh_get_scale(hit.mesh_id);
+	aov_framebuffer_set(AOVType::RADIANCE, pixel_index, make_float4(normal));
+	return;
 
 	// Load and propagate Ray Cone
 	float cone_angle;
@@ -640,7 +641,7 @@ __device__ void shade_material(int bounce, int sample_index, int buffer_size) {
 			hit_triangle.position_edge_2,
 			hit_triangle.normal_edge_1,
 			hit_triangle.normal_edge_2
-		) * mesh_scale_inv;
+		) / mesh_get_scale(hit.mesh_id);
 	}
 
 	matrix3x4_transform_direction(world, hit_triangle.position_edge_1);
