@@ -57,34 +57,40 @@ struct Triangle {
 			if (normal_0_invalid) this->normal_0 = geometric_normal;
 			if (normal_1_invalid) this->normal_1 = geometric_normal;
 			if (normal_2_invalid) this->normal_2 = geometric_normal;
-		} else {
-			Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
-				position_1 - position_0,
-				position_2 - position_0
-			));
-			bool all_normals_have_wrong_orientation =
-				Vector3::dot(geometric_normal, normal_0) < 0.0f &&
-				Vector3::dot(geometric_normal, normal_1) < 0.0f &&
-				Vector3::dot(geometric_normal, normal_2) < 0.0f;
-			bool some_normals_have_wrong_orientation =
-				Vector3::dot(geometric_normal, normal_0) < 0.0f &&
-				Vector3::dot(geometric_normal, normal_1) < 0.0f &&
-				Vector3::dot(geometric_normal, normal_2) < 0.0f;
-
-			if (all_normals_have_wrong_orientation) {
-				Util::swap(this->position_1,  this->position_2);
-				Util::swap(this->normal_1,    this->normal_2);
-				Util::swap(this->tex_coord_1, this->tex_coord_2);
-			} else if (some_normals_have_wrong_orientation) {
-				__debugbreak();
-			}
 		}
+
+		fix_winding_order_if_needed();
 	}
 
 	DEFAULT_COPYABLE(Triangle);
 	DEFAULT_MOVEABLE(Triangle);
 
 	~Triangle() = default;
+
+	void fix_winding_order_if_needed() {
+		Vector3 geometric_normal = Vector3::normalize(Vector3::cross(
+			position_1 - position_0,
+			position_2 - position_0
+		));
+		// Check if the direction of the geometric normal does not agree with the shading normals
+		bool all_normals_have_wrong_orientation =
+			Vector3::dot(geometric_normal, normal_0) < 0.0f &&
+			Vector3::dot(geometric_normal, normal_1) < 0.0f &&
+			Vector3::dot(geometric_normal, normal_2) < 0.0f;
+		bool some_normals_have_wrong_orientation =
+			Vector3::dot(geometric_normal, normal_0) < 0.0f &&
+			Vector3::dot(geometric_normal, normal_1) < 0.0f &&
+			Vector3::dot(geometric_normal, normal_2) < 0.0f;
+
+		if (all_normals_have_wrong_orientation) {
+			// Reverse winding order
+			Util::swap(position_1,  position_2);
+			Util::swap(normal_1,    normal_2);
+			Util::swap(tex_coord_1, tex_coord_2);
+		} else {
+			ASSERT(!some_normals_have_wrong_orientation);
+		}
+	}
 
 	Vector3 get_center() const {
 		return (position_0 + position_1 + position_2) / 3.0f;

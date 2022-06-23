@@ -203,12 +203,14 @@ Array<Triangle> Geometry::sphere(const Matrix4 & transform, int num_subdivisions
 	constexpr float x = 0.525731112119133606f;
 	constexpr float z = 0.850650808352039932f;
 
+	constexpr size_t ICOSAHEDRON_NUM_FACES = 20;
+
 	static Vector3 icosahedron_vertices[12] = {
 		Vector3(-x, 0.0f, z), Vector3(x, 0.0f, z),  Vector3(-x, 0.0f, -z), Vector3(x, 0.0f, -z),
 		Vector3(0.0f, z, x),  Vector3(0.0f, z, -x), Vector3(0.0f, -z, x),  Vector3(0.0, -z, -x),
 		Vector3(z, x, 0.0f),  Vector3(-z, x, 0.0f), Vector3(z, -x, 0.0f),  Vector3(-z, -x, 0.0f)
 	};
-	static int icosahedron_indices[20][3] = {
+	static int icosahedron_indices[ICOSAHEDRON_NUM_FACES][3] = {
 		{ 0, 4, 1 },  { 0, 9, 4 },  { 9, 5, 4 },  { 4, 5, 8 },  { 4, 8, 1 },
 		{ 8, 10, 1 }, { 8, 3, 10 }, { 5, 3, 8 },  { 5, 2, 3 },  { 2, 7, 3 },
 		{ 7, 10, 3 }, { 7, 6, 10 }, { 7, 11, 6 }, { 11, 0, 6 }, { 0, 1, 6 },
@@ -216,24 +218,20 @@ Array<Triangle> Geometry::sphere(const Matrix4 & transform, int num_subdivisions
 	};
 
 	// Icosahedron has 20 faces, each subdivision turns a single triangle into four
-	size_t triangle_count = 20;
-	for (int i = 0; i < num_subdivisions; i++) {
-		triangle_count *= 4;
-	}
-
+	size_t triangle_count = ICOSAHEDRON_NUM_FACES << (2*num_subdivisions);
 	Array<Triangle> triangles(triangle_count);
 
 	// Initialize with Icosahedron
-	for (int i = 0; i < 20; i++) {
+	for (size_t i = 0; i < ICOSAHEDRON_NUM_FACES; i++) {
 		triangles[i].position_0 = icosahedron_vertices[icosahedron_indices[i][0]];
 		triangles[i].position_1 = icosahedron_vertices[icosahedron_indices[i][1]];
 		triangles[i].position_2 = icosahedron_vertices[icosahedron_indices[i][2]];
 	}
 
 	// Subdivide N times
-	int current_triangle_count = 20;
+	size_t current_triangle_count = ICOSAHEDRON_NUM_FACES;
 	for (int s = 0; s < num_subdivisions; s++) {
-		for (int i = 0; i < current_triangle_count; i++) {
+		for (size_t i = 0; i < current_triangle_count; i++) {
 			Vector3 vertex_0 = triangles[i].position_0;
 			Vector3 vertex_1 = triangles[i].position_1;
 			Vector3 vertex_2 = triangles[i].position_2;
@@ -267,7 +265,7 @@ Array<Triangle> Geometry::sphere(const Matrix4 & transform, int num_subdivisions
 	Matrix4 transform_cofactor = Matrix4::cofactor(transform);
 
 	// Bring into world space and calculate AABBs
-	for (int i = 0; i < triangle_count; i++) {
+	for (size_t i = 0; i < triangle_count; i++) {
 		// Compute normals while positions are still centered around the origin
 		triangles[i].normal_0 = Vector3::normalize(Matrix4::transform_direction(transform_cofactor, triangles[i].position_0));
 		triangles[i].normal_1 = Vector3::normalize(Matrix4::transform_direction(transform_cofactor, triangles[i].position_1));
@@ -289,6 +287,8 @@ Array<Triangle> Geometry::sphere(const Matrix4 & transform, int num_subdivisions
 			0.5f + atan2f(-triangles[i].normal_2.z, -triangles[i].normal_2.x) * ONE_OVER_TWO_PI,
 			0.5f + asinf (-triangles[i].normal_2.y)                           * ONE_OVER_PI
 		);
+
+		triangles[i].fix_winding_order_if_needed();
 	}
 
 	return triangles;
