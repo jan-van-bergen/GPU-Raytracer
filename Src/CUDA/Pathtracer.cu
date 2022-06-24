@@ -230,7 +230,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 	float ray_cone_width;
 	if (bounce > 0 && config.enable_mipmapping) {
 		ray_cone_angle = ray_buffer_trace->cone_angle[index];
-		ray_cone_angle = ray_buffer_trace->cone_width[index];
+		ray_cone_width = ray_buffer_trace->cone_width[index];
 	}
 
 	unsigned pixel_index_and_flags = ray_buffer_trace->pixel_index_and_flags[index];
