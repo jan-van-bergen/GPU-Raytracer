@@ -130,6 +130,10 @@ __device__ inline float triangle_get_curvature(
 	return (k_01 + k_02 + k_12) * (1.0f / 3.0f); // Eq. 6 (Akenine-Möller 2021)
 }
 
+__device__ inline void triangle_barycentric(const TrianglePos & triangle, float u, float v, float3 & position) {
+	position = barycentric(u, v, triangle.position_0, triangle.position_edge_1, triangle.position_edge_2);
+}
+
 __device__ inline void triangle_barycentric(const TrianglePosNor & triangle, float u, float v, float3 & position, float3 & normal) {
 	position = barycentric(u, v, triangle.position_0,  triangle.position_edge_1,  triangle.position_edge_2);
 	normal   = barycentric(u, v, triangle.normal_0,    triangle.normal_edge_1,    triangle.normal_edge_2);

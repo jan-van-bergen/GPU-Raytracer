@@ -504,25 +504,26 @@ __device__ void next_event_estimation(
 	// Pick random point on the Light
 	float2 light_uv = sample_triangle(rand_triangle.x, rand_triangle.y);
 
-	// Obtain the Light's position and normal
-	TrianglePosNor light = triangle_get_positions_and_normals(light_triangle_id);
+	// Obtain the Light's position and geometric normal
+	TrianglePos light_triangle = triangle_get_positions(light_triangle_id);
 
 	float3 light_point;
-	float3 light_normal;
-	triangle_barycentric(light, light_uv.x, light_uv.y, light_point, light_normal);
+	triangle_barycentric(light_triangle, light_uv.x, light_uv.y, light_point);
+
+	float3 light_geometric_normal = cross(light_triangle.position_edge_1, light_triangle.position_edge_2);
 
 	// Transform into world space
 	Matrix3x4 light_world = mesh_get_transform(light_mesh_id);
 	matrix3x4_transform_position (light_world, light_point);
-	matrix3x4_transform_direction(light_world, light_normal);
+	matrix3x4_transform_direction(light_world, light_geometric_normal);
 
-	light_normal = normalize(light_normal);
+	light_geometric_normal = normalize(light_geometric_normal);
 
 	float3 to_light = light_point - hit_point;
 	float distance_to_light = length(to_light);
 	to_light /= distance_to_light;
 
-	float cos_theta_light = abs_dot(to_light, light_normal);
+	float cos_theta_light = abs_dot(to_light, light_geometric_normal);
 	float cos_theta_hit = dot(to_light, normal);
 
 	int light_material_id = mesh_get_material_id(light_mesh_id);
