@@ -1,6 +1,7 @@
 #include "MitshairLoader.h"
 
 #include "Core/Array.h"
+#include "Core/Random.h"
 
 #include "Math/Quaternion.h"
 
@@ -47,6 +48,8 @@ Array<Triangle> MitshairLoader::load(const String & filename, Allocator * alloca
 		}
 	}
 
+	RNG rng = RNG(Hash<String>()(filename));
+
 	Array<Triangle> triangles;
 
 	struct Segment {
@@ -69,7 +72,7 @@ Array<Triangle> MitshairLoader::load(const String & filename, Allocator * alloca
 			continue;
 		}
 
-		float angle = PI * float(rand()) / float(RAND_MAX);
+		float angle = PI * rng.get_float();
 
 		Vector3 direction  = Vector3::normalize(strand[1] - strand[0]);
 		Vector3 orthogonal = Quaternion::axis_angle(direction, angle) * Math::orthogonal(direction);
