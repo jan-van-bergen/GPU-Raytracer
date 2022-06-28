@@ -549,12 +549,14 @@ __device__ void next_event_estimation(
 
 	float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
 
+	/*
 	// If inside a Medium, apply absorption and out-scattering
 	if (medium_id != INVALID) {
 		HomogeneousMedium medium = medium_as_homogeneous(medium_id);
 		float3 sigma_t = medium.sigma_a + medium.sigma_s;
 		illumination *= beer_lambert(sigma_t, distance_to_light);
 	}
+	*/
 
 	// Emit Shadow Ray
 	int shadow_ray_index = atomicAdd(&buffer_sizes.shadow[bounce], 1);
