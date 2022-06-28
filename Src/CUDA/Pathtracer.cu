@@ -353,26 +353,27 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 	if (material_type == MaterialType::LIGHT) {
 		// Obtain the Light's position and normal
-		TrianglePosNor light = triangle_get_positions_and_normals(hit.triangle_id);
+		TrianglePos light_triangle = triangle_get_positions(hit.triangle_id);
 
 		float3 light_point;
-		float3 light_normal;
-		triangle_barycentric(light, hit.u, hit.v, light_point, light_normal);
+		triangle_barycentric(light_triangle, hit.u, hit.v, light_point);
 
 		float3 light_point_prev = light_point;
 
+		float3 light_geometric_normal = cross(light_triangle.position_edge_1, light_triangle.position_edge_2);
+
 		// Transform into world space
-		Matrix3x4 world = mesh_get_transform(hit.mesh_id);
-		matrix3x4_transform_position (world, light_point);
-		matrix3x4_transform_direction(world, light_normal);
-
-		light_normal = normalize(light_normal);
-
+		Matrix3x4 light_world = mesh_get_transform(hit.mesh_id);
+		matrix3x4_transform_position (light_world, light_point);
+		matrix3x4_transform_direction(light_world, light_geometric_normal);
+	
+		light_geometric_normal = normalize(light_geometric_normal);
+	
 		if (bounce == 0 && config.enable_svgf) {
 			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 			matrix3x4_transform_position(world_prev, light_point_prev);
 
-			svgf_set_gbuffers(x, y, hit, light_point, light_normal, light_point_prev);
+			svgf_set_gbuffers(x, y, hit, light_point, light_geometric_normal, light_point_prev);
 		}
 
 		MaterialLight material_light = material_as_light(material_id);
@@ -396,7 +397,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		}
 
 		if (config.enable_multiple_importance_sampling) {
-			float cos_theta_light = fabsf(dot(ray_direction, light_normal));
+			float cos_theta_light = abs_dot(ray_direction, light_geometric_normal);
 			float distance_to_light_squared = hit.t * hit.t;
 
 			float brdf_pdf = ray_buffer_trace->last_pdf[index];
