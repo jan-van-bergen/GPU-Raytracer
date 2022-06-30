@@ -2,6 +2,7 @@
 
 ![Stormtrooper](Screenshots/stormtrooper.png "Stormtrooper")
 ![Monster](Screenshots/monster-under-bed.png "Monster Under Bed")
+![Sir Muttonchop](Screenshots/sir-muttonchop.png "Sir Muttonchop")
 
 Interactive CUDA pathtracer that implements a variety of rendering techniques. 
 
@@ -97,3 +98,5 @@ The project requires that the ```CUDA_PATH``` system variable is set to the path
 - [Blender Demos](https://www.blender.org/download/demo-files/)
 
 - [Luxcore Demos](https://luxcorerender.org/example-scenes/)
+
+- [Sir Muttonchop by Rico Cilliers](https://www.artstation.com/artwork/VdJ8b4) 
