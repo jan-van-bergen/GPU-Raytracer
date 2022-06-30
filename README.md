@@ -47,16 +47,13 @@ SVGF: Raw output of the pathtracer on the left and the filtered result on the ri
 Kulla Conty Multiscatter for dielectrics comparison: at the top single scatter, at the bottom multiscatter approximation.
 
 ![Staircase](Screenshots/Staircase.png "Staircase Scene")
-![Editor](Screenshots/Editor.png "Interactive Scene editor")
+![Marble](Screenshots/marble.png "Marble")
+![Still-Life](Screenshots/still-life.png "Still Life")
+![LEGO Bulldozer](Screenshots/lego-bulldozer.png "LEGO Bulldozer")
 ![Glass-of-Water](Screenshots/glass-of-water.png "Glass of Water")
 ![Kitchen](Screenshots/kitchen.png "Kitchen")
-![Bunny](Screenshots/bunny.png "Furry Bunny")
-![Lone-Monk](Screenshots/lone-monk.png "Lone Monk")
-![Dragon](Screenshots/dragon.png "Dragon")
 ![Candles](Screenshots/candles.png "Candles")
-![Still-Life](Screenshots/still-life.png "Still Life")
-![Marble](Screenshots/marble.png "Marble")
-![LEGO Bulldozer](Screenshots/lego-bulldozer.png "LEGO Bulldozer")
+![Editor](Screenshots/Editor.png "Interactive Scene editor")
 
 For more screenshots, see the Screenshots folder
 
