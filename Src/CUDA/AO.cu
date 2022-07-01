@@ -144,7 +144,7 @@ extern "C" __global__ void kernel_ambient_occlusion(int sample_index, float ao_r
 	orthonormal_basis(hit_normal, tangent, bitangent);
 
 	// Sample cosine weighted direction
-	float2 rand_brdf = random<SampleDimension::BRDF>(pixel_index, 0, sample_index);
+	float2 rand_brdf = random<SampleDimension::BSDF_0>(pixel_index, 0, sample_index);
 	float3 omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
 
 	float3 direction_out = local_to_world(omega_o, tangent, bitangent, hit_normal);
