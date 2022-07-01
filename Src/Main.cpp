@@ -612,7 +612,9 @@ static void draw_gui(Window & window, Integrator & integrator) {
 						case Material::Type::DIELECTRIC: {
 							if (ImGui::Button("+##NewMedium")) {
 								Medium new_medium = { };
-								new_medium.name = Format().format("Material {}"_sv, integrator.scene.asset_manager.media.size());
+								new_medium.name = Format().format("Medium {}"_sv, integrator.scene.asset_manager.media.size());
+								new_medium.C = material.diffuse;
+
 								material.medium_handle = integrator.scene.asset_manager.add_medium(std::move(new_medium));
 
 								integrator.free_materials();
