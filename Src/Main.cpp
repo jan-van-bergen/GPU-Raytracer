@@ -107,9 +107,9 @@ int main(int num_args, char ** args) {
 		}
 	};
 	window.set_size(cpu_config.initial_width, cpu_config.initial_height);
-	window.show();
 
 	init_integrator(integrator, window, scene);
+	window.show();
 
 	PerfTest perf_test(*integrator.get(), false, cpu_config.scene_filenames[0].view());
 
