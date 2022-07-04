@@ -423,19 +423,9 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 	if (russian_roulette(pixel_index, bounce, sample_index, throughput)) return;
 
-	unsigned flags = (medium_id != INVALID) << 30;
-
-	auto material_buffer_write = [](
-		int                  bounce,
+	auto material_buffer_write = [bounce, ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index, throughput](
 		PackedMaterialBuffer packed_material_buffer,
-		int                * buffer_size,
-		const float3       & ray_direction,
-		int                  medium_id,
-		float                ray_cone_angle,
-		float                ray_cone_width,
-		const RayHit         hit,
-		unsigned             pixel_index_and_flags,
-		const float3       & throughput
+		int                * buffer_size
 	) {
 		MaterialBufferAllocation material_buffer = get_material_buffer(packed_material_buffer);
 
@@ -457,29 +447,18 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 		material_buffer.buffer->hits.set(index_out, hit);
 
-		material_buffer.buffer->pixel_index_and_flags[index_out] = pixel_index_and_flags;
+		unsigned flags = (medium_id != INVALID) << 30;
+		material_buffer.buffer->pixel_index_and_flags[index_out] = pixel_index | flags;
+
 		if (bounce > 0) {
 			material_buffer.buffer->throughput.set(index_out, throughput);
 		}
 	};
-
 	switch (material_type) {
-		case MaterialType::DIFFUSE: {
-			material_buffer_write(bounce, material_buffer_diffuse, &buffer_sizes.diffuse[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
-			break;
-		}
-		case MaterialType::PLASTIC: {
-			material_buffer_write(bounce, material_buffer_plastic, &buffer_sizes.plastic[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
-			break;
-		}
-		case MaterialType::DIELECTRIC: {
-			material_buffer_write(bounce, material_buffer_dielectric, &buffer_sizes.dielectric[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
-			break;
-		}
-		case MaterialType::CONDUCTOR: {
-			material_buffer_write(bounce, material_buffer_conductor, &buffer_sizes.conductor[bounce], ray_direction, medium_id, ray_cone_angle, ray_cone_width, hit, pixel_index | flags, throughput);
-			break;
-		}
+		case MaterialType::DIFFUSE:    material_buffer_write(material_buffer_diffuse,    &buffer_sizes.diffuse   [bounce]); break;
+		case MaterialType::PLASTIC:    material_buffer_write(material_buffer_plastic,    &buffer_sizes.plastic   [bounce]); break;
+		case MaterialType::DIELECTRIC: material_buffer_write(material_buffer_dielectric, &buffer_sizes.dielectric[bounce]); break;
+		case MaterialType::CONDUCTOR:  material_buffer_write(material_buffer_conductor,  &buffer_sizes.conductor [bounce]); break;
 	}
 }
 
