@@ -144,7 +144,7 @@ struct BSDFPlastic {
 		if (rand_fresnel < F_i) {
 			// Sample specular component
 			omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf.x, rand_brdf.y);
-			omega_o = reflect(-omega_i, omega_m);
+			omega_o = reflect_direction(omega_i, omega_m);
 		} else {
 			// Sample diffuse component
 			omega_o = sample_cosine_weighted_direction(rand_brdf.x, rand_brdf.y);
@@ -322,10 +322,9 @@ struct BSDFDielectric {
 			reflected = rand_bsdf_0.y < F;
 
 			if (reflected) {
-				omega_o = 2.0f * dot(omega_i, omega_m) * omega_m - omega_i;
+				omega_o = reflect_direction(omega_i, omega_m);
 			} else {
-				float k = 1.0f - eta*eta * (1.0f - square(dot(omega_i, omega_m)));
-				omega_o = (eta * dot(omega_i, omega_m) - safe_sqrt(k)) * omega_m - eta * omega_i;
+				omega_o = refract_direction(omega_i, omega_m, eta);
 			}
 		} else {
 			// Sample multiple scatter component
@@ -478,7 +477,7 @@ struct BSDFConductor {
 		if (rand_brdf_0.x < E_i) {
 			// Sample single scatter component
 			omega_m = sample_visible_normals_ggx(omega_i, alpha_x, alpha_y, rand_brdf_1.x, rand_brdf_1.y);
-			omega_o = reflect(-omega_i, omega_m);
+			omega_o = reflect_direction(omega_i, omega_m);
 		} else {
 			// Sample multiple scatter component
 			omega_o = sample_cosine_weighted_direction(rand_brdf_1.x, rand_brdf_1.y);
