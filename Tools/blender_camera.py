@@ -1,5 +1,5 @@
 """
-Blender Script to export hair camera to mitsuba XML
+Blender Script to export camera to mitsuba XML
 """
 
 import bpy
