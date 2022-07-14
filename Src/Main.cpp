@@ -733,16 +733,16 @@ static void draw_gui(Window & window, Integrator & integrator) {
 				Vector4(triangle.position_1.x, triangle.position_1.y, triangle.position_1.z, 1.0f),
 				Vector4(triangle.position_2.x, triangle.position_2.y, triangle.position_2.z, 1.0f)
 			};
-
 			Vector4 triangle_normals[3] = {
 				Vector4(triangle.normal_0.x, triangle.normal_0.y, triangle.normal_0.z, 0.0f),
 				Vector4(triangle.normal_1.x, triangle.normal_1.y, triangle.normal_1.z, 0.0f),
 				Vector4(triangle.normal_2.x, triangle.normal_2.y, triangle.normal_2.z, 0.0f)
 			};
+			Matrix4 mvp = integrator.scene.camera.view_projection * mesh.transform;
 
 			for (int i = 0; i < 3; i++) {
-				triangle_positions[i] = Matrix4::transform(integrator.scene.camera.view_projection * mesh.transform, triangle_positions[i]);
-				triangle_normals  [i] = Matrix4::transform(integrator.scene.camera.view_projection * mesh.transform, triangle_normals  [i]);
+				triangle_positions[i] = Matrix4::transform(mvp, triangle_positions[i]);
+				triangle_normals  [i] = Matrix4::transform(mvp, triangle_normals[i]);
 			}
 
 			ImColor triangle_colour = ImColor(0.8f, 0.2f, 0.8f);
