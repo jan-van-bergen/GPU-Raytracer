@@ -122,10 +122,10 @@ __device__ float2 sample_disk(float u1, float u2) {
 	float phi, r;
 	if (a*a > b*b) {
 		r = a;
-		phi = (0.25f * PI) * (b/a);
+		phi = 0.25f*PI * (b/a);
 	} else {
 		r = b;
-		phi = (0.25f * PI) * (a/b) + (0.5f * PI);
+		phi = 0.5f*PI - 0.25f*PI * (a/b);
 	}
 
 	return r * sincos(phi);
