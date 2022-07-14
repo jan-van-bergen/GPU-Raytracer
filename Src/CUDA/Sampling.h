@@ -143,18 +143,14 @@ __device__ float3 sample_henyey_greenstein(const float3 & omega, float g, float 
 		// Isotropic case
 		cos_theta = 1.0f - 2.0f * u1;
 	} else {
-		float sqr_term = (1.0f - g * g) / (1.0f + g - 2.0f * g * u1);
-		cos_theta = -(1.0f + g * g - sqr_term * sqr_term) / (2.0f * g);
+		cos_theta = -(1.0f + g * g - square((1.0f - g * g) / (1.0f + g - 2.0f * g * u1))) / (2.0f * g);
 	}
-	float sin_theta = safe_sqrt(1.0f - cos_theta * cos_theta);
+	float sin_theta = safe_sqrt(1.0f - square(cos_theta));
 
-	float phi = TWO_PI * u2;
-	float sin_phi, cos_phi;
-	__sincosf(phi, &sin_phi, &cos_phi);
-
+	float2 sincos_phi = sincos(TWO_PI * u2);
 	float3 direction = make_float3(
-		sin_theta * cos_phi,
-		sin_theta * sin_phi,
+		sin_theta * sincos_phi.x,
+		sin_theta * sincos_phi.y,
 		cos_theta
 	);
 
