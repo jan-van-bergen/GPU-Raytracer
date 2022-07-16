@@ -146,13 +146,8 @@ __device__ float3 sample_henyey_greenstein(const float3 & omega, float g, float 
 		cos_theta = -(1.0f + g * g - square((1.0f - g * g) / (1.0f + g - 2.0f * g * u1))) / (2.0f * g);
 	}
 	float sin_theta = safe_sqrt(1.0f - square(cos_theta));
-
 	float2 sincos_phi = sincos(TWO_PI * u2);
-	float3 direction = make_float3(
-		sin_theta * sincos_phi.x,
-		sin_theta * sincos_phi.y,
-		cos_theta
-	);
+	float3 direction = spherical_to_cartesian(sin_theta, cos_theta, sincos_phi.x, sincos_phi.y);
 
 	float3 v1, v2;
 	orthonormal_basis(omega, v1, v2);
@@ -173,10 +168,7 @@ __device__ float3 sample_visible_normals_ggx(const float3 & omega, float alpha_x
 	// Parameterization of the projected area
 	float2 d = sample_disk(u1, u2);
 	float t1 = d.x;
-	float t2 = d.y;
-
-	float s = 0.5f * (1.0f + v.z);
-	t2 = (1.0f - s) * safe_sqrt(1.0f - t1*t1) + s*t2;
+	float t2 = lerp(safe_sqrt(1.0f - t1*t1), d.y, 0.5f + 0.5f * v.z);
 
 	// Reproject onto hemisphere
 	float3 n_h = t1*axis_1 + t2*axis_2 + safe_sqrt(1.0f - t1*t1 - t2*t2) * v;

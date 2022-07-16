@@ -5,7 +5,7 @@
 String IO::get_error_message(errno_t error_code, Allocator * allocator) {
 	char error_message[512];
 	strerror_s(error_message, error_code);
-	return String(static_cast<const char *>(error_message), allocator);
+	return String(error_message, allocator);
 }
 
 static std::filesystem::path stringview_to_path(StringView str) {

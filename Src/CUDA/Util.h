@@ -230,6 +230,10 @@ __device__ inline float3 world_to_local(const float3 & vector, const float3 & ta
 	return make_float3(dot(tangent, vector), dot(binormal, vector), dot(normal, vector));
 }
 
+__device__ inline float3 spherical_to_cartesian(float sin_theta, float cos_theta, float sin_phi, float cos_phi) {
+	return make_float3(sin_theta * sin_phi, sin_theta * cos_phi, cos_theta);
+}
+
 // Based on: https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/
 __device__ inline float2 oct_encode_normal(float3 n) {
 	n /= (abs(n.x) + abs(n.y) + abs(n.z));
