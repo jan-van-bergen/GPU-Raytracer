@@ -135,9 +135,10 @@ static void parse_args(const Array<StringView> & args, Allocator * allocator) {
 			bool use_full_name = parser.match('-');
 
 			bool match = false;
-
 			for (int o = 0; o < options.size(); o++) {
 				const Option & option = options[o];
+
+				const char * prev_cur = parser.cur;
 
 				if (use_full_name) {
 					match = parser.match(option.name_full);
@@ -145,21 +146,26 @@ static void parse_args(const Array<StringView> & args, Allocator * allocator) {
 					match = parser.match(option.name_short);
 				}
 
-				if (match && parser.reached_end()) {
-					if (i + option.num_args >= args.size()) {
-						IO::print("Not enough arguments provided to option '{}'!\n"_sv, option.name_full);
-						return;
+				if (match) {
+					if (parser.reached_end()) {
+						if (i + option.num_args >= args.size()) {
+							IO::print("Not enough arguments provided to option '{}'!\n"_sv, option.name_full);
+							return;
+						}
+
+						option.action(args, i);
+						i += option.num_args;
+
+						break;
+					} else {
+						parser.cur = prev_cur;
+						match = false;
 					}
-
-					option.action(args, i);
-					i += option.num_args;
-
-					break;
 				}
 			}
 
 			if (!match) {
-				IO::print("Unrecognized command line option '{}'\nUse --help for a list of valid options\n"_sv, parser.cur);
+				IO::print("Unrecognized command line option '{}'\nUse --help for a list of valid options\n"_sv, arg);
 			}
 		} else {
 			// Without explicit option, assume scene name
