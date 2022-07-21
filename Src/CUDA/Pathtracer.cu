@@ -368,7 +368,7 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 		matrix3x4_transform_direction(light_world, light_geometric_normal);
 	
 		light_geometric_normal = normalize(light_geometric_normal);
-	
+
 		if (bounce == 0 && config.enable_svgf) {
 			Matrix3x4 world_prev = mesh_get_transform_prev(hit.mesh_id);
 			matrix3x4_transform_position(world_prev, light_point_prev);
@@ -469,7 +469,7 @@ __device__ void next_event_estimation(
 	int            sample_index,
 	const BSDF   & bsdf,
 	int            medium_id,
-	const float3 & hit_point,
+	float3         hit_point,
 	const float3 & normal,
 	const float3 & geometric_normal,
 	float3       & throughput
@@ -498,6 +498,9 @@ __device__ void next_event_estimation(
 	matrix3x4_transform_direction(light_world, light_geometric_normal);
 
 	light_geometric_normal = normalize(light_geometric_normal);
+
+	hit_point   = ray_origin_epsilon_offset(hit_point, light_point - hit_point, geometric_normal);
+	light_point = ray_origin_epsilon_offset(light_point, hit_point - light_point, light_geometric_normal);
 
 	float3 to_light = light_point - hit_point;
 	float distance_to_light = length(to_light);
@@ -540,9 +543,9 @@ __device__ void next_event_estimation(
 	// Emit Shadow Ray
 	int shadow_ray_index = atomicAdd(&buffer_sizes.shadow[bounce], 1);
 
-	ray_buffer_shadow.traversal_data.ray_origin   .set(shadow_ray_index, ray_origin_epsilon_offset(hit_point, to_light, geometric_normal));
+	ray_buffer_shadow.traversal_data.ray_origin   .set(shadow_ray_index, hit_point);
 	ray_buffer_shadow.traversal_data.ray_direction.set(shadow_ray_index, to_light);
-	ray_buffer_shadow.traversal_data.max_distance[shadow_ray_index] = distance_to_light - 2.0f * EPSILON;
+	ray_buffer_shadow.traversal_data.max_distance[shadow_ray_index] = distance_to_light;
 	ray_buffer_shadow.illumination_and_pixel_index[shadow_ray_index] = make_float4(
 		illumination.x,
 		illumination.y,
