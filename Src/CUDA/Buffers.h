@@ -7,7 +7,7 @@ struct Vector3_SoA {
 	float * y;
 	float * z;
 
-	__device__ void set(int index, const float3 & vector) {
+	__device__ void set(int index, float3 vector) {
 		x[index] = vector.x;
 		y[index] = vector.y;
 		z[index] = vector.z;

@@ -28,9 +28,13 @@ __device__ __constant__ const BVH8Node * bvh8_nodes;
 
 __device__ inline unsigned bvh8_node_intersect(
 	const Ray & ray,
-	unsigned oct_inv4,
-	float max_distance,
-	const float4 & node_0, const float4 & node_1, const float4 & node_2, const float4 & node_3, const float4 & node_4
+	unsigned    oct_inv4,
+	float       max_distance,
+	float4      node_0,
+	float4      node_1,
+	float4      node_2,
+	float4      node_3,
+	float4      node_4
 ) {
 	float3 p = make_float3(node_0);
 

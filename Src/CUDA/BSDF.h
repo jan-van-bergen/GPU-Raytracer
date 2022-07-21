@@ -36,7 +36,7 @@ struct BSDFDiffuse {
 		}
 	}
 
-	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
+	__device__ bool eval(float3 to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		if (cos_theta_o <= 0.0f) return false;
 
 		bsdf = make_float3(cos_theta_o * ONE_OVER_PI);
@@ -95,7 +95,7 @@ struct BSDFPlastic {
 		}
 	}
 
-	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
+	__device__ bool eval(float3 to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		if (cos_theta_o <= 0.0f) return false;
 
 		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
@@ -216,7 +216,7 @@ struct BSDFDielectric {
 		// NO-OP
 	}
 
-	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
+	__device__ bool eval(float3 to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);
 
 		bool reflected = omega_o.z >= 0.0f; // Positive sign means reflection, negative sign means transmission
@@ -425,7 +425,7 @@ struct BSDFConductor {
 		// NO-OP
 	}
 
-	__device__ bool eval(const float3 & to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
+	__device__ bool eval(float3 to_light, float cos_theta_o, float3 & bsdf, float & pdf) const {
 		if (cos_theta_o <= 0.0f) return false;
 
 		float3 omega_o = world_to_local(to_light, tangent, bitangent, normal);

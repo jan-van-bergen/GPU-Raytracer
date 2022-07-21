@@ -4,7 +4,7 @@
 __device__ __constant__ Texture<float4> sky_texture;
 __device__ __constant__ float           sky_scale;
 
-__device__ float3 sample_sky(const float3 & direction) {
+__device__ float3 sample_sky(float3 direction) {
 	// Convert direction to spherical coordinates
 	float phi   = atan2f(-direction.z, direction.x);
 	float theta = acosf(clamp(direction.y, -1.0f, 1.0f));

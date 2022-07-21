@@ -67,7 +67,7 @@ __device__ inline float luminance(float r, float g, float b) {
 	return 0.299f * r + 0.587f * g + 0.114f * b;
 }
 
-__device__ inline float3 rgb_to_ycocg(const float3 & colour) {
+__device__ inline float3 rgb_to_ycocg(float3 colour) {
 	return make_float3(
 		 0.25f * colour.x + 0.5f * colour.y + 0.25f * colour.z,
 		 0.5f  * colour.x                   - 0.5f  * colour.z,
@@ -75,7 +75,7 @@ __device__ inline float3 rgb_to_ycocg(const float3 & colour) {
 	);
 }
 
-__device__ inline float3 ycocg_to_rgb(const float3 & colour) {
+__device__ inline float3 ycocg_to_rgb(float3 colour) {
 	return make_float3(
 		__saturatef(colour.x + colour.y - colour.z),
 		__saturatef(colour.x            + colour.z),
@@ -176,7 +176,7 @@ __device__ inline float2 safe_sqrt(float2 v) { return make_float2(safe_sqrt(v.x)
 __device__ inline float3 safe_sqrt(float3 v) { return make_float3(safe_sqrt(v.x), safe_sqrt(v.y), safe_sqrt(v.z)); }
 __device__ inline float4 safe_sqrt(float4 v) { return make_float4(safe_sqrt(v.x), safe_sqrt(v.y), safe_sqrt(v.z), safe_sqrt(v.w)); }
 
-__device__ inline float abs_dot(const float3 & a, const float3 & b) {
+__device__ inline float abs_dot(float3 a, float3 b) {
 	return fabsf(dot(a, b));
 }
 
@@ -209,7 +209,7 @@ __device__ inline T barycentric(float u, float v, const T & base, const T & edge
 	return base + u * edge_1 + v * edge_2;
 }
 
-__device__ inline void orthonormal_basis(const float3 & normal, float3 & tangent, float3 & binormal) {
+__device__ inline void orthonormal_basis(float3 normal, float3 & tangent, float3 & binormal) {
 	float sign = copysignf(1.0f, normal.z);
 	float a = -1.0f / (sign + normal.z);
 	float b = normal.x * normal.y * a;
@@ -218,7 +218,7 @@ __device__ inline void orthonormal_basis(const float3 & normal, float3 & tangent
 	binormal = make_float3(b, sign + normal.y * normal.y * a, -normal.y);
 }
 
-__device__ inline float3 local_to_world(const float3 & vector, const float3 & tangent, const float3 & binormal, const float3 & normal) {
+__device__ inline float3 local_to_world(float3 vector, float3 tangent, float3 binormal, float3 normal) {
 	return make_float3(
 		tangent.x * vector.x + binormal.x * vector.y + normal.x * vector.z,
 		tangent.y * vector.x + binormal.y * vector.y + normal.y * vector.z,
@@ -226,7 +226,7 @@ __device__ inline float3 local_to_world(const float3 & vector, const float3 & ta
 	);
 }
 
-__device__ inline float3 world_to_local(const float3 & vector, const float3 & tangent, const float3 & binormal, const float3 & normal) {
+__device__ inline float3 world_to_local(float3 vector, float3 tangent, float3 binormal, float3 normal) {
 	return make_float3(dot(tangent, vector), dot(binormal, vector), dot(normal, vector));
 }
 

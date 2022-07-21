@@ -58,7 +58,7 @@ __device__ inline SVGFData svgf_get_data() {
 	return data;
 }
 
-__device__ inline void svgf_set_gbuffers(int x, int y, const RayHit & hit, const float3 & hit_point, const float3 & hit_normal, const float3 & hit_point_prev) {
+__device__ inline void svgf_set_gbuffers(int x, int y, const RayHit & hit, float3 hit_point, float3 hit_normal, float3 hit_point_prev) {
 	float4 projected_hit_point      = make_float4(hit_point,      1.0f);
 	float4 projected_hit_point_prev = make_float4(hit_point_prev, 1.0f);
 
@@ -80,7 +80,7 @@ __device__ inline void svgf_set_gbuffers(int x, int y, const RayHit & hit, const
 	));
 }
 
-__device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, float depth) {
+__device__ inline bool is_tap_consistent(int x, int y, float3 normal, float depth) {
 	if (x < 0 || x >= screen_width)  return false;
 	if (y < 0 || y >= screen_height) return false;
 
@@ -100,11 +100,11 @@ __device__ inline bool is_tap_consistent(int x, int y, const float3 & normal, fl
 __device__ inline float2 edge_stopping_weights(
 	int delta_x,
 	int delta_y,
-	const float2 & center_depth_gradient,
+	float2 center_depth_gradient,
 	float center_depth,
 	float depth,
-	const float3 & center_normal,
-	const float3 & normal,
+	float3 center_normal,
+	float3 normal,
 	float center_luminance_direct,
 	float center_luminance_indirect,
 	float luminance_direct,

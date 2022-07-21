@@ -24,7 +24,7 @@ __device__ HomogeneousMedium medium_as_homogeneous(int medium_id) {
 	return medium;
 }
 
-__device__ inline float3 beer_lambert(const float3 & sigma_t, float distance) {
+__device__ inline float3 beer_lambert(float3 sigma_t, float distance) {
 	return make_float3(
 		expf(-sigma_t.x * distance),
 		expf(-sigma_t.y * distance),

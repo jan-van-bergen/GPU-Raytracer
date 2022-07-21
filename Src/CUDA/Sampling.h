@@ -137,7 +137,7 @@ __device__ float3 sample_cosine_weighted_direction(float u1, float u2) {
 }
 
 // Based on PBRT v3
-__device__ float3 sample_henyey_greenstein(const float3 & omega, float g, float u1, float u2) {
+__device__ float3 sample_henyey_greenstein(float3 omega, float g, float u1, float u2) {
 	float cos_theta;
 	if (fabsf(g) < 1e-3f) {
 		// Isotropic case
@@ -156,7 +156,7 @@ __device__ float3 sample_henyey_greenstein(const float3 & omega, float g, float 
 }
 
 // Based on: Heitz - Sampling the GGX Distribution of Visible Normals
-__device__ float3 sample_visible_normals_ggx(const float3 & omega, float alpha_x, float alpha_y, float u1, float u2){
+__device__ float3 sample_visible_normals_ggx(float3 omega, float alpha_x, float alpha_y, float u1, float u2){
 	// Transform the view direction to the hemisphere configuration
 	float3 v = normalize(make_float3(alpha_x * omega.x, alpha_y * omega.y, omega.z));
 

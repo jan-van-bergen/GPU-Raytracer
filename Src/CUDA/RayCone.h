@@ -16,7 +16,7 @@ __device__ inline bool use_anisotropic_texture_sampling(int bounce) {
 	return bounce == 0; // Only first bounce uses anisotropic sampling, subsequent bounces use isotropic
 }
 
-__device__ inline float3 sample_albedo(int bounce, const float3 & diffuse, int texture_id, float2 tex_coord, const TextureLOD & lod) {
+__device__ inline float3 sample_albedo(int bounce, float3 diffuse, int texture_id, float2 tex_coord, const TextureLOD & lod) {
 	if (config.enable_mipmapping && texture_id != INVALID) {
 		if (use_anisotropic_texture_sampling(bounce)) {
 			return material_get_albedo(diffuse, texture_id, tex_coord.x, tex_coord.y, lod.aniso.gradient_1, lod.aniso.gradient_2);
@@ -30,8 +30,8 @@ __device__ inline float3 sample_albedo(int bounce, const float3 & diffuse, int t
 
 // Project the Ray Cone onto the Triangle and obtain two axes that describe the resulting ellipse (in world space)
 __device__ inline void ray_cone_get_ellipse_axes(
-	const float3 & ray_direction,
-	const float3 & geometric_normal,
+	float3 ray_direction,
+	float3 geometric_normal,
 	float cone_width,
 	float3 & ellipse_axis_1,
 	float3 & ellipse_axis_2
@@ -60,6 +60,6 @@ __device__ inline float2 ray_cone_ellipse_axis_to_gradient(
 	return barycentric(u, v, triangle.tex_coord_0, triangle.tex_coord_edge_1, triangle.tex_coord_edge_2) - hit_tex_coord;
 }
 
-__device__ inline float ray_cone_get_lod(const float3 & ray_direction, const float3 & geometric_normal, float cone_width) {
+__device__ inline float ray_cone_get_lod(float3 ray_direction, float3 geometric_normal, float cone_width) {
 	return fabsf(cone_width / dot(ray_direction, geometric_normal));
 }

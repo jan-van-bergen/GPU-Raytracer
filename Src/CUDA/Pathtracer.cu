@@ -464,15 +464,15 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 template<typename BSDF>
 __device__ void next_event_estimation(
-	int            pixel_index,
-	int            bounce,
-	int            sample_index,
-	const BSDF   & bsdf,
-	int            medium_id,
-	float3         hit_point,
-	const float3 & normal,
-	const float3 & geometric_normal,
-	float3       & throughput
+	int          pixel_index,
+	int          bounce,
+	int          sample_index,
+	const BSDF & bsdf,
+	int          medium_id,
+	float3       hit_point,
+	float3       normal,
+	float3       geometric_normal,
+	float3       throughput
 ) {
 	float2 rand_light    = random<SampleDimension::NEE_LIGHT>   (pixel_index, bounce, sample_index);
 	float2 rand_triangle = random<SampleDimension::NEE_TRIANGLE>(pixel_index, bounce, sample_index);
