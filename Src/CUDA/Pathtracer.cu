@@ -376,16 +376,16 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 			svgf_set_gbuffers(x, y, hit, light_point, light_geometric_normal, light_point_prev);
 		}
 
-		MaterialLight material_light = material_as_light(material_id);
+		MaterialLight light_material = material_as_light(material_id);
 
 		bool should_count_light_contribution = config.enable_next_event_estimation ? !allow_nee : true;
 		if (should_count_light_contribution) {
-			float3 illumination = throughput * material_light.emission;
+			float3 illumination = throughput * light_material.emission;
 
 			if (bounce == 0) {
 				aov_framebuffer_set(AOVType::ALBEDO,          pixel_index, make_float4(1.0f));
-				aov_framebuffer_set(AOVType::RADIANCE,        pixel_index, make_float4(material_light.emission));
-				aov_framebuffer_set(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(material_light.emission));
+				aov_framebuffer_set(AOVType::RADIANCE,        pixel_index, make_float4(light_material.emission));
+				aov_framebuffer_set(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(light_material.emission));
 			} else if (bounce == 1) {
 				aov_framebuffer_add(AOVType::RADIANCE,        pixel_index, make_float4(illumination));
 				aov_framebuffer_add(AOVType::RADIANCE_DIRECT, pixel_index, make_float4(illumination));
@@ -402,13 +402,13 @@ extern "C" __global__ void kernel_sort(int bounce, int sample_index) {
 
 			float brdf_pdf = ray_buffer_trace->last_pdf[index];
 
-			float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+			float light_power = luminance(light_material.emission.x, light_material.emission.y, light_material.emission.z);
 			float light_pdf   = light_power * distance_to_light_squared / (cos_theta_light * lights_total_weight);
 
 			if (!pdf_is_valid(light_pdf)) return;
 
 			float mis_weight = power_heuristic(brdf_pdf, light_pdf);
-			float3 illumination = throughput * material_light.emission * mis_weight;
+			float3 illumination = throughput * light_material.emission * mis_weight;
 
 			assert(bounce != 0);
 			aov_framebuffer_add(AOVType::RADIANCE, pixel_index, make_float4(illumination));
@@ -510,14 +510,14 @@ __device__ void next_event_estimation(
 	float cos_theta_hit = dot(to_light, normal);
 
 	int light_material_id = mesh_get_material_id(light_mesh_id);
-	MaterialLight material_light = material_as_light(light_material_id);
+	MaterialLight light_material = material_as_light(light_material_id);
 
 	float3 bsdf_value;
 	float  bsdf_pdf;
 	bool valid = bsdf.eval(to_light, cos_theta_hit, bsdf_value, bsdf_pdf);
 	if (!valid) return;
 
-	float light_power = luminance(material_light.emission.x, material_light.emission.y, material_light.emission.z);
+	float light_power = luminance(light_material.emission.x, light_material.emission.y, light_material.emission.z);
 	float light_pdf   = light_power * square(distance_to_light) / (cos_theta_light * lights_total_weight);
 
 	if (!pdf_is_valid(light_pdf)) return;
@@ -529,7 +529,7 @@ __device__ void next_event_estimation(
 		mis_weight = 1.0f;
 	}
 
-	float3 illumination = throughput * bsdf_value * material_light.emission * mis_weight / light_pdf;
+	float3 illumination = throughput * bsdf_value * light_material.emission * mis_weight / light_pdf;
 
 	/*
 	// If inside a Medium, apply absorption and out-scattering
